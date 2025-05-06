@@ -6,7 +6,7 @@
 #include "simplifier/tensor_simplifier_sub.h"
 #include "simplifier/tensor_simplifier_mul.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_add_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){

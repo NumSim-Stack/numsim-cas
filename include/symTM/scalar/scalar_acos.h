@@ -2,7 +2,7 @@
 #define SCALAR_ACOS_H
 
 #include "../unary_op.h"
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class scalar_acos final : public unary_op<scalar_acos<ValueType>, scalar_expression<ValueType>>
 {

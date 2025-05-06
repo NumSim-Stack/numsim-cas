@@ -1,7 +1,7 @@
 #ifndef SYMTM_FORWARD_H
 #define SYMTM_FORWARD_H
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ExprBase> class expression_holder;
 template <typename ValueType> class scalar_expression;

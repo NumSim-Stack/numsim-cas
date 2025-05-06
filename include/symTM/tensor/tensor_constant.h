@@ -3,7 +3,7 @@
 
 #include "symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class tensor_constant final : public expression_crtp<tensor_constant<ValueType>, tensor_expression<ValueType>>

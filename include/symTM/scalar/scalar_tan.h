@@ -3,7 +3,7 @@
 
 #include "../unary_op.h"
 
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class scalar_tan final : public unary_op<scalar_tan<ValueType>, scalar_expression<ValueType>>
 {

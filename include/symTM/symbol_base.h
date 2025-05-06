@@ -7,7 +7,7 @@
 #include "utility_func.h"
 
 
-namespace symTM {
+namespace numsim::cas {
 
 //template<typename ExpressionType>
 //struct expression_type_traits;

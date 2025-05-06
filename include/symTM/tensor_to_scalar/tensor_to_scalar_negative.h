@@ -3,7 +3,7 @@
 
 #include "../unary_op.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class tensor_to_scalar_negative final : public unary_op<tensor_to_scalar_negative<ValueType>, tensor_to_scalar_expression<ValueType>>{

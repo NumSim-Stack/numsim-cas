@@ -7,7 +7,7 @@
 #include "tensor_expression.h"
 #include "make_tensor_data_imp.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename T>
 constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {

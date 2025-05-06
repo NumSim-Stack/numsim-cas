@@ -3,7 +3,7 @@
 
 #include "tensor_data.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 namespace detail{
 struct tensor_scalar_mul{

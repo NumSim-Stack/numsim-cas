@@ -2,7 +2,7 @@
 #define SCALAR_ABS_H
 
 #include "../unary_op.h"
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class scalar_abs final : public unary_op<scalar_abs<ValueType>, scalar_expression<ValueType>>
 {

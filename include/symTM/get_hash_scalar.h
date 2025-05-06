@@ -7,7 +7,7 @@
 #include <assert.h>
 #include "scalar/scalar_negativ.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 class get_hash_value_scalar
 {

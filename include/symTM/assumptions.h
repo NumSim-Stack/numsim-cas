@@ -6,7 +6,7 @@
 #include <typeinfo>
 #include <variant>
 
-namespace symTM {
+namespace numsim::cas {
 namespace assumptions {
 
 struct positive {};      // symbol > 0
@@ -117,6 +117,6 @@ public:
   }
 };
 
-} // namespace symTM
+} // namespace numsim::cas
 
 #endif // ASSUMPTIONS_H

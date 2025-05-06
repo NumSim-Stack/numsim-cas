@@ -3,7 +3,7 @@
 
 #include "tensor_data.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class tensor_data_basis_change final

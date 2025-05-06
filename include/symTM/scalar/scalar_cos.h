@@ -3,7 +3,7 @@
 
 #include "../unary_op.h"
 
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class scalar_cos final : public unary_op<scalar_cos<ValueType>, scalar_expression<ValueType>>
 {

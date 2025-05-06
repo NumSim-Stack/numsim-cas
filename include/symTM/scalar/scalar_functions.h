@@ -7,7 +7,7 @@
 #include "../binary_op.h"
 #include "scalar_expression.h"
 
-namespace symTM {
+namespace numsim::cas {
 namespace detail {
 
 template <typename ValueType>

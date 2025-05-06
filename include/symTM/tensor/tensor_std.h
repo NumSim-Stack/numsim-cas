@@ -10,18 +10,18 @@ namespace std {
 
 template <typename ValueType>
 auto to_string(
-    symTM::expression_holder<symTM::tensor_expression<ValueType>> &&expr) {
+    numsim::cas::expression_holder<numsim::cas::tensor_expression<ValueType>> &&expr) {
   std::stringstream ss;
-  symTM::tensor_printer<ValueType, std::stringstream> printer(ss);
+  numsim::cas::tensor_printer<ValueType, std::stringstream> printer(ss);
   printer.apply(expr);
   return ss.str();
 }
 
 template <typename ValueType>
 auto to_string(
-    symTM::expression_holder<symTM::tensor_expression<ValueType>> &expr) {
+    numsim::cas::expression_holder<numsim::cas::tensor_expression<ValueType>> &expr) {
   std::stringstream ss;
-  symTM::tensor_printer<ValueType, std::stringstream> printer(ss);
+  numsim::cas::tensor_printer<ValueType, std::stringstream> printer(ss);
   printer.apply(expr);
   return ss.str();
 }

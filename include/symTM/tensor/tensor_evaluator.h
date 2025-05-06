@@ -10,7 +10,7 @@
 #include "tensor_data_outer_product.h"
 #include "../functions.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class tensor_evaluator{

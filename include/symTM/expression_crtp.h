@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include "symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 /**
  * @class expression_crtp

@@ -3,7 +3,7 @@
 
 #include <cstdlib>
 
-namespace symTM {
+namespace numsim::cas {
 
 /**
  * @class expression

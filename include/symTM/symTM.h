@@ -1,5 +1,5 @@
-#ifndef SYMTMECH_H
-#define SYMTMECH_H
+#ifndef symTMECH_H
+#define symTMECH_H
 
 /// TODO
 /// General
@@ -117,45 +117,45 @@
 #include "tensor_to_scalar/tensor_to_scalar_pow.h"
 
 // scalar expression
-#include "symTM/scalar/scalar.h"
-#include "symTM/scalar/scalar_one.h"
-#include "symTM/scalar/scalar_zero.h"
-#include "symTM/scalar/scalar_constant.h"
-#include "symTM/scalar/scalar_add.h"
-#include "symTM/scalar/scalar_div.h"
-#include "symTM/scalar/scalar_mul.h"
-#include "symTM/scalar/scalar_negativ.h"
-#include "symTM/scalar/scalar_sin.h"
-#include "symTM/scalar/scalar_cos.h"
-#include "symTM/scalar/scalar_tan.h"
-#include "symTM/scalar/scalar_asin.h"
-#include "symTM/scalar/scalar_acos.h"
-#include "symTM/scalar/scalar_atan.h"
-#include "symTM/scalar/scalar_exp.h"
-#include "symTM/scalar/scalar_power.h"
-#include "symTM/scalar/scalar_abs.h"
-#include "symTM/scalar/scalar_sign.h"
-#include "symTM/scalar/scalar_sqrt.h"
-#include "symTM/scalar/scalar_log.h"
+#include "scalar/scalar.h"
+#include "scalar/scalar_one.h"
+#include "scalar/scalar_zero.h"
+#include "scalar/scalar_constant.h"
+#include "scalar/scalar_add.h"
+#include "scalar/scalar_div.h"
+#include "scalar/scalar_mul.h"
+#include "scalar/scalar_negativ.h"
+#include "scalar/scalar_sin.h"
+#include "scalar/scalar_cos.h"
+#include "scalar/scalar_tan.h"
+#include "scalar/scalar_asin.h"
+#include "scalar/scalar_acos.h"
+#include "scalar/scalar_atan.h"
+#include "scalar/scalar_exp.h"
+#include "scalar/scalar_power.h"
+#include "scalar/scalar_abs.h"
+#include "scalar/scalar_sign.h"
+#include "scalar/scalar_sqrt.h"
+#include "scalar/scalar_log.h"
 #include "scalar/scalar_std.h"
 
-#include "symTM/scalar/scalar_visitor_typedef.h"
+#include "scalar/scalar_visitor_typedef.h"
 
-#include "symTM/scalar/scalar_operators.h"
-#include "symTM/scalar/visitors/scalar_evaluator.h"
-#include "symTM/scalar/visitors/scalar_differentiation.h"
-#include "symTM/scalar/visitors/scalar_printer.h"
+#include "scalar/scalar_operators.h"
+#include "scalar/visitors/scalar_evaluator.h"
+#include "scalar/visitors/scalar_differentiation.h"
+#include "scalar/visitors/scalar_printer.h"
 
 // generall headers
 #include "operators.h"
 
-#include "symTM/scalar/scalar_operators.h"
-#include "symTM/scalar/scalar_std.h"
+#include "scalar/scalar_operators.h"
+#include "scalar/scalar_std.h"
 #include "functions.h"
 #include "basic_functions.h"
 
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 auto diff(expression_holder<tensor_expression<ValueType>> & expr, expression_holder<tensor_expression<ValueType>> & arg){
@@ -174,7 +174,7 @@ auto diff(expression_holder<tensor_expression<ValueType>> & expr, expression_hol
 template<typename ValueType>
 std::unordered_map<expression_holder<scalar_expression<ValueType>>, std::vector<expression_holder<scalar_expression<ValueType>>>>
 group_by_common_factors(scalar_add<ValueType>& expr) {
-  using expr_type = expression_holder<symTM::scalar_expression<ValueType>>;
+  using expr_type = expression_holder<numsim::cas::scalar_expression<ValueType>>;
   std::unordered_map<expr_type, std::vector<expr_type>> common_factors;
 
   for (auto& term : expr) {
@@ -192,4 +192,4 @@ group_by_common_factors(scalar_add<ValueType>& expr) {
 }
 
 }
-#endif // SYMTMECH_H
+#endif // numsim::cas

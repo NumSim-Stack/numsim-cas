@@ -4,7 +4,7 @@
 #include "../expression_crtp.h"
 #include "tensor_expression.h"
 
-namespace symTM {
+namespace numsim::cas {
 template<typename ValueType>
 class tensor_zero final : public expression_crtp<tensor_zero<ValueType>, tensor_expression<ValueType>> {
 public:

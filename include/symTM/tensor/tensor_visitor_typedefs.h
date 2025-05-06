@@ -4,7 +4,7 @@
 #include "symTM_type_traits.h"
 #include "tensor_printer.h"
 
-//namespace symTM {
+//namespace numsim::cas {
 //template<typename ValueType>
 //struct get_visitor<visitor_output, tensor_expression<ValueType>>
 //{

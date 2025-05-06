@@ -2,7 +2,7 @@
 #define SCALAR_ASIN_H
 
 #include "../unary_op.h"
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class scalar_asin final : public unary_op<scalar_asin<ValueType>, scalar_expression<ValueType>>
 {

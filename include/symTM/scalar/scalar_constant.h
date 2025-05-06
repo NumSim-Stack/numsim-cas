@@ -4,7 +4,7 @@
 #include "../symTM_type_traits.h"
 #include "../utility_func.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class scalar_constant final : public expression_crtp<scalar_constant<ValueType>, scalar_expression<ValueType>>

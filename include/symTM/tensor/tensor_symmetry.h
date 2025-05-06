@@ -4,7 +4,7 @@
 #include <vector>
 #include "../unary_op.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class tensor_symmetry final

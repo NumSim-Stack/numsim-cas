@@ -8,7 +8,7 @@
 #include <memory>
 #include <vector>
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename Base, typename Derived>
 class n_ary_tree

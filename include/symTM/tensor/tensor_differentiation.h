@@ -9,7 +9,7 @@
 #include "kronecker_delta.h"
 
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class tensor_differentiation

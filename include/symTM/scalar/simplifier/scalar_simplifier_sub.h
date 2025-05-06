@@ -7,7 +7,7 @@
 #include <set>
 
 
-namespace symTM {
+namespace numsim::cas {
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 constexpr inline auto binary_scalar_sub_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs);
 
@@ -377,7 +377,7 @@ struct sub_base
 }
 
 
-//namespace symTM {
+//namespace numsim::cas {
 
 //template <typename ExprLHS, typename ExprRHS> class scalar_simplifier_sub {
 //public:

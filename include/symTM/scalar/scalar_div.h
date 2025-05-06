@@ -3,7 +3,7 @@
 
 #include "../binary_op.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class scalar_div final

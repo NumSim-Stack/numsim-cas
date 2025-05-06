@@ -6,7 +6,7 @@
 #if defined(SYMTM_USE_STD_VARIANT) && !defined(SYMTM_USE_BOOST_VARIANT)
 #include <variant>
 
-namespace symTM {
+namespace numsim::cas {
 template<typename ...Args>
 using variant = std::variant<Args...>;
 using std::visit;
@@ -15,7 +15,7 @@ using std::visit;
 #elif !defined(SYMTM_USE_STD_VARIANT) && defined(SYMTM_USE_BOOST_VARIANT)
 #include <boost/variant2>
 
-namespace symTM {
+namespace numsim::cas {
 template<typename ...Args>
 using variant = boost::variant2::variant<Args...>;
 using boost::variant2::visit;

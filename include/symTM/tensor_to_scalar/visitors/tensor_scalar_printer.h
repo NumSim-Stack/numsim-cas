@@ -11,7 +11,7 @@
 #include "../../symTM_type_traits.h"
 #include "../../scalar/visitors/scalar_printer.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 
 template <typename ValueType, typename StreamType>

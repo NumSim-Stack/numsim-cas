@@ -3,7 +3,7 @@
 
 #include "../unary_op.h"
 
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class scalar_sign final : public unary_op<scalar_sign<ValueType>, scalar_expression<ValueType>>
 {

@@ -5,7 +5,7 @@
 #include "../symbol_base.h"
 #include "../symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 // expression
 // expression_crtp<scalar_expr>

@@ -15,7 +15,7 @@
 #include "../scalar_add.h"
 #include "../scalar_std.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class scalar_differentiation
@@ -205,5 +205,5 @@ private:
   expression_holder<scalar_expression<ValueType>> m_result;
 };
 
-} // namespace symTM
+} // namespace numsim::cas
 #endif // SCALAR_DIFFERENTIATION_H

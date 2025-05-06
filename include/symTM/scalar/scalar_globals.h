@@ -5,7 +5,7 @@
 #include "scalar_zero.h"
 #include "scalar_one.h"
 
-namespace symTM {
+namespace numsim::cas {
 namespace detail {
 auto scalar_zero_d{make_expression<scalar_zero<double>>()};
 auto scalar_zero_i{make_expression<scalar_zero<int>>()};

@@ -6,7 +6,7 @@
 #include "../expression_holder.h"
 #include "tensor_printer.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class tensor_expression : public expression {

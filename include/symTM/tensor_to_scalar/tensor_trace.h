@@ -4,7 +4,7 @@
 #include "../unary_op.h"
 #include "tensor_to_scalar_expression.h"
 
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class tensor_trace final : public unary_op<tensor_trace<ValueType>, tensor_to_scalar_expression<ValueType>, tensor_expression<ValueType>>
 {

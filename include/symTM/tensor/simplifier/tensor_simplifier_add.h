@@ -9,7 +9,7 @@
 #include "../../symTM_forward.h"
 #include "../../symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 constexpr inline auto binary_add_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs);
@@ -326,5 +326,5 @@ struct add_base
 }
 }
 
-} // namespace symTM
+} // namespace numsim::cas
 #endif // TENSOR_SIMPLIFIER_ADD_H

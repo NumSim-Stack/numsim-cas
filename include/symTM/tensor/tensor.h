@@ -10,7 +10,7 @@
 #include "tensor_functions.h"
 #include "tensor_negative.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class tensor final : public symbol_base<expression_crtp<tensor<ValueType>, tensor_expression<ValueType>>> {

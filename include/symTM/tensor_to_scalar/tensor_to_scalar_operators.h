@@ -12,7 +12,7 @@
 #include "simplifier/tensor_to_scalar_with_scalar_simplifier_mul.h"
 
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_add_tensor_to_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){

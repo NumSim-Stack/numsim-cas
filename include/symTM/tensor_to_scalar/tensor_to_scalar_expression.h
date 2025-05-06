@@ -7,7 +7,7 @@
 #include "../expression_holder.h"
 #include "visitors/tensor_scalar_printer.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class tensor_to_scalar_expression : public expression {

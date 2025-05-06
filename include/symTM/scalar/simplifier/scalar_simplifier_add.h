@@ -12,7 +12,7 @@
 #include "../../simplify_rule_registry.h"
 #include "../../symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 constexpr inline auto binary_scalar_add_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs);
 
@@ -867,5 +867,5 @@ private:
 //};
 
 
-} // namespace symTM
+} // namespace numsim::cas
 #endif // SCALAR_SIMPLIFIER_ADD_H

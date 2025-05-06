@@ -3,7 +3,7 @@
 
 #include "symTM/scalar/scalar_expression.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class is_scalar_symbol;

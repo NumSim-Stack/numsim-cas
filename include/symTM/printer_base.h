@@ -4,7 +4,7 @@
 #include <string_view>
 #include "symTM_forward.h"
 
-namespace symTM {
+namespace numsim::cas {
 // Define a strongly-typed enum class for operation precedence
 enum class Precedence {
   None,           // No precedence (for top-level calls)

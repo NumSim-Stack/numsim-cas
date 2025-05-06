@@ -5,7 +5,7 @@
 #include "../scalar/scalar_expression.h"
 #include "../symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class scalar_add final
@@ -25,6 +25,6 @@ public:
   const scalar_add &operator=(scalar_add &&) = delete;
 };
 
-} // namespace symTM
+} // namespace numsim::cas
 
 #endif // SCALAR_ADD_H

@@ -32,7 +32,7 @@
 //#endif
 //#endif
 
-namespace symTM {
+namespace numsim::cas {
 namespace detail{
 struct expression_comparator {
   template <typename LHS, typename RHS>
@@ -220,7 +220,7 @@ using tensor_node =
                  kronecker_delta<ValueType>,
                  //simple_outer_product<ValueType>,
                  tensor_scalar_mul<ValueType>,
-                 tensor_scalar_div<ValueType>,
+                 //tensor_scalar_div<ValueType>,
                  tensor_symmetry<ValueType>,
                  tensor_zero<ValueType>>;
 
@@ -531,6 +531,11 @@ struct base_expression<scalar_expression<ValueType>, tensor_expression<ValueType
 };
 
 template<typename ValueType>
+struct base_expression<tensor_expression<ValueType>, scalar_expression<ValueType>>{
+  using type = tensor_expression<ValueType>;
+};
+
+template<typename ValueType>
 struct base_expression<scalar_expression<ValueType>, tensor_to_scalar_expression<ValueType>>{
   using type = tensor_to_scalar_expression<ValueType>;
 };
@@ -549,6 +554,7 @@ template<typename ValueType>
 struct base_expression<tensor_to_scalar_expression<ValueType>, tensor_expression<ValueType>>{
   using type = tensor_expression<ValueType>;
 };
+
 
 template<typename LHS, typename RHS>
 using base_expression_t = typename base_expression<LHS, RHS>::type;

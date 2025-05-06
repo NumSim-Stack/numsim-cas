@@ -5,7 +5,7 @@
 #include "symTM/scalar/scalar_expression.h"
 #include "symTM/symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class scalar_mul final
@@ -26,6 +26,6 @@ public:
   const scalar_mul &operator=(scalar_mul &&) = delete;
 };
 
-} // namespace symTM
+} // namespace numsim::cas
 
 #endif // SCALAR_MUL_H

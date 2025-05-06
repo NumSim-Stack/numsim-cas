@@ -5,7 +5,7 @@
 #include "../../tensor_to_scalar_expression.h"
 #include "../../../symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class tensor_to_scalar_mul final
@@ -23,7 +23,7 @@ public:
   const tensor_to_scalar_mul &operator=(tensor_to_scalar_mul &&) = delete;
 };
 
-} // namespace symTM
+} // namespace numsim::cas
 
 
 #endif // TENSOR_TO_SCALAR_MUL_H

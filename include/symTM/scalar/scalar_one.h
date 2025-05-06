@@ -4,7 +4,7 @@
 #include "scalar_expression.h"
 #include "../utility_func.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class scalar_one final : public expression_crtp<scalar_one<ValueType>, scalar_expression<ValueType>> {

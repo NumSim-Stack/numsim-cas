@@ -5,7 +5,7 @@
 #include "symTM_type_traits.h"
 #include "operators.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ExpressionBase>
 struct expression_details;

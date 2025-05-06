@@ -2,7 +2,7 @@
 #define SCALAR_ATAN_H
 
 #include "../unary_op.h"
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class scalar_atan final : public unary_op<scalar_atan<ValueType>, scalar_expression<ValueType>>
 {

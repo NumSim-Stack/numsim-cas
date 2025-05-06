@@ -4,7 +4,7 @@
 #include "symTM/symTM_type_traits.h"
 #include "symTM/tensor_data.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class make_tensor_data_imp final

@@ -4,7 +4,7 @@
 #include <eigen3/Eigen/Eigen>
 #include "symTM/expression_holder.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 //nonlinear_scalar_solver solver;
 //solver.add_equation(x);

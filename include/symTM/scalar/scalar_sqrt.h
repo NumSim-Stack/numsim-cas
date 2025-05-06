@@ -2,7 +2,7 @@
 #define SCALAR_SQRT_H
 
 #include "../unary_op.h"
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class scalar_sqrt final : public unary_op<scalar_sqrt<ValueType>, scalar_expression<ValueType>>
 {

@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class outer_product_wrapper final

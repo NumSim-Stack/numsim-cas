@@ -5,7 +5,7 @@
 #include "../../../symTM_type_traits.h"
 #include "../../tensor_to_scalar_expression.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class tensor_to_scalar_add final
@@ -24,6 +24,6 @@ public:
   const tensor_to_scalar_add &operator=(tensor_to_scalar_add &&) = delete;
 };
 
-} // namespace symTM
+} // namespace numsim::cas
 
 #endif // TENSOR_TO_SCALAR_ADD_H

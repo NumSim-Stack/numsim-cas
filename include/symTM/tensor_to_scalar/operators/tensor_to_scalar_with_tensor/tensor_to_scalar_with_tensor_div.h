@@ -5,7 +5,7 @@
 #include "../../../tensor/tensor_expression.h"
 #include "../../tensor_to_scalar_expression.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class tensor_to_scalar_with_tensor_div final
@@ -22,7 +22,7 @@ public:
   const tensor_to_scalar_with_tensor_div &operator=(tensor_to_scalar_with_tensor_div &&) = delete;
 };
 
-} // namespace symTM
+} // namespace numsim::cas
 
 
 #endif // TENSOR_TO_SCALAR_TENSOR_DIV_H

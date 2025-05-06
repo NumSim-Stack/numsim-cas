@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <vector>
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class tensor_data_inner_product final

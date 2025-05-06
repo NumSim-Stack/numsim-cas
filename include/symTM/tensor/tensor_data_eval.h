@@ -3,7 +3,7 @@
 
 #include <cstdlib>
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename Derived, typename ValueType, std::size_t MaxDim, std::size_t MaxRank,
           std::size_t MaxArgs>

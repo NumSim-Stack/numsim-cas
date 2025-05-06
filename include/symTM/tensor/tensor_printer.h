@@ -12,7 +12,7 @@
 #include <vector>
 
 
-namespace symTM {
+namespace numsim::cas {
 
 // Assuming other required definitions for expressions and Precedence are provided
 /**

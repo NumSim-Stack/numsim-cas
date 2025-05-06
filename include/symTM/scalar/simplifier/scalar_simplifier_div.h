@@ -5,7 +5,7 @@
 #include "../scalar_expression.h"
 #include "../scalar_div.h"
 
-namespace symTM {
+namespace numsim::cas {
 namespace scalar_detail {
 namespace simplifier {
 

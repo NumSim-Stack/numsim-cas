@@ -3,7 +3,7 @@
 
 #include "../binary_op.h"
 
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class scalar_pow final : public binary_op<scalar_pow<ValueType>, scalar_expression<ValueType>>
 {

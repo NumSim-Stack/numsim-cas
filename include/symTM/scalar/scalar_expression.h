@@ -6,7 +6,7 @@
 #include "../symTM_type_traits.h"
 #include "visitors/scalar_printer.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class scalar_expression : public expression {

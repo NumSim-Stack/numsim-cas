@@ -5,7 +5,7 @@
 #include "symTM_type_traits.h"
 #include "utility_func.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename Derived, typename Base, typename ExprType = Base>
 class unary_op : public expression_crtp<unary_op<Derived, Base, ExprType>, Base> {

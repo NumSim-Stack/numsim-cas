@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class inner_product_wrapper final

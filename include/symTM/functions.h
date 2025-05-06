@@ -8,7 +8,7 @@
 #include "scalar/visitors/scalar_differentiation.h"
 #include "tensor/tensor_evaluator.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 
 template<typename ValueType>

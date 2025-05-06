@@ -9,7 +9,7 @@
 #include <ranges>
 #include <stdexcept>
 
-namespace symTM {
+namespace numsim::cas {
 
 /**
  * @brief A class to evaluate scalar expressions.

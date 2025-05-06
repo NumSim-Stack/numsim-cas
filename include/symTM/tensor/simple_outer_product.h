@@ -4,7 +4,7 @@
 #include "../n_ary_tree.h"
 #include "../symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 //template<typename ValueType>
 //class simple_outer_product final : public n_ary_tree<tensor_expression<ValueType>, simple_outer_product<ValueType>> {

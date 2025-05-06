@@ -8,7 +8,7 @@
 #include "symTM_type_traits.h"
 #include "utility_func.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 /**
  * @class binary_op

@@ -5,7 +5,7 @@
 #include "../tensor_to_scalar_expression.h"
 #include "../operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_add.h"
 
-namespace symTM {
+namespace numsim::cas {
 namespace tensor_to_scalar_with_scalar_detail {
 namespace simplifier {
 

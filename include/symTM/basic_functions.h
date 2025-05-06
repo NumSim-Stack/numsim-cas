@@ -5,7 +5,7 @@
 #include "symTM_forward.h"
 #include "scalar/scalar_constant.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename Expr>
 [[nodiscard]] inline auto get_id(Expr const& expr)noexcept{

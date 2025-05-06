@@ -5,7 +5,7 @@
 #include "../scalar_constant.h"
 #include <type_traits>
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 constexpr inline auto binary_scalar_add_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs);
@@ -265,5 +265,5 @@ struct mul_base
 };
 
 } // namespace simplifier
-} // namespace symTM
+} // namespace numsim::cas
 #endif // SCALAR_SIMPLIFIER_MUL_H

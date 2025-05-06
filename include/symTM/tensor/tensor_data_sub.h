@@ -3,7 +3,7 @@
 
 #include "tensor_data.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class tensor_data_sub final : public tensor_data_eval_up_unary<tensor_data_sub<ValueType>, ValueType> {

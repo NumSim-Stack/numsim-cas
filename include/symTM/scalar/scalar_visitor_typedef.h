@@ -4,7 +4,7 @@
 #include "../symTM_type_traits.h"
 #include "scalar_expression.h"
 
-//namespace symTM {
+//namespace numsim::cas {
 
 //template<typename ValueType>
 //struct get_visitor<visitor_output, scalar_expression<ValueType>>

@@ -4,7 +4,7 @@
 #include "../n_ary_tree.h"
 #include "../symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 //class tensor_sub final : public n_ary_tree, public VisitableTensorImpl_t<tensor_sub> {
 //public:

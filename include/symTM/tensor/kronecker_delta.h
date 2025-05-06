@@ -3,7 +3,7 @@
 
 #include "../symTM_type_traits.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class kronecker_delta final : public expression_crtp<kronecker_delta<ValueType>, tensor_expression<ValueType>> {

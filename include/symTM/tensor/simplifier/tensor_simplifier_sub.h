@@ -10,7 +10,7 @@
 #include "../../symTM_type_traits.h"
 
 
-namespace symTM {
+namespace numsim::cas {
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 constexpr inline auto binary_tensor_sub_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs);
 namespace tensor_detail {

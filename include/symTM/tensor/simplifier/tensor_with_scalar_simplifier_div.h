@@ -5,7 +5,7 @@
 #include "../scalar_expression.h"
 #include "../tensor_expression.h"
 
-namespace symTM {
+namespace numsim::cas {
 namespace tensor_detail {
 namespace simplifier {
 

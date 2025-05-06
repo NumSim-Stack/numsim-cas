@@ -5,7 +5,7 @@
 #include "../symTM_type_traits.h"
 #include "../binary_op.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename ValueType>
 class tensor_scalar_div final : public binary_op<tensor_scalar_div<ValueType>, tensor_expression<ValueType>, scalar_expression<ValueType>>

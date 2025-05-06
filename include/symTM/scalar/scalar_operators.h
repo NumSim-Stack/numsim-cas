@@ -17,7 +17,7 @@
 
 
 
-namespace symTM {
+namespace numsim::cas {
 
 
 
@@ -321,7 +321,7 @@ struct operator_overload<expression_holder<scalar_expression<ValueType>>,
   }
 };
 
-} // namespace symTM
+} // namespace numsim::cas
 
        //  expr_type operator()(scalar<value_type> &lhs, scalar<value_type> &rhs) {
        //    if (&lhs == &rhs) {

@@ -7,7 +7,7 @@
 #include <variant>
 #include <vector>
 
-namespace symTM {
+namespace numsim::cas {
 
 //external polymorphism maybe used in future
 //template<typename Derived, typename StreamType, typename ValueType>
@@ -359,5 +359,5 @@ private:
   using base::m_out; ///< The output stream used for printing.
 };
 
-} // namespace symTM
+} // namespace numsim::cas
 #endif // SCALAR_PRINTER_H

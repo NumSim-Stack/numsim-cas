@@ -6,7 +6,7 @@
 #include "../scalar/scalar_expression.h"
 #include "tensor_to_scalar_expression.h"
 
-namespace symTM {
+namespace numsim::cas {
 template <typename ValueType>
 class tensor_to_scalar_pow final : public binary_op<tensor_to_scalar_pow<ValueType>, tensor_to_scalar_expression<ValueType>>
 {

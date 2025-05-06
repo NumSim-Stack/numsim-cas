@@ -5,7 +5,7 @@
 #include "../symTM_type_traits.h"
 #include <stdexcept>
 
-namespace symTM {
+namespace numsim::cas {
 
 template <typename ValueType>
 class tensor_add final : public n_ary_tree<tensor_expression<ValueType>, tensor_add<ValueType>> {

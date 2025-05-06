@@ -5,7 +5,7 @@
 #include <functional>
 #include "expression_holder.h"
 
-namespace symTM {
+namespace numsim::cas {
 
 template<typename T, template<typename> class ExprType>
 class simplify_rule_registry {
