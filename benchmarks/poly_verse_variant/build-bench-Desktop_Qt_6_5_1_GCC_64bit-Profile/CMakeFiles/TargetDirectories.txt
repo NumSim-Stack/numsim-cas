@@ -1,3 +1,0 @@
-/home/peter/SynologyDrive/Drive/symTM_var/symTM/benchmarks/poly_verse_variant/build-bench-Desktop_Qt_6_5_1_GCC_64bit-Profile/CMakeFiles/bench.dir
-/home/peter/SynologyDrive/Drive/symTM_var/symTM/benchmarks/poly_verse_variant/build-bench-Desktop_Qt_6_5_1_GCC_64bit-Profile/CMakeFiles/edit_cache.dir
-/home/peter/SynologyDrive/Drive/symTM_var/symTM/benchmarks/poly_verse_variant/build-bench-Desktop_Qt_6_5_1_GCC_64bit-Profile/CMakeFiles/rebuild_cache.dir
