@@ -1,0 +1,41 @@
+#ifndef TENSOR_DATA_ADD_H
+#define TENSOR_DATA_ADD_H
+
+#include "tensor_data.h"
+
+namespace symTM {
+
+template<typename ValueType>
+class tensor_data_add final : public tensor_data_eval_up_unary<tensor_data_add<ValueType>, ValueType>
+{
+public:
+  tensor_data_add(tensor_data_base<ValueType> &lhs, tensor_data_base<ValueType> const &rhs)
+      : m_lhs(lhs), m_rhs(rhs) {}
+
+  template <std::size_t Dim, std::size_t Rank>
+  inline void evaluate_imp() noexcept {
+    // using Tensor = tensor_data<T, Dim, Rank>;
+    using Tensor = tensor_data<ValueType, Dim, Rank>;
+    static_cast<Tensor &>(m_lhs).data() +=
+        static_cast<const Tensor &>(m_rhs).data();
+  }
+
+  inline void missmatch(std::size_t dim, std::size_t rank) {
+    if (dim > this->_MaxDim || dim == 0) {
+      throw std::runtime_error(
+          "tensor_data_add::evaluate(dim, rank) dim > MaxDim || dim == 0");
+    }
+    if (rank > this->_MaxRank || rank == 0) {
+      throw std::runtime_error("tensor_data_add::evaluate(dim, rank) rank "
+                               "> MaxRank || rank == 0");
+    }
+  }
+
+private:
+  tensor_data_base<ValueType> &m_lhs;
+  tensor_data_base<ValueType> const &m_rhs;
+};
+
+} // NAMESPACE symTM
+
+#endif // TENSOR_DATA_ADD_H

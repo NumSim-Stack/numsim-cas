@@ -1,0 +1,140 @@
+#ifndef EXPRESSION_HOLDER_H
+#define EXPRESSION_HOLDER_H
+
+#include <type_traits>
+#include "symTM_type_traits.h"
+#include "operators.h"
+
+namespace symTM {
+
+template<typename ExpressionBase>
+struct expression_details;
+
+
+
+
+
+
+
+
+
+
+template <typename ExprBase> class expression_holder{
+public:
+  using expr_type = ExprBase;
+  using value_type = typename ExprBase::value_type;
+  using node_type = typename expr_type::node_type;//typename expression_details<ExprBase>::variant;
+  using node_pointer = typename std::shared_ptr<node_type>;
+  using hash_type = typename expr_type::hash_type;
+
+
+  expression_holder() = default;
+  explicit expression_holder(std::shared_ptr<node_type> const &expr)
+      : m_expr(expr) {}
+  explicit expression_holder(std::shared_ptr<node_type> &&expr)
+      : m_expr(std::move(expr)) {}
+  expression_holder(expression_holder const& data):m_expr(data.m_expr){}
+  expression_holder(expression_holder && data):m_expr(std::move(data.m_expr)){}
+  ~expression_holder() = default;
+
+  expression_holder &operator=(expression_holder const& data){
+    m_expr = data.m_expr;
+    return *this;
+  }
+
+  expression_holder &operator=(expression_holder && data){
+    m_expr = std::move(data.m_expr);
+    return *this;
+  }
+
+  expression_holder &operator=(std::shared_ptr<ExprBase> && data){
+    m_expr = std::move(data);
+    return *this;
+  }
+
+  expression_holder &operator*=(expression_holder & data){
+    *this = std::move(*this) * data;
+    return *this;
+  }
+
+  expression_holder &operator*=(expression_holder const& data){
+    *this = std::move(*this) * data;
+    return *this;
+  }
+
+  expression_holder &operator*=(expression_holder && data){
+    *this = std::move(*this) * std::move(data);
+    return *this;
+  }
+
+  expression_holder &operator+=(expression_holder & data){
+    *this = std::move(*this) + data;
+    return *this;
+  }
+
+  expression_holder &operator+=(expression_holder const& data){
+    *this = std::move(*this) + data;
+    return *this;
+  }
+
+  expression_holder &operator+=(expression_holder && data){
+    *this = std::move(*this) + std::move(data);
+    return *this;
+  }
+
+  constexpr inline auto& data(){return m_expr;}
+  constexpr inline const auto& data()const{return m_expr;}
+  constexpr inline auto& operator*(){return *m_expr;}
+  constexpr inline const auto& operator*()const{return *m_expr;}
+  constexpr inline auto* operator->(){return m_expr.get();}
+  constexpr inline const auto* operator->()const{return m_expr.get();}
+
+  template<typename T = ExprBase>
+  constexpr inline auto& get(){
+    if constexpr (std::is_same_v<T, ExprBase>){
+      return std::visit([](auto& type) -> ExprBase& {return static_cast<ExprBase&>(type);}, *m_expr.get());
+    }else{
+      return std::get<T>(*m_expr.get());
+    }
+  }
+
+  template<typename T = ExprBase>
+  constexpr inline const auto& get()const{
+    if constexpr (std::is_same_v<T, ExprBase>){
+      return std::visit([](auto& type) -> ExprBase const& {return static_cast<ExprBase const&>(type);}, *m_expr.get());
+    }else{
+      return std::get<T>(*m_expr.get());
+    }
+  }
+
+  constexpr inline bool is_valid() const {
+    return static_cast<bool>(m_expr);
+  }
+
+  constexpr inline auto operator-(){
+    return expression_details<ExprBase>::negative(*this);
+  }
+
+  constexpr inline auto free(){
+    return m_expr.reset();
+  }
+
+  bool operator !=(expression_holder const& data) const{
+    return !(*this == data);
+  }
+
+  bool operator ==(expression_holder const& data) const{
+    return data.m_expr.get() == m_expr.get();
+  }
+
+  template<typename _ExprBase>
+  friend std::ostream& operator<<(std::ostream & os, expression_holder<_ExprBase> const& expr);
+  template<typename _ExprBase>
+  friend std::ostream& operator<<(std::ostream & os, expression_holder<_ExprBase> && expr);
+private:
+  std::shared_ptr<node_type> m_expr;
+};
+
+} // NAMESPACE symTM
+
+#endif // EXPRESSION_HOLDER_H
