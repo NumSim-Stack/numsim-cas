@@ -1,9 +1,9 @@
 #ifndef SCALAR_MUL_H
 #define SCALAR_MUL_H
 
-#include "symTM/n_ary_tree.h"
-#include "symTM/scalar/scalar_expression.h"
-#include "symTM/symTM_type_traits.h"
+#include "../n_ary_tree.h"
+#include "../scalar/scalar_expression.h"
+#include "../symTM_type_traits.h"
 
 namespace numsim::cas {
 

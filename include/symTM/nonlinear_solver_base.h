@@ -2,7 +2,7 @@
 #define NONLINEAR_SOLVER_BASE_H
 
 #include <eigen3/Eigen/Eigen>
-#include "symTM/expression_holder.h"
+#include "expression_holder.h"
 
 namespace numsim::cas {
 

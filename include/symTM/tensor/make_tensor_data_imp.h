@@ -1,8 +1,8 @@
 #ifndef MAKE_TENSOR_DATA_IMP_H
 #define MAKE_TENSOR_DATA_IMP_H
 
-#include "symTM/symTM_type_traits.h"
-#include "symTM/tensor_data.h"
+#include "../symTM_type_traits.h"
+#include "tensor_data.h"
 
 namespace numsim::cas {
 

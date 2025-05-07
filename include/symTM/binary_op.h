@@ -1,10 +1,10 @@
 #ifndef BINARY_OP_H
 #define BINARY_OP_H
 
-#include "symTM/expression_crtp.h"
-#include "symTM/expression_holder.h"
-#include "symTM/symTM_type_traits.h"
-#include "symTM/utility_func.h"
+#include "expression_crtp.h"
+#include "expression_holder.h"
+#include "symTM_type_traits.h"
+#include "utility_func.h"
 #include "symTM_type_traits.h"
 #include "utility_func.h"
 

@@ -1,10 +1,10 @@
 #ifndef N_ARY_TREE_H
 #define N_ARY_TREE_H
 
-#include "symTM/expression_crtp.h"
+#include "expression_crtp.h"
 #include "get_hash_scalar.h"
-#include "symTM/is_symbol.h"
-#include "symTM/symTM_type_traits.h"
+#include "is_symbol.h"
+#include "symTM_type_traits.h"
 #include <memory>
 #include <vector>
 

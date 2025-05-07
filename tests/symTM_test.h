@@ -9,13 +9,13 @@ using complexd = std::complex<double>;
 using complexf = std::complex<float>;
 
 //template<typename ValueType, std::size_t Dim, std::size_t Rank>
-//static constexpr inline auto& convert(symTM::tensor_data_base<ValueType> & tensor){
-//  return static_cast<symTM::tensor_data<ValueType,Dim,Rank>&>(tensor);
+//static constexpr inline auto& convert(numsim::cas::tensor_data_base<ValueType> & tensor){
+//  return static_cast<numsim::cas::tensor_data<ValueType,Dim,Rank>&>(tensor);
 //}
 
 //template<typename ValueType, std::size_t Dim, std::size_t Rank>
-//static constexpr inline auto& convert(std::unique_ptr<symTM::tensor_data_base<ValueType>> & tensor){
-//  return static_cast<symTM::tensor_data<ValueType,Dim,Rank>&>(tensor);
+//static constexpr inline auto& convert(std::unique_ptr<numsim::cas::tensor_data_base<ValueType>> & tensor){
+//  return static_cast<numsim::cas::tensor_data<ValueType,Dim,Rank>&>(tensor);
 //}
 
 
@@ -34,200 +34,200 @@ test_name(ValueType, Dim, 1) \
 //adding tensors
 #define add_tensors(ValueType, Dim, Rank)  \
     TEST(gtest, add_tensors_##ValueType##_##Dim##_##Rank){ \
-      auto [asym,bsym,csym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, Rank),symTM::tuple("b", Dim, Rank),symTM::tuple("c", Dim, Rank))}; \
+      auto [asym,bsym,csym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, Rank),numsim::cas::tuple("b", Dim, Rank),numsim::cas::tuple("c", Dim, Rank))}; \
       tmech::tensor<ValueType, Dim, Rank> a, b, c; \
       a.randn(); \
       b.randn(); \
       c.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      bsym.get<symTM::tensor<ValueType>>() = b; \
-      csym.get<symTM::tensor<ValueType>>() = c; \
-const auto result{symTM::evaluate(asym+bsym+csym)}; \
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, Rank>(result), a+b+c, 5e-7)); \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
+      csym.get<numsim::cas::tensor<ValueType>>() = c; \
+const auto result{numsim::cas::evaluate(asym+bsym+csym)}; \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, Rank>(result), a+b+c, 5e-7)); \
 }
 
 //subtracting tensors
 #define sub_tensors(ValueType, Dim, Rank)  \
 TEST(gtest, sub_tensors_##ValueType##_##Dim##_##Rank){ \
-      auto [asym,bsym,csym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, Rank),symTM::tuple("b", Dim, Rank),symTM::tuple("c", Dim, Rank))}; \
+      auto [asym,bsym,csym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, Rank),numsim::cas::tuple("b", Dim, Rank),numsim::cas::tuple("c", Dim, Rank))}; \
       tmech::tensor<ValueType, Dim, Rank> a, b, c; \
       a.randn(); \
       b.randn(); \
       c.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      bsym.get<symTM::tensor<ValueType>>() = b; \
-      csym.get<symTM::tensor<ValueType>>() = c; \
-      const auto result{symTM::evaluate(asym-bsym-csym)}; \
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, Rank>(result), a-b-c, 5e-7)); \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
+      csym.get<numsim::cas::tensor<ValueType>>() = c; \
+      const auto result{numsim::cas::evaluate(asym-bsym-csym)}; \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, Rank>(result), a-b-c, 5e-7)); \
 }
 
 #define negative_tensor(ValueType, Dim, Rank)  \
 TEST(gtest, negative_tensor_##ValueType##_##Dim##_##Rank){ \
-auto [asym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, Rank))}; \
+auto [asym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, Rank))}; \
       tmech::tensor<ValueType, Dim, Rank> a; \
       a.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      const auto result{symTM::evaluate(-asym)}; \
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, Rank>(result), -a, 5e-7)); \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      const auto result{numsim::cas::evaluate(-asym)}; \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, Rank>(result), -a, 5e-7)); \
 }
 
 #define negative_sub_tensors(ValueType, Dim, Rank)  \
 TEST(gtest, negative_sub_tensors_##ValueType##_##Dim##_##Rank){ \
-      auto [asym,bsym,csym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, Rank),symTM::tuple("b", Dim, Rank),symTM::tuple("c", Dim, Rank))}; \
+      auto [asym,bsym,csym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, Rank),numsim::cas::tuple("b", Dim, Rank),numsim::cas::tuple("c", Dim, Rank))}; \
       tmech::tensor<ValueType, Dim, Rank> a, b, c; \
       a.randn(); \
       b.randn(); \
       c.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      bsym.get<symTM::tensor<ValueType>>() = b; \
-      csym.get<symTM::tensor<ValueType>>() = c; \
-      const auto result{symTM::evaluate(-asym-bsym-csym)}; \
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, Rank>(result), -a-b-c, 5e-7)); \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
+      csym.get<numsim::cas::tensor<ValueType>>() = c; \
+      const auto result{numsim::cas::evaluate(-asym-bsym-csym)}; \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, Rank>(result), -a-b-c, 5e-7)); \
 }
 
 #define negative_add_tensors(ValueType, Dim, Rank)  \
 TEST(gtest, negative_add_tensors_##ValueType##_##Dim##_##Rank){ \
-      auto [asym,bsym,csym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, Rank),symTM::tuple("b", Dim, Rank),symTM::tuple("c", Dim, Rank))}; \
+      auto [asym,bsym,csym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, Rank),numsim::cas::tuple("b", Dim, Rank),numsim::cas::tuple("c", Dim, Rank))}; \
       tmech::tensor<ValueType, Dim, Rank> a, b, c; \
       a.randn(); \
       b.randn(); \
       c.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      bsym.get<symTM::tensor<ValueType>>() = b; \
-      csym.get<symTM::tensor<ValueType>>() = c; \
-      const auto result{symTM::evaluate(-asym+bsym+csym)}; \
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, Rank>(result), -a+b+c, 5e-7)); \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
+      csym.get<numsim::cas::tensor<ValueType>>() = c; \
+      const auto result{numsim::cas::evaluate(-asym+bsym+csym)}; \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, Rank>(result), -a+b+c, 5e-7)); \
 }
 
 
 #define inner_product_34_12(ValueType, Dim, RankLHS, RankRHS)  \
 TEST(gtest, inner_product_34_12_##ValueType##_##Dim##_##RankLHS##_##RankRHS){ \
       using Seq = std::vector<std::size_t>; \
-      auto [asym,bsym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, RankLHS),symTM::tuple("b", Dim, RankRHS))}; \
+      auto [asym,bsym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, RankLHS),numsim::cas::tuple("b", Dim, RankRHS))}; \
       tmech::tensor<ValueType, Dim, RankLHS> a; \
       tmech::tensor<ValueType, Dim, RankRHS> b; \
       a.randn(); \
       b.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      bsym.get<symTM::tensor<ValueType>>() = b; \
-      const auto result{symTM::evaluate(symTM::inner_product(asym, Seq{3,4}, bsym, Seq{1,2}))}; \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
+      const auto result{numsim::cas::evaluate(numsim::cas::inner_product(asym, Seq{3,4}, bsym, Seq{1,2}))}; \
       auto result_t{tmech::inner_product<tmech::sequence<3,4>,tmech::sequence<1,2>>(a,b)};\
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, RankLHS+RankRHS-4>(result), result_t, 5e-7)); \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, RankLHS+RankRHS-4>(result), result_t, 5e-7)); \
 }
 
 #define inner_product_12_34(ValueType, Dim, RankLHS, RankRHS)  \
 TEST(gtest, inner_product_12_34_##ValueType##_##Dim##_##RankLHS##_##RankRHS){ \
       using Seq = std::vector<std::size_t>; \
-      auto [asym,bsym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, RankLHS),symTM::tuple("b", Dim, RankRHS))}; \
+      auto [asym,bsym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, RankLHS),numsim::cas::tuple("b", Dim, RankRHS))}; \
       tmech::tensor<ValueType, Dim, RankLHS> a; \
       tmech::tensor<ValueType, Dim, RankRHS> b; \
       a.randn(); \
       b.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      bsym.get<symTM::tensor<ValueType>>() = b; \
-      const auto result{symTM::evaluate(symTM::inner_product(asym, Seq{1,2}, bsym, Seq{3,4}))}; \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
+      const auto result{numsim::cas::evaluate(numsim::cas::inner_product(asym, Seq{1,2}, bsym, Seq{3,4}))}; \
       auto result_t{tmech::inner_product<tmech::sequence<1,2>,tmech::sequence<3,4>>(a,b)};\
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, RankLHS+RankRHS-4>(result), result_t, 5e-7)); \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, RankLHS+RankRHS-4>(result), result_t, 5e-7)); \
 }
 
 #define basis_change_(ValueType, Dim, Rank, Line, ...)  \
 TEST(gtest, basis_change_##ValueType##_##Dim##_##Rank##_##Line){ \
       using Seq = std::vector<std::size_t>; \
-      auto [asym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, Rank))}; \
+      auto [asym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, Rank))}; \
       tmech::tensor<ValueType, Dim, Rank> a; \
       a.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      const auto result{symTM::evaluate(symTM::basis_change(asym, Seq{__VA_ARGS__}))}; \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      const auto result{numsim::cas::evaluate(numsim::cas::basis_change(asym, Seq{__VA_ARGS__}))}; \
       auto result_t{tmech::basis_change<tmech::sequence<__VA_ARGS__>>(a)};\
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, Rank>(result), result_t, 5e-7)); \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, Rank>(result), result_t, 5e-7)); \
 }
 
 #define basis_change_expr(ValueType, Dim, Rank, Line, ...)  \
 TEST(gtest, basis_change_expr_##ValueType##_##Dim##_##Rank##_##Line){ \
       using Seq = std::vector<std::size_t>; \
-      auto [asym,bsym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, Rank),symTM::tuple("b", Dim, Rank))}; \
+      auto [asym,bsym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, Rank),numsim::cas::tuple("b", Dim, Rank))}; \
       tmech::tensor<ValueType, Dim, Rank> a,b; \
       a.randn(); \
       b.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      bsym.get<symTM::tensor<ValueType>>() = b; \
-      const auto result{symTM::evaluate(symTM::basis_change(asym+bsym, Seq{__VA_ARGS__}))}; \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
+      const auto result{numsim::cas::evaluate(numsim::cas::basis_change(asym+bsym, Seq{__VA_ARGS__}))}; \
       auto result_t{tmech::basis_change<tmech::sequence<__VA_ARGS__>>(a+b)};\
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, Rank>(result), result_t, 5e-7)); \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, Rank>(result), result_t, 5e-7)); \
 }
 
 #define inner_product_34_12_expr(ValueType, Dim, RankLHS, RankRHS)  \
 TEST(gtest, inner_product_34_12_expr_##ValueType##_##Dim##_##RankLHS##_##RankRHS){ \
       using Seq = std::vector<std::size_t>; \
-      auto [asym,bsym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, RankLHS),symTM::tuple("b", Dim, RankRHS))}; \
+      auto [asym,bsym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, RankLHS),numsim::cas::tuple("b", Dim, RankRHS))}; \
       tmech::tensor<ValueType, Dim, RankLHS> a; \
       tmech::tensor<ValueType, Dim, RankRHS> b; \
       a.randn(); \
       b.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      bsym.get<symTM::tensor<ValueType>>() = b; \
-      const auto result{symTM::evaluate(symTM::inner_product(asym+asym, Seq{3,4}, bsym+bsym, Seq{1,2}))}; \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
+      const auto result{numsim::cas::evaluate(numsim::cas::inner_product(asym+asym, Seq{3,4}, bsym+bsym, Seq{1,2}))}; \
       auto result_t{tmech::inner_product<tmech::sequence<3,4>,tmech::sequence<1,2>>(a+a,b+b)};\
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, RankLHS+RankRHS-4>(result), result_t, 5e-7)); \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, RankLHS+RankRHS-4>(result), result_t, 5e-7)); \
 }
 
 #define inner_product_12_34_expr(ValueType, Dim, RankLHS, RankRHS)  \
 TEST(gtest, inner_product_12_34_expr_##ValueType##_##Dim##_##RankLHS##_##RankRHS){ \
       using Seq = std::vector<std::size_t>; \
-      auto [asym,bsym]{symTM::make_tensor_variable<ValueType>(symTM::tuple("a", Dim, RankLHS),symTM::tuple("b", Dim, RankRHS))}; \
+      auto [asym,bsym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, RankLHS),numsim::cas::tuple("b", Dim, RankRHS))}; \
       tmech::tensor<ValueType, Dim, RankLHS> a; \
       tmech::tensor<ValueType, Dim, RankRHS> b; \
       a.randn(); \
       b.randn(); \
-      asym.get<symTM::tensor<ValueType>>() = a; \
-      bsym.get<symTM::tensor<ValueType>>() = b; \
-      const auto result{symTM::evaluate(symTM::inner_product(asym+asym, Seq{1,2}, bsym+bsym, Seq{3,4}))}; \
+      asym.get<numsim::cas::tensor<ValueType>>() = a; \
+      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
+      const auto result{numsim::cas::evaluate(numsim::cas::inner_product(asym+asym, Seq{1,2}, bsym+bsym, Seq{3,4}))}; \
       auto result_t{tmech::inner_product<tmech::sequence<1,2>,tmech::sequence<3,4>>(a+a,b+b)};\
-      EXPECT_EQ(true, tmech::almost_equal(symTM::get_tensor<ValueType, Dim, RankLHS+RankRHS-4>(result), result_t, 5e-7)); \
+      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, RankLHS+RankRHS-4>(result), result_t, 5e-7)); \
 }
 
 //TEST(gtest, print_tensor_expression){
 //}
 TEST(gtest, scalar_add_neu){
-      auto [x,y,z]{symTM::make_scalar_variable<double>("x","y","z")};
-  auto c{symTM::make_scalar_constant<double>(1.0)};
+      auto [x,y,z]{numsim::cas::make_scalar_variable<double>("x","y","z")};
+  auto c{numsim::cas::make_scalar_constant<double>(1.0)};
 
       double _x{5.99},_y{8.89},_z{9.99};
-      x.get<symTM::scalar<double>>()=_x;
-      y.get<symTM::scalar<double>>()=_y;
-      z.get<symTM::scalar<double>>()=_z;
-      EXPECT_EQ(_x+_y+_z, symTM::evaluate(x+y+z));
+      x.get<numsim::cas::scalar<double>>()=_x;
+      y.get<numsim::cas::scalar<double>>()=_y;
+      z.get<numsim::cas::scalar<double>>()=_z;
+      EXPECT_EQ(_x+_y+_z, numsim::cas::evaluate(x+y+z));
 }
 
 #define scalar_add(ValueType)  \
 TEST(gtest, scalar_add_##ValueType){ \
-      auto [x,y,z]{symTM::make_scalar_variable<ValueType>("x","y","z")}; \
+      auto [x,y,z]{numsim::cas::make_scalar_variable<ValueType>("x","y","z")}; \
       ValueType _x{5.99},_y{8.89},_z{9.99}; \
-      x.get<symTM::scalar<ValueType>>()=_x; \
-      y.get<symTM::scalar<ValueType>>()=_y; \
-      z.get<symTM::scalar<ValueType>>()=_z; \
-      EXPECT_EQ(_x+_y+_z, symTM::evaluate(x+y+z)); \
+      x.get<numsim::cas::scalar<ValueType>>()=_x; \
+      y.get<numsim::cas::scalar<ValueType>>()=_y; \
+      z.get<numsim::cas::scalar<ValueType>>()=_z; \
+      EXPECT_EQ(_x+_y+_z, numsim::cas::evaluate(x+y+z)); \
 } \
 
 
 #define scalar_sub(ValueType)  \
 TEST(gtest, scalar_sub_##ValueType){ \
-      auto [x,y,z]{symTM::make_scalar_variable<ValueType>("x","y","z")}; \
+      auto [x,y,z]{numsim::cas::make_scalar_variable<ValueType>("x","y","z")}; \
       ValueType _x{5.99},_y{8.89},_z{9.99}; \
-      x.get<symTM::scalar<ValueType>>()=_x; \
-      y.get<symTM::scalar<ValueType>>()=_y; \
-      z.get<symTM::scalar<ValueType>>()=_z; \
-      EXPECT_EQ(-_x-_y-_z, symTM::evaluate(-x-y-z)); \
+      x.get<numsim::cas::scalar<ValueType>>()=_x; \
+      y.get<numsim::cas::scalar<ValueType>>()=_y; \
+      z.get<numsim::cas::scalar<ValueType>>()=_z; \
+      EXPECT_EQ(-_x-_y-_z, numsim::cas::evaluate(-x-y-z)); \
 } \
 
 #define scalar_complex_expr(ValueType)  \
 TEST(gtest, scalar_complex_expr_##ValueType){ \
-      auto [x,y,z]{symTM::make_scalar_variable<ValueType>("x","y","z")}; \
+      auto [x,y,z]{numsim::cas::make_scalar_variable<ValueType>("x","y","z")}; \
       ValueType _x{5.99},_y{8.89},_z{9.99}; \
-      x.get<symTM::scalar<ValueType>>()=_x; \
-      y.get<symTM::scalar<ValueType>>()=_y; \
-      z.get<symTM::scalar<ValueType>>()=_z; \
-      EXPECT_EQ(_x-_y+_z, symTM::evaluate(x-y+z)); \
+      x.get<numsim::cas::scalar<ValueType>>()=_x; \
+      y.get<numsim::cas::scalar<ValueType>>()=_y; \
+      z.get<numsim::cas::scalar<ValueType>>()=_z; \
+      EXPECT_EQ(_x-_y+_z, numsim::cas::evaluate(x-y+z)); \
 }
 
        /// TODO

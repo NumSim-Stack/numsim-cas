@@ -1,7 +1,7 @@
 #ifndef IS_SYMBOL_H
 #define IS_SYMBOL_H
 
-#include "symTM/scalar/scalar_expression.h"
+#include "scalar/scalar_expression.h"
 
 namespace numsim::cas {
 

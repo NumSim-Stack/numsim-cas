@@ -1,8 +1,8 @@
 #ifndef BASIS_CHANGE_H
 #define BASIS_CHANGE_H
 
-#include "symTM/symTM_type_traits.h"
-#include "symTM/unary_op.h"
+#include "../symTM_type_traits.h"
+#include "../unary_op.h"
 #include <algorithm>
 #include <stdexcept>
 #include <vector>
