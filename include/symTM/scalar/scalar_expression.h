@@ -36,13 +36,6 @@ std::ostream& operator<<(std::ostream & os, expression_holder<scalar_expression<
 }
 
 template<typename ValueType>
-std::ostream& operator<<(std::ostream & os, expression_holder<scalar_expression<ValueType>> && expr){
-  scalar_printer<ValueType, std::ostream> printer(os);
-  printer.apply(expr);
-  return os;
-}
-
-template<typename ValueType>
 struct expression_details<scalar_expression<ValueType>>{
   using variant = scalar_node<ValueType>;
 

@@ -129,8 +129,6 @@ public:
 
   template<typename _ExprBase>
   friend std::ostream& operator<<(std::ostream & os, expression_holder<_ExprBase> const& expr);
-  template<typename _ExprBase>
-  friend std::ostream& operator<<(std::ostream & os, expression_holder<_ExprBase> && expr);
 private:
   std::shared_ptr<node_type> m_expr;
 };

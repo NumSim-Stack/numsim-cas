@@ -15,7 +15,7 @@ public:
 
   template <typename LHS, typename RHS>
   tensor_scalar_div(LHS &&lhs, RHS &&rhs)
-      : base(std::forward<LHS>(lhs), std::forward<RHS>(rhs),call_tensor::dim(this->m_lhs), call_tensor::rank(this->m_lhs))
+      : base(std::forward<LHS>(lhs), std::forward<RHS>(rhs),call_tensor::dim(lhs), call_tensor::rank(lhs))
   {}
 };
 

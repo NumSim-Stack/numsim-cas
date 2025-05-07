@@ -5,6 +5,7 @@
 #include "simplifier/tensor_simplifier_add.h"
 #include "simplifier/tensor_simplifier_sub.h"
 #include "simplifier/tensor_simplifier_mul.h"
+#include "simplifier/tensor_with_scalar_simplifier_div.h"
 
 namespace numsim::cas {
 
@@ -24,6 +25,11 @@ template <typename ExprTypeLHS, typename ExprTypeRHS>
   //lhs := scalar_expression,
   //rhs := tensor_expression
   return visit(tensor_detail::simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+}
+
+template <typename ExprTypeLHS, typename ExprTypeRHS>
+[[nodiscard]] constexpr inline auto binary_div_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
+  return visit(tensor_detail::simplifier::div_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
 }
 
 template<typename ValueType>
@@ -64,7 +70,7 @@ struct operator_overload<expression_holder<tensor_expression<ValueType>>,
 
   template<typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto div(ExprTypeLHS && lhs, ExprTypeRHS && rhs){
-    return lhs;
+    return binary_div_tensor_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
     //return make_expression<tensor_scalar_div<ValueType>>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
   }
 

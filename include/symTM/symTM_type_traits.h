@@ -220,7 +220,7 @@ using tensor_node =
                  kronecker_delta<ValueType>,
                  //simple_outer_product<ValueType>,
                  tensor_scalar_mul<ValueType>,
-                 //tensor_scalar_div<ValueType>,
+                 tensor_scalar_div<ValueType>,
                  tensor_symmetry<ValueType>,
                  tensor_zero<ValueType>>;
 

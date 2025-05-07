@@ -119,7 +119,7 @@ public:
   void operator()(scalar_mul<ValueType> const &visitable,
                   [[maybe_unused]]Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
-    //begin(precedence, parent_precedence);
+    begin(precedence, parent_precedence);
     bool first = true;
     if (visitable.coeff().is_valid()) {
       apply(visitable.coeff(), precedence);
@@ -131,7 +131,7 @@ public:
       apply(child, precedence);
       first = false;
     }
-    //end(precedence, parent_precedence);
+    end(precedence, parent_precedence);
   }
 
   /**
@@ -206,15 +206,15 @@ public:
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
-    apply(visitable.expr_lhs(), precedence);
+    apply(visitable.expr_lhs(), Precedence::Division_LHS);
     m_out << "/";
-    apply(visitable.expr_rhs(), precedence);
+    apply(visitable.expr_rhs(), Precedence::Division_RHS);
     end(precedence, parent_precedence);
   }
 
   void operator()(scalar_negative<ValueType> const &visitable,
                   Precedence parent_precedence) {
-    constexpr auto precedence{Precedence::Unary};
+    constexpr auto precedence{Precedence::Negative};
 
     m_out << "-";
     begin(precedence, parent_precedence);

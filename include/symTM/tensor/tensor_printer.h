@@ -203,12 +203,12 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()([[maybe_unused]] tensor_scalar_div<ValueType> const&visitable, [[maybe_unused]] Precedence parent_precedence) {
-//    constexpr auto precedence{Precedence::Multiplication};
-//    m_out << "(";
-//    apply(visitable.expr_lhs(), precedence);
-//    m_out << ") / (";
-//    apply(visitable.expr_rhs(), precedence);
-//    m_out << ")";
+    constexpr auto precedence{Precedence::Multiplication};
+    begin(precedence, parent_precedence);
+    apply(visitable.expr_lhs(), Precedence::Division_LHS);
+    m_out << "/";
+    apply(visitable.expr_rhs(), Precedence::Division_RHS);
+    end(precedence, parent_precedence);
   }
 
   /**
@@ -234,6 +234,12 @@ public:
   }
 
 private:
+  auto apply(expression_holder<scalar_expression<ValueType>> const&expr,
+             [[maybe_unused]]Precedence parent_precedence = Precedence::None) {
+    scalar_printer<ValueType, StreamType> printer(m_out);
+    printer.apply(expr, parent_precedence);
+  }
+
   using base::m_out; ///< The output stream used for printing.
   bool m_first{false}; ///< Indicates if this is the first expression in a sequence.
 };

@@ -47,13 +47,6 @@ std::ostream& operator<<(std::ostream & os, expression_holder<tensor_expression<
 }
 
 template<typename ValueType>
-std::ostream& operator<<(std::ostream & os, expression_holder<tensor_expression<ValueType>> && expr){
-  scalar_printer<ValueType, std::ostream> printer(os);
-  printer.apply(expr);
-  return os;
-}
-
-template<typename ValueType>
 struct expression_details<tensor_expression<ValueType>>{
   using variant = tensor_node<ValueType>;
 
