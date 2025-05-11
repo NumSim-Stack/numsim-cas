@@ -3,7 +3,7 @@
 
 #include "../n_ary_tree.h"
 #include "../scalar/scalar_expression.h"
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 
 namespace numsim::cas {
 

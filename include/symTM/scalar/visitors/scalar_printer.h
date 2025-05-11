@@ -2,7 +2,7 @@
 #define SCALAR_PRINTER_H
 
 #include "../../printer_base.h"
-#include "../../symTM_type_traits.h"
+#include "../../numsim_cas_type_traits.h"
 #include <iostream>
 #include <variant>
 #include <vector>

@@ -1,9 +1,9 @@
-#ifndef SYMTM_VARIANT_H
-#define SYMTM_VARIANT_H
+#ifndef NUMSIM_CAS_VARIANT_H
+#define NUMSIM_CAS_VARIANT_H
 
-#define SYMTM_USE_STD_VARIANT
+#define NUMSIM_CAS_USE_STD_VARIANT
 
-#if defined(SYMTM_USE_STD_VARIANT) && !defined(SYMTM_USE_BOOST_VARIANT)
+#if defined(NUMSIM_CAS_USE_STD_VARIANT) && !defined(NUMSIM_CAS_USE_BOOST_VARIANT)
 #include <variant>
 
 namespace numsim::cas {
@@ -12,7 +12,7 @@ using variant = std::variant<Args...>;
 using std::visit;
 }
 
-#elif !defined(SYMTM_USE_STD_VARIANT) && defined(SYMTM_USE_BOOST_VARIANT)
+#elif !defined(NUMSIM_CAS_USE_STD_VARIANT) && defined(NUMSIM_CAS_USE_BOOST_VARIANT)
 #include <boost/variant2>
 
 namespace numsim::cas {
@@ -24,4 +24,4 @@ using boost::variant2::visit;
 
 #endif
 
-#endif // SYMTM_VARIANT_H
+#endif // NUMSIM_CAS_VARIANT_H

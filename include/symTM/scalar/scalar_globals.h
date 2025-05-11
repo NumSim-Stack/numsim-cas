@@ -22,7 +22,8 @@ auto scalar_one_f{make_expression<scalar_one<float>>()};
 auto scalar_one_cd{make_expression<scalar_one<std::complex<double>>>()};
 auto scalar_one_ci{make_expression<scalar_one<std::complex<int>>>()};
 auto scalar_one_cf{make_expression<scalar_one<std::complex<float>>>()};
-}
+} // NAMESPACE detail
+
 template<typename T>
 constexpr inline auto& get_scalar_zero();
 template<>

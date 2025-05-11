@@ -1,7 +1,7 @@
 #ifndef TENSOR_CONSTANT_H
 #define TENSOR_CONSTANT_H
 
-#include "symTM_type_traits.h"
+#include "numsim_cas_type_traits.h"
 
 namespace numsim::cas {
 

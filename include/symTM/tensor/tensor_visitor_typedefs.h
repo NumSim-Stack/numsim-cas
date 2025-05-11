@@ -1,7 +1,7 @@
 #ifndef TENSOR_VISITOR_TYPEDEFS_H
 #define TENSOR_VISITOR_TYPEDEFS_H
 
-#include "symTM_type_traits.h"
+#include "numsim_cas_type_traits.h"
 #include "tensor_printer.h"
 
 //namespace numsim::cas {

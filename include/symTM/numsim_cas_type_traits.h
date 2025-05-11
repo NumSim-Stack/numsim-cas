@@ -1,5 +1,5 @@
-#ifndef SYTM_TYPE_TRAITS_H
-#define SYTM_TYPE_TRAITS_H
+#ifndef NUMSIM_CAS_TRAITS_H
+#define NUMSIM_CAS_TRAITS_H
 
 #include <memory>
 #include <variant>
@@ -10,9 +10,8 @@
 #include <set>
 #include "tensor/tensor_data_eval.h"
 #include "tensor/tensor_data.h"
-#include "symTM_forward.h"
+#include "numsim_cas_forward.h"
 
-#define SYMTM_USE_POLY
 
 //#if !defined(SYMTM_USE_VARIANT) || !defined(SYMTM_USE_POLY)
 //#if defined(__clang__)
@@ -599,6 +598,6 @@ concept isScalarZero = std::is_same_v<std::remove_cvref_t<T>, scalar_zero<typena
 template<class T>
 concept isScalarConstant = std::is_same_v<std::remove_cvref_t<T>, scalar_constant<typename T::value_type>>;
 
-} // NAMESPACE symTM
+} // NAMESPACE numsim::cas
 
-#endif // SYTM_TYPE_TRAITS_H
+#endif // NUMSIM_CAS_TRAITS_H

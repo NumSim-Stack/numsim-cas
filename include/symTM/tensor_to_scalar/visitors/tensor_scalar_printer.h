@@ -8,7 +8,7 @@
 #include <variant>
 #include <vector>
 #include "../../printer_base.h"
-#include "../../symTM_type_traits.h"
+#include "../../numsim_cas_type_traits.h"
 #include "../../scalar/visitors/scalar_printer.h"
 
 namespace numsim::cas {

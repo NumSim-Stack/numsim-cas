@@ -2,7 +2,7 @@
 #define PRINTER_BASE_H
 
 #include <string_view>
-#include "symTM_forward.h"
+#include "numsim_cas_forward.h"
 
 namespace numsim::cas {
 // Define a strongly-typed enum class for operation precedence

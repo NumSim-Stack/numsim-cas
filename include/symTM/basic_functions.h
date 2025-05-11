@@ -1,8 +1,8 @@
 #ifndef BASIC_FUNCTIONS_H
 #define BASIC_FUNCTIONS_H
 
-#include "symTM_type_traits.h"
-#include "symTM_forward.h"
+#include "numsim_cas_type_traits.h"
+#include "numsim_cas_forward.h"
 #include "scalar/scalar_constant.h"
 
 namespace numsim::cas {

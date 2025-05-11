@@ -2,7 +2,7 @@
 #define SYMBOL_BASE_H
 
 #include <string>
-#include "symTM_type_traits.h"
+#include "numsim_cas_type_traits.h"
 #include "assumptions.h"
 #include "utility_func.h"
 

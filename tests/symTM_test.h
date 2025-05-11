@@ -2,7 +2,7 @@
 #define TST_GTEST_H
 
 #include <complex>
-#include "symTM.h"
+#include "numsim_cas.h"
 #include "gtest/gtest.h"
 
 using complexd = std::complex<double>;

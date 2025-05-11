@@ -3,7 +3,7 @@
 
 #include "../expression_holder.h"
 #include "../expression.h"
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "visitors/scalar_printer.h"
 
 namespace numsim::cas {

@@ -4,8 +4,8 @@
 #include "../../expression_holder.h"
 #include "../../operators.h"
 #include "../../scalar/scalar_constant.h"
-#include "../../symTM_forward.h"
-#include "../../symTM_type_traits.h"
+#include "../../numsim_cas_forward.h"
+#include "../../numsim_cas_type_traits.h"
 #include "../tensor_mul.h"
 #include "../tensor_pow.h"
 #include "../tensor_std.h"
@@ -106,7 +106,7 @@ public:
   auto operator()([[maybe_unused]] tensor<value_type> const &rhs) {
     if (lhs.hash_value() == rhs.hash_value()) {
       const auto rhs_expr{lhs.expr_rhs() +
-                          make_expression<scalar_one<value_type>>()};
+                          get_scalar_one<value_type>()};
       return make_expression<tensor_pow<value_type>>(lhs.expr_lhs(),
                                                      std::move(rhs_expr));
     }

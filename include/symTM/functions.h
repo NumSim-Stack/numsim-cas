@@ -3,7 +3,7 @@
 
 //#include "scalar_functions.h"
 //#include "tensor_functions.h"
-#include "symTM_type_traits.h"
+#include "numsim_cas_type_traits.h"
 #include "scalar/visitors/scalar_evaluator.h"
 #include "scalar/visitors/scalar_differentiation.h"
 #include "tensor/tensor_evaluator.h"

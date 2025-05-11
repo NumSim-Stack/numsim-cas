@@ -2,7 +2,7 @@
 #define TENSOR_STD_H
 
 #include "../expression_holder.h"
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "tensor_printer.h"
 #include <sstream>
 

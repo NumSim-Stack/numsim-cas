@@ -52,13 +52,13 @@ set(SRC_PATH src)
 
 set(PUBLIC_HEADER_FILES
     #common
-    ${INCLUDE_PATH}/symTM.h
+    ${INCLUDE_PATH}/numsim_cas.h
     ${INCLUDE_PATH}/binary_op.h
     ${INCLUDE_PATH}/expression.h
     ${INCLUDE_PATH}/functions.h
     ${INCLUDE_PATH}/n_ary_tree.h
     ${INCLUDE_PATH}/symbol_base.h
-    ${INCLUDE_PATH}/symTM_type_traits.h
+    ${INCLUDE_PATH}/numsim_cas_type_traits.h
     ${INCLUDE_PATH}/unary_op.h
     ${INCLUDE_PATH}/expression_holder.h
     include/symTM/utility_func.h
@@ -67,12 +67,12 @@ set(PUBLIC_HEADER_FILES
     include/symTM/get_hash_scalar.h
     include/symTM/is_symbol.h
     include/symTM/printer_base.h
-    include/symTM/symTM_forward.h
+    include/symTM/numsim_cas_forward.h
     include/symTM/expression_crtp.h
     include/symTM/assumptions.h
     include/symTM/basic_functions.h
     include/symTM/simplify_rule_registry.h
-    include/symTM/symTM_variant.h
+    include/symTM/numsim_cas_variant.h
 
     #tensor
     ${INCLUDE_PATH_TENSOR}/basis_change.h

@@ -3,7 +3,7 @@
 
 #include "../binary_op.h"
 #include "tensor_expression.h"
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include <algorithm>
 #include <stdexcept>
 #include <vector>

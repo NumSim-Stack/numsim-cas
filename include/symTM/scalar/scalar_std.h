@@ -1,8 +1,8 @@
 #ifndef SCALAR_STD_H
 #define SCALAR_STD_H
 
-#include "../symTM_forward.h"
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_forward.h"
+#include "../numsim_cas_type_traits.h"
 #include "visitors/scalar_printer.h"
 #include "../functions.h"
 #include <sstream>
