@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(symTMVar VERSION 1.0.0 LANGUAGES CXX DESCRIPTION "symTM description")
+project(NumSim_CAS VERSION 1.0.0 LANGUAGES CXX DESCRIPTION "NumSim_CAS description")
 
 
 set(CMAKE_CXX_STANDARD 23)
@@ -27,12 +27,12 @@ endif()
 
 # do not install google test framework
 set(INSTALL_GTEST OFF)
-OPTION(SYMTM_INSTALL_LIBRARY
+OPTION(NUMSIM_CAS_INSTALL_LIBRARY
        "Enable installing of tmech library into default locations"
        ${IS_TOPLEVEL_PROJECT})
-OPTION(BUILD_EXAMPLES "symTM examples" OFF)
-OPTION(BUILD_TESTS "symTM test suite" ON)
-OPTION(BUILD_BENCHMARK "symTM benchmark" OFF)
+OPTION(BUILD_EXAMPLES "NumSim_CAS examples" OFF)
+OPTION(BUILD_TESTS "NumSim_CAS test suite" ON)
+OPTION(BUILD_BENCHMARK "NumSim_CAS benchmark" OFF)
 OPTION(DOWNLOAD_GTEST "build gtest from downloaded sources" OFF)
 OPTION(DOWNLOAD_GBENCHMARK "download google benchmark and build from source" OFF)
 
@@ -43,7 +43,7 @@ OPTION(DOWNLOAD_GBENCHMARK "download google benchmark and build from source" OFF
 #)
 #FetchContent_MakeAvailable(tmech)
 
-set(INCLUDE_PATH include/symTM)
+set(INCLUDE_PATH include/numsim_cas)
 set(INCLUDE_PATH_COMMON ${INCLUDE_PATH}/common)
 set(INCLUDE_PATH_SCALAR ${INCLUDE_PATH}/scalar)
 set(INCLUDE_PATH_TENSOR ${INCLUDE_PATH}/tensor)
@@ -61,18 +61,18 @@ set(PUBLIC_HEADER_FILES
     ${INCLUDE_PATH}/numsim_cas_type_traits.h
     ${INCLUDE_PATH}/unary_op.h
     ${INCLUDE_PATH}/expression_holder.h
-    include/symTM/utility_func.h
-    include/symTM/nonlinear_solver_base.h
-    include/symTM/operators.h
-    include/symTM/get_hash_scalar.h
-    include/symTM/is_symbol.h
-    include/symTM/printer_base.h
-    include/symTM/numsim_cas_forward.h
-    include/symTM/expression_crtp.h
-    include/symTM/assumptions.h
-    include/symTM/basic_functions.h
-    include/symTM/simplify_rule_registry.h
-    include/symTM/numsim_cas_variant.h
+    include/numsim_cas/utility_func.h
+    include/numsim_cas/nonlinear_solver_base.h
+    include/numsim_cas/operators.h
+    include/numsim_cas/get_hash_scalar.h
+    include/numsim_cas/is_symbol.h
+    include/numsim_cas/printer_base.h
+    include/numsim_cas/numsim_cas_forward.h
+    include/numsim_cas/expression_crtp.h
+    include/numsim_cas/assumptions.h
+    include/numsim_cas/basic_functions.h
+    include/numsim_cas/simplify_rule_registry.h
+    include/numsim_cas/numsim_cas_variant.h
 
     #tensor
     ${INCLUDE_PATH_TENSOR}/basis_change.h
@@ -105,15 +105,15 @@ set(PUBLIC_HEADER_FILES
     ${INCLUDE_PATH_TENSOR}/tensor_visitor_typedefs.h
     ${INCLUDE_PATH_TENSOR}/tensor_constant.h
     ${INCLUDE_PATH_TENSOR}/tensor_zero.h
-    include/symTM/tensor/tensor_mul.h
+    include/numsim_cas/tensor/tensor_mul.h
     ${INCLUDE_PATH_TENSOR}/tensor_sub.h
     ${INCLUDE_PATH_TENSOR}/tensor_add.h
-    include/symTM/tensor/tensor_pow.h
+    include/numsim_cas/tensor/tensor_pow.h
     ${INCLUDE_PATH_TENSOR}/simplifier/tensor_simplifier_add.h
     ${INCLUDE_PATH_TENSOR}/simplifier/tensor_simplifier_sub.h
-    include/symTM/tensor/simplifier/tensor_simplifier_mul.h
-    include/symTM/tensor/simplifier/tensor_with_scalar_simplifier_mul.h
-    include/symTM/tensor/simplifier/tensor_with_scalar_simplifier_div.h
+    include/numsim_cas/tensor/simplifier/tensor_simplifier_mul.h
+    include/numsim_cas/tensor/simplifier/tensor_with_scalar_simplifier_mul.h
+    include/numsim_cas/tensor/simplifier/tensor_with_scalar_simplifier_div.h
 
     #scalar
     ${INCLUDE_PATH_SCALAR}/scalar.h
@@ -138,7 +138,7 @@ set(PUBLIC_HEADER_FILES
     ${INCLUDE_PATH_SCALAR}/simplifier/scalar_simplifier_add.h
     ${INCLUDE_PATH_SCALAR}/simplifier/scalar_simplifier_mul.h
     ${INCLUDE_PATH_SCALAR}/simplifier/scalar_simplifier_sub.h
-    include/symTM/scalar/simplifier/scalar_simplifier_div.h
+    include/numsim_cas/scalar/simplifier/scalar_simplifier_div.h
     ${INCLUDE_PATH_SCALAR}/scalar_functions.h
     ${INCLUDE_PATH_SCALAR}/scalar_constant.h
     ${INCLUDE_PATH_SCALAR}/scalar_add.h
@@ -152,62 +152,62 @@ set(PUBLIC_HEADER_FILES
     ${INCLUDE_PATH_SCALAR}/visitors/scalar_evaluator.h
 
     #tensor valued scalar function
-    include/symTM/tensor_to_scalar/tensor_to_scalar_expression.h
-    include/symTM/tensor_to_scalar/tensor_to_scalar_negative.h
-    include/symTM/tensor_to_scalar/tensor_trace.h
-    include/symTM/tensor_to_scalar/tensor_det.h
-    include/symTM/tensor_to_scalar/tensor_norm.h
-    include/symTM/tensor_to_scalar/tensor_dot.h
-    include/symTM/tensor_to_scalar/tensor_to_scalar_pow.h
-    include/symTM/tensor_to_scalar/tensor_to_scalar_operators.h
-    include/symTM/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_add.h
-    include/symTM/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_mul.h
-    include/symTM/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_sub.h
-    include/symTM/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_div.h
-    include/symTM/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_add.h
-    include/symTM/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_mul.h
-    include/symTM/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_div.h
-    include/symTM/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_sub.h
-    include/symTM/tensor_to_scalar/simplifier/tensor_to_scalar_with_tensor_simplifier_mul.h
-    include/symTM/tensor_to_scalar/simplifier/tensor_to_scalar_with_tensor_simplifier_div.h
-    include/symTM/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_mul.h
-    include/symTM/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_add.h
-    include/symTM/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_sub.h
-    include/symTM/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_div.h
-    include/symTM/tensor_to_scalar/operators/tensor_to_scalar_with_tensor/tensor_to_scalar_with_tensor_mul.h
-    include/symTM/tensor_to_scalar/operators/tensor_to_scalar_with_tensor/tensor_to_scalar_with_tensor_div.h
-    include/symTM/tensor_to_scalar/visitors/tensor_scalar_printer.h
-    include/symTM/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_sub.h
-    include/symTM/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_mul.h
-    include/symTM/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h
-    include/symTM/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_div.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_negative.h
+    include/numsim_cas/tensor_to_scalar/tensor_trace.h
+    include/numsim_cas/tensor_to_scalar/tensor_det.h
+    include/numsim_cas/tensor_to_scalar/tensor_norm.h
+    include/numsim_cas/tensor_to_scalar/tensor_dot.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_pow.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h
+    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_add.h
+    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_mul.h
+    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_sub.h
+    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_div.h
+    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_add.h
+    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_mul.h
+    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_div.h
+    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_sub.h
+    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_tensor_simplifier_mul.h
+    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_tensor_simplifier_div.h
+    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_mul.h
+    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_add.h
+    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_sub.h
+    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_div.h
+    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_tensor/tensor_to_scalar_with_tensor_mul.h
+    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_tensor/tensor_to_scalar_with_tensor_div.h
+    include/numsim_cas/tensor_to_scalar/visitors/tensor_scalar_printer.h
+    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_sub.h
+    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_mul.h
+    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h
+    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_div.h
 )
 
 add_library(${PROJECT_NAME} INTERFACE
     ${PUBLIC_HEADER_FILES}
 )
 
-target_compile_definitions(${PROJECT_NAME} INTERFACE SYMTM_LIBRARY)
-#target_link_libraries(symTM tmech::tmech)
+target_compile_definitions(${PROJECT_NAME} INTERFACE NUMSIM_CAS_LIBRARY)
+#target_link_libraries(NumSim_CAS tmech::tmech)
 set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${PROJECT_VERSION})
 target_include_directories(${PROJECT_NAME} INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/symTM>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/numsim_cas>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>  # <prefix>/include/mylib
 )
 
 include(GNUInstallDirs)
 
-if(SYMTM_INSTALL_LIBRARY)
+if(NUMSIM_CAS_INSTALL_LIBRARY)
     install(
         TARGETS ${PROJECT_NAME}
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin
     )
-    install(FILES ${PUBLIC_HEADER_FILES} DESTINATION include/symTM)
+    install(FILES ${PUBLIC_HEADER_FILES} DESTINATION include/numsim_cas)
 endif()
 
-#install(TARGETS symTM
+#install(TARGETS NumSim_CAS
 #    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 #    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
