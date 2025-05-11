@@ -198,6 +198,8 @@ template <typename ExprType, typename Derived> class n_ary_tree;
 template <typename T> class tensor;
 template <typename ValueType> class tensor_expression;
 template <typename ValueType> class tensor_add;
+template <typename ValueType> class tensor_mul;
+template <typename ValueType> class tensor_pow;
 template <typename ValueType> class tensor_negative;
 template <typename ValueType> class inner_product_wrapper;
 template <typename ValueType> class basis_change_imp;
@@ -212,17 +214,19 @@ template <typename ValueType> class tensor_zero;
 template <typename ValueType>
 using tensor_node =
     std::variant<tensor<ValueType>,
-                 tensor_add<ValueType>,
                  tensor_negative<ValueType>,
                  inner_product_wrapper<ValueType>,
                  basis_change_imp<ValueType>,
                  outer_product_wrapper<ValueType>,
                  kronecker_delta<ValueType>,
                  //simple_outer_product<ValueType>,
+                 tensor_add<ValueType>,
+                 tensor_mul<ValueType>,
                  tensor_scalar_mul<ValueType>,
                  tensor_scalar_div<ValueType>,
                  tensor_symmetry<ValueType>,
-                 tensor_zero<ValueType>>;
+                 tensor_zero<ValueType>,
+                 tensor_pow<ValueType>>;
 
 
 // scalar

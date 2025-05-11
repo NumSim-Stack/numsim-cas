@@ -6,6 +6,7 @@
 #include "simplifier/tensor_simplifier_sub.h"
 #include "simplifier/tensor_simplifier_mul.h"
 #include "simplifier/tensor_with_scalar_simplifier_div.h"
+#include "simplifier/tensor_with_scalar_simplifier_mul.h"
 
 namespace numsim::cas {
 
@@ -22,14 +23,19 @@ template <typename ExprTypeLHS, typename ExprTypeRHS>
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_mul_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-  //lhs := scalar_expression,
-  //rhs := tensor_expression
   return visit(tensor_detail::simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
+[[nodiscard]] constexpr inline auto binary_mul_tensor_with_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
+  //lhs := scalar_expression,
+  //rhs := tensor_expression
+  return visit(tensor_with_scalar_detail::simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+}
+
+template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_div_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-  return visit(tensor_detail::simplifier::div_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+  return visit(tensor_with_scalar_detail::simplifier::div_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
 }
 
 template<typename ValueType>
@@ -43,6 +49,7 @@ struct operator_overload<expression_holder<tensor_expression<ValueType>>,
 
   template<typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto mul(ExprTypeLHS && lhs, ExprTypeRHS && rhs){
+    return binary_mul_tensor_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
   }
 
   template<typename ExprTypeLHS, typename ExprTypeRHS>
@@ -58,7 +65,7 @@ struct operator_overload<expression_holder<scalar_expression<ValueType>>,
 
   template<typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto mul(ExprTypeLHS && lhs, ExprTypeRHS && rhs){
-    return binary_mul_tensor_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
+    return binary_mul_tensor_with_scalar_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
     //return make_expression<tensor_scalar_mul<ValueType>>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
   }
 };
@@ -76,7 +83,7 @@ struct operator_overload<expression_holder<tensor_expression<ValueType>>,
 
   template<typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto mul(ExprTypeLHS && lhs, ExprTypeRHS && rhs){
-    return binary_mul_tensor_simplify(std::forward<ExprTypeRHS>(rhs), std::forward<ExprTypeLHS>(lhs));
+    return binary_mul_tensor_with_scalar_simplify(std::forward<ExprTypeRHS>(rhs), std::forward<ExprTypeLHS>(lhs));
     //return make_expression<tensor_scalar_mul<ValueType>>(std::forward<ExprTypeRHS>(rhs), std::forward<ExprTypeLHS>(lhs));
   }
 };

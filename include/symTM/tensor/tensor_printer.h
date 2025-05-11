@@ -94,6 +94,19 @@ public:
     end(precedence, parent_precedence);
   }
 
+  void operator()(tensor_mul<ValueType> const&visitable, [[maybe_unused]]Precedence parent_precedence) {
+    constexpr auto precedence{Precedence::Multiplication};
+    begin(precedence, parent_precedence);
+    bool first = true;
+    for (auto &child : visitable.hash_map() | std::views::values) {
+      if (!first)
+        m_out << "*";
+      apply(child, precedence);
+      first = false;
+    }
+    end(precedence, parent_precedence);
+  }
+
   /**
    * @brief Prints a tensor negative expression.
    *
@@ -231,6 +244,16 @@ public:
    */
   void operator()([[maybe_unused]]tensor_zero<ValueType> const&visitable, [[maybe_unused]] Precedence parent_precedence) {
     m_out << "0";
+  }
+
+
+  void operator()(tensor_pow<ValueType> const &visitable,
+                  Precedence parent_precedence) {
+    m_out << "pow(";
+    apply(visitable.expr_lhs(), parent_precedence);
+    m_out << ",";
+    apply(visitable.expr_rhs(), parent_precedence);
+    m_out << ")";
   }
 
 private:

@@ -6,7 +6,7 @@
 #include "../tensor_expression.h"
 
 namespace numsim::cas {
-namespace tensor_detail {
+namespace tensor_with_scalar_detail {
 namespace simplifier {
 
 template <typename ExprLHS, typename ExprRHS>

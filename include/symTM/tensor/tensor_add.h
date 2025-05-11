@@ -3,7 +3,6 @@
 
 #include "../n_ary_tree.h"
 #include "../symTM_type_traits.h"
-#include <stdexcept>
 
 namespace numsim::cas {
 
@@ -20,6 +19,6 @@ public:
   const tensor_add &operator=(tensor_add &&) = delete;
 };
 
-} // NAMESPACE symTM
+} // NAMESPACE numsim::cas
 
 #endif // TENSOR_ADD_H

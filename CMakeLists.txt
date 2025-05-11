@@ -79,13 +79,11 @@ set(PUBLIC_HEADER_FILES
     ${INCLUDE_PATH_TENSOR}/inner_product_wrapper.h
     ${INCLUDE_PATH_TENSOR}/outer_product_wrapper.h
     ${INCLUDE_PATH_TENSOR}/tensor.h
-    ${INCLUDE_PATH_TENSOR}/tensor_add.h
     ${INCLUDE_PATH_TENSOR}/tensor_data.h
     ${INCLUDE_PATH_TENSOR}/tensor_data_add.h
     ${INCLUDE_PATH_TENSOR}/tensor_data_basis_change.h
     ${INCLUDE_PATH_TENSOR}/tensor_data_inner_product.h
     ${INCLUDE_PATH_TENSOR}/tensor_data_outer_product.h
-    ${INCLUDE_PATH_TENSOR}/tensor_sub.h
     ${INCLUDE_PATH_TENSOR}/tensor_evaluator.h
     ${INCLUDE_PATH_TENSOR}/tensor_scalar_mul.h
     ${INCLUDE_PATH_TENSOR}/tensor_scalar_div.h
@@ -107,6 +105,10 @@ set(PUBLIC_HEADER_FILES
     ${INCLUDE_PATH_TENSOR}/tensor_visitor_typedefs.h
     ${INCLUDE_PATH_TENSOR}/tensor_constant.h
     ${INCLUDE_PATH_TENSOR}/tensor_zero.h
+    include/symTM/tensor/tensor_mul.h
+    ${INCLUDE_PATH_TENSOR}/tensor_sub.h
+    ${INCLUDE_PATH_TENSOR}/tensor_add.h
+    include/symTM/tensor/tensor_pow.h
     ${INCLUDE_PATH_TENSOR}/simplifier/tensor_simplifier_add.h
     ${INCLUDE_PATH_TENSOR}/simplifier/tensor_simplifier_sub.h
     include/symTM/tensor/simplifier/tensor_simplifier_mul.h

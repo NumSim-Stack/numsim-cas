@@ -26,6 +26,8 @@
 ///   --> add (x+y+z) + (x+a) --> 2*x+y+z+a --> mul
 ///   --> mul (x*y*z) * (x*a) --> pow(x,2)*y*z*a --> pow
 /// tensor_to_scalar::implifier::mul_base x*pow(x,constant) --> pow(x,constant+1)
+/// remove in all tensor expressions _using base::base_ because we need to init dim and rank at construction
+/// tensor_constant
 
 /// TODO
 /// return Expression<ExprType> ExprType := {scalar_expression, tensor_expression, tensor_scalar_expression}
@@ -83,6 +85,8 @@
 #include "tensor/tensor.h"
 #include "tensor/tensor_sub.h"
 #include "tensor/tensor_add.h"
+#include "tensor/tensor_mul.h"
+#include "tensor/tensor_pow.h"
 #include "tensor/inner_product_wrapper.h"
 #include "tensor/basis_change.h"
 #include "tensor/outer_product_wrapper.h"
