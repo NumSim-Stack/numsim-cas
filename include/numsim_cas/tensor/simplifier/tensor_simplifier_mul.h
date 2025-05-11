@@ -31,7 +31,7 @@ public:
       typename std::remove_reference_t<std::remove_const_t<ExprRHS>>;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  mul_default(ExprLHS lhs, ExprRHS rhs)
+  mul_default(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   //    //if(rhs_constant){
@@ -99,7 +99,7 @@ public:
   using base::operator();
   using base::get_default;
 
-  tensor_pow_mul(ExprLHS lhs, ExprRHS rhs)
+  tensor_pow_mul(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<tensor_pow<value_type>>()} {}
 
@@ -138,7 +138,7 @@ public:
   using base::operator();
   using base::get_default;
 
-  symbol_mul(ExprLHS lhs, ExprRHS rhs)
+  symbol_mul(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<tensor<value_type>>()} {}
 
@@ -162,7 +162,7 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  mul_base(ExprLHS lhs, ExprRHS rhs)
+  mul_base(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   constexpr inline expr_type operator()(tensor<value_type> const &) {

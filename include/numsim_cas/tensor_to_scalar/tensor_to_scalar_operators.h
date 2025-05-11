@@ -16,32 +16,32 @@ namespace numsim::cas {
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_add_tensor_to_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-  return visit(tensor_to_scalar_detail::simplifier::add_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+  return visit(tensor_to_scalar_detail::simplifier::add_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_sub_tensor_to_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-  return visit(tensor_to_scalar_detail::simplifier::sub_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+  return visit(tensor_to_scalar_detail::simplifier::sub_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_mul_tensor_to_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-  return visit(tensor_to_scalar_detail::simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+  return visit(tensor_to_scalar_detail::simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_div_tensor_to_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-  return visit(tensor_to_scalar_detail::simplifier::div_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+  return visit(tensor_to_scalar_detail::simplifier::div_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_add_tensor_to_scalar_with_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-  return visit(tensor_to_scalar_with_scalar_detail::simplifier::add_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+  return visit(tensor_to_scalar_with_scalar_detail::simplifier::add_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_mul_tensor_to_scalar_with_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-  return visit(tensor_to_scalar_with_scalar_detail::simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+  return visit(tensor_to_scalar_with_scalar_detail::simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
 
 template<typename ValueType>
