@@ -2,7 +2,7 @@
 #define TENSOR_PRINTER_H
 
 #include "../printer_base.h"
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "../scalar/visitors/scalar_printer.h"
 #include <string>
 #include <algorithm>

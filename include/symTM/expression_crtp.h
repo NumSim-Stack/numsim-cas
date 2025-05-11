@@ -2,7 +2,7 @@
 #define EXPRESSION_CRTP_H
 
 #include <cstdlib>
-#include "symTM_type_traits.h"
+#include "numsim_cas_type_traits.h"
 
 namespace numsim::cas {
 

@@ -1,7 +1,7 @@
 #ifndef TENSOR_EVALUATOR_H
 #define TENSOR_EVALUATOR_H
 
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "tensor_data.h"
 #include "tensor_data_add.h"
 #include "tensor_data_sub.h"

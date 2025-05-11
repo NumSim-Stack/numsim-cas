@@ -1,7 +1,7 @@
 #ifndef SCALAR_VISITOR_TYPEDEF_H
 #define SCALAR_VISITOR_TYPEDEF_H
 
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "scalar_expression.h"
 
 //namespace numsim::cas {

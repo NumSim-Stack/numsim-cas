@@ -5,7 +5,7 @@
 #include "tensor_expression.h"
 #include "../symbol_base.h"
 #include "tensor_data.h"
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "../functions.h"
 #include "tensor_functions.h"
 #include "tensor_negative.h"

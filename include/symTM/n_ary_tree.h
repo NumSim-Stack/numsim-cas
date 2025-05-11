@@ -4,7 +4,7 @@
 #include "expression_crtp.h"
 #include "get_hash_scalar.h"
 #include "is_symbol.h"
-#include "symTM_type_traits.h"
+#include "numsim_cas_type_traits.h"
 #include <memory>
 #include <vector>
 

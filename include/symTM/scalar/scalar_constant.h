@@ -1,7 +1,7 @@
 #ifndef SCALAR_CONSTANT_H
 #define SCALAR_CONSTANT_H
 
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "../utility_func.h"
 
 namespace numsim::cas {

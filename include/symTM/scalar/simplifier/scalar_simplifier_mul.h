@@ -1,7 +1,7 @@
 #ifndef SCALAR_SIMPLIFIER_MUL_H
 #define SCALAR_SIMPLIFIER_MUL_H
 
-#include "../../symTM_forward.h"
+#include "../../numsim_cas_forward.h"
 #include "../scalar_constant.h"
 #include <type_traits>
 

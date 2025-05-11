@@ -1,5 +1,5 @@
-#ifndef SYMTM_FORWARD_H
-#define SYMTM_FORWARD_H
+#ifndef NUMSIM_CAS_FORWARD_H
+#define NUMSIM_CAS_FORWARD_H
 
 namespace numsim::cas {
 
@@ -11,4 +11,4 @@ template <typename ValueType> class tensor_expression;
 template <typename ValueType> class tensor;
 }
 
-#endif // SYMTM_FORWARD_H
+#endif // NUMSIM_CAS_FORWARD_H

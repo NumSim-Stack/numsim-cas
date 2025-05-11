@@ -2,7 +2,7 @@
 #define UNARY_OP_H
 
 #include "expression_crtp.h"
-#include "symTM_type_traits.h"
+#include "numsim_cas_type_traits.h"
 #include "utility_func.h"
 
 namespace numsim::cas {

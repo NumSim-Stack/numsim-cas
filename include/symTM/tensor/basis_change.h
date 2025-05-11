@@ -1,7 +1,7 @@
 #ifndef BASIS_CHANGE_H
 #define BASIS_CHANGE_H
 
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "../unary_op.h"
 #include <algorithm>
 #include <stdexcept>

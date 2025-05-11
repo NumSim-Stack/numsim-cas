@@ -2,7 +2,7 @@
 #define TENSOR_DATA_OUTER_PRODUCT_H
 
 #include "tensor_data.h"
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 
 namespace numsim::cas {
 

@@ -1,33 +1,11 @@
-#ifndef symTMECH_H
-#define symTMECH_H
+#ifndef NUMSIM_CAS_H
+#define NUMSIM_CAS_H
 
 /// TODO
 /// General
 ///   basis_change.h   --> basis_change_wrapper.h
 ///   basis_change_imp --> basis_change_wrapper
 ///   visitor concept for not same arguemts
-///
-///
-/// Scalar expression
-///
-/// Tensor-Scalar expression
-///
-///
-/// TODO
-/// pattern matching based on templates
-/// use new approach for scalar_simplifier_mul
-/// cleanup scalar stuff
-/// cleanup tensor stuff
-/// cleanup common stuff
-/// cleanup cmake script (include dir and so on)
-/// generate doxygen code
-/// merge two n_ary_trees
-///   --> use std::function for special handling?
-///   --> add (x+y+z) + (x+a) --> 2*x+y+z+a --> mul
-///   --> mul (x*y*z) * (x*a) --> pow(x,2)*y*z*a --> pow
-/// tensor_to_scalar::implifier::mul_base x*pow(x,constant) --> pow(x,constant+1)
-/// remove in all tensor expressions _using base::base_ because we need to init dim and rank at construction
-/// tensor_constant
 
 /// TODO
 /// return Expression<ExprType> ExprType := {scalar_expression, tensor_expression, tensor_scalar_expression}
@@ -76,7 +54,7 @@
 
 
 //generall
-#include "symTM_type_traits.h"
+#include "numsim_cas_type_traits.h"
 #include "expression.h"
 #include "functions.h"
 #include "utility_func.h"
@@ -142,7 +120,7 @@
 #include "scalar/scalar_sqrt.h"
 #include "scalar/scalar_log.h"
 #include "scalar/scalar_std.h"
-
+#include "scalar/scalar_globals.h"
 #include "scalar/scalar_visitor_typedef.h"
 
 #include "scalar/scalar_operators.h"
@@ -195,5 +173,5 @@ group_by_common_factors(scalar_add<ValueType>& expr) {
   return common_factors;
 }
 
-}
-#endif // numsim::cas
+} // Namespace numsim::cas
+#endif // NUMSIM_CAS_H

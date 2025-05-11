@@ -6,8 +6,8 @@
 #include "../../operators.h"
 #include "../../expression_holder.h"
 #include "../tensor_std.h"
-#include "../../symTM_forward.h"
-#include "../../symTM_type_traits.h"
+#include "../../numsim_cas_forward.h"
+#include "../../numsim_cas_type_traits.h"
 
 namespace numsim::cas {
 

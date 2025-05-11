@@ -3,7 +3,7 @@
 
 #include "scalar_expression.h"
 #include "../symbol_base.h"
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 
 namespace numsim::cas {
 

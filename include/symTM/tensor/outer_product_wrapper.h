@@ -2,7 +2,7 @@
 #define OUTER_PRODUCT_WRAPPER_H
 
 #include "../binary_op.h"
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include <algorithm>
 #include <stdexcept>
 #include <vector>

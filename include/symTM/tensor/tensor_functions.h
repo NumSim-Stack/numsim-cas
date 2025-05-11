@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <cstdlib>
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "tensor_expression.h"
 #include "make_tensor_data_imp.h"
 

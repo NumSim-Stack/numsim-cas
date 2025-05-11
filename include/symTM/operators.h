@@ -1,8 +1,8 @@
 #ifndef OPERATORS_H
 #define OPERATORS_H
 
-#include "symTM_type_traits.h"
-#include "symTM_forward.h"
+#include "numsim_cas_type_traits.h"
+#include "numsim_cas_forward.h"
 #include "basic_functions.h"
 
 namespace numsim::cas {

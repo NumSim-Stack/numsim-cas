@@ -10,7 +10,7 @@
 #include "../scalar_globals.h"
 #include "../../basic_functions.h"
 #include "../../simplify_rule_registry.h"
-#include "../../symTM_type_traits.h"
+#include "../../numsim_cas_type_traits.h"
 
 namespace numsim::cas {
 template <typename ExprTypeLHS, typename ExprTypeRHS>

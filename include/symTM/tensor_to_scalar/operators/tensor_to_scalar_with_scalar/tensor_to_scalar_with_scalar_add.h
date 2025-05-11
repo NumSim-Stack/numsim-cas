@@ -2,7 +2,7 @@
 #define TENSOR_TO_SCALAR_SCALAR_ADD_H
 
 #include "../../../binary_op.h"
-#include "../../../symTM_type_traits.h"
+#include "../../../numsim_cas_type_traits.h"
 #include "../../tensor_to_scalar_expression.h"
 
 namespace numsim::cas {

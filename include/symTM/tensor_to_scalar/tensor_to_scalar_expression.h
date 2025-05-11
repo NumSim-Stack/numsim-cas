@@ -2,7 +2,7 @@
 #define TENSOR_TO_SCALAR_EXPRESSION_H
 
 #include <cstdlib>
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "../expression.h"
 #include "../expression_holder.h"
 #include "visitors/tensor_scalar_printer.h"

@@ -2,7 +2,7 @@
 #define TENSOR_SCALAR_DIV_H
 
 #include <stdexcept>
-#include "../symTM_type_traits.h"
+#include "../numsim_cas_type_traits.h"
 #include "../binary_op.h"
 
 namespace numsim::cas {
