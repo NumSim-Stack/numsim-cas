@@ -598,6 +598,7 @@ concept isScalarZero = std::is_same_v<std::remove_cvref_t<T>, scalar_zero<typena
 template<class T>
 concept isScalarConstant = std::is_same_v<std::remove_cvref_t<T>, scalar_constant<typename T::value_type>>;
 
+
 } // NAMESPACE numsim::cas
 
 #endif // NUMSIM_CAS_TRAITS_H

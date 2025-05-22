@@ -73,6 +73,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/basic_functions.h
     include/numsim_cas/simplify_rule_registry.h
     include/numsim_cas/numsim_cas_variant.h
+    include/numsim_cas/update_hash.h
 
     #tensor
     ${INCLUDE_PATH_TENSOR}/basis_change.h

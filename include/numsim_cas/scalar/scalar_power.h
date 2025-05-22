@@ -16,19 +16,26 @@ public:
   scalar_pow() = delete;
   ~scalar_pow() = default;
   const scalar_pow &operator=(scalar_pow &&) = delete;
+};
 
-  inline void update_hash(){
-//    base::m_hash_value = 0;
-//    if(!is_same<scalar_constant<ValueType>>(this->m_rhs)){
-//      hash_combine(base::m_hash_value, this->m_lhs.get().hash_value());
-//      hash_combine(base::m_hash_value, this->m_rhs.get().hash_value());
-//    }else{
-//      base::m_hash_value = this->m_lhs.get().hash_value();
-//    }
-    base::m_hash_value = this->m_lhs.get().hash_value();
+template<typename T, typename ...Args>
+struct update_hash<numsim::cas::binary_op<numsim::cas::scalar_pow<T>, Args...>>
+{
+  using type_t = numsim::cas::binary_op<numsim::cas::scalar_pow<T>, Args...>;
+  std::size_t operator()(const type_t& expr) const noexcept
+  {
+    std::size_t seed{0};
+    numsim::cas::hash_combine(seed, type_t::get_id());
+    if(!numsim::cas::is_same<numsim::cas::scalar_constant<T>>(expr.expr_rhs())){
+      numsim::cas::hash_combine(seed, expr.expr_lhs().get().hash_value());
+      numsim::cas::hash_combine(seed, expr.expr_rhs().get().hash_value());
+    }else{
+      numsim::cas::hash_combine(seed, expr.expr_lhs().get().hash_value());
+    }
+    return seed;
   }
-private:
 };
 }
+
 
 #endif // SCALAR_POWER_H

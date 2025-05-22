@@ -7,6 +7,11 @@
 #include "utility_func.h"
 #include "numsim_cas_type_traits.h"
 #include "utility_func.h"
+#include "update_hash.h"
+
+
+
+
 
 namespace numsim::cas {
 
@@ -49,7 +54,7 @@ public:
       : base(std::forward<Args>(args)...),
         m_lhs(std::forward<ExprLHS>(expr_lhs)),
         m_rhs(std::forward<ExprRHS>(expr_rhs)) {
-    update_hash_imp();
+    base::m_hash_value = update_hash<binary_op<Derived, BaseLHS, BaseRHS>>()(*this);
   }
 
   /**
@@ -125,19 +130,30 @@ private:
   /**
    * @brief Updates the hash value of the binary operation.
    */
-  inline void update_hash_imp(){
-    if constexpr (is_detected_v<has_update_hash, Derived>){
-      static_cast<Derived&>(*this).update_hash();
-    }else{
-      static const auto id{base::get_id()};
-      base::m_hash_value = 0;
-      hash_combine(base::m_hash_value, id);
-      hash_combine(base::m_hash_value, m_lhs.get().hash_value());
-      hash_combine(base::m_hash_value, m_rhs.get().hash_value());
-    }
+  virtual void update_hash_value(){
+    static const auto id{base::get_id()};
+    base::m_hash_value = 0;
+    hash_combine(base::m_hash_value, id);
+    hash_combine(base::m_hash_value, m_lhs.get().hash_value());
+    hash_combine(base::m_hash_value, m_rhs.get().hash_value());
+  }
+};
+
+
+template<typename ...Args>
+struct update_hash<numsim::cas::binary_op<Args...>>
+{
+  std::size_t operator()(const numsim::cas::binary_op<Args...>& expr) const noexcept
+  {
+    std::size_t seed{0};
+    numsim::cas::hash_combine(seed, numsim::cas::binary_op<Args...>::get_id());
+    numsim::cas::hash_combine(seed, expr.expr_lhs().get().hash_value());
+    numsim::cas::hash_combine(seed, expr.expr_rhs().get().hash_value());
+    return seed;
   }
 };
 
 } // NAMESPACE symTM
+
 
 #endif // BINARY_OP_H
