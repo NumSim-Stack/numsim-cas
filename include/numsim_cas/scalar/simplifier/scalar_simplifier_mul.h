@@ -18,7 +18,7 @@ public:
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<scalar_expression<value_type>>;
 
-  mul_default(ExprLHS lhs, ExprRHS rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
+  mul_default(ExprLHS && lhs, ExprRHS && rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
 
   template<typename Expr>
   constexpr inline expr_type operator()(Expr const&){
@@ -80,7 +80,7 @@ public:
   using base::operator();
   using base::get_coefficient;
 
-  constant_mul(ExprLHS lhs, ExprRHS rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),lhs{base::m_lhs.template get<scalar_constant<value_type>>()}
+  constant_mul(ExprLHS && lhs, ExprRHS && rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),lhs{base::m_lhs.template get<scalar_constant<value_type>>()}
   {}
 
   constexpr inline expr_type operator()(scalar_constant<value_type> const& rhs){
@@ -111,7 +111,7 @@ public:
   using base::operator();
   using base::get_coefficient;
 
-  n_ary_mul(ExprLHS lhs, ExprRHS rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),lhs{base::m_lhs.template get<scalar_mul<value_type>>()}
+  n_ary_mul(ExprLHS && lhs, ExprRHS && rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),lhs{base::m_lhs.template get<scalar_mul<value_type>>()}
   {}
 
   //expr * constant
@@ -165,7 +165,7 @@ public:
   using base::get_default;
   using base::get_coefficient;
 
-  scalar_pow_mul(ExprLHS lhs, ExprRHS rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),lhs{base::m_lhs.template get<scalar_pow<value_type>>()}
+  scalar_pow_mul(ExprLHS && lhs, ExprRHS && rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),lhs{base::m_lhs.template get<scalar_pow<value_type>>()}
   {}
 
   auto operator()([[maybe_unused]] scalar<value_type> const& rhs) {
@@ -205,14 +205,14 @@ public:
   using base::get_default;
   using base::get_coefficient;
 
-  symbol_mul(ExprLHS lhs, ExprRHS rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),lhs{base::m_lhs.template get<scalar<value_type>>()}
+  symbol_mul(ExprLHS && lhs, ExprRHS && rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),lhs{base::m_lhs.template get<scalar<value_type>>()}
   {}
 
          /// x*x --> pow(x,2)
   constexpr inline expr_type operator()(scalar<value_type> const&rhs) {
     if (&lhs == &rhs) {
       return make_expression<scalar_pow<value_type>>(
-          m_rhs, make_expression<scalar_constant<value_type>>(2));
+          std::forward<ExprRHS>(m_rhs), make_expression<scalar_constant<value_type>>(2));
     }
     return get_default();
   }
@@ -232,7 +232,7 @@ struct mul_base
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<scalar_expression<value_type>>;
 
-  mul_base(ExprLHS lhs, ExprRHS rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
+  mul_base(ExprLHS && lhs, ExprRHS && rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
 
   constexpr inline expr_type operator()(scalar_constant<value_type> const&){
     return visit(constant_mul<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),std::forward<ExprRHS>(m_rhs)), *m_rhs);
