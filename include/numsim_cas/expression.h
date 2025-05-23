@@ -57,7 +57,6 @@ public:
   }
 
 protected:
-  //virtual void update_hash_value() = 0;
   /**
    * @brief Stores the hash value of the expression.
    */

@@ -124,19 +124,6 @@ protected:
    * @brief Holds the right-hand side expression.
    */
   expression_holder<BaseRHS> m_rhs;
-
-
-private:
-  /**
-   * @brief Updates the hash value of the binary operation.
-   */
-  virtual void update_hash_value(){
-    static const auto id{base::get_id()};
-    base::m_hash_value = 0;
-    hash_combine(base::m_hash_value, id);
-    hash_combine(base::m_hash_value, m_lhs.get().hash_value());
-    hash_combine(base::m_hash_value, m_rhs.get().hash_value());
-  }
 };
 
 
