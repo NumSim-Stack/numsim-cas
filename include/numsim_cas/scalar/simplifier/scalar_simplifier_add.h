@@ -68,8 +68,8 @@ public:
   }
 
 protected:
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS&& m_lhs;
+  ExprRHS&& m_rhs;
 };
 
 template <typename ExprLHS, typename ExprRHS>
@@ -302,8 +302,8 @@ struct add_base
     return visit(add_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),std::forward<ExprRHS>(m_rhs)), *m_rhs);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS&& m_lhs;
+  ExprRHS&& m_rhs;
 };
 }
 

@@ -65,8 +65,8 @@ public:
   }
 
 protected:
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS&& m_lhs;
+  ExprRHS&& m_rhs;
 };
 
 template <typename ExprLHS, typename ExprRHS>
@@ -398,8 +398,8 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
                  *m_rhs);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS&& m_lhs;
+  ExprRHS&& m_rhs;
 };
 
 } // namespace simplifier
