@@ -20,9 +20,7 @@ public:
             typename... Args>
   explicit unary_op(Expr &&expr, Args &&...args)
       : base(std::forward<Args>(args)...), m_expr(std::forward<Expr>(expr)) {
-    static const auto id{base::get_id()};
-    hash_combine(base::m_hash_value, m_expr.get().hash_value());
-    hash_combine(base::m_hash_value, id);
+    update_hash_value();
   }
 
   explicit unary_op(unary_op &&data)
@@ -38,6 +36,12 @@ public:
   }
 
 protected:
+  void update_hash_value(){
+    static const auto id{base::get_id()};
+    hash_combine(base::m_hash_value, m_expr.get().hash_value());
+    hash_combine(base::m_hash_value, id);
+  }
+
   expression_holder<ExprType> m_expr;
 };
 

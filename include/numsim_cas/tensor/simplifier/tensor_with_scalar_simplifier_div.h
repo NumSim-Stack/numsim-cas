@@ -16,7 +16,7 @@ struct div_default
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  div_default(ExprLHS lhs, ExprRHS rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
+  div_default(ExprLHS &&lhs, ExprRHS &&rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
 
   template<typename Expr>
   constexpr inline expr_type operator()(Expr const&){
@@ -54,7 +54,7 @@ struct tensor_div_simplifier final : public div_default<ExprLHS, ExprRHS>
   using base = div_default<ExprLHS, ExprRHS>;
   using base::operator();
 
-  tensor_div_simplifier(ExprLHS lhs, ExprRHS rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),m_expr(m_lhs.template get<tensor_scalar_div<value_type>>()){}
+  tensor_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),m_expr(m_lhs.template get<tensor_scalar_div<value_type>>()){}
 
   // (A/b)/(c/d) --> A*d/(b*c)
   constexpr inline expr_type operator()(tensor_scalar_div<value_type> const& rhs){
@@ -82,7 +82,7 @@ struct div_base
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  div_base(ExprLHS lhs, ExprRHS rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
+  div_base(ExprLHS &&lhs, ExprRHS &&rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
 
   //lhs should always be tensor_expression
   template<typename Expr,

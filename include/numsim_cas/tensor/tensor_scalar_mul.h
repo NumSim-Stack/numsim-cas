@@ -33,7 +33,7 @@ public:
     //static const auto id{base::get_id()};
     base::m_hash_value = 0;
     //hash_combine(base::m_hash_value, id);
-    if(!m_constant){
+     if(!m_constant){
       hash_combine(base::m_hash_value, this->m_lhs.get().hash_value());
     }
     hash_combine(base::m_hash_value, this->m_rhs.get().hash_value());
@@ -41,7 +41,7 @@ public:
   }
 
 private:
-  const bool m_constant;
+  bool m_constant;
 };
 
 } // NAMESPACE symTM

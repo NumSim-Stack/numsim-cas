@@ -137,6 +137,19 @@
 #include "basic_functions.h"
 
 
+namespace std {
+template<typename ...Args>
+struct hash<numsim::cas::expression_holder<Args...>>
+{
+  using type_t = numsim::cas::expression_holder<Args...>;
+  std::size_t operator()(const type_t& expr) const noexcept
+  {
+    return expr.get().hash_value();
+  }
+};
+}
+
+
 namespace numsim::cas {
 
 template<typename ValueType>

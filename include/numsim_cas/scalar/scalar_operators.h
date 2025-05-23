@@ -261,7 +261,7 @@ constexpr inline auto binary_scalar_add_simplify(ExprTypeLHS &&lhs, ExprTypeRHS 
 //  return std::visit(
 //      scalar_simplifier_add<ExprTypeLHS,ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
 //      _lhs, _rhs);
-  return visit(simplifier::add_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+  return visit(simplifier::add_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
@@ -271,7 +271,7 @@ constexpr inline auto binary_scalar_sub_simplify(ExprTypeLHS &&lhs, ExprTypeRHS 
 //  return std::visit(
 //      scalar_simplifier_add<ExprTypeLHS,ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
 //      _lhs, _rhs);
-  return visit(simplifier::sub_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+  return visit(simplifier::sub_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
@@ -290,7 +290,7 @@ constexpr inline auto binary_scalar_mul_simplify(ExprTypeLHS &&lhs, ExprTypeRHS 
 //  return std::visit(
 //      scalar_simplifier_mul<ExprTypeLHS,ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
 //      _lhs, _rhs);
-  return visit(simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(lhs,rhs), *lhs);
+  return visit(simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
 
 

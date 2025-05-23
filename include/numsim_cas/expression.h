@@ -52,7 +52,7 @@ public:
    * @brief Retrieves the hash value of the expression.
    * @return The hash value.
    */
-  hash_type const& hash_value() const {
+  hash_type const& hash_value() const{
     return m_hash_value;
   }
 

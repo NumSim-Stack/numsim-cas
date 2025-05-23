@@ -35,7 +35,7 @@ public:
 
   template<typename ...Args>
   explicit symbol_base(std::string const &name, Args&&...args) noexcept : Base(std::forward<Args>(args)...),m_name(name) {
-    hash_combine(this->m_hash_value, m_name);
+    update_hash_value();
   }
 
   virtual ~symbol_base() {}
@@ -50,6 +50,9 @@ public:
   assumption_manager<expr_type> m_assumptions;
 
 protected:
+  void update_hash_value(){
+    hash_combine(this->m_hash_value, m_name);
+  }
   std::string m_name;
 };
 

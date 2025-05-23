@@ -16,6 +16,7 @@ template<typename Type, typename Expr>
 [[nodiscard]] inline bool is_same(Expr const& expr)noexcept{
   //const auto id{std::visit([](auto const&val){return val.get_id();}, *expr)};
   //return Type::get_id() == id;
+  assert(expr.is_valid());
   return holds_alternative<Type>(*expr);
 }
 

@@ -68,7 +68,7 @@ public:
   [[nodiscard]] inline auto& coeff()const noexcept{ return m_coeff; }
   [[nodiscard]] inline auto& coeff()noexcept{ return m_coeff; }
 
-  void update_hash(){
+  void update_hash_value(){
     std::vector<std::size_t> child_hashes;
     child_hashes.reserve(m_symbol_map.size());
     this->m_hash_value = 0;
@@ -121,7 +121,7 @@ private:
   template <typename T> void insert_hash(T const &expr) noexcept{
     assert(m_symbol_map.find(get_hash_value(expr)) == m_symbol_map.end());
     m_symbol_map[get_hash_value(expr)] = expr;
-    update_hash();
+    update_hash_value();
   }
 };
 
