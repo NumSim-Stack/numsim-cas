@@ -16,7 +16,7 @@ struct div_default
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<scalar_expression<value_type>>;
 
-  div_default(ExprLHS lhs, ExprRHS rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
+  div_default(ExprLHS &&lhs, ExprRHS&& rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
 
   template<typename Expr>
   constexpr inline expr_type operator()(Expr const&){
@@ -34,8 +34,8 @@ protected:
     return std::move(div_new);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS&& m_lhs;
+  ExprRHS&& m_rhs;
 };
 
 template <typename ExprLHS, typename ExprRHS>
@@ -47,7 +47,7 @@ struct scalar_div_simplifier final : public div_default<ExprLHS, ExprRHS>
   using base = div_default<ExprLHS, ExprRHS>;
   using base::operator();
 
-  scalar_div_simplifier(ExprLHS lhs, ExprRHS rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),m_expr(m_lhs.template get<scalar_div<value_type>>()){}
+  scalar_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),m_expr(m_lhs.template get<scalar_div<value_type>>()){}
 
   // (a/b)/(c/d) --> a*d/(b*c)
   constexpr inline expr_type operator()(scalar_div<value_type> const& rhs){
@@ -75,7 +75,7 @@ struct constant_div_simplifier final : public div_default<ExprLHS, ExprRHS>
   using base = div_default<ExprLHS, ExprRHS>;
   using base::operator();
 
-  constant_div_simplifier(ExprLHS lhs, ExprRHS rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),m_expr(m_lhs.template get<scalar_constant<value_type>>()){}
+  constant_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),m_expr(m_lhs.template get<scalar_constant<value_type>>()){}
 
          // (a/b)/(c/d) --> a*d/(b*c)
   constexpr inline expr_type operator()(scalar_constant<value_type> const& rhs){
@@ -95,7 +95,7 @@ struct div_base
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<scalar_expression<value_type>>;
 
-  div_base(ExprLHS lhs, ExprRHS rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
+  div_base(ExprLHS &&lhs, ExprRHS &&rhs):m_lhs(std::forward<ExprLHS>(lhs)),m_rhs(std::forward<ExprRHS>(rhs)){}
 
   template<typename Type>
   constexpr inline expr_type operator()(Type const&){
@@ -114,8 +114,8 @@ struct div_base
     return visit(constant_div_simplifier<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),std::forward<ExprRHS>(m_rhs)), expr_rhs);
   }
 private:
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS&& m_lhs;
+  ExprRHS&& m_rhs;
 };
 
 }

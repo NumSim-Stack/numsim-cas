@@ -66,8 +66,8 @@ protected:
     return value;
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS&& m_lhs;
+  ExprRHS&& m_rhs;
 };
 
 template <typename ExprLHS, typename ExprRHS>
@@ -265,8 +265,8 @@ struct mul_base
     return visit(mul_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),std::forward<ExprRHS>(m_rhs)), *m_rhs);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS&& m_lhs;
+  ExprRHS&& m_rhs;
 };
 
 } // namespace simplifier
