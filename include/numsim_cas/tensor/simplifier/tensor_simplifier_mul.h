@@ -73,7 +73,7 @@ protected:
   auto get_default() {
     // const auto lhs_constant{is_same<tensor_constant<value_type>>(m_lhs)};
     // const auto rhs_constant{is_same<tensor_constant<value_type>>(m_rhs)};
-    auto mul_new{make_expression<tensor_mul<value_type>>()};
+    auto mul_new{make_expression<tensor_mul<value_type>>(m_lhs.get().dim(), m_rhs.get().rank())};
     auto &add{mul_new.template get<tensor_mul<value_type>>()};
     // if(lhs_constant){
     //   add.set_coeff(m_lhs);

@@ -29,7 +29,7 @@ public:
   auto get_default(){
     //const auto lhs_constant{is_same<tensor_constant<value_type>>(m_lhs)};
     //const auto rhs_constant{is_same<tensor_constant<value_type>>(m_rhs)};
-    auto add_new{make_expression<tensor_add<value_type>>()};
+    auto add_new{make_expression<tensor_add<value_type>>(m_lhs.get().dim(), m_rhs.get().rank())};
     auto& add{add_new.template get<tensor_add<value_type>>()};
     //if(lhs_constant){
     //  add.set_coeff(m_lhs);
@@ -151,7 +151,7 @@ public:
 
          //merge two expression
   auto operator()(tensor_add<value_type> const&rhs) {
-    auto expr{make_expression<tensor_add<value_type>>()};
+    auto expr{make_expression<tensor_add<value_type>>(rhs.dim(),rhs.rank())};
     auto& add{expr.template get<tensor_add<value_type>>()};
 //    add.set_coeff(lhs.coeff() + rhs.coeff());
 //    expr_set<expr_type> used_expr;

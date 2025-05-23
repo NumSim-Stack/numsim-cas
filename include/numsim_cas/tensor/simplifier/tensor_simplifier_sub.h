@@ -27,7 +27,7 @@ public:
   auto get_default(){
 //    const auto lhs_constant{is_same<tensor_constant<value_type>>(m_lhs)};
 //    const auto rhs_constant{is_same<tensor_constant<value_type>>(m_rhs)};
-    auto add_new{make_expression<tensor_add<value_type>>()};
+    auto add_new{make_expression<tensor_add<value_type>>(m_lhs.get().dim(), m_lhs.get().rank())};
     auto& add{add_new.template get<tensor_add<value_type>>()};
 
 //    if(lhs_constant){
