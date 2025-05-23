@@ -18,7 +18,7 @@ public:
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<scalar_expression<value_type>>;
 
-  sub_default(ExprLHS&& lhs, ExprRHS&& rhs)
+  sub_default(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   // rhs is negative
@@ -79,7 +79,7 @@ public:
   using base::operator();
   using base::get_coefficient;
 
-  negative_sub(ExprLHS&& lhs, ExprRHS&& rhs)
+  negative_sub(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<scalar_negative<value_type>>()} {}
 
@@ -131,7 +131,7 @@ public:
   using base::operator();
   using base::get_coefficient;
 
-  constant_sub(ExprLHS&& lhs, ExprRHS&& rhs)
+  constant_sub(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<scalar_constant<value_type>>()} {}
 
@@ -173,7 +173,7 @@ public:
   using base::operator();
   using base::get_coefficient;
 
-  n_ary_sub(ExprLHS&& lhs, ExprRHS&& rhs)
+  n_ary_sub(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<scalar_add<value_type>>()} {}
 
@@ -256,7 +256,7 @@ public:
   using base::get_coefficient;
   using base::get_default;
 
-  n_ary_mul_sub(ExprLHS&& lhs, ExprRHS&& rhs)
+  n_ary_mul_sub(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<scalar_mul<value_type>>()} {}
 
@@ -306,7 +306,7 @@ public:
   using base::get_coefficient;
   using base::get_default;
 
-  symbol_sub(ExprLHS&& lhs, ExprRHS&& rhs)
+  symbol_sub(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<scalar<value_type>>()} {}
 
@@ -352,7 +352,7 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<scalar_expression<value_type>>;
 
-  sub_base(ExprLHS&& lhs, ExprRHS&& rhs)
+  sub_base(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   constexpr inline expr_type operator()(scalar_constant<value_type> const &) {
@@ -452,7 +452,7 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 ////  template<typename Scalar>
 ////    requires (!isScalarConstant<Scalar> || !isScalarZero<Scalar>)
 ////  auto operator()([[maybe_unused]] Scalar &lhs, [[maybe_unused]]
-///scalar_one<value_type> &rhs) { /    return default_sub(); /  }
+/// scalar_one<value_type> &rhs) { /    return default_sub(); /  }
 
 //  auto operator()([[maybe_unused]] scalar_sub<value_type> &lhs,
 //                  [[maybe_unused]] scalar_constant<value_type> &rhs) {
@@ -565,7 +565,7 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 
 //////         //    /// -expr - expr --> -2*expr
 //////         //    auto operator()(scalar_sub<value_type> &lhs,
-///scalar_sub<value_type> &rhs) {
+/// scalar_sub<value_type> &rhs) {
 //////         //      const auto &hash_rhs{rhs.hash_value()};
 //////         //      const auto &hash_lhs{lhs.hash_value()};
 //////         //      if (hash_rhs == hash_lhs) {
@@ -582,7 +582,7 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 //////         //    }
 
 //////         //  auto operator()(scalar_add<value_type> &lhs,
-///scalar<value_type> &rhs) {
+/// scalar<value_type> &rhs) {
 //////         //    /// check if expr_rhs == expr_lhs -->
 ///(factor_lhs+factor_rhs)*expr_lhs
 //////         //    if (lhs.hash_value() == rhs.hash_value()) {
@@ -590,16 +590,16 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 //////         //      auto &mul{expr.template get<scalar_mul<value_type>>()};
 //////         //      mul.push_back(m_rhs);
 //////         //
-///mul.set_coeff(make_expression<scalar_constant<value_type>>(2));
+/// mul.set_coeff(make_expression<scalar_constant<value_type>>(2));
 //////         //      const auto coeff_lhs{get_coefficient(lhs, 0.0)};
 //////         //      if (coeff_lhs != 0) {
 //////         //        auto
-///expr_add{make_expression<scalar_add<value_type>>()};
+/// expr_add{make_expression<scalar_add<value_type>>()};
 //////         //        expr_add.template
-///get<scalar_add<value_type>>().set_coeff(
+/// get<scalar_add<value_type>>().set_coeff(
 //////         // make_expression<scalar_constant<value_type>>(coeff_lhs));
 //////         //        expr_add.template
-///get<scalar_add<value_type>>().push_back(
+/// get<scalar_add<value_type>>().push_back(
 //////         //            std::move(expr));
 //////         //        return std::move(expr_add);
 //////         //      }
@@ -607,7 +607,7 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 //////         //    }
 
 //////         //           /// check if sub_exp == expr_rhs for sub_exp \in
-///expr_lhs
+/// expr_lhs
 //////         //    auto pos{lhs.hash_map().find(rhs.hash_value())};
 //////         //    if (pos != lhs.hash_map().end()) {
 //////         //      auto expr{std::visit(
@@ -616,9 +616,9 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 //////         //          *pos->second, *m_rhs)};
 //////         //      if (expr) {
 //////         //        auto
-///expr_add{make_expression<scalar_add<value_type>>(lhs)};
+/// expr_add{make_expression<scalar_add<value_type>>(lhs)};
 //////         //        auto &add{expr_add.template
-///get<scalar_add<value_type>>()};
+/// get<scalar_add<value_type>>()};
 //////         //        add.hash_map().erase(rhs.hash_value());
 //////         //        add.push_back(std::move(expr));
 //////         //        return std::move(expr_add);
@@ -635,9 +635,9 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 ///&rhs) {
 //////         //    auto mul{make_expression<scalar_mul<value_type>>()};
 //////         //    mul.template
-///get<scalar_mul<value_type>>().set_coeff(std::forward<ExprRHS>(m_rhs));
+/// get<scalar_mul<value_type>>().set_coeff(std::forward<ExprRHS>(m_rhs));
 //////         //    mul.template
-///get<scalar_mul<value_type>>().push_back(std::forward<ExprLHS>(m_lhs));
+/// get<scalar_mul<value_type>>().push_back(std::forward<ExprLHS>(m_lhs));
 //////         //    return mul;
 //////         //  }
 
@@ -646,61 +646,61 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 ///&rhs) {
 //////         //    auto mul{make_expression<scalar_mul<value_type>>()};
 //////         //    mul.template
-///get<scalar_mul<value_type>>().push_back(m_rhs);
+/// get<scalar_mul<value_type>>().push_back(m_rhs);
 //////         //    mul.template
-///get<scalar_mul<value_type>>().set_coeff(m_lhs);
+/// get<scalar_mul<value_type>>().set_coeff(m_lhs);
 //////         //    return mul;
 //////         //    //return std::forward<ExprRHS>(m_rhs) +
-///std::forward<ExprLHS>(m_lhs);
+/// std::forward<ExprLHS>(m_lhs);
 //////         //  }
 
 //////         //  auto operator()(scalar_mul<value_type> &lhs,
-///scalar_one<value_type> & rhs) {
+/// scalar_one<value_type> & rhs) {
 //////         //    return std::forward<ExprLHS>(m_lhs);
 //////         //  }
 
 //////         //  auto operator()(scalar_one<value_type> &lhs,
-///scalar_mul<value_type> & rhs) {
+/// scalar_mul<value_type> & rhs) {
 //////         //    return std::forward<ExprRHS>(m_rhs);
 //////         //  }
 
 //////         //  auto operator()(scalar_constant<value_type> &lhs,
-///scalar_one<value_type> & rhs) {
+/// scalar_one<value_type> & rhs) {
 //////         //    return std::forward<ExprLHS>(m_lhs);
 //////         //  }
 
 //////         //  auto operator()(scalar_one<value_type> &lhs,
-///scalar_constant<value_type> & rhs) {
+/// scalar_constant<value_type> & rhs) {
 //////         //    return std::forward<ExprRHS>(m_rhs);
 //////         //  }
 
 //////         //  auto operator()(scalar_mul<value_type> &lhs,
-///scalar_zero<value_type> & rhs) {
+/// scalar_zero<value_type> & rhs) {
 //////         //    return std::forward<ExprRHS>(m_rhs);
 //////         //  }
 
 //////         //  auto operator()(scalar_zero<value_type> &lhs,
-///scalar_mul<value_type> & rhs) {
+/// scalar_mul<value_type> & rhs) {
 //////         //    return std::forward<ExprLHS>(m_lhs);
 //////         //  }
 
 //////         //  auto operator()(scalar<value_type> &lhs,
-///scalar_zero<value_type> & rhs) {
+/// scalar_zero<value_type> & rhs) {
 //////         //    return std::forward<ExprRHS>(m_rhs);
 //////         //  }
 
 //////         //  auto operator()(scalar_zero<value_type> &lhs,
-///scalar<value_type> & rhs) {
+/// scalar<value_type> & rhs) {
 //////         //    return std::forward<ExprLHS>(m_lhs);
 //////         //  }
 
 //////         //  auto operator()(scalar_constant<value_type> &lhs,
-///scalar_zero<value_type> & rhs) {
+/// scalar_zero<value_type> & rhs) {
 //////         //    return std::forward<ExprRHS>(m_rhs);
 //////         //  }
 
 //////         //  auto operator()(scalar_zero<value_type> &lhs,
-///scalar_constant<value_type> & rhs) {
+/// scalar_constant<value_type> & rhs) {
 //////         //    return std::forward<ExprLHS>(m_lhs);
 //////         //  }
 
@@ -708,7 +708,7 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 //////         //  auto operator()(scalar_mul<value_type> &lhs, Scalar & rhs) {
 //////         //    auto expr{make_expression<scalar_mul<value_type>>(lhs)};
 //////         //    expr.template
-///get<scalar_mul<value_type>>().push_back(std::forward<ExprRHS>(m_rhs));
+/// get<scalar_mul<value_type>>().push_back(std::forward<ExprRHS>(m_rhs));
 //////         //    return expr;
 //////         //  }
 
@@ -716,7 +716,7 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 //////         //  //  expr_type operator()(Scalar &lhs, scalar_mul<value_type>
 ///&rhs) {
 //////         //  //    return std::forward<ExprRHS>(m_rhs) +
-///std::forward<ExprLHS>(m_lhs);
+/// std::forward<ExprLHS>(m_lhs);
 //////         //  //  }
 
 //  //0 - expr --> -expr
@@ -741,8 +741,8 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 
 ////  template<typename Scalar> requires(!isScalarConstant<Scalar> &&
 ///!isScalarZero<Scalar>) /  auto operator()([[maybe_unused]]
-///scalar_one<value_type> &lhs, [[maybe_unused]] Scalar &rhs) { /    return
-///default_sub(); /  }
+/// scalar_one<value_type> &lhs, [[maybe_unused]] Scalar &rhs) { /    return
+/// default_sub(); /  }
 
 ////  template<typename Scalar> requires(!isScalarConstant<Scalar> &&
 ///!isScalarZero<Scalar>) /  auto operator()([[maybe_unused]] Scalar &lhs,
@@ -764,12 +764,12 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 
 ////  //symbol - 0 --> symbol
 ////  auto operator()([[maybe_unused]] scalar<value_type> &lhs, [[maybe_unused]]
-///scalar_zero<value_type> &rhs) { /    return m_lhs; /  }
+/// scalar_zero<value_type> &rhs) { /    return m_lhs; /  }
 
 ////  //0 - symbol --> -symbol
 ////  auto operator()([[maybe_unused]] scalar_zero<value_type> &lhs,
 ///[[maybe_unused]] scalar<value_type> &rhs) { /    return
-///make_expression<scalar_negative<value_type>>(m_rhs); /  }
+/// make_expression<scalar_negative<value_type>>(m_rhs); /  }
 
 ////  auto operator()([[maybe_unused]] scalar_constant<value_type> & lhs,
 ///[[maybe_unused]] scalar_div<value_type> & rhs) { /    return default_sub();
@@ -785,7 +785,7 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
 
 ////  auto operator()([[maybe_unused]] scalar_constant<value_type> & lhs,
 ///[[maybe_unused]] scalar_negative<value_type> & rhs) { /    return
-///default_sub(); /  }
+/// default_sub(); /  }
 
 //  //expr - expr --> expr - expr
 //  template <typename ScalarLHS, typename ScalarRHS>
