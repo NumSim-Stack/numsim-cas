@@ -2,7 +2,7 @@
 #define SYMTM_PRINT_TEST_H
 
 #include <sstream>
-#include "numsim_cas.h"
+#include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
 
 using Seq = std::vector<std::size_t>;

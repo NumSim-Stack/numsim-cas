@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(symTM_test)
+project(numsim_cas_test)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -20,14 +20,14 @@ FetchContent_MakeAvailable(googletest)
 #
 
 include(GoogleTest)
-macro(add_symTM_test TARGET_NAME)
+macro(add_numsim_cas_test TARGET_NAME)
     add_executable(${TARGET_NAME} ${ARGN})    
-    target_link_libraries(${TARGET_NAME} PRIVATE gtest_main symTMVar)
+    target_link_libraries(${TARGET_NAME} PRIVATE gtest_main NumSim_CAS)
     add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
     gtest_discover_tests(${TARGET_NAME})
 endmacro()
 
-add_symTM_test(symTM_test
+add_numsim_cas_test(numsim_cas_test
     main.cpp
     symTM_test.h
     symTM_print_test.h
