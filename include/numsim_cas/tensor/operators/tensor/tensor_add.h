@@ -1,8 +1,8 @@
 #ifndef TENSOR_ADD_H
 #define TENSOR_ADD_H
 
-#include "../n_ary_tree.h"
-#include "../numsim_cas_type_traits.h"
+#include "../../../n_ary_tree.h"
+#include "../../../numsim_cas_type_traits.h"
 
 namespace numsim::cas {
 

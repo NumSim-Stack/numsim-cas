@@ -3,7 +3,7 @@
 
 #include "../expression_holder.h"
 #include "../numsim_cas_type_traits.h"
-#include "tensor_printer.h"
+#include "visitors/tensor_printer.h"
 #include <sstream>
 
 namespace std {

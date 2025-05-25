@@ -1,8 +1,8 @@
 #ifndef TENSOR_MUL_H
 #define TENSOR_MUL_H
 
-#include "../n_ary_tree.h"
-#include "../numsim_cas_type_traits.h"
+#include "../../../n_ary_tree.h"
+#include "../../../numsim_cas_type_traits.h"
 
 namespace numsim::cas {
 

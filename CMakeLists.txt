@@ -76,45 +76,54 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/update_hash.h
 
     #tensor
-    ${INCLUDE_PATH_TENSOR}/basis_change.h
-    ${INCLUDE_PATH_TENSOR}/inner_product_wrapper.h
-    ${INCLUDE_PATH_TENSOR}/outer_product_wrapper.h
-    ${INCLUDE_PATH_TENSOR}/tensor.h
-    ${INCLUDE_PATH_TENSOR}/tensor_data.h
-    ${INCLUDE_PATH_TENSOR}/tensor_data_add.h
-    ${INCLUDE_PATH_TENSOR}/tensor_data_basis_change.h
-    ${INCLUDE_PATH_TENSOR}/tensor_data_inner_product.h
-    ${INCLUDE_PATH_TENSOR}/tensor_data_outer_product.h
-    ${INCLUDE_PATH_TENSOR}/tensor_evaluator.h
-    ${INCLUDE_PATH_TENSOR}/tensor_scalar_mul.h
-    ${INCLUDE_PATH_TENSOR}/tensor_scalar_div.h
-    ${INCLUDE_PATH_TENSOR}/kronecker_delta.h
-    ${INCLUDE_PATH_TENSOR}/simple_outer_product.h
-    ${INCLUDE_PATH_TENSOR}/tensor_expression.h
-    ${INCLUDE_PATH_TENSOR}/tensor_scalar_expression.h
-    ${INCLUDE_PATH_TENSOR}/tensor_negative.h
-    ${INCLUDE_PATH_TENSOR}/make_tensor_data_imp.h
-    ${INCLUDE_PATH_TENSOR}/tensor_data_eval.h
-    ${INCLUDE_PATH_TENSOR}/tensor_data_sub.h
-    ${INCLUDE_PATH_TENSOR}/tensor_differentiation.h
-    ${INCLUDE_PATH_TENSOR}/tensor_printer.h
-    ${INCLUDE_PATH_TENSOR}/tensor_operators.h
-    ${INCLUDE_PATH_TENSOR}/tensor_functions.h
-    ${INCLUDE_PATH_TENSOR}/tensor_symmetry.h
-    ${INCLUDE_PATH_TENSOR}/tensor_std.h
-    ${INCLUDE_PATH_TENSOR}/scalar_tensor_op.h
-    ${INCLUDE_PATH_TENSOR}/tensor_visitor_typedefs.h
-    ${INCLUDE_PATH_TENSOR}/tensor_constant.h
-    ${INCLUDE_PATH_TENSOR}/tensor_zero.h
-    include/numsim_cas/tensor/tensor_mul.h
-    ${INCLUDE_PATH_TENSOR}/tensor_sub.h
-    ${INCLUDE_PATH_TENSOR}/tensor_add.h
-    include/numsim_cas/tensor/tensor_pow.h
-    ${INCLUDE_PATH_TENSOR}/simplifier/tensor_simplifier_add.h
-    ${INCLUDE_PATH_TENSOR}/simplifier/tensor_simplifier_sub.h
+    include/numsim_cas/tensor/tensor.h
+
+    include/numsim_cas/tensor/functions/basis_change.h
+    include/numsim_cas/tensor/functions/inner_product_wrapper.h
+    include/numsim_cas/tensor/functions/outer_product_wrapper.h
+    include/numsim_cas/tensor/functions/simple_outer_product.h
+    include/numsim_cas/tensor/functions/tensor_symmetry.h
+    include/numsim_cas/tensor/functions/tensor_pow.h
+
+    include/numsim_cas/tensor/data/tensor_data.h
+    include/numsim_cas/tensor/data/tensor_data_add.h
+    include/numsim_cas/tensor/data/tensor_data_basis_change.h
+    include/numsim_cas/tensor/data/tensor_data_inner_product.h
+    include/numsim_cas/tensor/data/tensor_data_outer_product.h
+    include/numsim_cas/tensor/data/tensor_data_eval.h
+    include/numsim_cas/tensor/data/tensor_data_sub.h
+    include/numsim_cas/tensor/data/tensor_data_make_imp.h
+
+    include/numsim_cas/tensor/operators/scalar/tensor_scalar_mul.h
+    include/numsim_cas/tensor/operators/scalar/tensor_scalar_div.h
+    include/numsim_cas/tensor/kronecker_delta.h
+    include/numsim_cas/tensor/tensor_expression.h
+    include/numsim_cas/tensor/tensor_negative.h
+
+    include/numsim_cas/tensor/tensor_operators.h
+    include/numsim_cas/tensor/tensor_functions.h
+    include/numsim_cas/tensor/tensor_std.h
+    include/numsim_cas/tensor/scalar_tensor_op.h
+    include/numsim_cas/tensor/tensor_constant.h
+    include/numsim_cas/tensor/tensor_zero.h
+
+    include/numsim_cas/tensor/operators/tensor/tensor_mul.h
+    include/numsim_cas/tensor/operators/tensor/tensor_sub.h
+    include/numsim_cas/tensor/operators/tensor/tensor_add.h
+    include/numsim_cas/tensor/operators/tensor_to_scalar/tensor_to_scalar_with_tensor_div.h
+    include/numsim_cas/tensor/operators/tensor_to_scalar/tensor_to_scalar_with_tensor_mul.h
+
+    include/numsim_cas/tensor/simplifier/tensor_simplifier_add.h
+    include/numsim_cas/tensor/simplifier/tensor_simplifier_sub.h
     include/numsim_cas/tensor/simplifier/tensor_simplifier_mul.h
     include/numsim_cas/tensor/simplifier/tensor_with_scalar_simplifier_mul.h
     include/numsim_cas/tensor/simplifier/tensor_with_scalar_simplifier_div.h
+    include/numsim_cas/tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_mul.h
+    include/numsim_cas/tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_div.h
+
+    include/numsim_cas/tensor/visitors/tensor_differentiation.h
+    include/numsim_cas/tensor/visitors/tensor_printer.h
+    include/numsim_cas/tensor/visitors/tensor_evaluator.h
 
     #scalar
     ${INCLUDE_PATH_SCALAR}/scalar.h
@@ -169,14 +178,11 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_mul.h
     include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_div.h
     include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_sub.h
-    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_tensor_simplifier_mul.h
-    include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_with_tensor_simplifier_div.h
+
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_mul.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_add.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_sub.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_div.h
-    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_tensor/tensor_to_scalar_with_tensor_mul.h
-    include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_tensor/tensor_to_scalar_with_tensor_div.h
     include/numsim_cas/tensor_to_scalar/visitors/tensor_scalar_printer.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_sub.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_mul.h

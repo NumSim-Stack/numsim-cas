@@ -1,9 +1,9 @@
 #ifndef TENSOR_PRINTER_H
 #define TENSOR_PRINTER_H
 
-#include "../printer_base.h"
-#include "../numsim_cas_type_traits.h"
-#include "../scalar/visitors/scalar_printer.h"
+#include "../../printer_base.h"
+#include "../../numsim_cas_type_traits.h"
+#include "../../scalar/visitors/scalar_printer.h"
 #include <string>
 #include <algorithm>
 #include <functional>

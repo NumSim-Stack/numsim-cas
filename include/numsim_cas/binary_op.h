@@ -10,9 +10,6 @@
 #include "update_hash.h"
 
 
-
-
-
 namespace numsim::cas {
 
 /**

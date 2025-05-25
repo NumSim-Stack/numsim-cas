@@ -8,8 +8,8 @@
 #include <variant>
 #include <concepts>
 #include <set>
-#include "tensor/tensor_data_eval.h"
-#include "tensor/tensor_data.h"
+#include "tensor/data/tensor_data_eval.h"
+#include "tensor/data/tensor_data.h"
 #include "numsim_cas_forward.h"
 
 

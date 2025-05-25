@@ -1,9 +1,9 @@
 #ifndef INNER_PRODUCT_WRAPPER_H
 #define INNER_PRODUCT_WRAPPER_H
 
-#include "../binary_op.h"
-#include "tensor_expression.h"
-#include "../numsim_cas_type_traits.h"
+#include "../../binary_op.h"
+#include "../tensor_expression.h"
+#include "../../numsim_cas_type_traits.h"
 #include <algorithm>
 #include <stdexcept>
 #include <vector>

@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include "../numsim_cas_type_traits.h"
 #include "tensor_expression.h"
-#include "make_tensor_data_imp.h"
+#include "data/tensor_data_make_imp.h"
 
 namespace numsim::cas {
 
