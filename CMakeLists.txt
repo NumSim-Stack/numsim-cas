@@ -195,7 +195,7 @@ add_library(${PROJECT_NAME} INTERFACE
 )
 
 target_compile_definitions(${PROJECT_NAME} INTERFACE NUMSIM_CAS_LIBRARY)
-target_link_libraries(${PROJECT_NAME} tmech::tmech)
+target_link_libraries(${PROJECT_NAME} INTERFACE tmech::tmech)
 set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${PROJECT_VERSION})
 target_include_directories(${PROJECT_NAME} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
