@@ -1,7 +1,7 @@
 #ifndef MAKE_TENSOR_DATA_IMP_H
 #define MAKE_TENSOR_DATA_IMP_H
 
-#include "../numsim_cas_type_traits.h"
+#include "../../numsim_cas_type_traits.h"
 #include "tensor_data.h"
 
 namespace numsim::cas {

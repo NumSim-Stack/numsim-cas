@@ -1,7 +1,6 @@
 #ifndef TENSOR_DATA_INNER_PRODUCT_H
 #define TENSOR_DATA_INNER_PRODUCT_H
 
-#include "../functions.h"
 #include "tensor_data.h"
 #include "tensor_data_basis_change.h"
 #include <cstdlib>

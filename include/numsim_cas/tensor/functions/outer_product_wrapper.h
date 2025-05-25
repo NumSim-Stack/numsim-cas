@@ -1,8 +1,8 @@
 #ifndef OUTER_PRODUCT_WRAPPER_H
 #define OUTER_PRODUCT_WRAPPER_H
 
-#include "../binary_op.h"
-#include "../numsim_cas_type_traits.h"
+#include "../../binary_op.h"
+#include "../../numsim_cas_type_traits.h"
 #include <algorithm>
 #include <stdexcept>
 #include <vector>

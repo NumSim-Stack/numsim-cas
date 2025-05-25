@@ -1,14 +1,14 @@
 #ifndef TENSOR_EVALUATOR_H
 #define TENSOR_EVALUATOR_H
 
-#include "../numsim_cas_type_traits.h"
-#include "tensor_data.h"
-#include "tensor_data_add.h"
-#include "tensor_data_sub.h"
-#include "tensor_data_basis_change.h"
-#include "tensor_data_inner_product.h"
-#include "tensor_data_outer_product.h"
-#include "../functions.h"
+#include "../../numsim_cas_type_traits.h"
+#include "../data/tensor_data.h"
+#include "../data/tensor_data_add.h"
+#include "../data/tensor_data_sub.h"
+#include "../data/tensor_data_basis_change.h"
+#include "../data/tensor_data_inner_product.h"
+#include "../data/tensor_data_outer_product.h"
+#include "../../functions.h"
 
 namespace numsim::cas {
 

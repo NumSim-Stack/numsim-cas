@@ -2,7 +2,7 @@
 #define TENSOR_SYMMETRY_H
 
 #include <vector>
-#include "../unary_op.h"
+#include "../../unary_op.h"
 
 namespace numsim::cas {
 

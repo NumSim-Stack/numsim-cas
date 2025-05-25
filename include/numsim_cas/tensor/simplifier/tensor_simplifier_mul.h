@@ -6,8 +6,8 @@
 #include "../../scalar/scalar_constant.h"
 #include "../../numsim_cas_forward.h"
 #include "../../numsim_cas_type_traits.h"
-#include "../tensor_mul.h"
-#include "../tensor_pow.h"
+#include "../operators/tensor/tensor_mul.h"
+#include "../functions/tensor_pow.h"
 #include "../tensor_std.h"
 #include <set>
 #include <type_traits>

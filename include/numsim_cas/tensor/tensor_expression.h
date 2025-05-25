@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include "../expression.h"
 #include "../expression_holder.h"
-#include "tensor_printer.h"
+#include "visitors/tensor_printer.h"
 
 namespace numsim::cas {
 

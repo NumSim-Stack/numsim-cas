@@ -1,7 +1,7 @@
 #ifndef TENSOR_POW_H
 #define TENSOR_POW_H
 
-#include "../binary_op.h"
+#include "../../binary_op.h"
 
 namespace numsim::cas {
 template <typename ValueType>

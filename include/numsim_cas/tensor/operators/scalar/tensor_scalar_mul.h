@@ -2,8 +2,8 @@
 #define TENSOR_SCALAR_MUL_H
 
 #include <stdexcept>
-#include "../numsim_cas_type_traits.h"
-#include "../binary_op.h"
+#include "../../../numsim_cas_type_traits.h"
+#include "../../../binary_op.h"
 
 namespace numsim::cas {
 

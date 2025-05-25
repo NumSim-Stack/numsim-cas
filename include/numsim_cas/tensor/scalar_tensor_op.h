@@ -1,7 +1,7 @@
 #ifndef SCALAR_TENSOR_OP_H
 #define SCALAR_TENSOR_OP_H
 
-#include "tensor_data.h"
+#include "data/tensor_data.h"
 
 namespace numsim::cas {
 

@@ -5,6 +5,7 @@
 #include "../numsim_cas_type_traits.h"
 #include "visitors/scalar_printer.h"
 #include "../functions.h"
+#include "scalar_expression.h"
 #include <sstream>
 
 namespace std {
@@ -26,9 +27,10 @@ auto to_string(
   printer.apply(expr);
   return ss.str();
 }
+
 template<typename ExprLHS, typename ExprRHS,
-          std::enable_if_t<std::is_base_of_v<numsim::cas::expression, typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type>, bool> = true,
-          std::enable_if_t<std::is_base_of_v<numsim::cas::expression, typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type>, bool> = true>
+          std::enable_if_t<std::is_base_of_v<numsim::cas::scalar_expression<typename numsim::cas::remove_cvref_t<ExprLHS>::value_type>, typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type>, bool> = true,
+          std::enable_if_t<std::is_base_of_v<numsim::cas::scalar_expression<typename numsim::cas::remove_cvref_t<ExprRHS>::value_type>, typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type>, bool> = true>
 auto pow(ExprLHS && expr_lhs, ExprRHS && expr_rhs){
   using value_type = std::common_type_t<typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
                                         typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type::value_type>;

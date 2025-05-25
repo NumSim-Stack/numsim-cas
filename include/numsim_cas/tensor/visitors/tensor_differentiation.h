@@ -3,10 +3,10 @@
 
 #include <algorithm>
 
-#include "../numsim_cas_type_traits.h"
-#include "tensor_expression.h"
-#include "tensor_functions.h"
-#include "kronecker_delta.h"
+#include "../../numsim_cas_type_traits.h"
+#include "../tensor_expression.h"
+#include "../tensor_functions.h"
+#include "../kronecker_delta.h"
 
 
 namespace numsim::cas {
