@@ -36,12 +36,12 @@ OPTION(BUILD_BENCHMARK "NumSim_CAS benchmark" OFF)
 OPTION(DOWNLOAD_GTEST "build gtest from downloaded sources" OFF)
 OPTION(DOWNLOAD_GBENCHMARK "download google benchmark and build from source" OFF)
 
-#FetchContent_Declare(
-#  tmech
-#  GIT_REPOSITORY https://github.com/petlenz/tmech.git
-#  GIT_TAG master
-#)
-#FetchContent_MakeAvailable(tmech)
+FetchContent_Declare(
+  tmech
+  GIT_REPOSITORY https://github.com/petlenz/tmech.git
+  GIT_TAG master
+)
+FetchContent_MakeAvailable(tmech)
 
 set(INCLUDE_PATH include/numsim_cas)
 set(INCLUDE_PATH_COMMON ${INCLUDE_PATH}/common)
@@ -195,10 +195,10 @@ add_library(${PROJECT_NAME} INTERFACE
 )
 
 target_compile_definitions(${PROJECT_NAME} INTERFACE NUMSIM_CAS_LIBRARY)
-#target_link_libraries(NumSim_CAS tmech::tmech)
+target_link_libraries(${PROJECT_NAME} INTERFACE tmech::tmech)
 set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${PROJECT_VERSION})
 target_include_directories(${PROJECT_NAME} INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/numsim_cas>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>  # <prefix>/include/mylib
 )
 
@@ -214,9 +214,9 @@ if(NUMSIM_CAS_INSTALL_LIBRARY)
     install(FILES ${PUBLIC_HEADER_FILES} DESTINATION include/numsim_cas)
 endif()
 
-#install(TARGETS NumSim_CAS
-#    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(TARGETS NumSim_CAS
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 
 if(BUILD_TESTS)

@@ -2,7 +2,7 @@
 #define SYMTM_DIFF_TEST_H
 
 #include <string>
-#include "numsim_cas.h"
+#include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
 
 //TEST(gtest, diff_scalar){
