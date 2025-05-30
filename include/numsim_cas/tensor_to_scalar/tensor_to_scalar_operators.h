@@ -10,6 +10,7 @@
 #include "simplifier/tensor_to_scalar_simplifier_div.h"
 #include "simplifier/tensor_to_scalar_with_scalar_simplifier_add.h"
 #include "simplifier/tensor_to_scalar_with_scalar_simplifier_mul.h"
+#include "simplifier/tensor_to_scalar_with_scalar_simplifier_div.h"
 
 
 namespace numsim::cas {
@@ -39,10 +40,22 @@ template <typename ExprTypeLHS, typename ExprTypeRHS>
   return visit(tensor_to_scalar_with_scalar_detail::simplifier::add_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
 
+//template <typename ExprTypeLHS, typename ExprTypeRHS>
+//[[nodiscard]] constexpr inline auto binary_sub_tensor_to_scalar_with_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
+//  return visit(tensor_to_scalar_with_scalar_detail::simplifier::sub_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), *lhs);
+//}
+
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto binary_mul_tensor_to_scalar_with_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
   return visit(tensor_to_scalar_with_scalar_detail::simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), *lhs);
 }
+
+template <typename ExprTypeLHS, typename ExprTypeRHS>
+[[nodiscard]] constexpr inline auto binary_div_tensor_to_scalar_with_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
+  return visit(tensor_to_scalar_with_scalar_detail::simplifier::div_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), *lhs);
+}
+
+
 
 template<typename ValueType>
 struct operator_overload<expression_holder<tensor_to_scalar_expression<ValueType>>,
@@ -93,8 +106,7 @@ struct operator_overload<expression_holder<scalar_expression<ValueType>>,
 
   template<typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto div([[maybe_unused]]ExprTypeLHS && lhs, [[maybe_unused]]ExprTypeRHS && rhs){
-    return expression_holder<tensor_to_scalar_expression<ValueType>>();
-    //return binary_sub_tensor_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
+    return binary_div_tensor_to_scalar_with_scalar_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
   }
 };
 
@@ -121,8 +133,7 @@ struct operator_overload<expression_holder<tensor_to_scalar_expression<ValueType
 
   template<typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto div([[maybe_unused]]ExprTypeLHS && lhs, [[maybe_unused]]ExprTypeRHS && rhs){
-    return expression_holder<tensor_to_scalar_expression<ValueType>>();
-    //return binary_sub_tensor_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
+    return binary_div_tensor_to_scalar_with_scalar_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
   }
 };
 

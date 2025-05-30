@@ -188,6 +188,25 @@ public:
     end(precedence, parent_precedence);
   }
 
+  void operator()(tensor_to_scalar_with_scalar_div<ValueType> const &visitable,
+                  Precedence parent_precedence) {
+    begin(Precedence::Division, parent_precedence);
+    apply(visitable.expr_lhs(), Precedence::Division);
+    end(Precedence::Division, parent_precedence);
+    m_out<<"/";
+    apply(visitable.expr_rhs(), Precedence::Division);
+    end(Precedence::Division, parent_precedence);
+  }
+
+  void operator()(scalar_with_tensor_to_scalar_div<ValueType> const &visitable,
+                  Precedence parent_precedence) {
+    begin(Precedence::Division, parent_precedence);
+    apply(visitable.expr_lhs(), Precedence::Division);
+    m_out<<"/";
+    apply(visitable.expr_rhs(), Precedence::Division);
+    end(Precedence::Division, parent_precedence);
+  }
+
   template<typename Expr>
   void operator()([[maybe_unused]]Expr const &visitable,
                   [[maybe_unused]]Precedence parent_precedence) {

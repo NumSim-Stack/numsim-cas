@@ -1,7 +1,6 @@
 #ifndef TENSOR_TO_SCALAR_WITH_SCALAR_SIMPLIFIER_MUL_H
 #define TENSOR_TO_SCALAR_WITH_SCALAR_SIMPLIFIER_MUL_H
 
-
 #include "../../functions.h"
 #include "../tensor_to_scalar_expression.h"
 #include "../operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_mul.h"
