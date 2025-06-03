@@ -77,7 +77,6 @@ struct constant_div_simplifier final : public div_default<ExprLHS, ExprRHS>
 
   constant_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs):base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),m_expr(m_lhs.template get<scalar_constant<value_type>>()){}
 
-         // (a/b)/(c/d) --> a*d/(b*c)
   constexpr inline expr_type operator()(scalar_constant<value_type> const& rhs){
     return make_expression<scalar_constant<value_type>>(m_expr() / rhs());
   }

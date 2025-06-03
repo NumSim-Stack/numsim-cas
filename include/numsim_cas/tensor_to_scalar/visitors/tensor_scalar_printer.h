@@ -75,7 +75,7 @@ public:
   void operator()(tensor_to_scalar_mul<ValueType> const &visitable,
                   [[maybe_unused]]Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
-    //begin(precedence, parent_precedence);
+    begin(precedence, parent_precedence);
     bool first = true;
     if (visitable.coeff().is_valid()) {
       apply(visitable.coeff(), precedence);
@@ -87,7 +87,7 @@ public:
       apply(child, precedence);
       first = false;
     }
-    //end(precedence, parent_precedence);
+    end(precedence, parent_precedence);
   }
 
   void operator()(tensor_to_scalar_add<ValueType> const &visitable,
@@ -142,10 +142,12 @@ public:
 
   void operator()(tensor_to_scalar_div<ValueType> const &visitable,
                   Precedence parent_precedence) {
-    constexpr auto precedence{Precedence::Multiplication};
+    constexpr auto precedence{Precedence::Division};
     begin(precedence, parent_precedence);
     apply(visitable.expr_lhs(), precedence);
+    end(precedence, parent_precedence);
     m_out << "/";
+    begin(precedence, parent_precedence);
     apply(visitable.expr_rhs(), precedence);
     end(precedence, parent_precedence);
   }
@@ -192,7 +194,6 @@ public:
                   Precedence parent_precedence) {
     begin(Precedence::Division, parent_precedence);
     apply(visitable.expr_lhs(), Precedence::Division);
-    end(Precedence::Division, parent_precedence);
     m_out<<"/";
     apply(visitable.expr_rhs(), Precedence::Division);
     end(Precedence::Division, parent_precedence);
