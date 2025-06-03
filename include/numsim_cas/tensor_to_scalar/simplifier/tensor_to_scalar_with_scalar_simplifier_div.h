@@ -1,7 +1,6 @@
 #ifndef TENSOR_TO_SCALAR_WITH_SCALAR_SIMPLIFIER_DIV_H
 #define TENSOR_TO_SCALAR_WITH_SCALAR_SIMPLIFIER_DIV_H
 
-#include "../../functions.h"
 #include "../operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_div.h"
 #include "../tensor_to_scalar_expression.h"
 
@@ -30,14 +29,15 @@ template <typename ExprLHS, typename ExprRHS> struct div_default {
         std::forward<ExprLHS>(m_lhs), std::forward<ExprRHS>(m_rhs));
   }
 
-//  constexpr inline expr_type operator()(scalar_constant<value_type> const & rhs) {
-//    if(rhs() == static_cast<value_type>(1)){
-//      return std::forward<ExprLHS>(m_lhs);
-//    }else{
-//      return make_expression<tensor_to_scalar_with_scalar_div<value_type>>(
-//          std::forward<ExprLHS>(m_lhs), std::forward<ExprRHS>(m_rhs));
-//    }
-//  }
+  //  constexpr inline expr_type operator()(scalar_constant<value_type> const &
+  //  rhs) {
+  //    if(rhs() == static_cast<value_type>(1)){
+  //      return std::forward<ExprLHS>(m_lhs);
+  //    }else{
+  //      return make_expression<tensor_to_scalar_with_scalar_div<value_type>>(
+  //          std::forward<ExprLHS>(m_lhs), std::forward<ExprRHS>(m_rhs));
+  //    }
+  //  }
 
   constexpr inline expr_type operator()(scalar_one<value_type> const &) {
     return std::forward<ExprLHS>(m_lhs);
@@ -69,8 +69,9 @@ public:
   // tensor_to_scalar / (rhs_scalar * lhs_scalar)
   constexpr inline expr_type operator()(scalar_expression<value_type> const &) {
     auto scalar{m_data.expr_rhs() * std::forward<ExprRHS>(m_rhs)};
-    if(is_same<scalar_constant<value_type>>(scalar)){
-      if(scalar.template get<scalar_constant<value_type>>()() == static_cast<value_type>(1)){
+    if (is_same<scalar_constant<value_type>>(scalar)) {
+      if (scalar.template get<scalar_constant<value_type>>()() ==
+          static_cast<value_type>(1)) {
         return m_data.expr_lhs();
       }
     }
@@ -121,19 +122,19 @@ template <typename ExprLHS, typename ExprRHS> struct div_base {
   div_base(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
-  template <typename Expr,
-            std::enable_if_t<!std::is_same_v<
-                                 tensor_to_scalar_with_scalar_div<value_type>, Expr>,
-                             bool> = true,
-            std::enable_if_t<!std::is_same_v<
-                                 scalar_with_tensor_to_scalar_div<value_type>, Expr>,
-                             bool> = true>
+  template <
+      typename Expr,
+      std::enable_if_t<
+          !std::is_same_v<tensor_to_scalar_with_scalar_div<value_type>, Expr>,
+          bool> = true,
+      std::enable_if_t<
+          !std::is_same_v<scalar_with_tensor_to_scalar_div<value_type>, Expr>,
+          bool> = true>
   constexpr inline expr_type operator()(Expr const &) {
     auto &expr_rhs{*m_rhs};
-    return visit(
-        div_default<ExprLHS, ExprRHS>(
-            std::forward<ExprLHS>(m_lhs), std::forward<ExprRHS>(m_rhs)),
-        expr_rhs);
+    return visit(div_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                               std::forward<ExprRHS>(m_rhs)),
+                 expr_rhs);
   }
 
   constexpr inline expr_type

@@ -45,9 +45,9 @@ public:
                 .template get<tensor_to_scalar_with_scalar_div<value_type>>()) {
   }
 
-  //not needed.
-  //see operator overload operator()
-  //using base::operator();
+  // not needed.
+  // see operator overload operator()
+  // using base::operator();
 
   // lhs_tensor_to_scalar_with_scalar_div / rhs_tensor_to_scalar_with_scalar_div
   // (lhs_tensor_to_scalar / lhs_scalar) / (rhs_tensor_to_scalar / rhs_scalar)
@@ -97,7 +97,7 @@ public:
                 .template get<scalar_with_tensor_to_scalar_div<value_type>>()) {
   }
 
-  //using base::operator();
+  // using base::operator();
 
   // scalar_with_tensor_to_scalar_div / rhs_tensor_to_scalar
   // (scalar / lhs_tensor_to_scalar) / rhs_tensor_to_scalar
