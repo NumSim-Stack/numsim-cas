@@ -58,7 +58,6 @@ public:
   /// product rule
   /// f(x)  = c * prod_i^n a_i(x)
   /// f'(x)  = c * sum_j^n a_j(x) prod_i^{n, i\neq j} a_i(x)
-  /// TODO: check for constant
   /// TODO: just copy the vector and manipulate the current entry
   void operator()(scalar_mul<ValueType> &visitable){
       expression_holder<scalar_expression<ValueType>> expr_result;
@@ -86,20 +85,22 @@ public:
   /// f(x)  = c + sum_i^n a_i(x)
   /// f'(x) = sum_i^n a_i'(x)
   void operator()([[maybe_unused]]scalar_add<ValueType> &visitable){
+    expression_holder<scalar_expression<ValueType>> expr_result;
     auto add{make_expression<scalar_add<ValueType>>()};
     for (auto &child : visitable.hash_map() | std::views::values) {
       scalar_differentiation diff(m_arg);
-      //temp is negative....
-      if(is_same<scalar_negative<ValueType>>(child)){
-        std::cout<<"negative"<<std::endl;
-      }
+//      //temp is negative....
+//      if(is_same<scalar_negative<ValueType>>(child)){
+//        std::cout<<"negative"<<std::endl;
+//      }
       auto temp = diff.apply(child);
-      std::cout<<"temp = "<<temp<<std::endl;
-      add += temp;
+      //std::cout<<"temp = "<<temp<<std::endl;
+      expr_result += temp;
     }
-    if (!add.template get<scalar_add<ValueType>>().hash_map().empty()) {
-      m_result = std::move(add);
-    }
+    m_result = std::move(expr_result);
+//    if (!add.template get<scalar_add<ValueType>>().hash_map().empty()) {
+//      m_result = std::move(add);
+//    }
   }
 
     void operator()([[maybe_unused]]scalar_sub<ValueType> &visitable){

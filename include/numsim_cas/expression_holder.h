@@ -135,7 +135,7 @@ public:
     return static_cast<bool>(m_expr);
   }
 
-  constexpr inline auto operator-(){
+  constexpr inline expression_holder operator-(){
     return expression_details<ExprBase>::negative(*this);
   }
 
