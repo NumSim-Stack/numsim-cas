@@ -66,8 +66,7 @@ public:
         for(auto &expr_in : visitable.hash_map() | std::views::values){
           if(expr_out == expr_in){
             scalar_differentiation<ValueType> diff(m_arg);
-            auto temp =  diff.apply(expr_in);
-            expr_result_in *= temp;
+            expr_result_in *= diff.apply(expr_in);
           }else{
             expr_result_in *= expr_in;
           }
@@ -89,23 +88,12 @@ public:
     auto add{make_expression<scalar_add<ValueType>>()};
     for (auto &child : visitable.hash_map() | std::views::values) {
       scalar_differentiation diff(m_arg);
-//      //temp is negative....
-//      if(is_same<scalar_negative<ValueType>>(child)){
-//        std::cout<<"negative"<<std::endl;
-//      }
-      auto temp = diff.apply(child);
-      //std::cout<<"temp = "<<temp<<std::endl;
-      expr_result += temp;
+      expr_result += diff.apply(child);
     }
     m_result = std::move(expr_result);
-//    if (!add.template get<scalar_add<ValueType>>().hash_map().empty()) {
-//      m_result = std::move(add);
-//    }
   }
 
-    void operator()([[maybe_unused]]scalar_sub<ValueType> &visitable){
-
-  }
+    //void operator()([[maybe_unused]]scalar_sub<ValueType> &visitable){}
 
   void operator()(scalar_negative<ValueType> &visitable){
     scalar_differentiation diff(m_arg);

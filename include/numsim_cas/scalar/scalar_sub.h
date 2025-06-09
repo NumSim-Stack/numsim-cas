@@ -7,19 +7,19 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class scalar_sub final
-    : public n_ary_tree<scalar_expression<ValueType>, scalar_sub<ValueType>>
-{
-public:
-  using base = n_ary_tree<scalar_expression<ValueType>, scalar_sub<ValueType>>;
-  using base::base;
-  scalar_sub():base(){}
-  ~scalar_sub() = default;
-  scalar_sub(scalar_sub const& add):base(static_cast<base const&>(add)){}
-  scalar_sub(scalar_sub && add):base(std::forward<base>(add)){}
-  const scalar_sub &operator=(scalar_sub &&) = delete;
-};
+//template <typename ValueType>
+//class scalar_sub final
+//    : public n_ary_tree<scalar_expression<ValueType>, scalar_sub<ValueType>>
+//{
+//public:
+//  using base = n_ary_tree<scalar_expression<ValueType>, scalar_sub<ValueType>>;
+//  using base::base;
+//  scalar_sub():base(){}
+//  ~scalar_sub() = default;
+//  scalar_sub(scalar_sub const& add):base(static_cast<base const&>(add)){}
+//  scalar_sub(scalar_sub && add):base(std::forward<base>(add)){}
+//  const scalar_sub &operator=(scalar_sub &&) = delete;
+//};
 
 } // namespace numsim::cas
 
