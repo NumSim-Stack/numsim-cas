@@ -61,30 +61,25 @@ public:
   /// TODO: check for constant
   /// TODO: just copy the vector and manipulate the current entry
   void operator()(scalar_mul<ValueType> &visitable){
-    if(visitable.size() == 1){
-      //constant*expr --> constant*dexpr
-      scalar_differentiation<ValueType> diff(m_arg);
-      auto temp{diff.apply(visitable.hash_map().begin()->second)};
-      m_result = visitable.coeff() * temp;
-    }else{
-      auto add_expr{make_expression<scalar_add<ValueType>>()};
-      auto &add{add_expr.template get<scalar_add<ValueType>>()};
-      add.reserve(visitable.size());
+      expression_holder<scalar_expression<ValueType>> expr_result;
       for(auto &expr_out : visitable.hash_map() | std::views::values){
-        auto mul{make_expression<scalar_mul<ValueType>>()};
-        mul.template get<scalar_mul<ValueType>>().reserve(visitable.size());
+        expression_holder<scalar_expression<ValueType>> expr_result_in;
         for(auto &expr_in : visitable.hash_map() | std::views::values){
           if(expr_out == expr_in){
             scalar_differentiation<ValueType> diff(m_arg);
-            mul *= diff.apply(expr_in);
+            auto temp =  diff.apply(expr_in);
+            expr_result_in *= temp;
           }else{
-            mul *= expr_in;
+            expr_result_in *= expr_in;
           }
         }
-        add_expr += mul;
+        expr_result += expr_result_in;
       }
-      m_result = std::move(add_expr);
-    }
+      if(visitable.coeff().is_valid()){
+        m_result = std::move(expr_result) * visitable.coeff();
+      }else{
+        m_result = std::move(expr_result);
+      }
   }
 
   /// summation rule

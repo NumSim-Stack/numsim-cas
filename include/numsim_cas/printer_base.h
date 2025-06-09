@@ -10,10 +10,9 @@ enum class Precedence {
   None,           // No precedence (for top-level calls)
   Addition,       // Addition / Subtraction precedence
   Negative,
-  //Division_LHS,
+  Division_LHS,
   Multiplication, // Multiplication and Division precedence
-  //Division_RHS,
-  Division,
+  Division_RHS,
   Unary           // Unary operations like negation
 };
 

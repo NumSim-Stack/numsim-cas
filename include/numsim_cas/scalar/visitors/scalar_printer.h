@@ -206,9 +206,9 @@ public:
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
-    apply(visitable.expr_lhs(), Precedence::Division);
+    apply(visitable.expr_lhs(), Precedence::Division_LHS);
     m_out << "/";
-    apply(visitable.expr_rhs(), Precedence::Division);
+    apply(visitable.expr_rhs(), Precedence::Division_RHS);
     end(precedence, parent_precedence);
   }
 
