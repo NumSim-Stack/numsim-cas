@@ -161,40 +161,40 @@ public:
     end(precedence, parent_precedence);
   }
 
-  /**
-   * @brief Prints a scalar subtraction expression.
-   *
-   * @param visitable The scalar subtraction expression to be printed.
-   * @param parent_precedence The precedence of the parent expression.
-   */
-  void operator()(scalar_sub<ValueType> const &visitable,
-                  Precedence parent_precedence) {
-    constexpr auto precedence{Precedence::Addition};
-    begin(precedence, parent_precedence);
+//  /**
+//   * @brief Prints a scalar subtraction expression.
+//   *
+//   * @param visitable The scalar subtraction expression to be printed.
+//   * @param parent_precedence The precedence of the parent expression.
+//   */
+//  void operator()(scalar_sub<ValueType> const &visitable,
+//                  Precedence parent_precedence) {
+//    constexpr auto precedence{Precedence::Addition};
+//    begin(precedence, parent_precedence);
 
-    bool first = true;
-    if (visitable.coeff().is_valid()) {
-      apply(visitable.coeff(), precedence);
-      m_out << "*";
-    }
+//    bool first = true;
+//    if (visitable.coeff().is_valid()) {
+//      apply(visitable.coeff(), precedence);
+//      m_out << "*";
+//    }
 
-    if (visitable.size() > 1) {
-      m_out << "(";
-    }
+//    if (visitable.size() > 1) {
+//      m_out << "(";
+//    }
 
-    for (auto &child : visitable.hash_map() | std::views::values) {
-      if (!first)
-        m_out << "-";
-      apply(child, precedence);
-      first = false;
-    }
+//    for (auto &child : visitable.hash_map() | std::views::values) {
+//      if (!first)
+//        m_out << "-";
+//      apply(child, precedence);
+//      first = false;
+//    }
 
-    if (visitable.size() > 1) {
-      m_out << ")";
-    }
+//    if (visitable.size() > 1) {
+//      m_out << ")";
+//    }
 
-    end(precedence, parent_precedence);
-  }
+//    end(precedence, parent_precedence);
+//  }
 
   /**
    * @brief Prints a scalar division expression.
