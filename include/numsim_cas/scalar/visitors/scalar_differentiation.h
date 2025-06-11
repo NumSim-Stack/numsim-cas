@@ -93,8 +93,6 @@ public:
     m_result = std::move(expr_result);
   }
 
-    //void operator()([[maybe_unused]]scalar_sub<ValueType> &visitable){}
-
   void operator()(scalar_negative<ValueType> &visitable){
     scalar_differentiation diff(m_arg);
     auto diff_expr{diff.apply(visitable.expr())};
@@ -123,13 +121,17 @@ public:
     m_result = get_scalar_zero<ValueType>();
   }
 
+  //tan(x)' = sec^2(x) = (1/cos(x))^2
   void operator()([[maybe_unused]]scalar_tan<ValueType>&visitable){
+    m_result = std::pow(1 / std::cos(visitable.expr()), 2);
   }
 
   void operator()([[maybe_unused]]scalar_sin<ValueType>&visitable){
+    m_result = std::cos(visitable.expr());
   }
 
   void operator()([[maybe_unused]]scalar_cos<ValueType>&visitable){
+    m_result = -std::sin(visitable.expr());
   }
 
   void operator()([[maybe_unused]]scalar_one<ValueType>&visitable){
