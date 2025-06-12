@@ -142,13 +142,27 @@ public:
     m_result = get_scalar_zero<ValueType>();
   }
 
+  //1/(expr^2+1)
   void operator()([[maybe_unused]]scalar_atan<ValueType>&visitable){
+    auto& one{get_scalar_one<ValueType>()};
+    scalar_differentiation<ValueType> diff(m_arg);
+    auto inner{diff.apply(visitable.expr())};
+    m_result = (one/(one + std::pow(visitable.expr(), 2)));
+    if(inner.is_valid()){
+      m_result *= std::move(inner);
+    }
   }
 
+  //1/sqrt(1-expr^2)
   void operator()([[maybe_unused]]scalar_asin<ValueType>&visitable){
+    auto& one{get_scalar_one<ValueType>()};
+    m_result = (one/(std::sqrt(one - std::pow(visitable.expr(), 2))));
   }
 
+  //-1/sqrt(1-expr^2)
   void operator()([[maybe_unused]]scalar_acos<ValueType>&visitable){
+    auto& one{get_scalar_one<ValueType>()};
+    m_result = -(one/(std::sqrt(one - std::pow(visitable.expr(), 2))));
   }
 
   void operator()([[maybe_unused]]scalar_sqrt<ValueType>&visitable){
