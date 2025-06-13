@@ -1,8 +1,10 @@
 #ifndef SCALAR_SIMPLIFIER_DIV_H
 #define SCALAR_SIMPLIFIER_DIV_H
 
+#include "../../operators.h"
 #include "../scalar_div.h"
 #include "../scalar_expression.h"
+#include "../scalar_std.h"
 #include <type_traits>
 
 namespace numsim::cas {
@@ -26,10 +28,21 @@ template <typename ExprLHS, typename ExprRHS> struct div_default {
     return std::forward<ExprLHS>(m_lhs);
   }
 
+  constexpr inline expr_type
+  operator()(scalar_pow<value_type> const &rhs) {
+    if(m_lhs.get().hash_value() == rhs.expr_lhs().get().hash_value()){
+      return make_expression<scalar_pow<value_type>>(rhs.expr_lhs(), get_scalar_one<value_type>() - rhs.expr_rhs());
+    }
+    return get_default();
+  }
+
 protected:
+
   auto get_default() {
-    auto div_new{make_expression<scalar_div<value_type>>(m_lhs, m_rhs)};
-    return std::move(div_new);
+    if(m_lhs.get().hash_value() == m_rhs.get().hash_value()){
+      return get_scalar_one<value_type>();
+    }
+    return make_expression<scalar_div<value_type>>(m_lhs, m_rhs);
   }
 
   ExprLHS &&m_lhs;
@@ -89,6 +102,39 @@ private:
   scalar_constant<value_type> const &m_expr;
 };
 
+template <typename ExprLHS, typename ExprRHS>
+struct pow_div_simplifier final : public div_default<ExprLHS, ExprRHS> {
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
+  using expr_type = expression_holder<scalar_expression<value_type>>;
+  using base = div_default<ExprLHS, ExprRHS>;
+  using base::operator();
+
+  pow_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
+        m_expr(m_lhs.template get<scalar_pow<value_type>>()) {}
+
+
+  constexpr inline expr_type
+  operator()(scalar<value_type> const &rhs) {
+    if(rhs.hash_value() == m_expr.expr_lhs().get().hash_value()){
+      const auto expo{m_expr.expr_rhs() - get_scalar_one<value_type>()};
+      if(is_same<scalar_constant<value_type>>(expo)){
+        if(expo.template get<scalar_constant<value_type>>()() == 1){
+          return m_rhs;
+        }
+      }
+      return make_expression<scalar_pow<value_type>>(m_expr.expr_lhs(), expo);
+    }
+    return base::get_default();
+  }
+
+private:
+  using base::m_lhs;
+  using base::m_rhs;
+  scalar_pow<value_type> const &m_expr;
+};
+
 template <typename ExprLHS, typename ExprRHS> struct div_base {
   using value_type = typename std::remove_reference_t<
       std::remove_const_t<ExprLHS>>::value_type;
@@ -108,6 +154,14 @@ template <typename ExprLHS, typename ExprRHS> struct div_base {
     auto &expr_rhs{*m_rhs};
     return visit(
         scalar_div_simplifier<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                                std::forward<ExprRHS>(m_rhs)),
+        expr_rhs);
+  }
+
+  constexpr inline expr_type operator()(scalar_pow<value_type> const &) {
+    auto &expr_rhs{*m_rhs};
+    return visit(
+        pow_div_simplifier<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
                                                 std::forward<ExprRHS>(m_rhs)),
         expr_rhs);
   }

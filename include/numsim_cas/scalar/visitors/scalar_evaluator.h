@@ -118,25 +118,25 @@ public:
     return result;
   }
 
-  /**
-   * @brief Evaluates a scalar subtraction expression.
-   *
-   * Subtracts the evaluated results of each child expression within the scalar
-   * subtraction expression.
-   *
-   * @param visitable The scalar subtraction expression to evaluate.
-   * @return ValueType The sum of all evaluated child expressions.
-   */
-  ValueType operator()(scalar_sub<ValueType> &visitable) {
-    ValueType result{0};
-    if (visitable.coeff().is_valid()) {
-      result -= apply(visitable.coeff());
-    }
-    for (auto &child : visitable.hash_map() | std::views::values) {
-      result -= apply(child);
-    }
-    return result;
-  }
+//  /**
+//   * @brief Evaluates a scalar subtraction expression.
+//   *
+//   * Subtracts the evaluated results of each child expression within the scalar
+//   * subtraction expression.
+//   *
+//   * @param visitable The scalar subtraction expression to evaluate.
+//   * @return ValueType The sum of all evaluated child expressions.
+//   */
+//  ValueType operator()(scalar_sub<ValueType> &visitable) {
+//    ValueType result{0};
+//    if (visitable.coeff().is_valid()) {
+//      result -= apply(visitable.coeff());
+//    }
+//    for (auto &child : visitable.hash_map() | std::views::values) {
+//      result -= apply(child);
+//    }
+//    return result;
+//  }
 
   /**
    * @brief Evaluates a scalar negation expression.

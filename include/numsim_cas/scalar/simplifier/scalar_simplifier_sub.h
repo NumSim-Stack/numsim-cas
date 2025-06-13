@@ -347,6 +347,32 @@ private:
   scalar<value_type> const &lhs;
 };
 
+
+template <typename ExprLHS, typename ExprRHS>
+class scalar_one_sub final : public sub_default<ExprLHS, ExprRHS> {
+public:
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
+  using expr_type = expression_holder<scalar_expression<value_type>>;
+  using base = sub_default<ExprLHS, ExprRHS>;
+  using base::operator();
+  using base::get_coefficient;
+  using base::get_default;
+
+  scalar_one_sub(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
+        lhs{base::m_lhs.template get<scalar_one<value_type>>()} {}
+
+  constexpr inline expr_type operator()(scalar_constant<value_type> const &rhs) {
+    return make_expression<scalar_constant<value_type>>(static_cast<value_type>(1) - rhs());
+  }
+
+private:
+  using base::m_lhs;
+  using base::m_rhs;
+  scalar_one<value_type> const &lhs;
+};
+
 template <typename ExprLHS, typename ExprRHS> struct sub_base {
   using value_type = typename std::remove_reference_t<
       std::remove_const_t<ExprLHS>>::value_type;
@@ -379,6 +405,18 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
                  *m_rhs);
   }
 
+  constexpr inline expr_type operator()(scalar_one<value_type> const &) {
+    return visit(scalar_one_sub<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                                  std::forward<ExprRHS>(m_rhs)),
+                 *m_rhs);
+  }
+
+  template <typename Type> constexpr inline expr_type operator()([[maybe_unused]]Type const & rhs) {
+    return visit(sub_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                               std::forward<ExprRHS>(m_rhs)),
+                 *m_rhs);
+  }
+
   // 0 - expr
   constexpr inline expr_type operator()(scalar_zero<value_type> const &) {
     return make_expression<scalar_negative<value_type>>(
@@ -392,11 +430,6 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
         lhs.expr() + std::forward<ExprRHS>(m_rhs));
   }
 
-  template <typename Type> constexpr inline expr_type operator()(Type const &) {
-    return visit(sub_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                               std::forward<ExprRHS>(m_rhs)),
-                 *m_rhs);
-  }
 
   ExprLHS&& m_lhs;
   ExprRHS&& m_rhs;

@@ -53,32 +53,56 @@ public:
   }
 
   expression_holder &operator*=(expression_holder & data){
-    *this = std::move(*this) * data;
+    if(is_valid()){
+      *this = std::move(*this) * data;
+    }else{
+      *this = data;
+    }
     return *this;
   }
 
   expression_holder &operator*=(expression_holder const& data){
-    *this = std::move(*this) * data;
+    if(is_valid()){
+      *this = std::move(*this) * data;
+    }else{
+      *this = data;
+    }
     return *this;
   }
 
   expression_holder &operator*=(expression_holder && data){
-    *this = std::move(*this) * std::move(data);
+    if(is_valid()){
+      *this = std::move(*this) * std::move(data);
+    }else{
+      *this = std::move(data);
+    }
     return *this;
   }
 
   expression_holder &operator+=(expression_holder & data){
-    *this = std::move(*this) + data;
+    if(is_valid()){
+      *this = std::move(*this) + data;
+    }else{
+      *this = data;
+    }
     return *this;
   }
 
   expression_holder &operator+=(expression_holder const& data){
-    *this = std::move(*this) + data;
+    if(is_valid()){
+      *this = std::move(*this) + data;
+    }else{
+      *this = data;
+    }
     return *this;
   }
 
   expression_holder &operator+=(expression_holder && data){
-    *this = std::move(*this) + std::move(data);
+    if(is_valid()){
+      *this = std::move(*this) + std::move(data);
+    }else{
+      *this = std::move(data);
+    }
     return *this;
   }
 
@@ -111,7 +135,7 @@ public:
     return static_cast<bool>(m_expr);
   }
 
-  constexpr inline auto operator-(){
+  constexpr inline expression_holder operator-(){
     return expression_details<ExprBase>::negative(*this);
   }
 

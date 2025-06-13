@@ -35,7 +35,10 @@ public:
     return m_lhs;
   }
 protected:
-  auto get_default(){
+  expr_type get_default(){
+    if(m_lhs.get().hash_value() == m_rhs.get().hash_value()){
+      return std::pow(m_lhs, 2);
+    }
     const auto lhs_constant{is_same<scalar_constant<value_type>>(m_lhs)};
     const auto rhs_constant{is_same<scalar_constant<value_type>>(m_rhs)};
     auto mul_new{make_expression<scalar_mul<value_type>>()};

@@ -142,13 +142,11 @@ public:
 
   void operator()(tensor_to_scalar_div<ValueType> const &visitable,
                   Precedence parent_precedence) {
-    constexpr auto precedence{Precedence::Division};
+    constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
-    apply(visitable.expr_lhs(), precedence);
-    end(precedence, parent_precedence);
+    apply(visitable.expr_lhs(), Precedence::Division_LHS);
     m_out << "/";
-    begin(precedence, parent_precedence);
-    apply(visitable.expr_rhs(), precedence);
+    apply(visitable.expr_rhs(), Precedence::Division_RHS);
     end(precedence, parent_precedence);
   }
 
@@ -192,20 +190,22 @@ public:
 
   void operator()(tensor_to_scalar_with_scalar_div<ValueType> const &visitable,
                   Precedence parent_precedence) {
-    begin(Precedence::Division, parent_precedence);
-    apply(visitable.expr_lhs(), Precedence::Division);
-    m_out<<"/";
-    apply(visitable.expr_rhs(), Precedence::Division);
-    end(Precedence::Division, parent_precedence);
+    constexpr auto precedence{Precedence::Multiplication};
+    begin(precedence, parent_precedence);
+    apply(visitable.expr_lhs(), Precedence::Division_LHS);
+    m_out << "/";
+    apply(visitable.expr_rhs(), Precedence::Division_RHS);
+    end(precedence, parent_precedence);
   }
 
   void operator()(scalar_with_tensor_to_scalar_div<ValueType> const &visitable,
                   Precedence parent_precedence) {
-    begin(Precedence::Division, parent_precedence);
-    apply(visitable.expr_lhs(), Precedence::Division);
-    m_out<<"/";
-    apply(visitable.expr_rhs(), Precedence::Division);
-    end(Precedence::Division, parent_precedence);
+    constexpr auto precedence{Precedence::Multiplication};
+    begin(precedence, parent_precedence);
+    apply(visitable.expr_lhs(), Precedence::Division_LHS);
+    m_out << "/";
+    apply(visitable.expr_rhs(), Precedence::Division_RHS);
+    end(precedence, parent_precedence);
   }
 
   template<typename Expr>

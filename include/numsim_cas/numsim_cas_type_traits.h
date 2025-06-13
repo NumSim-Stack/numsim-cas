@@ -272,7 +272,7 @@ using scalar_node =
         //scalar_basic_operators := {+,-,*,/,negative}
         scalar_div<ValueType>,
         scalar_add<ValueType>,
-        scalar_sub<ValueType>,
+        //scalar_sub<ValueType>,
         scalar_mul<ValueType>,
         scalar_negative<ValueType>,
         //scalar_trigonometric_functions := {cos, sin, tan, asin, acos, atan}
