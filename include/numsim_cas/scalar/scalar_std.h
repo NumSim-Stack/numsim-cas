@@ -147,37 +147,28 @@ auto sqrt(Expr &&expr) {
       std::forward<Expr>(expr));
 }
 
-template <
-    typename ExprType, typename ValueType,
-    std::enable_if_t<
-        std::is_base_of_v<ExprType, std::remove_pointer_t<numsim::cas::get_type_t<
-                                        numsim::cas::scalar_expression<ValueType>>>>,
-        bool> = true>
-auto sign(ExprType &&expr) {
-  return numsim::cas::make_expression<numsim::cas::scalar_sign<ValueType>>(
-      std::forward<ExprType>(expr));
+template<typename Expr,
+          std::enable_if_t<
+              std::is_same_v<
+                  typename std::decay_t<Expr>::expr_type,
+                  numsim::cas::scalar_expression<typename std::decay_t<Expr>::value_type>>
+              , bool> = true>
+auto sign(Expr &&expr) {
+  using value_type = typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
+  return numsim::cas::make_expression<numsim::cas::scalar_sign<value_type>>(
+      std::forward<Expr>(expr));
 }
 
-template <
-    typename ExprType, typename ValueType,
-    std::enable_if_t<
-        std::is_base_of_v<ExprType, std::remove_pointer_t<numsim::cas::get_type_t<
-                                        numsim::cas::scalar_expression<ValueType>>>>,
-        bool> = true>
-auto log(ExprType &&expr) {
-  return numsim::cas::make_expression<numsim::cas::scalar_log<ValueType>>(
-      std::forward<ExprType>(expr));
-}
-
-template <
-    typename ExprType, typename ValueType,
-    std::enable_if_t<
-        std::is_base_of_v<ExprType, std::remove_pointer_t<numsim::cas::get_type_t<
-                                        numsim::cas::scalar_expression<ValueType>>>>,
-        bool> = true>
-auto exp(ExprType &&expr) {
-  return numsim::cas::make_expression<numsim::cas::scalar_exp<ValueType>>(
-      std::forward<ExprType>(expr));
+template<typename Expr,
+          std::enable_if_t<
+              std::is_same_v<
+                  typename std::decay_t<Expr>::expr_type,
+                  numsim::cas::scalar_expression<typename std::decay_t<Expr>::value_type>>
+              , bool> = true>
+auto log(Expr &&expr) {
+  using value_type = typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
+  return numsim::cas::make_expression<numsim::cas::scalar_log<value_type>>(
+      std::forward<Expr>(expr));
 }
 } // namespace std
 
