@@ -3,4 +3,4 @@ repos:
     rev: v16.0.6  # Match your clang-format version
     hooks:
       - id: clang-format
-        files: ^(include/.*\.(cpp|h|hpp|c|cc))$
+        files: ^(include/|tests/|benchmark/|examples/).*\.(cpp|h|hpp|c|cc)$
