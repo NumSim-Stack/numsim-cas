@@ -3,8 +3,7 @@
 
 namespace numsim::cas {
 
-template<typename ...Args>
-struct update_hash;
+template <typename... Args> struct update_hash;
 
 }
 #endif // UPDATE_HASH_H

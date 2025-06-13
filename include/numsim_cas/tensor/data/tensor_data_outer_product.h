@@ -1,14 +1,15 @@
 #ifndef TENSOR_DATA_OUTER_PRODUCT_H
 #define TENSOR_DATA_OUTER_PRODUCT_H
 
-#include "tensor_data.h"
 #include "../../numsim_cas_type_traits.h"
+#include "tensor_data.h"
 
 namespace numsim::cas {
 
-template<typename ValueType>
+template <typename ValueType>
 class tensor_data_outer_product final
-    : public tensor_data_eval_up_binary<tensor_data_outer_product<ValueType>, ValueType> {
+    : public tensor_data_eval_up_binary<tensor_data_outer_product<ValueType>,
+                                        ValueType> {
 public:
   tensor_data_outer_product(tensor_data_base<ValueType> &result,
                             tensor_data_base<ValueType> const &lhs,
@@ -18,8 +19,7 @@ public:
       : m_result(result), m_lhs(lhs), m_rhs(rhs), m_lhs_indices(lhs_indices),
         m_rhs_indices(rhs_indices) {}
 
-  template <std::size_t Dim, std::size_t RankLHS,
-            std::size_t RankRHS>
+  template <std::size_t Dim, std::size_t RankLHS, std::size_t RankRHS>
   void evaluate_imp() {
     using TensorResult = tensor_data<ValueType, Dim, RankLHS + RankRHS>;
     using TensorLHS = tensor_data<ValueType, Dim, RankLHS>;
@@ -39,19 +39,20 @@ public:
     tmech::detail::for_loop_t<RankLHS + RankRHS - 1, Dim>::for_loop(func);
   }
 
-  void missmatch(std::size_t dim, std::size_t rankLHS,
-                 std::size_t rankRHS) {
+  void missmatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
     if (dim > this->_MaxDim || dim == 0) {
-      throw std::runtime_error(
-          "tensor_data_outer_product::evaluate(dim, rankLHS, rankRHS) dim > MaxDim || dim == 0");
+      throw std::runtime_error("tensor_data_outer_product::evaluate(dim, "
+                               "rankLHS, rankRHS) dim > MaxDim || dim == 0");
     }
     if (rankLHS > this->_MaxRank || rankLHS == 0) {
-      throw std::runtime_error("tensor_data_outer_product::evaluate(dim, rankLHS, rankRHS) rankLHS "
-                               "> MaxRank || rankLHS == 0");
+      throw std::runtime_error(
+          "tensor_data_outer_product::evaluate(dim, rankLHS, rankRHS) rankLHS "
+          "> MaxRank || rankLHS == 0");
     }
     if (rankRHS > this->_MaxRank || rankRHS == 0) {
-      throw std::runtime_error("tensor_data_outer_product::evaluate(dim, rankLHS, rankRHS) rankRHS "
-                               "> MaxRank || rankRHS == 0");
+      throw std::runtime_error(
+          "tensor_data_outer_product::evaluate(dim, rankLHS, rankRHS) rankRHS "
+          "> MaxRank || rankRHS == 0");
     }
   }
 
@@ -70,6 +71,6 @@ private:
   std::vector<std::size_t> const &m_rhs_indices;
 };
 
-} // NAMESPACE symTM
+} // namespace numsim::cas
 
 #endif // TENSOR_DATA_OUTER_PRODUCT_H

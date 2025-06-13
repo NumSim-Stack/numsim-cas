@@ -10,7 +10,8 @@ namespace std {
 
 template <typename ValueType>
 auto to_string(
-    numsim::cas::expression_holder<numsim::cas::tensor_expression<ValueType>> &&expr) {
+    numsim::cas::expression_holder<numsim::cas::tensor_expression<ValueType>>
+        &&expr) {
   std::stringstream ss;
   numsim::cas::tensor_printer<ValueType, std::stringstream> printer(ss);
   printer.apply(expr);
@@ -19,13 +20,14 @@ auto to_string(
 
 template <typename ValueType>
 auto to_string(
-    numsim::cas::expression_holder<numsim::cas::tensor_expression<ValueType>> &expr) {
+    numsim::cas::expression_holder<numsim::cas::tensor_expression<ValueType>>
+        &expr) {
   std::stringstream ss;
   numsim::cas::tensor_printer<ValueType, std::stringstream> printer(ss);
   printer.apply(expr);
   return ss.str();
 }
 
-} // NAMESPACE STD
+} // namespace std
 
 #endif // TENSOR_STD_H

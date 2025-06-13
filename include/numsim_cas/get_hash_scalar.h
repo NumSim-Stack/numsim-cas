@@ -1,94 +1,85 @@
 #ifndef GET_HASH_SCALAR_H
 #define GET_HASH_SCALAR_H
 
-#include <vector>
-#include <algorithm>
-#include <utility>
-#include <assert.h>
 #include "scalar/scalar_negativ.h"
+#include <algorithm>
+#include <assert.h>
+#include <utility>
+#include <vector>
 
 namespace numsim::cas {
 
-class get_hash_value_scalar
-{
+class get_hash_value_scalar {
 public:
   get_hash_value_scalar() {}
-  template<typename T>
-  auto operator()(T const& expr){
+  template <typename T> auto operator()(T const &expr) {
     return expr.hash_value();
   }
-  template<typename T>
-  auto operator()(scalar_negative<T> const& expr){
+  template <typename T> auto operator()(scalar_negative<T> const &expr) {
     return expr.expr().get().hash_value();
   }
 };
 
-template<typename T>
-auto get_hash_value(expression_holder<scalar_expression<T>> const& expr){
+template <typename T>
+auto get_hash_value(expression_holder<scalar_expression<T>> const &expr) {
   return visit(get_hash_value_scalar(), *expr);
 }
 
-class get_hash_value_tensor
-{
+class get_hash_value_tensor {
 public:
   get_hash_value_tensor() {}
-  template<typename T>
-  auto operator()(T const& expr){
+  template <typename T> auto operator()(T const &expr) {
     return expr.hash_value();
   }
-  template<typename T>
-  auto operator()(tensor_negative<T> const& expr){
+  template <typename T> auto operator()(tensor_negative<T> const &expr) {
     return expr.expr().get().hash_value();
   }
 };
 
-template<typename T>
-auto get_hash_value(expression_holder<tensor_expression<T>> const& expr){
+template <typename T>
+auto get_hash_value(expression_holder<tensor_expression<T>> const &expr) {
   return visit(get_hash_value_tensor(), *expr);
 }
 
-
-template<typename T>
-auto get_hash_value(expression_holder<tensor_to_scalar_expression<T>> const& expr){
+template <typename T>
+auto get_hash_value(
+    expression_holder<tensor_to_scalar_expression<T>> const &expr) {
   return expr.get().hash_value();
 }
-}
+} // namespace numsim::cas
 
+// std::size_t orderedHash(const std::string& s) {
+//   constexpr std::size_t base{53};
+//   std::size_t hashValue{0};
+//   for (const auto& ch : s) {
+//     std::size_t charValue{0};
+//     if (ch >= 'a' && ch <= 'z') {
+//       charValue = ch - 'a' + 1; // 'a' = 1, 'b' = 2, ..., 'z' = 26
+//     }
+//     if (ch >= 'A' && ch <= 'Z') {
+//       charValue = ch - 'A' + 27; // 'A' = 27, ..., 'Z' = 52
+//     }
+//     // Build a numerical representation based on base-53 encoding
+//     hashValue += charValue*base;
+//   }
+//   return hashValue;
+// }
 
+// template<typename Base>
+// class symbol_base;
 
-//std::size_t orderedHash(const std::string& s) {
-//  constexpr std::size_t base{53};
-//  std::size_t hashValue{0};
-//  for (const auto& ch : s) {
-//    std::size_t charValue{0};
-//    if (ch >= 'a' && ch <= 'z') {
-//      charValue = ch - 'a' + 1; // 'a' = 1, 'b' = 2, ..., 'z' = 26
-//    }
-//    if (ch >= 'A' && ch <= 'Z') {
-//      charValue = ch - 'A' + 27; // 'A' = 27, ..., 'Z' = 52
-//    }
-//    // Build a numerical representation based on base-53 encoding
-//    hashValue += charValue*base;
-//  }
-//  return hashValue;
-//}
+// template <typename Type>
+// class get_hash_imp;
 
-
-
-//template<typename Base>
-//class symbol_base;
-
-//template <typename Type>
-//class get_hash_imp;
-
-//template <typename ValueType>
-//class get_hash
+// template <typename ValueType>
+// class get_hash
 //{
-//public:
-//  get_hash() {}
-//  inline std::size_t operator()(expression_holder<scalar_expression<ValueType>> visitor){
-//    return std::visit(*this, *visitor);
-//  }
+// public:
+//   get_hash() {}
+//   inline std::size_t
+//   operator()(expression_holder<scalar_expression<ValueType>> visitor){
+//     return std::visit(*this, *visitor);
+//   }
 
 //  template<typename Base>
 //  inline std::size_t operator()(symbol_base<Base> const& visitor){
@@ -146,8 +137,8 @@ auto get_hash_value(expression_holder<tensor_to_scalar_expression<T>> const& exp
 
 //  inline std::size_t operator()(scalar<ValueType> const& visitor){
 //    //using this_symbol_base = typename scalar<ValueType>::base_expr;
-//    //return std::hash<const this_symbol_base*>()(static_cast<const this_symbol_base*>(&visitor));
-//    return visitor.hash_value();
+//    //return std::hash<const this_symbol_base*>()(static_cast<const
+//    this_symbol_base*>(&visitor)); return visitor.hash_value();
 //  }
 
 //  inline std::size_t operator()(tensor<ValueType> const& visitor){
@@ -166,12 +157,13 @@ auto get_hash_value(expression_holder<tensor_to_scalar_expression<T>> const& exp
 //    return 0;
 //  }
 
-//private:
-//  template<typename ExprType, typename Derived>
-//  inline std::size_t loop(n_ary_tree<ExprType, Derived> const& visitor, std::size_t seed){
-//    // Gather and hash elements in the base vector (n_ary_tree)
-//    std::vector<std::size_t> child_hashes;
-//    child_hashes.reserve(visitor.size());
+// private:
+//   template<typename ExprType, typename Derived>
+//   inline std::size_t loop(n_ary_tree<ExprType, Derived> const& visitor,
+//   std::size_t seed){
+//     // Gather and hash elements in the base vector (n_ary_tree)
+//     std::vector<std::size_t> child_hashes;
+//     child_hashes.reserve(visitor.size());
 
 //    for (const auto& child : visitor.hash_map() | std::views::values) {
 //      // Assuming each child is wrapped in a variant and supports std::visit
@@ -192,27 +184,21 @@ auto get_hash_value(expression_holder<tensor_to_scalar_expression<T>> const& exp
 //};
 //}
 
+// template <typename ValueType>
+// struct
+// std::hash<symTM::expression_holder<symTM::scalar_expression<ValueType>>> {
+//   std::size_t operator()(const
+//   symTM::expression_holder<symTM::scalar_expression<ValueType>>& add_expr)
+//   const {
+//     return std::visit(symTM::get_hash<ValueType>(), *add_expr);
+//   }
+// };
 
-
-
-
-
-
-
-//template <typename ValueType>
-//struct std::hash<symTM::expression_holder<symTM::scalar_expression<ValueType>>> {
-//  std::size_t operator()(const symTM::expression_holder<symTM::scalar_expression<ValueType>>& add_expr) const {
-//    return std::visit(symTM::get_hash<ValueType>(), *add_expr);
-//  }
-//};
-
-
-//template <typename ExprType>
-//struct std::hash<symTM::n_ary_tree<ExprType>> {
-//  std::size_t operator()(const symTM::n_ary_tree<ExprType>& add_expr) const {
-//    return std::visit(symTM::get_hash<ValueType>(), *add_expr);
-//  }
-//};
-
+// template <typename ExprType>
+// struct std::hash<symTM::n_ary_tree<ExprType>> {
+//   std::size_t operator()(const symTM::n_ary_tree<ExprType>& add_expr) const {
+//     return std::visit(symTM::get_hash<ValueType>(), *add_expr);
+//   }
+// };
 
 #endif // GET_HASH_SCALAR_H

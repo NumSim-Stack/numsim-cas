@@ -2,12 +2,12 @@
 #define TENSOR_SIMPLIFIER_MUL_H
 
 #include "../../expression_holder.h"
-#include "../../operators.h"
-#include "../../scalar/scalar_constant.h"
 #include "../../numsim_cas_forward.h"
 #include "../../numsim_cas_type_traits.h"
-#include "../operators/tensor/tensor_mul.h"
+#include "../../operators.h"
+#include "../../scalar/scalar_constant.h"
 #include "../functions/tensor_pow.h"
+#include "../operators/tensor/tensor_mul.h"
 #include "../tensor_std.h"
 #include <set>
 #include <type_traits>
@@ -73,7 +73,8 @@ protected:
   auto get_default() {
     // const auto lhs_constant{is_same<tensor_constant<value_type>>(m_lhs)};
     // const auto rhs_constant{is_same<tensor_constant<value_type>>(m_rhs)};
-    auto mul_new{make_expression<tensor_mul<value_type>>(m_lhs.get().dim(), m_rhs.get().rank())};
+    auto mul_new{make_expression<tensor_mul<value_type>>(m_lhs.get().dim(),
+                                                         m_rhs.get().rank())};
     auto &add{mul_new.template get<tensor_mul<value_type>>()};
     // if(lhs_constant){
     //   add.set_coeff(m_lhs);
@@ -105,8 +106,7 @@ public:
 
   auto operator()([[maybe_unused]] tensor<value_type> const &rhs) {
     if (lhs.hash_value() == rhs.hash_value()) {
-      const auto rhs_expr{lhs.expr_rhs() +
-                          get_scalar_one<value_type>()};
+      const auto rhs_expr{lhs.expr_rhs() + get_scalar_one<value_type>()};
       return make_expression<tensor_pow<value_type>>(lhs.expr_lhs(),
                                                      std::move(rhs_expr));
     }

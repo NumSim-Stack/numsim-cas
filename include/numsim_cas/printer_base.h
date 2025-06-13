@@ -1,38 +1,34 @@
 #ifndef PRINTER_BASE_H
 #define PRINTER_BASE_H
 
-#include <string_view>
 #include "numsim_cas_forward.h"
+#include <string_view>
 
 namespace numsim::cas {
 // Define a strongly-typed enum class for operation precedence
 enum class Precedence {
-  None,           // No precedence (for top-level calls)
-  Addition,       // Addition / Subtraction precedence
+  None,     // No precedence (for top-level calls)
+  Addition, // Addition / Subtraction precedence
   Negative,
   Division_LHS,
   Multiplication, // Multiplication and Division precedence
   Division_RHS,
-  Unary           // Unary operations like negation
+  Unary // Unary operations like negation
 };
 
-template<typename Derived, typename StreamType>
-class printer_base {
+template <typename Derived, typename StreamType> class printer_base {
 public:
-  printer_base(StreamType & out):m_out(out){}
+  printer_base(StreamType &out) : m_out(out) {}
 
-  void print(std::string_view out){
-    m_out<<out;
-  }
+  void print(std::string_view out) { m_out << out; }
 
-  template<typename ExprType>
+  template <typename ExprType>
   auto apply(expression_holder<ExprType> const &expr,
              Precedence parent_precedence = Precedence::None) {
-    static_cast<Derived&>(*this).apply(expr, parent_precedence);
+    static_cast<Derived &>(*this).apply(expr, parent_precedence);
   }
 
 protected:
-
   void begin(Precedence current_precedence, Precedence parent_precedence) {
     if (current_precedence < parent_precedence)
       m_out << "(";
@@ -54,13 +50,13 @@ protected:
   template <typename Visitable>
   void print_unary(std::string_view name, Visitable const &visitable) {
     m_out << name << "(";
-    static_cast<Derived&>(*this).apply(visitable.expr());
+    static_cast<Derived &>(*this).apply(visitable.expr());
     m_out << ")";
   }
 
-  StreamType & m_out;
+  StreamType &m_out;
 };
 
-}
+} // namespace numsim::cas
 
 #endif // PRINTER_BASE_H

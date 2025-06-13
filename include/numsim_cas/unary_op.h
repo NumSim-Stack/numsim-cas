@@ -8,25 +8,29 @@
 namespace numsim::cas {
 
 template <typename Derived, typename Base, typename ExprType = Base>
-class unary_op : public expression_crtp<unary_op<Derived, Base, ExprType>, Base> {
+class unary_op
+    : public expression_crtp<unary_op<Derived, Base, ExprType>, Base> {
 public:
   using base = expression_crtp<unary_op<Derived, Base, ExprType>, Base>;
   using base_expr = Base;
 
-  template <typename Expr,
-            std::enable_if_t<std::is_base_of_v<
-                                 ExprType, std::remove_pointer_t<get_type_t<Expr>>>,
-                             bool> = true,
-            typename... Args>
+  template <
+      typename Expr,
+      std::enable_if_t<
+          std::is_base_of_v<ExprType, std::remove_pointer_t<get_type_t<Expr>>>,
+          bool> = true,
+      typename... Args>
   explicit unary_op(Expr &&expr, Args &&...args)
       : base(std::forward<Args>(args)...), m_expr(std::forward<Expr>(expr)) {
     update_hash_value();
   }
 
   explicit unary_op(unary_op &&data)
-      : base(std::move(static_cast<base_expr&&>(data))), m_expr(std::move(data.m_expr)) {}
+      : base(std::move(static_cast<base_expr &&>(data))),
+        m_expr(std::move(data.m_expr)) {}
 
-  explicit unary_op(unary_op const &data) : base(static_cast<const base_expr&>(data)), m_expr(data.m_expr) {}
+  explicit unary_op(unary_op const &data)
+      : base(static_cast<const base_expr &>(data)), m_expr(data.m_expr) {}
 
   virtual ~unary_op() = default;
   const unary_op &operator=(unary_op const &) = delete;
@@ -36,7 +40,7 @@ public:
   }
 
 protected:
-  void update_hash_value(){
+  void update_hash_value() {
     static const auto id{base::get_id()};
     hash_combine(base::m_hash_value, m_expr.get().hash_value());
     hash_combine(base::m_hash_value, id);
@@ -45,6 +49,6 @@ protected:
   expression_holder<ExprType> m_expr;
 };
 
-} // NAMESPACE symTM
+} // namespace numsim::cas
 
 #endif // UNARY_OP_H

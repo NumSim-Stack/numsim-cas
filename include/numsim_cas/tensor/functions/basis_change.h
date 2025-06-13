@@ -9,7 +9,6 @@
 
 namespace numsim::cas {
 
-
 /**
  * @class basis_change_imp
  * @brief Implements basis change for tensor expressions.
@@ -22,7 +21,8 @@ template <typename ValueType>
 class basis_change_imp final : public unary_op<basis_change_imp<ValueType>,
                                                tensor_expression<ValueType>> {
 public:
-  using base = unary_op<basis_change_imp<ValueType>, tensor_expression<ValueType>>;
+  using base =
+      unary_op<basis_change_imp<ValueType>, tensor_expression<ValueType>>;
 
   /**
    * @brief Constructs a basis_change_imp object.
@@ -63,6 +63,6 @@ protected:
   const std::vector<std::size_t> m_indices;
 };
 
-} // NAMESPACE symTM
+} // namespace numsim::cas
 
 #endif // BASIS_CHANGE_H

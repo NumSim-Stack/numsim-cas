@@ -11,10 +11,7 @@
 namespace numsim::cas {
 
 template <typename Base, typename Derived>
-class n_ary_tree
-    : public expression_crtp<
-          Derived, Base>
-{
+class n_ary_tree : public expression_crtp<Derived, Base> {
 public:
   using base = expression_crtp<Derived, Base>;
   using expr_type = typename Base::expr_type;
@@ -27,22 +24,20 @@ public:
   n_ary_tree() noexcept { this->reserve(2); }
 
   template <typename... Args>
-  n_ary_tree(Args &&...args) noexcept:base(std::forward<Args>(args)...){}
+  n_ary_tree(Args &&...args) noexcept : base(std::forward<Args>(args)...) {}
 
   template <typename... Args>
   n_ary_tree(n_ary_tree &&data, Args &&...args) noexcept
-      : base(std::forward<Args>(args)...),
-        m_coeff(std::move(data.m_coeff)),
+      : base(std::forward<Args>(args)...), m_coeff(std::move(data.m_coeff)),
         m_symbol_map(std::move(data.m_symbol_map)) {
-     this->m_hash_value = data.m_hash_value;
+    this->m_hash_value = data.m_hash_value;
   }
 
   template <typename... Args>
   n_ary_tree(n_ary_tree const &data, Args &&...args) noexcept
-      : base(std::forward<Args>(args)...),
-        m_coeff(data.m_coeff),
+      : base(std::forward<Args>(args)...), m_coeff(data.m_coeff),
         m_symbol_map(data.m_symbol_map) {
-     this->m_hash_value = data.m_hash_value;
+    this->m_hash_value = data.m_hash_value;
   }
 
   inline void push_back(expression_holder<expr_type> const &expr) noexcept {
@@ -53,51 +48,55 @@ public:
     insert_hash(expr);
   }
 
-  inline void reserve([[maybe_unused]] std::size_t size) noexcept { /*m_symbol_map.reserve(size);*/ }
+  inline void reserve([[maybe_unused]] std::size_t
+                          size) noexcept { /*m_symbol_map.reserve(size);*/
+  }
 
   [[nodiscard]] inline auto size() const noexcept {
     return m_symbol_map.size();
   }
 
-  [[nodiscard]] inline auto const &hash_map() const noexcept{ return m_symbol_map; }
+  [[nodiscard]] inline auto const &hash_map() const noexcept {
+    return m_symbol_map;
+  }
 
-  [[nodiscard]] inline auto &hash_map() noexcept{ return m_symbol_map; }
+  [[nodiscard]] inline auto &hash_map() noexcept { return m_symbol_map; }
 
-  inline auto set_coeff(expr_holder const &expr) noexcept{ m_coeff = expr; }
+  inline auto set_coeff(expr_holder const &expr) noexcept { m_coeff = expr; }
 
-  [[nodiscard]] inline auto& coeff()const noexcept{ return m_coeff; }
-  [[nodiscard]] inline auto& coeff()noexcept{ return m_coeff; }
+  [[nodiscard]] inline auto &coeff() const noexcept { return m_coeff; }
+  [[nodiscard]] inline auto &coeff() noexcept { return m_coeff; }
 
-  void update_hash_value(){
+  void update_hash_value() {
     std::vector<std::size_t> child_hashes;
     child_hashes.reserve(m_symbol_map.size());
     this->m_hash_value = 0;
 
-    //otherwise we can not provide the order of the symbols
-    //hash_combine(this->m_hash_value, base::get_id());
+    // otherwise we can not provide the order of the symbols
+    // hash_combine(this->m_hash_value, base::get_id());
 
-    for (const auto& child : m_symbol_map | std::views::values) {
+    for (const auto &child : m_symbol_map | std::views::values) {
       child_hashes.push_back(get_hash_value(child));
     }
 
-    //for a single entry return this
-    if(child_hashes.size() == 1){
+    // for a single entry return this
+    if (child_hashes.size() == 1) {
       this->m_hash_value = child_hashes.front();
-      return ;
+      return;
     }
 
     // Sort for commutative operations like addition
     std::stable_sort(child_hashes.begin(), child_hashes.end());
 
     // Combine all child hashes
-    for (const auto& child_hash : child_hashes) {
+    for (const auto &child_hash : child_hashes) {
       hash_combine(this->m_hash_value, child_hash);
     }
   }
 
 protected:
   expr_holder m_coeff;
-  //Derived const &m_derived;
+  // Derived const &m_derived;
 
 private:
   // x+y+(4*z)+(4*x*y)
@@ -114,17 +113,17 @@ private:
     init_parameter_pack(std::forward<Args>(args)...);
   }
 
-  template <typename T> void init_parameter_pack(T &&first) noexcept{
+  template <typename T> void init_parameter_pack(T &&first) noexcept {
     add_child(std::forward<T>(first));
   }
 
-  template <typename T> void insert_hash(T const &expr) noexcept{
+  template <typename T> void insert_hash(T const &expr) noexcept {
     assert(m_symbol_map.find(get_hash_value(expr)) == m_symbol_map.end());
     m_symbol_map[get_hash_value(expr)] = expr;
     update_hash_value();
   }
 };
 
-} // NAMESPACE symTM
+} // namespace numsim::cas
 
 #endif // N_ARY_TREE_H

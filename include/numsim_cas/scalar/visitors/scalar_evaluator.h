@@ -1,9 +1,9 @@
 #ifndef SCALAR_EVALUATOR_H
 #define SCALAR_EVALUATOR_H
 
-//#include "scalar.h"
-//#include "scalar_add.h"
-//#include "scalar_sub.h"
+// #include "scalar.h"
+// #include "scalar_add.h"
+// #include "scalar_sub.h"
 #include "../../numsim_cas_type_traits.h"
 #include <math.h>
 #include <ranges>
@@ -118,25 +118,26 @@ public:
     return result;
   }
 
-//  /**
-//   * @brief Evaluates a scalar subtraction expression.
-//   *
-//   * Subtracts the evaluated results of each child expression within the scalar
-//   * subtraction expression.
-//   *
-//   * @param visitable The scalar subtraction expression to evaluate.
-//   * @return ValueType The sum of all evaluated child expressions.
-//   */
-//  ValueType operator()(scalar_sub<ValueType> &visitable) {
-//    ValueType result{0};
-//    if (visitable.coeff().is_valid()) {
-//      result -= apply(visitable.coeff());
-//    }
-//    for (auto &child : visitable.hash_map() | std::views::values) {
-//      result -= apply(child);
-//    }
-//    return result;
-//  }
+  //  /**
+  //   * @brief Evaluates a scalar subtraction expression.
+  //   *
+  //   * Subtracts the evaluated results of each child expression within the
+  //   scalar
+  //   * subtraction expression.
+  //   *
+  //   * @param visitable The scalar subtraction expression to evaluate.
+  //   * @return ValueType The sum of all evaluated child expressions.
+  //   */
+  //  ValueType operator()(scalar_sub<ValueType> &visitable) {
+  //    ValueType result{0};
+  //    if (visitable.coeff().is_valid()) {
+  //      result -= apply(visitable.coeff());
+  //    }
+  //    for (auto &child : visitable.hash_map() | std::views::values) {
+  //      result -= apply(child);
+  //    }
+  //    return result;
+  //  }
 
   /**
    * @brief Evaluates a scalar negation expression.
@@ -243,6 +244,6 @@ public:
   }
 };
 
-} // NAMESPACE symTM
+} // namespace numsim::cas
 
 #endif // SCALAR_EVALUATOR_H

@@ -1,21 +1,23 @@
 #ifndef SCALAR_PRINTER_H
 #define SCALAR_PRINTER_H
 
-#include "../../printer_base.h"
 #include "../../numsim_cas_type_traits.h"
+#include "../../printer_base.h"
 #include <iostream>
 #include <variant>
 #include <vector>
 
 namespace numsim::cas {
 
-//external polymorphism maybe used in future
-//template<typename Derived, typename StreamType, typename ValueType>
-//void print_imp(printer_base<Derived, StreamType> & printer, scalar_cos<ValueType> const& visitable, [[maybe_unused]]Precedence parent_precedence){
-//  printer.print("cos(");
-//  printer.apply(visitable.expr());
-//  printer.print(")");
-//}
+// external polymorphism maybe used in future
+// template<typename Derived, typename StreamType, typename ValueType>
+// void print_imp(printer_base<Derived, StreamType> & printer,
+// scalar_cos<ValueType> const& visitable, [[maybe_unused]]Precedence
+// parent_precedence){
+//   printer.print("cos(");
+//   printer.apply(visitable.expr());
+//   printer.print(")");
+// }
 
 // Assuming other required definitions for expressions and Precedence are
 // provided
@@ -46,8 +48,6 @@ public:
   scalar_printer(scalar_printer const &) = delete;
   scalar_printer(scalar_printer &&) = delete;
   const scalar_printer &operator=(scalar_printer const &) = delete;
-
-
 
   /**
    * @brief Applies the printer to an expression.
@@ -117,7 +117,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_mul<ValueType> const &visitable,
-                  [[maybe_unused]]Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
     bool first = true;
@@ -151,7 +151,7 @@ public:
       m_out << "+";
     }
     for (auto &child : visitable.hash_map() | std::views::values) {
-      if (!first && !is_same<scalar_negative<ValueType>>(child)){
+      if (!first && !is_same<scalar_negative<ValueType>>(child)) {
         m_out << "+";
       }
       apply(child, precedence);
@@ -161,40 +161,40 @@ public:
     end(precedence, parent_precedence);
   }
 
-//  /**
-//   * @brief Prints a scalar subtraction expression.
-//   *
-//   * @param visitable The scalar subtraction expression to be printed.
-//   * @param parent_precedence The precedence of the parent expression.
-//   */
-//  void operator()(scalar_sub<ValueType> const &visitable,
-//                  Precedence parent_precedence) {
-//    constexpr auto precedence{Precedence::Addition};
-//    begin(precedence, parent_precedence);
+  //  /**
+  //   * @brief Prints a scalar subtraction expression.
+  //   *
+  //   * @param visitable The scalar subtraction expression to be printed.
+  //   * @param parent_precedence The precedence of the parent expression.
+  //   */
+  //  void operator()(scalar_sub<ValueType> const &visitable,
+  //                  Precedence parent_precedence) {
+  //    constexpr auto precedence{Precedence::Addition};
+  //    begin(precedence, parent_precedence);
 
-//    bool first = true;
-//    if (visitable.coeff().is_valid()) {
-//      apply(visitable.coeff(), precedence);
-//      m_out << "*";
-//    }
+  //    bool first = true;
+  //    if (visitable.coeff().is_valid()) {
+  //      apply(visitable.coeff(), precedence);
+  //      m_out << "*";
+  //    }
 
-//    if (visitable.size() > 1) {
-//      m_out << "(";
-//    }
+  //    if (visitable.size() > 1) {
+  //      m_out << "(";
+  //    }
 
-//    for (auto &child : visitable.hash_map() | std::views::values) {
-//      if (!first)
-//        m_out << "-";
-//      apply(child, precedence);
-//      first = false;
-//    }
+  //    for (auto &child : visitable.hash_map() | std::views::values) {
+  //      if (!first)
+  //        m_out << "-";
+  //      apply(child, precedence);
+  //      first = false;
+  //    }
 
-//    if (visitable.size() > 1) {
-//      m_out << ")";
-//    }
+  //    if (visitable.size() > 1) {
+  //      m_out << ")";
+  //    }
 
-//    end(precedence, parent_precedence);
-//  }
+  //    end(precedence, parent_precedence);
+  //  }
 
   /**
    * @brief Prints a scalar division expression.
@@ -316,7 +316,7 @@ public:
    * @param visitable The scalar cosine expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  template<typename Scalar>
+  template <typename Scalar>
   void operator()(Scalar const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     print_unary("cos", visitable);

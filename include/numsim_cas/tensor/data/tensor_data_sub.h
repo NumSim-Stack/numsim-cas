@@ -5,10 +5,12 @@
 
 namespace numsim::cas {
 
-template<typename ValueType>
-class tensor_data_sub final : public tensor_data_eval_up_unary<tensor_data_sub<ValueType>, ValueType> {
+template <typename ValueType>
+class tensor_data_sub final
+    : public tensor_data_eval_up_unary<tensor_data_sub<ValueType>, ValueType> {
 public:
-  tensor_data_sub(tensor_data_base<ValueType> &lhs, tensor_data_base<ValueType> const &rhs)
+  tensor_data_sub(tensor_data_base<ValueType> &lhs,
+                  tensor_data_base<ValueType> const &rhs)
       : m_lhs(lhs), m_rhs(rhs) {}
 
   template <std::size_t Dim, std::size_t Rank>
@@ -35,6 +37,6 @@ private:
   tensor_data_base<ValueType> const &m_rhs;
 };
 
-} // NAMESPACE symTM
+} // namespace numsim::cas
 
 #endif // TENSOR_DATA_SUB_H

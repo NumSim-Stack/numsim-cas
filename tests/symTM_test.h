@@ -1,25 +1,24 @@
 #ifndef TST_GTEST_H
 #define TST_GTEST_H
 
-#include <complex>
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
+#include <complex>
 
-//using complexd = std::complex<double>;
-//using complexf = std::complex<float>;
+// using complexd = std::complex<double>;
+// using complexf = std::complex<float>;
 
 ////template<typename ValueType, std::size_t Dim, std::size_t Rank>
-////static constexpr inline auto& convert(numsim::cas::tensor_data_base<ValueType> & tensor){
-////  return static_cast<numsim::cas::tensor_data<ValueType,Dim,Rank>&>(tensor);
+////static constexpr inline auto&
+///convert(numsim::cas::tensor_data_base<ValueType> & tensor){ /  return
+///static_cast<numsim::cas::tensor_data<ValueType,Dim,Rank>&>(tensor);
 ////}
 
 ////template<typename ValueType, std::size_t Dim, std::size_t Rank>
-////static constexpr inline auto& convert(std::unique_ptr<numsim::cas::tensor_data_base<ValueType>> & tensor){
+////static constexpr inline auto&
+///convert(std::unique_ptr<numsim::cas::tensor_data_base<ValueType>> & tensor){
 ////  return static_cast<numsim::cas::tensor_data<ValueType,Dim,Rank>&>(tensor);
 ////}
-
-
-
 
 //#define call_test(test_name, ValueType, Dim) \
 //test_name(ValueType, Dim, 1) \
@@ -32,9 +31,12 @@
 //    test_name(ValueType, Dim, 8)
 
 ////adding tensors
-//#define add_tensors(ValueType, Dim, Rank)  \
+// #define add_tensors(ValueType, Dim, Rank)  \
 //    TEST(gtest, add_tensors_##ValueType##_##Dim##_##Rank){ \
-//      auto [asym,bsym,csym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, Rank),numsim::cas::tuple("b", Dim, Rank),numsim::cas::tuple("c", Dim, Rank))}; \
+//      auto
+//      [asym,bsym,csym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a",
+//      Dim, Rank),numsim::cas::tuple("b", Dim, Rank),numsim::cas::tuple("c",
+//      Dim, Rank))}; \
 //      tmech::tensor<ValueType, Dim, Rank> a, b, c; \
 //      a.randn(); \
 //      b.randn(); \
@@ -43,13 +45,17 @@
 //      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
 //      csym.get<numsim::cas::tensor<ValueType>>() = c; \
 //const auto result{numsim::cas::evaluate(asym+bsym+csym)}; \
-//      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, Rank>(result), a+b+c, 5e-7)); \
+//      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType,
+//      Dim, Rank>(result), a+b+c, 5e-7)); \
 //}
 
 ////subtracting tensors
-//#define sub_tensors(ValueType, Dim, Rank)  \
+// #define sub_tensors(ValueType, Dim, Rank)  \
 //TEST(gtest, sub_tensors_##ValueType##_##Dim##_##Rank){ \
-//      auto [asym,bsym,csym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a", Dim, Rank),numsim::cas::tuple("b", Dim, Rank),numsim::cas::tuple("c", Dim, Rank))}; \
+//      auto
+//      [asym,bsym,csym]{numsim::cas::make_tensor_variable<ValueType>(numsim::cas::tuple("a",
+//      Dim, Rank),numsim::cas::tuple("b", Dim, Rank),numsim::cas::tuple("c",
+//      Dim, Rank))}; \
 //      tmech::tensor<ValueType, Dim, Rank> a, b, c; \
 //      a.randn(); \
 //      b.randn(); \
@@ -58,7 +64,8 @@
 //      bsym.get<numsim::cas::tensor<ValueType>>() = b; \
 //      csym.get<numsim::cas::tensor<ValueType>>() = c; \
 //      const auto result{numsim::cas::evaluate(asym-bsym-csym)}; \
-//      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, Rank>(result), a-b-c, 5e-7)); \
+//      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType,
+//      Dim, Rank>(result), a-b-c, 5e-7)); \
 //}
 
 //#define negative_tensor(ValueType, Dim, Rank)  \
@@ -98,7 +105,6 @@
 //      const auto result{numsim::cas::evaluate(-asym+bsym+csym)}; \
 //      EXPECT_EQ(true, tmech::almost_equal(numsim::cas::get_tensor<ValueType, Dim, Rank>(result), -a+b+c, 5e-7)); \
 //}
-
 
 //#define inner_product_34_12(ValueType, Dim, RankLHS, RankRHS)  \
 //TEST(gtest, inner_product_34_12_##ValueType##_##Dim##_##RankLHS##_##RankRHS){ \
@@ -188,9 +194,9 @@
 
 ////TEST(gtest, print_tensor_expression){
 ////}
-//TEST(gtest, scalar_add_neu){
-//      auto [x,y,z]{numsim::cas::make_scalar_variable<double>("x","y","z")};
-//  auto c{numsim::cas::make_scalar_constant<double>(1.0)};
+// TEST(gtest, scalar_add_neu){
+//       auto [x,y,z]{numsim::cas::make_scalar_variable<double>("x","y","z")};
+//   auto c{numsim::cas::make_scalar_constant<double>(1.0)};
 
 //      double _x{5.99},_y{8.89},_z{9.99};
 //      x.get<numsim::cas::scalar<double>>()=_x;
@@ -230,181 +236,180 @@
 //      EXPECT_EQ(_x-_y+_z, numsim::cas::evaluate(x-y+z)); \
 //}
 
-       /// TODO
-       /// - outer_product
-       /// - sym
+/// TODO
+/// - outer_product
+/// - sym
 
-//call_test(add_tensors, double, 1);
-//call_test(add_tensors, double, 2);
-//call_test(add_tensors, double, 3);
+// call_test(add_tensors, double, 1);
+// call_test(add_tensors, double, 2);
+// call_test(add_tensors, double, 3);
 
-//call_test(sub_tensors, double, 1);
-//call_test(sub_tensors, double, 2);
-//call_test(sub_tensors, double, 3);
+// call_test(sub_tensors, double, 1);
+// call_test(sub_tensors, double, 2);
+// call_test(sub_tensors, double, 3);
 
-//call_test(negative_tensor, double, 1);
-//call_test(negative_tensor, double, 2);
-//call_test(negative_tensor, double, 3);
+// call_test(negative_tensor, double, 1);
+// call_test(negative_tensor, double, 2);
+// call_test(negative_tensor, double, 3);
 
-//call_test(negative_add_tensors, double, 1);
-//call_test(negative_add_tensors, double, 2);
-//call_test(negative_add_tensors, double, 3);
+// call_test(negative_add_tensors, double, 1);
+// call_test(negative_add_tensors, double, 2);
+// call_test(negative_add_tensors, double, 3);
 
-//call_test(negative_sub_tensors, double, 1);
-//call_test(negative_sub_tensors, double, 2);
-//call_test(negative_sub_tensors, double, 3);
+// call_test(negative_sub_tensors, double, 1);
+// call_test(negative_sub_tensors, double, 2);
+// call_test(negative_sub_tensors, double, 3);
 
-//inner_product_34_12(double,1,4,2);
-//inner_product_34_12(double,2,4,2);
-//inner_product_34_12(double,3,4,2);
+// inner_product_34_12(double,1,4,2);
+// inner_product_34_12(double,2,4,2);
+// inner_product_34_12(double,3,4,2);
 
-//inner_product_12_34(double,1,2,4);
-//inner_product_12_34(double,2,2,4);
-//inner_product_12_34(double,3,2,4);
+// inner_product_12_34(double,1,2,4);
+// inner_product_12_34(double,2,2,4);
+// inner_product_12_34(double,3,2,4);
 
-//inner_product_34_12(double,1,4,4);
-//inner_product_34_12(double,2,4,4);
-//inner_product_34_12(double,3,4,4);
+// inner_product_34_12(double,1,4,4);
+// inner_product_34_12(double,2,4,4);
+// inner_product_34_12(double,3,4,4);
 
-//inner_product_12_34(double,1,4,4);
-//inner_product_12_34(double,2,4,4);
-//inner_product_12_34(double,3,4,4);
+// inner_product_12_34(double,1,4,4);
+// inner_product_12_34(double,2,4,4);
+// inner_product_12_34(double,3,4,4);
 
-//basis_change_(double,1,2, 0, 2,1);
-//basis_change_(double,2,2, 1, 2,1);
-//basis_change_(double,3,2, 2, 2,1);
+// basis_change_(double,1,2, 0, 2,1);
+// basis_change_(double,2,2, 1, 2,1);
+// basis_change_(double,3,2, 2, 2,1);
 
-//basis_change_(double,1,4, 3, 2,1,3,4);
-//basis_change_(double,2,4, 4, 2,1,3,4);
-//basis_change_(double,3,4, 5, 2,1,3,4);
+// basis_change_(double,1,4, 3, 2,1,3,4);
+// basis_change_(double,2,4, 4, 2,1,3,4);
+// basis_change_(double,3,4, 5, 2,1,3,4);
 
-//basis_change_(double,1,4, 6, 3,4,1,2);
-//basis_change_(double,2,4, 7, 3,4,1,2);
-//basis_change_(double,3,4, 8, 3,4,1,2);
+// basis_change_(double,1,4, 6, 3,4,1,2);
+// basis_change_(double,2,4, 7, 3,4,1,2);
+// basis_change_(double,3,4, 8, 3,4,1,2);
 
 /////expression variation
-//basis_change_expr(double,1,2, 0, 2,1);
-//basis_change_expr(double,2,2, 1, 2,1);
-//basis_change_expr(double,3,2, 2, 2,1);
+// basis_change_expr(double,1,2, 0, 2,1);
+// basis_change_expr(double,2,2, 1, 2,1);
+// basis_change_expr(double,3,2, 2, 2,1);
 
-//basis_change_expr(double,1,4, 3, 2,1,3,4);
-//basis_change_expr(double,2,4, 4, 2,1,3,4);
-//basis_change_expr(double,3,4, 5, 2,1,3,4);
+// basis_change_expr(double,1,4, 3, 2,1,3,4);
+// basis_change_expr(double,2,4, 4, 2,1,3,4);
+// basis_change_expr(double,3,4, 5, 2,1,3,4);
 
-//basis_change_expr(double,1,4, 6, 3,4,1,2);
-//basis_change_expr(double,2,4, 7, 3,4,1,2);
-//basis_change_expr(double,3,4, 8, 3,4,1,2);
+// basis_change_expr(double,1,4, 6, 3,4,1,2);
+// basis_change_expr(double,2,4, 7, 3,4,1,2);
+// basis_change_expr(double,3,4, 8, 3,4,1,2);
 
-//inner_product_34_12_expr(double,1,4,2);
-//inner_product_34_12_expr(double,2,4,2);
-//inner_product_34_12_expr(double,3,4,2);
+// inner_product_34_12_expr(double,1,4,2);
+// inner_product_34_12_expr(double,2,4,2);
+// inner_product_34_12_expr(double,3,4,2);
 
-//inner_product_12_34_expr(double,1,2,4);
-//inner_product_12_34_expr(double,2,2,4);
-//inner_product_12_34_expr(double,3,2,4);
+// inner_product_12_34_expr(double,1,2,4);
+// inner_product_12_34_expr(double,2,2,4);
+// inner_product_12_34_expr(double,3,2,4);
 
-//inner_product_34_12_expr(double,1,4,4);
-//inner_product_34_12_expr(double,2,4,4);
-//inner_product_34_12_expr(double,3,4,4);
+// inner_product_34_12_expr(double,1,4,4);
+// inner_product_34_12_expr(double,2,4,4);
+// inner_product_34_12_expr(double,3,4,4);
 
-//inner_product_12_34_expr(double,1,4,4);
-//inner_product_12_34_expr(double,2,4,4);
-//inner_product_12_34_expr(double,3,4,4);
+// inner_product_12_34_expr(double,1,4,4);
+// inner_product_12_34_expr(double,2,4,4);
+// inner_product_12_34_expr(double,3,4,4);
 
 /////
-//call_test(add_tensors, float, 1);
-//call_test(add_tensors, float, 2);
-//call_test(add_tensors, float, 3);
+// call_test(add_tensors, float, 1);
+// call_test(add_tensors, float, 2);
+// call_test(add_tensors, float, 3);
 
-//call_test(sub_tensors, float, 1);
-//call_test(sub_tensors, float, 2);
-//call_test(sub_tensors, float, 3);
+// call_test(sub_tensors, float, 1);
+// call_test(sub_tensors, float, 2);
+// call_test(sub_tensors, float, 3);
 
-//call_test(negative_tensor, float, 1);
-//call_test(negative_tensor, float, 2);
-//call_test(negative_tensor, float, 3);
+// call_test(negative_tensor, float, 1);
+// call_test(negative_tensor, float, 2);
+// call_test(negative_tensor, float, 3);
 
-//call_test(negative_add_tensors, float, 1);
-//call_test(negative_add_tensors, float, 2);
-//call_test(negative_add_tensors, float, 3);
+// call_test(negative_add_tensors, float, 1);
+// call_test(negative_add_tensors, float, 2);
+// call_test(negative_add_tensors, float, 3);
 
-//call_test(negative_sub_tensors, float, 1);
-//call_test(negative_sub_tensors, float, 2);
-//call_test(negative_sub_tensors, float, 3);
+// call_test(negative_sub_tensors, float, 1);
+// call_test(negative_sub_tensors, float, 2);
+// call_test(negative_sub_tensors, float, 3);
 
-//inner_product_34_12(float,1,4,2);
-//inner_product_34_12(float,2,4,2);
-//inner_product_34_12(float,3,4,2);
+// inner_product_34_12(float,1,4,2);
+// inner_product_34_12(float,2,4,2);
+// inner_product_34_12(float,3,4,2);
 
-//inner_product_12_34(float,1,2,4);
-//inner_product_12_34(float,2,2,4);
-//inner_product_12_34(float,3,2,4);
+// inner_product_12_34(float,1,2,4);
+// inner_product_12_34(float,2,2,4);
+// inner_product_12_34(float,3,2,4);
 
-//inner_product_34_12(float,1,4,4);
-//inner_product_34_12(float,2,4,4);
-//inner_product_34_12(float,3,4,4);
+// inner_product_34_12(float,1,4,4);
+// inner_product_34_12(float,2,4,4);
+// inner_product_34_12(float,3,4,4);
 
-//inner_product_12_34(float,1,4,4);
-//inner_product_12_34(float,2,4,4);
-//inner_product_12_34(float,3,4,4);
+// inner_product_12_34(float,1,4,4);
+// inner_product_12_34(float,2,4,4);
+// inner_product_12_34(float,3,4,4);
 
-//basis_change_(float,1,2, 0, 2,1);
-//basis_change_(float,2,2, 1, 2,1);
-//basis_change_(float,3,2, 2, 2,1);
+// basis_change_(float,1,2, 0, 2,1);
+// basis_change_(float,2,2, 1, 2,1);
+// basis_change_(float,3,2, 2, 2,1);
 
-//basis_change_(float,1,4, 3, 2,1,3,4);
-//basis_change_(float,2,4, 4, 2,1,3,4);
-//basis_change_(float,3,4, 5, 2,1,3,4);
+// basis_change_(float,1,4, 3, 2,1,3,4);
+// basis_change_(float,2,4, 4, 2,1,3,4);
+// basis_change_(float,3,4, 5, 2,1,3,4);
 
-//basis_change_(float,1,4, 6, 3,4,1,2);
-//basis_change_(float,2,4, 7, 3,4,1,2);
-//basis_change_(float,3,4, 8, 3,4,1,2);
+// basis_change_(float,1,4, 6, 3,4,1,2);
+// basis_change_(float,2,4, 7, 3,4,1,2);
+// basis_change_(float,3,4, 8, 3,4,1,2);
 
 /////expression variation
-//basis_change_expr(float,1,2, 0, 2,1);
-//basis_change_expr(float,2,2, 1, 2,1);
-//basis_change_expr(float,3,2, 2, 2,1);
+// basis_change_expr(float,1,2, 0, 2,1);
+// basis_change_expr(float,2,2, 1, 2,1);
+// basis_change_expr(float,3,2, 2, 2,1);
 
-//basis_change_expr(float,1,4, 3, 2,1,3,4);
-//basis_change_expr(float,2,4, 4, 2,1,3,4);
-//basis_change_expr(float,3,4, 5, 2,1,3,4);
+// basis_change_expr(float,1,4, 3, 2,1,3,4);
+// basis_change_expr(float,2,4, 4, 2,1,3,4);
+// basis_change_expr(float,3,4, 5, 2,1,3,4);
 
-//basis_change_expr(float,1,4, 6, 3,4,1,2);
-//basis_change_expr(float,2,4, 7, 3,4,1,2);
-//basis_change_expr(float,3,4, 8, 3,4,1,2);
+// basis_change_expr(float,1,4, 6, 3,4,1,2);
+// basis_change_expr(float,2,4, 7, 3,4,1,2);
+// basis_change_expr(float,3,4, 8, 3,4,1,2);
 
-//inner_product_34_12_expr(float,1,4,2);
-//inner_product_34_12_expr(float,2,4,2);
-//inner_product_34_12_expr(float,3,4,2);
+// inner_product_34_12_expr(float,1,4,2);
+// inner_product_34_12_expr(float,2,4,2);
+// inner_product_34_12_expr(float,3,4,2);
 
-//inner_product_12_34_expr(float,1,2,4);
-//inner_product_12_34_expr(float,2,2,4);
-//inner_product_12_34_expr(float,3,2,4);
+// inner_product_12_34_expr(float,1,2,4);
+// inner_product_12_34_expr(float,2,2,4);
+// inner_product_12_34_expr(float,3,2,4);
 
-//inner_product_34_12_expr(float,1,4,4);
-//inner_product_34_12_expr(float,2,4,4);
-//inner_product_34_12_expr(float,3,4,4);
+// inner_product_34_12_expr(float,1,4,4);
+// inner_product_34_12_expr(float,2,4,4);
+// inner_product_34_12_expr(float,3,4,4);
 
-//inner_product_12_34_expr(float,1,4,4);
-//inner_product_12_34_expr(float,2,4,4);
-//inner_product_12_34_expr(float,3,4,4);
-
+// inner_product_12_34_expr(float,1,4,4);
+// inner_product_12_34_expr(float,2,4,4);
+// inner_product_12_34_expr(float,3,4,4);
 
 ///// scalar
-//scalar_add(double);
-//scalar_sub(double);
-//scalar_complex_expr(double);
+// scalar_add(double);
+// scalar_sub(double);
+// scalar_complex_expr(double);
 
-//scalar_add(float);
-//scalar_sub(float);
-//scalar_complex_expr(float);
+// scalar_add(float);
+// scalar_sub(float);
+// scalar_complex_expr(float);
 
-//scalar_add(complexd);
-//scalar_sub(complexd);
-//scalar_complex_expr(complexd);
+// scalar_add(complexd);
+// scalar_sub(complexd);
+// scalar_complex_expr(complexd);
 
-//scalar_add(complexf);
-//scalar_sub(complexf);
-//scalar_complex_expr(complexf);
+// scalar_add(complexf);
+// scalar_sub(complexf);
+// scalar_complex_expr(complexf);
 
 #endif // TST_GTEST_H

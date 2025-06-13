@@ -5,8 +5,8 @@
 
 namespace numsim::cas {
 
-template <typename Derived, typename ValueType, std::size_t MaxDim, std::size_t MaxRank,
-          std::size_t MaxArgs>
+template <typename Derived, typename ValueType, std::size_t MaxDim,
+          std::size_t MaxRank, std::size_t MaxArgs>
 class tensor_data_eval {
 public:
   tensor_data_eval() = default;
@@ -30,8 +30,8 @@ protected:
   static constexpr auto _MaxRank{MaxRank};
 
 private:
-  template <std::size_t Dim, std::size_t RankIter,
-            std::size_t... Ranks, typename... Args>
+  template <std::size_t Dim, std::size_t RankIter, std::size_t... Ranks,
+            typename... Args>
   [[nodiscard]] constexpr inline auto rank_loop(std::size_t rank,
                                                 Args... args) {
     if constexpr (RankIter <= MaxRank) {
@@ -68,6 +68,6 @@ private:
   }
 };
 
-}
+} // namespace numsim::cas
 
 #endif // TENSOR_DATA_EVAL_H

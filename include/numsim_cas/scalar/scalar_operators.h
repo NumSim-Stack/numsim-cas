@@ -6,23 +6,16 @@
 #include "../scalar/scalar_div.h"
 #include "../scalar/scalar_expression.h"
 #include "../scalar/simplifier/scalar_simplifier_add.h"
-#include "../scalar/simplifier/scalar_simplifier_sub.h"
-#include "../scalar/simplifier/scalar_simplifier_mul.h"
 #include "../scalar/simplifier/scalar_simplifier_div.h"
-#include <set>
-#include <ranges>
+#include "../scalar/simplifier/scalar_simplifier_mul.h"
+#include "../scalar/simplifier/scalar_simplifier_sub.h"
 #include <iostream>
+#include <ranges>
+#include <set>
 
 #define SMYTM_USE_SIMPLIFICATION
 
-
-
 namespace numsim::cas {
-
-
-
-
-
 
 // template<typename ValueType>
 // class scalar_binary_simplifyer_base
@@ -207,13 +200,11 @@ private:
   Type const &m_expr;
 };
 
-
-
-//template <typename ValueType> class scalar_variable_expr_simplifier_add {
-//public:
-//  using expr_type = expression_holder<scalar_expression<ValueType>>;
-//  scalar_variable_expr_simplifier_add(expr_type &var, expr_type &expr)
-//      : m_var(var), m_expr(expr) {}
+// template <typename ValueType> class scalar_variable_expr_simplifier_add {
+// public:
+//   using expr_type = expression_holder<scalar_expression<ValueType>>;
+//   scalar_variable_expr_simplifier_add(expr_type &var, expr_type &expr)
+//       : m_var(var), m_expr(expr) {}
 
 //  expr_type operator()(scalar_mul<ValueType> &expr) {
 //    /// (constant*m_var)+m_var --> (constant+1)*m_var
@@ -225,7 +216,9 @@ private:
 //        auto add_new{make_expression<scalar_add<ValueType>>()};
 //        add_new.template get<scalar_add<ValueType>>().reserve(expr.size());
 //        auto &constant{expr[0].template get<scalar_constant<ValueType>>()};
-//        add_new.template get<scalar_add<ValueType>>().push_back(make_expression<scalar_constant<ValueType>>(constant() + 1));
+//        add_new.template
+//        get<scalar_add<ValueType>>().push_back(make_expression<scalar_constant<ValueType>>(constant()
+//        + 1));
 //        //insert element except the first one
 //        //        for(auto& child : expr){
 ////          add_new.template get<scalar_add<value_type>>().push_back(child);
@@ -249,50 +242,65 @@ private:
 
 //  template <typename T> expr_type operator()(T &) { return expr_type(); }
 
-//private:
-//  expr_type &m_var;
-//  expr_type &m_expr;
-//};
+// private:
+//   expr_type &m_var;
+//   expr_type &m_expr;
+// };
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_scalar_add_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-//  auto &_lhs = *lhs;
-//  auto &_rhs = *rhs;
-//  return std::visit(
-//      scalar_simplifier_add<ExprTypeLHS,ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
-//      _lhs, _rhs);
-  return visit(simplifier::add_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)), *lhs);
+constexpr inline auto binary_scalar_add_simplify(ExprTypeLHS &&lhs,
+                                                 ExprTypeRHS &&rhs) {
+  //  auto &_lhs = *lhs;
+  //  auto &_rhs = *rhs;
+  //  return std::visit(
+  //      scalar_simplifier_add<ExprTypeLHS,ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),
+  //      std::forward<ExprTypeRHS>(rhs)), _lhs, _rhs);
+  return visit(
+      simplifier::add_base<ExprTypeLHS, ExprTypeRHS>(
+          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+      *lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_scalar_sub_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-//  auto &_lhs = *lhs;
-//  auto &_rhs = *rhs;
-//  return std::visit(
-//      scalar_simplifier_add<ExprTypeLHS,ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
-//      _lhs, _rhs);
-  return visit(simplifier::sub_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)), *lhs);
+constexpr inline auto binary_scalar_sub_simplify(ExprTypeLHS &&lhs,
+                                                 ExprTypeRHS &&rhs) {
+  //  auto &_lhs = *lhs;
+  //  auto &_rhs = *rhs;
+  //  return std::visit(
+  //      scalar_simplifier_add<ExprTypeLHS,ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),
+  //      std::forward<ExprTypeRHS>(rhs)), _lhs, _rhs);
+  return visit(
+      simplifier::sub_base<ExprTypeLHS, ExprTypeRHS>(
+          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+      *lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_scalar_div_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-//  using value_type = typename ExprTypeLHS::value_type;
-//  return make_expression<scalar_div<value_type>>(
-//      std::forward<ExprTypeRHS>(lhs), std::forward<ExprTypeLHS>(rhs));
+constexpr inline auto binary_scalar_div_simplify(ExprTypeLHS &&lhs,
+                                                 ExprTypeRHS &&rhs) {
+  //  using value_type = typename ExprTypeLHS::value_type;
+  //  return make_expression<scalar_div<value_type>>(
+  //      std::forward<ExprTypeRHS>(lhs), std::forward<ExprTypeLHS>(rhs));
   auto &_lhs = *lhs;
-  return visit(scalar_detail::simplifier::div_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),std::forward<ExprTypeRHS>(rhs)), _lhs);
+  return visit(
+      scalar_detail::simplifier::div_base<ExprTypeLHS, ExprTypeRHS>(
+          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+      _lhs);
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_scalar_mul_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs){
-//  auto &_lhs = *lhs;
-//  auto &_rhs = *rhs;
-//  return std::visit(
-//      scalar_simplifier_mul<ExprTypeLHS,ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
-//      _lhs, _rhs);
-  return visit(simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)), *lhs);
+constexpr inline auto binary_scalar_mul_simplify(ExprTypeLHS &&lhs,
+                                                 ExprTypeRHS &&rhs) {
+  //  auto &_lhs = *lhs;
+  //  auto &_rhs = *rhs;
+  //  return std::visit(
+  //      scalar_simplifier_mul<ExprTypeLHS,ExprTypeRHS>(std::forward<ExprTypeLHS>(lhs),
+  //      std::forward<ExprTypeRHS>(rhs)), _lhs, _rhs);
+  return visit(
+      simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(
+          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+      *lhs);
 }
-
 
 template <typename ValueType>
 struct operator_overload<expression_holder<scalar_expression<ValueType>>,
@@ -300,62 +308,70 @@ struct operator_overload<expression_holder<scalar_expression<ValueType>>,
   using expr_type = scalar_expression<ValueType>;
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
-  static constexpr inline expression_holder<scalar_expression<ValueType>> add(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
-    return binary_scalar_add_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
+  static constexpr inline expression_holder<scalar_expression<ValueType>>
+  add(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
+    return binary_scalar_add_simplify(std::forward<ExprTypeLHS>(lhs),
+                                      std::forward<ExprTypeRHS>(rhs));
   }
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
-  static constexpr inline expression_holder<scalar_expression<ValueType>> sub(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
-    //auto negative{-std::forward<ExprTypeRHS>(rhs)};
-    return binary_scalar_sub_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
+  static constexpr inline expression_holder<scalar_expression<ValueType>>
+  sub(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
+    // auto negative{-std::forward<ExprTypeRHS>(rhs)};
+    return binary_scalar_sub_simplify(std::forward<ExprTypeLHS>(lhs),
+                                      std::forward<ExprTypeRHS>(rhs));
   }
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
-  static constexpr inline expression_holder<scalar_expression<ValueType>> div(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
-    return binary_scalar_div_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
+  static constexpr inline expression_holder<scalar_expression<ValueType>>
+  div(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
+    return binary_scalar_div_simplify(std::forward<ExprTypeLHS>(lhs),
+                                      std::forward<ExprTypeRHS>(rhs));
   }
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
-  static constexpr inline expression_holder<scalar_expression<ValueType>> mul(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
-    return binary_scalar_mul_simplify(std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
+  static constexpr inline expression_holder<scalar_expression<ValueType>>
+  mul(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
+    return binary_scalar_mul_simplify(std::forward<ExprTypeLHS>(lhs),
+                                      std::forward<ExprTypeRHS>(rhs));
   }
 };
 
 } // namespace numsim::cas
 
-       //  expr_type operator()(scalar<value_type> &lhs, scalar<value_type> &rhs) {
-       //    if (&lhs == &rhs) {
-       //      auto mul{make_expression<scalar_mul<value_type>>()};
-       //      mul.template get<scalar_mul<value_type>>().push_back(
-       //          make_expression<scalar_constant<value_type>>(2));
-       //      mul.template get<scalar_mul<value_type>>().push_back(m_rhs);
-       //      return mul;
-       //    }else{
-       //      auto add_new{make_expression<scalar_add<value_type>>()};
-       //      add_new.template get<scalar_add<value_type>>().push_back(m_lhs);
-       //      add_new.template get<scalar_add<value_type>>().push_back(m_rhs);
-       //      return add_new;
-       //    }
-       //  }
+//  expr_type operator()(scalar<value_type> &lhs, scalar<value_type> &rhs) {
+//    if (&lhs == &rhs) {
+//      auto mul{make_expression<scalar_mul<value_type>>()};
+//      mul.template get<scalar_mul<value_type>>().push_back(
+//          make_expression<scalar_constant<value_type>>(2));
+//      mul.template get<scalar_mul<value_type>>().push_back(m_rhs);
+//      return mul;
+//    }else{
+//      auto add_new{make_expression<scalar_add<value_type>>()};
+//      add_new.template get<scalar_add<value_type>>().push_back(m_lhs);
+//      add_new.template get<scalar_add<value_type>>().push_back(m_rhs);
+//      return add_new;
+//    }
+//  }
 
-       //  expr_type operator()(scalar_add<value_type> &lhs, scalar<value_type> &rhs)
-       //  {
-       //    std::vector<expr_type> to_delete, to_insert;
-       //    for (auto &child : lhs) {
-       //      /// search for the rhs side inside the child expressions
-       //      /// (x+y)+x --> (2*x)+y
-       //      auto expr{std::visit(scalar_variable_expr_simplifier_add(m_rhs,
-       //      child), *child)}; if (expr && (expr != child)) {
-       //        to_delete.push_back(child);
-       //        to_insert.push_back(std::move(expr));
-       //      }
-       //    }
-       //    for (auto &child : to_delete) {
-       //      lhs.erase(std::find(lhs.begin(), lhs.end(), child));
-       //    }
-       //    for (auto &child : to_insert) {
-       //      lhs.push_back(std::move(child));
-       //    }
-       //    return m_lhs;
-       //  }
+//  expr_type operator()(scalar_add<value_type> &lhs, scalar<value_type> &rhs)
+//  {
+//    std::vector<expr_type> to_delete, to_insert;
+//    for (auto &child : lhs) {
+//      /// search for the rhs side inside the child expressions
+//      /// (x+y)+x --> (2*x)+y
+//      auto expr{std::visit(scalar_variable_expr_simplifier_add(m_rhs,
+//      child), *child)}; if (expr && (expr != child)) {
+//        to_delete.push_back(child);
+//        to_insert.push_back(std::move(expr));
+//      }
+//    }
+//    for (auto &child : to_delete) {
+//      lhs.erase(std::find(lhs.begin(), lhs.end(), child));
+//    }
+//    for (auto &child : to_insert) {
+//      lhs.push_back(std::move(child));
+//    }
+//    return m_lhs;
+//  }
 #endif // SCALAR_OPERATORS_H
