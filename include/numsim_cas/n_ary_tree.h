@@ -48,8 +48,8 @@ public:
     insert_hash(expr);
   }
 
-  inline void reserve([[maybe_unused]] std::size_t
-                          size) noexcept { /*m_symbol_map.reserve(size);*/
+  inline void reserve([[maybe_unused]] std::size_t size) noexcept {
+    // m_symbol_map.reserve(size);
   }
 
   [[nodiscard]] inline auto size() const noexcept {

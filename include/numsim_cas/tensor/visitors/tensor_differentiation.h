@@ -76,8 +76,8 @@ public:
     //    }
   }
 
-  virtual void
-  operator()(tensor_add<ValueType> &visitable) { /*loop_result(visitable);*/
+  virtual void operator()(tensor_add<ValueType> &visitable) {
+    // loop_result(visitable);
   }
 
   virtual void operator()(tensor_negative<ValueType> &visitable) {
