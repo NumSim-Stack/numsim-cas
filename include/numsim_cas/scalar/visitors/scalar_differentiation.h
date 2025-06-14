@@ -1,25 +1,23 @@
 #ifndef SCALAR_DIFFERENTIATION_H
 #define SCALAR_DIFFERENTIATION_H
 
-#include <ranges>
-#include "../../operators.h"
 #include "../../basic_functions.h"
 #include "../../expression_holder.h"
 #include "../../numsim_cas_type_traits.h"
+#include "../../operators.h"
+#include <ranges>
 
-#include "../scalar_globals.h"
-#include "../scalar_one.h"
-#include "../scalar_zero.h"
-#include "../scalar_sub.h"
-#include "../scalar_mul.h"
 #include "../scalar_add.h"
+#include "../scalar_globals.h"
+#include "../scalar_mul.h"
+#include "../scalar_one.h"
 #include "../scalar_std.h"
+#include "../scalar_sub.h"
+#include "../scalar_zero.h"
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class scalar_differentiation
-{
+template <typename ValueType> class scalar_differentiation {
 public:
   using argument_type = expression_holder<scalar_expression<ValueType>>;
 
@@ -30,36 +28,36 @@ public:
   operator=(scalar_differentiation const &) = delete;
 
   auto apply(expression_holder<scalar_expression<ValueType>> &expr) {
-    if(expr.is_valid()){
+    if (expr.is_valid()) {
       m_expr = expr;
       std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
       return m_result;
-    }else{
+    } else {
       return get_scalar_zero<ValueType>();
     }
   }
 
-  auto apply(expression_holder<scalar_expression<ValueType>> const&expr) {
-    if(expr.is_valid()){
+  auto apply(expression_holder<scalar_expression<ValueType>> const &expr) {
+    if (expr.is_valid()) {
       m_expr = expr;
       std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
       return m_result;
-    }else{
+    } else {
       return get_scalar_zero<ValueType>();
     }
   }
 
   auto apply(expression_holder<scalar_expression<ValueType>> &&expr) {
-    if(expr.is_valid()){
+    if (expr.is_valid()) {
       m_expr = expr;
       std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
       return m_result;
-    }else{
+    } else {
       return get_scalar_zero<ValueType>();
     }
   }
 
-  void operator()(scalar<ValueType> const&visitable){
+  void operator()(scalar<ValueType> const &visitable) {
     if (&visitable == &m_arg.get()) {
       m_result = get_scalar_one<ValueType>();
     } else {
@@ -71,31 +69,31 @@ public:
   /// f(x)  = c * prod_i^n a_i(x)
   /// f'(x)  = c * sum_j^n a_j(x) prod_i^{n, i\neq j} a_i(x)
   /// TODO: just copy the vector and manipulate the current entry
-  void operator()(scalar_mul<ValueType> const&visitable){
-      expression_holder<scalar_expression<ValueType>> expr_result;
-      for(auto &expr_out : visitable.hash_map() | std::views::values){
-        expression_holder<scalar_expression<ValueType>> expr_result_in;
-        for(auto &expr_in : visitable.hash_map() | std::views::values){
-          if(expr_out == expr_in){
-            scalar_differentiation<ValueType> diff(m_arg);
-            expr_result_in *= diff.apply(expr_in);
-          }else{
-            expr_result_in *= expr_in;
-          }
+  void operator()(scalar_mul<ValueType> const &visitable) {
+    expression_holder<scalar_expression<ValueType>> expr_result;
+    for (auto &expr_out : visitable.hash_map() | std::views::values) {
+      expression_holder<scalar_expression<ValueType>> expr_result_in;
+      for (auto &expr_in : visitable.hash_map() | std::views::values) {
+        if (expr_out == expr_in) {
+          scalar_differentiation<ValueType> diff(m_arg);
+          expr_result_in *= diff.apply(expr_in);
+        } else {
+          expr_result_in *= expr_in;
         }
-        expr_result += expr_result_in;
       }
-      if(visitable.coeff().is_valid()){
-        m_result = std::move(expr_result) * visitable.coeff();
-      }else{
-        m_result = std::move(expr_result);
-      }
+      expr_result += expr_result_in;
+    }
+    if (visitable.coeff().is_valid()) {
+      m_result = std::move(expr_result) * visitable.coeff();
+    } else {
+      m_result = std::move(expr_result);
+    }
   }
 
   /// summation rule
   /// f(x)  = c + sum_i^n a_i(x)
   /// f'(x) = sum_i^n a_i'(x)
-  void operator()([[maybe_unused]]scalar_add<ValueType> const&visitable){
+  void operator()([[maybe_unused]] scalar_add<ValueType> const &visitable) {
     expression_holder<scalar_expression<ValueType>> expr_result;
     auto add{make_expression<scalar_add<ValueType>>()};
     for (auto &child : visitable.hash_map() | std::views::values) {
@@ -105,7 +103,7 @@ public:
     m_result = std::move(expr_result);
   }
 
-  void operator()(scalar_negative<ValueType> const&visitable){
+  void operator()(scalar_negative<ValueType> const &visitable) {
     scalar_differentiation diff(m_arg);
     auto diff_expr{diff.apply(visitable.expr())};
     if (diff_expr.is_valid()) {
@@ -120,115 +118,118 @@ public:
   /// f(x) = (h(x) - g(x)*h(x)')/(h(x)*h(x)))
   /// h(x) := 0
   /// f(x) = (g(x)'*h(x) - g(x))/(h(x)*h(x)))
-  void operator()(scalar_div<ValueType> const&visitable){
+  void operator()(scalar_div<ValueType> const &visitable) {
     auto g{visitable.expr_lhs()};
     auto h{visitable.expr_rhs()};
     scalar_differentiation<ValueType> diff(m_arg);
     auto dg{diff.apply(visitable.expr_lhs())};
     auto dh{diff.apply(visitable.expr_rhs())};
-    m_result = (dg*h - g*dh)/(h*h);
+    m_result = (dg * h - g * dh) / (h * h);
   }
 
-  void operator()([[maybe_unused]]scalar_constant<ValueType> const&visitable){
+  void
+  operator()([[maybe_unused]] scalar_constant<ValueType> const &visitable) {
     m_result = get_scalar_zero<ValueType>();
   }
 
-  //tan(x)' = sec^2(x) = (1/cos(x))^2
-  void operator()([[maybe_unused]]scalar_tan<ValueType> const&visitable){
+  // tan(x)' = sec^2(x) = (1/cos(x))^2
+  void operator()([[maybe_unused]] scalar_tan<ValueType> const &visitable) {
     m_result = std::pow(1 / std::cos(visitable.expr()), 2);
   }
 
-  void operator()([[maybe_unused]]scalar_sin<ValueType>const&visitable){
+  void operator()([[maybe_unused]] scalar_sin<ValueType> const &visitable) {
     m_result = std::cos(visitable.expr());
     apply_inner_unary(visitable);
   }
 
-  void operator()([[maybe_unused]]scalar_cos<ValueType>const&visitable){
+  void operator()([[maybe_unused]] scalar_cos<ValueType> const &visitable) {
     m_result = -std::sin(visitable.expr());
     apply_inner_unary(visitable);
   }
 
-  void operator()([[maybe_unused]]scalar_one<ValueType>const&visitable){
+  void operator()([[maybe_unused]] scalar_one<ValueType> const &visitable) {
     m_result = get_scalar_zero<ValueType>();
   }
 
-  void operator()([[maybe_unused]]scalar_zero<ValueType>const&visitable){
+  void operator()([[maybe_unused]] scalar_zero<ValueType> const &visitable) {
     m_result = get_scalar_zero<ValueType>();
   }
 
-  //1/(expr^2+1)
-  void operator()([[maybe_unused]]scalar_atan<ValueType>const&visitable){
-    auto& one{get_scalar_one<ValueType>()};
-    m_result = (one/(one + std::pow(visitable.expr(), 2)));
+  // 1/(expr^2+1)
+  void operator()([[maybe_unused]] scalar_atan<ValueType> const &visitable) {
+    auto &one{get_scalar_one<ValueType>()};
+    m_result = (one / (one + std::pow(visitable.expr(), 2)));
     apply_inner_unary(visitable);
   }
 
-  //1/sqrt(1-expr^2)
-  void operator()([[maybe_unused]]scalar_asin<ValueType>const&visitable){
-    auto& one{get_scalar_one<ValueType>()};
-    m_result = (one/(std::sqrt(one - std::pow(visitable.expr(), 2))));
+  // 1/sqrt(1-expr^2)
+  void operator()([[maybe_unused]] scalar_asin<ValueType> const &visitable) {
+    auto &one{get_scalar_one<ValueType>()};
+    m_result = (one / (std::sqrt(one - std::pow(visitable.expr(), 2))));
     apply_inner_unary(visitable);
   }
 
   //-1/sqrt(1-expr^2)
-  void operator()([[maybe_unused]]scalar_acos<ValueType>const&visitable){
-    auto& one{get_scalar_one<ValueType>()};
-    m_result = -(one/(std::sqrt(one - std::pow(visitable.expr(), 2))));
+  void operator()([[maybe_unused]] scalar_acos<ValueType> const &visitable) {
+    auto &one{get_scalar_one<ValueType>()};
+    m_result = -(one / (std::sqrt(one - std::pow(visitable.expr(), 2))));
     apply_inner_unary(visitable);
   }
 
-  void operator()([[maybe_unused]]scalar_sqrt<ValueType>const&visitable){
-    auto& one{get_scalar_one<ValueType>()};
-    m_result = one / (2*m_expr);
+  void operator()([[maybe_unused]] scalar_sqrt<ValueType> const &visitable) {
+    auto &one{get_scalar_one<ValueType>()};
+    m_result = one / (2 * m_expr);
     apply_inner_unary(visitable);
   }
 
-  void operator()([[maybe_unused]]scalar_exp<ValueType>const&visitable){
+  void operator()([[maybe_unused]] scalar_exp<ValueType> const &visitable) {
     m_result = m_expr;
     apply_inner_unary(visitable);
   }
 
-
-  void operator()([[maybe_unused]]scalar_pow<ValueType>const&visitable){
-    auto& expr_lhs{visitable.expr_lhs()};
-    auto& expr_rhs{visitable.expr_rhs()};
+  void operator()([[maybe_unused]] scalar_pow<ValueType> const &visitable) {
+    auto &expr_lhs{visitable.expr_lhs()};
+    auto &expr_rhs{visitable.expr_rhs()};
     scalar_differentiation<ValueType> diff(m_arg);
-    if(is_same<scalar_constant<ValueType>>(expr_rhs)){
-      //f(x)  = pow(g(x),c)
-      //f'(x) = c*pow(g(x), c-1)
-      const auto c_value{expr_rhs.template get<scalar_constant<ValueType>>()()-static_cast<ValueType>(1)};
-      if(c_value == 1){
-        m_result = expr_rhs*expr_lhs;
-      }else{
-        m_result = expr_rhs*std::pow(expr_lhs, make_expression<scalar_constant<ValueType>>(c_value));
+    if (is_same<scalar_constant<ValueType>>(expr_rhs)) {
+      // f(x)  = pow(g(x),c)
+      // f'(x) = c*pow(g(x), c-1)
+      const auto c_value{expr_rhs.template get<scalar_constant<ValueType>>()() -
+                         static_cast<ValueType>(1)};
+      if (c_value == 1) {
+        m_result = expr_rhs * expr_lhs;
+      } else {
+        m_result =
+            expr_rhs *
+            std::pow(expr_lhs,
+                     make_expression<scalar_constant<ValueType>>(c_value));
       }
-    }else{
+    } else {
       auto temp{diff.apply(expr_rhs)};
       assert(false);
     }
   }
 
-  void operator()([[maybe_unused]]scalar_sign<ValueType>const&visitable){
+  void operator()([[maybe_unused]] scalar_sign<ValueType> const &visitable) {
     m_result = get_scalar_zero<ValueType>();
   }
 
-  void operator()([[maybe_unused]]scalar_abs<ValueType>const&visitable){
+  void operator()([[maybe_unused]] scalar_abs<ValueType> const &visitable) {
     m_result = visitable.expr() / m_expr;
     apply_inner_unary(visitable);
   }
 
-  void operator()([[maybe_unused]]scalar_log<ValueType>const&visitable){
-    auto& one{get_scalar_one<ValueType>()};
+  void operator()([[maybe_unused]] scalar_log<ValueType> const &visitable) {
+    auto &one{get_scalar_one<ValueType>()};
     m_result = one / visitable.expr();
     apply_inner_unary(visitable);
   }
 
 private:
-  template<typename T>
-  void apply_inner_unary(T const& unary){
+  template <typename T> void apply_inner_unary(T const &unary) {
     scalar_differentiation<ValueType> diff(m_arg);
     auto inner{diff.apply(unary.expr())};
-    if(inner.is_valid()){
+    if (inner.is_valid()) {
       m_result *= std::move(inner);
     }
   }

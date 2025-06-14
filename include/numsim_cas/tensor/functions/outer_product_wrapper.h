@@ -12,15 +12,17 @@ namespace numsim::cas {
 template <typename ValueType>
 class outer_product_wrapper final
     : public binary_op<outer_product_wrapper<ValueType>,
-                             tensor_expression<ValueType>> {
+                       tensor_expression<ValueType>> {
 public:
-  using base = binary_op<outer_product_wrapper<ValueType>, tensor_expression<ValueType>>;
+  using base =
+      binary_op<outer_product_wrapper<ValueType>, tensor_expression<ValueType>>;
 
   template <typename LHS, typename RHS, typename SeqLHS, typename SeqRHS>
   outer_product_wrapper(LHS &&_lhs, SeqLHS &&_lhs_indices, RHS &&_rhs,
                         SeqRHS &&_rhs_indices)
-      : base(std::forward<LHS>(_lhs), std::forward<RHS>(_rhs), call_tensor::dim(_lhs),
-                  call_tensor::rank(_lhs) + call_tensor::rank(_rhs)),
+      : base(std::forward<LHS>(_lhs), std::forward<RHS>(_rhs),
+             call_tensor::dim(_lhs),
+             call_tensor::rank(_lhs) + call_tensor::rank(_rhs)),
         m_lhs_indices(std::forward<SeqLHS>(_lhs_indices)),
         m_rhs_indices(std::forward<SeqRHS>(_rhs_indices)) {
     init();
@@ -43,6 +45,6 @@ protected:
   std::vector<std::size_t> m_rhs_indices;
 };
 
-} // NAMESPACE symTM
+} // namespace numsim::cas
 
 #endif // OUTER_PRODUCT_WRAPPER_H

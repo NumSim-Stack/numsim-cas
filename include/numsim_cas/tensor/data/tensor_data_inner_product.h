@@ -8,9 +8,10 @@
 
 namespace numsim::cas {
 
-template<typename ValueType>
+template <typename ValueType>
 class tensor_data_inner_product final
-    : public tensor_data_eval_up_binary<tensor_data_inner_product<ValueType>, ValueType> {
+    : public tensor_data_eval_up_binary<tensor_data_inner_product<ValueType>,
+                                        ValueType> {
 public:
   tensor_data_inner_product(tensor_data_base<ValueType> &result,
                             tensor_data_base<ValueType> const &lhs,
@@ -20,8 +21,7 @@ public:
       : m_result(result), m_lhs(lhs), m_rhs(rhs), m_lhs_indices(lhs_indices),
         m_rhs_indices(rhs_indices) {}
 
-  template <std::size_t Dim, std::size_t RankLHS,
-            std::size_t RankRHS>
+  template <std::size_t Dim, std::size_t RankLHS, std::size_t RankRHS>
   void evaluate_imp() {
     const auto size_lhs{m_lhs_indices.size()};
     const auto size_rhs{m_rhs_indices.size()};
@@ -63,8 +63,8 @@ public:
     if (lhs_sequence != new_basis_lhs) {
       basis_change_lhs = true;
       m_lhs_temp = make_tensor_data<ValueType>(Dim, RankLHS);
-      tensor_data_basis_change<ValueType> basis_change_temp(*m_lhs_temp.get(), m_lhs,
-                                                 new_basis_lhs);
+      tensor_data_basis_change<ValueType> basis_change_temp(
+          *m_lhs_temp.get(), m_lhs, new_basis_lhs);
       basis_change_temp.evaluate(Dim, RankLHS);
     }
 
@@ -72,8 +72,8 @@ public:
     if (rhs_sequence != new_basis_rhs) {
       basis_change_rhs = true;
       m_rhs_temp = make_tensor_data<ValueType>(Dim, RankRHS);
-      tensor_data_basis_change<ValueType> basis_change_temp(*m_rhs_temp.get(), m_rhs,
-                                                 new_basis_rhs);
+      tensor_data_basis_change<ValueType> basis_change_temp(
+          *m_rhs_temp.get(), m_rhs, new_basis_rhs);
       basis_change_temp.evaluate(Dim, RankRHS);
     }
 
@@ -101,19 +101,20 @@ public:
     }
   }
 
-  void missmatch(std::size_t dim, std::size_t rankLHS,
-                 std::size_t rankRHS) {
+  void missmatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
     if (dim > this->_MaxDim || dim == 0) {
-      throw std::runtime_error(
-          "tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) dim > MaxDim || dim == 0");
+      throw std::runtime_error("tensor_data_inner_product::evaluate(dim, "
+                               "rankLHS, rankRHS) dim > MaxDim || dim == 0");
     }
     if (rankLHS > this->_MaxRank || rankLHS == 0) {
-      throw std::runtime_error("tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) rankLHS "
-                               "> MaxRank || rankLHS == 0");
+      throw std::runtime_error(
+          "tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) rankLHS "
+          "> MaxRank || rankLHS == 0");
     }
     if (rankRHS > this->_MaxRank || rankRHS == 0) {
-      throw std::runtime_error("tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) rankRHS "
-                               "> MaxRank || rankRHS == 0");
+      throw std::runtime_error(
+          "tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) rankRHS "
+          "> MaxRank || rankRHS == 0");
     }
   }
 
@@ -152,6 +153,6 @@ private:
   std::unique_ptr<tensor_data_base<ValueType>> m_rhs_temp;
 };
 
-} // NAMESPACE symTM
+} // namespace numsim::cas
 
 #endif // TENSOR_DATA_INNER_PRODUCT_H

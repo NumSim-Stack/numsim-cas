@@ -28,18 +28,17 @@ template <typename ExprLHS, typename ExprRHS> struct div_default {
     return std::forward<ExprLHS>(m_lhs);
   }
 
-  constexpr inline expr_type
-  operator()(scalar_pow<value_type> const &rhs) {
-    if(m_lhs.get().hash_value() == rhs.expr_lhs().get().hash_value()){
-      return make_expression<scalar_pow<value_type>>(rhs.expr_lhs(), get_scalar_one<value_type>() - rhs.expr_rhs());
+  constexpr inline expr_type operator()(scalar_pow<value_type> const &rhs) {
+    if (m_lhs.get().hash_value() == rhs.expr_lhs().get().hash_value()) {
+      return make_expression<scalar_pow<value_type>>(
+          rhs.expr_lhs(), get_scalar_one<value_type>() - rhs.expr_rhs());
     }
     return get_default();
   }
 
 protected:
-
   auto get_default() {
-    if(m_lhs.get().hash_value() == m_rhs.get().hash_value()){
+    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
       return get_scalar_one<value_type>();
     }
     return make_expression<scalar_div<value_type>>(m_lhs, m_rhs);
@@ -114,13 +113,11 @@ struct pow_div_simplifier final : public div_default<ExprLHS, ExprRHS> {
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         m_expr(m_lhs.template get<scalar_pow<value_type>>()) {}
 
-
-  constexpr inline expr_type
-  operator()(scalar<value_type> const &rhs) {
-    if(rhs.hash_value() == m_expr.expr_lhs().get().hash_value()){
+  constexpr inline expr_type operator()(scalar<value_type> const &rhs) {
+    if (rhs.hash_value() == m_expr.expr_lhs().get().hash_value()) {
       const auto expo{m_expr.expr_rhs() - get_scalar_one<value_type>()};
-      if(is_same<scalar_constant<value_type>>(expo)){
-        if(expo.template get<scalar_constant<value_type>>()() == 1){
+      if (is_same<scalar_constant<value_type>>(expo)) {
+        if (expo.template get<scalar_constant<value_type>>()() == 1) {
           return m_rhs;
         }
       }
@@ -162,7 +159,7 @@ template <typename ExprLHS, typename ExprRHS> struct div_base {
     auto &expr_rhs{*m_rhs};
     return visit(
         pow_div_simplifier<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                                std::forward<ExprRHS>(m_rhs)),
+                                             std::forward<ExprRHS>(m_rhs)),
         expr_rhs);
   }
 

@@ -65,8 +65,8 @@ public:
   }
 
 protected:
-  ExprLHS&& m_lhs;
-  ExprRHS&& m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 template <typename ExprLHS, typename ExprRHS>
@@ -347,7 +347,6 @@ private:
   scalar<value_type> const &lhs;
 };
 
-
 template <typename ExprLHS, typename ExprRHS>
 class scalar_one_sub final : public sub_default<ExprLHS, ExprRHS> {
 public:
@@ -363,8 +362,10 @@ public:
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<scalar_one<value_type>>()} {}
 
-  constexpr inline expr_type operator()(scalar_constant<value_type> const &rhs) {
-    return make_expression<scalar_constant<value_type>>(static_cast<value_type>(1) - rhs());
+  constexpr inline expr_type
+  operator()(scalar_constant<value_type> const &rhs) {
+    return make_expression<scalar_constant<value_type>>(
+        static_cast<value_type>(1) - rhs());
   }
 
 private:
@@ -411,7 +412,8 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
                  *m_rhs);
   }
 
-  template <typename Type> constexpr inline expr_type operator()([[maybe_unused]]Type const & rhs) {
+  template <typename Type>
+  constexpr inline expr_type operator()([[maybe_unused]] Type const &rhs) {
     return visit(sub_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
                                                std::forward<ExprRHS>(m_rhs)),
                  *m_rhs);
@@ -430,9 +432,8 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
         lhs.expr() + std::forward<ExprRHS>(m_rhs));
   }
 
-
-  ExprLHS&& m_lhs;
-  ExprRHS&& m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 } // namespace simplifier

@@ -52,9 +52,7 @@ public:
    * @brief Retrieves the hash value of the expression.
    * @return The hash value.
    */
-  hash_type const& hash_value() const{
-    return m_hash_value;
-  }
+  hash_type const &hash_value() const { return m_hash_value; }
 
 protected:
   /**
@@ -63,6 +61,6 @@ protected:
   hash_type m_hash_value{0};
 };
 
-} // NAMESPACE symTM
+} // namespace numsim::cas
 
 #endif // EXPRESSION_H

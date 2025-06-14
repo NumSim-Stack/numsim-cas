@@ -5,11 +5,13 @@
 
 namespace numsim::cas {
 
-template<typename ValueType>
+template <typename ValueType>
 class tensor_data_basis_change final
-    : public tensor_data_eval_up_unary<tensor_data_basis_change<ValueType>, ValueType> {
+    : public tensor_data_eval_up_unary<tensor_data_basis_change<ValueType>,
+                                       ValueType> {
 public:
-  tensor_data_basis_change(tensor_data_base<ValueType> &lhs, tensor_data_base<ValueType> const &rhs,
+  tensor_data_basis_change(tensor_data_base<ValueType> &lhs,
+                           tensor_data_base<ValueType> const &rhs,
                            std::vector<std::size_t> const &indices)
       : m_lhs(lhs), m_rhs(rhs), m_indices(indices) {}
 
@@ -32,15 +34,15 @@ public:
     tmech::detail::for_loop_t<Rank - 1, Dim>::for_loop(func);
   }
 
-  inline void missmatch(std::size_t dim,
-                        std::size_t rank) {
+  inline void missmatch(std::size_t dim, std::size_t rank) {
     if (dim > this->_MaxDim || dim == 0) {
-      throw std::runtime_error(
-          "tensor_data_basis_change::evaluate(dim, rank) dim > MaxDim || dim == 0");
+      throw std::runtime_error("tensor_data_basis_change::evaluate(dim, rank) "
+                               "dim > MaxDim || dim == 0");
     }
     if (rank > this->_MaxRank || rank == 0) {
-      throw std::runtime_error("tensor_data_basis_change::evaluate(dim, rank) rank "
-                               "> MaxRank || rank == 0");
+      throw std::runtime_error(
+          "tensor_data_basis_change::evaluate(dim, rank) rank "
+          "> MaxRank || rank == 0");
     }
   }
 
@@ -57,6 +59,6 @@ private:
   std::vector<std::size_t> const &m_indices;
 };
 
-} // NAMESPACE symTM
+} // namespace numsim::cas
 
 #endif // TENSOR_DATA_BASIS_CHANGE_H

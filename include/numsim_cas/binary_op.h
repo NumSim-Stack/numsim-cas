@@ -4,11 +4,8 @@
 #include "expression_crtp.h"
 #include "expression_holder.h"
 #include "numsim_cas_type_traits.h"
-#include "utility_func.h"
-#include "numsim_cas_type_traits.h"
-#include "utility_func.h"
 #include "update_hash.h"
-
+#include "utility_func.h"
 
 namespace numsim::cas {
 
@@ -16,12 +13,14 @@ namespace numsim::cas {
  * @class binary_op
  * @brief A binary operation expression class.
  *
- * This class represents a binary operation expression, inheriting from expression_crtp.
- * It provides functionality for handling left-hand side and right-hand side expressions.
+ * This class represents a binary operation expression, inheriting from
+ * expression_crtp. It provides functionality for handling left-hand side and
+ * right-hand side expressions.
  *
  * @tparam Derived The derived class that implements the binary operation.
  * @tparam BaseLHS The base type of the left-hand side expression.
- * @tparam BaseRHS The base type of the right-hand side expression (defaults to BaseLHS).
+ * @tparam BaseRHS The base type of the right-hand side expression (defaults to
+ * BaseLHS).
  */
 template <typename Derived, typename BaseLHS, typename BaseRHS = BaseLHS>
 class binary_op : public expression_crtp<binary_op<Derived, BaseLHS, BaseRHS>,
@@ -44,14 +43,17 @@ public:
    * @param args Additional arguments for the base class constructor.
    */
   template <typename ExprLHS, typename ExprRHS,
-            std::enable_if_t<std::is_base_of_v<BaseLHS, get_type_t<ExprLHS>>, bool> = true,
-            std::enable_if_t<std::is_base_of_v<BaseRHS, get_type_t<ExprRHS>>, bool> = true,
+            std::enable_if_t<std::is_base_of_v<BaseLHS, get_type_t<ExprLHS>>,
+                             bool> = true,
+            std::enable_if_t<std::is_base_of_v<BaseRHS, get_type_t<ExprRHS>>,
+                             bool> = true,
             typename... Args>
   binary_op(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs, Args &&...args)
       : base(std::forward<Args>(args)...),
         m_lhs(std::forward<ExprLHS>(expr_lhs)),
         m_rhs(std::forward<ExprRHS>(expr_rhs)) {
-    base::m_hash_value = update_hash<binary_op<Derived, BaseLHS, BaseRHS>>()(*this);
+    base::m_hash_value =
+        update_hash<binary_op<Derived, BaseLHS, BaseRHS>>()(*this);
   }
 
   /**
@@ -109,8 +111,6 @@ public:
    */
   [[nodiscard]] inline auto &expr_rhs() noexcept { return m_rhs; }
 
-
-
 protected:
   /**
    * @brief Holds the left-hand side expression.
@@ -123,12 +123,10 @@ protected:
   expression_holder<BaseRHS> m_rhs;
 };
 
-
-template<typename ...Args>
-struct update_hash<numsim::cas::binary_op<Args...>>
-{
-  std::size_t operator()(const numsim::cas::binary_op<Args...>& expr) const noexcept
-  {
+template <typename... Args>
+struct update_hash<numsim::cas::binary_op<Args...>> {
+  std::size_t
+  operator()(const numsim::cas::binary_op<Args...> &expr) const noexcept {
     std::size_t seed{0};
     numsim::cas::hash_combine(seed, numsim::cas::binary_op<Args...>::get_id());
     numsim::cas::hash_combine(seed, expr.expr_lhs().get().hash_value());
@@ -137,7 +135,6 @@ struct update_hash<numsim::cas::binary_op<Args...>>
   }
 };
 
-} // NAMESPACE symTM
-
+} // namespace numsim::cas
 
 #endif // BINARY_OP_H
