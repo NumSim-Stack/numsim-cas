@@ -266,10 +266,8 @@ template <
                                        typename numsim::cas::remove_cvref_t<
                                            ExprRHS>::expr_type>,
                      bool> = true>
-constexpr inline auto // numsim::cas::expression_holder<result_expression_t<ExprLHS,
-                      // typename
-                      // numsim::cas::remove_cvref_t<ExprRHS>::expr_type>>
-operator*([[maybe_unused]] ExprLHS &&lhs, [[maybe_unused]] ExprRHS &&rhs) {
+constexpr inline auto operator*([[maybe_unused]] ExprLHS &&lhs,
+                                [[maybe_unused]] ExprRHS &&rhs) {
   using value_type =
       typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type::value_type;
   assert(rhs.is_valid());
@@ -288,10 +286,8 @@ template <
                                            ExprLHS>::expr_type>,
                      bool> = true,
     std::enable_if_t<std::is_arithmetic_v<ExprRHS>, bool> = true>
-constexpr inline auto // numsim::cas::expression_holder<result_expression_t<typename
-                      // numsim::cas::remove_cvref_t<ExprLHS>::expr_type,
-                      // typename numsim::cas::remove_cvref_t<ExprRHS>>>
-operator*([[maybe_unused]] ExprLHS &&lhs, [[maybe_unused]] ExprRHS &&rhs) {
+constexpr inline auto operator*([[maybe_unused]] ExprLHS &&lhs,
+                                [[maybe_unused]] ExprRHS &&rhs) {
   using value_type =
       typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type;
   assert(lhs.is_valid());
