@@ -2,7 +2,6 @@
 #define UTILITY_FUNC_H
 
 #include "numsim_cas_type_traits.h"
-#include "operators.h"
 #include <string>
 #include <tuple>
 
