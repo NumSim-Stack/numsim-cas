@@ -52,7 +52,7 @@ template<typename Expr,typename Seq/*,
           std::enable_if_t<std::is_base_of_v<tensor_expression<typename remove_cvref_t<Expr>::value_type>, get_type_t<Expr>>,bool> = true,
           std::enable_if_t<std::is_same_v<std::vector<std::size_t>, Seq>, bool> = true*/>
 constexpr inline auto
-basis_change(Expr &&expr, Seq &&indices){
+permute_indices(Expr &&expr, Seq &&indices){
   using ValueType = typename remove_cvref_t<Expr>::value_type;
   return make_expression<basis_change_imp<ValueType>>(
       std::forward<Expr>(expr), std::forward<Seq>(indices));

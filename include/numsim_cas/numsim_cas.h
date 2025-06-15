@@ -71,6 +71,7 @@
 #include "tensor/operators/tensor/tensor_sub.h"
 #include "tensor/scalar_tensor_op.h"
 #include "tensor/tensor.h"
+#include "tensor/tensor_functions.h"
 #include "tensor/tensor_operators.h"
 #include "tensor/tensor_std.h"
 #include "tensor/tensor_zero.h"

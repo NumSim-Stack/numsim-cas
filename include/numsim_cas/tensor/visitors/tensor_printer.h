@@ -13,8 +13,6 @@
 
 namespace numsim::cas {
 
-// Assuming other required definitions for expressions and Precedence are
-// provided
 /**
  * @brief Class for printing scalar expressions with correct precedence and
  * formatting.
@@ -86,15 +84,6 @@ public:
       apply(child, precedence);
       first = false;
     }
-    //
-    //    if (visitable.coeff().is_valid()) {
-    //      apply(visitable.coeff(), precedence);
-    //      m_out << "+";
-    //    }
-    //    for (auto &child : visitable) {
-
-    //    }
-
     end(precedence, parent_precedence);
   }
 
@@ -121,7 +110,6 @@ public:
   void operator()(tensor_negative<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Unary};
-
     m_out << "-";
     begin(precedence, parent_precedence);
     apply(visitable.expr(), precedence);
@@ -137,7 +125,7 @@ public:
   void operator()(inner_product_wrapper<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
-    m_out << "inner_product(";
+    m_out << "inner(";
     apply(visitable.expr_lhs(), precedence);
     m_out << ", ";
     apply(visitable.expr_rhs(), precedence);
@@ -152,9 +140,21 @@ public:
    */
   void operator()(basis_change_imp<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
-    m_out << "basis_change(";
-    apply(visitable.expr(), parent_precedence);
-    m_out << ")";
+    auto indices_temp{visitable.indices()};
+    std::for_each(std::begin(indices_temp), std::end(indices_temp),
+                  [](auto &el) { el += 1; });
+    if (indices_temp == std::vector<std::size_t>{2, 1}) {
+      m_out << "trans(";
+      apply(visitable.expr(), parent_precedence);
+      m_out << ")";
+    } else {
+      m_out << "permute_indices(";
+      apply(visitable.expr(), parent_precedence);
+      m_out << ", [";
+      base::print_sequence(m_out, indices_temp, ',');
+      m_out << "]";
+      m_out << ")";
+    }
   }
 
   /**
@@ -166,7 +166,7 @@ public:
   void operator()(outer_product_wrapper<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
-    m_out << "outer_product(";
+    m_out << "outer(";
     apply(visitable.expr_lhs(), precedence);
     m_out << ", ";
     apply(visitable.expr_rhs(), precedence);

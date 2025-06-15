@@ -2,6 +2,7 @@
 #define PRINTER_BASE_H
 
 #include "numsim_cas_forward.h"
+#include <algorithm>
 #include <string_view>
 
 namespace numsim::cas {
@@ -29,6 +30,17 @@ public:
   }
 
 protected:
+  template <typename Stream, typename Container>
+  void print_sequence(Stream &out, Container const &data, char spacer) {
+    bool first{false};
+    std::for_each(std::begin(data), std::end(data), [&](auto const &el) {
+      if (first)
+        out << spacer;
+      out << el;
+      first = true;
+    });
+  }
+
   void begin(Precedence current_precedence, Precedence parent_precedence) {
     if (current_precedence < parent_precedence)
       m_out << "(";
