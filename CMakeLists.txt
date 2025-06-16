@@ -170,6 +170,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor_to_scalar/tensor_dot.h
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_pow.h
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h
+    include/numsim_cas/tensor_to_scalar/tensor_inner_product_to_scalar.h
     include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_add.h
     include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_mul.h
     include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_sub.h

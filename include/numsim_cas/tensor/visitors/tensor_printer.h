@@ -166,11 +166,36 @@ public:
   void operator()(outer_product_wrapper<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
-    m_out << "outer(";
-    apply(visitable.expr_lhs(), precedence);
-    m_out << ", ";
-    apply(visitable.expr_rhs(), precedence);
-    m_out << ")";
+    auto indices_temp_lhs{visitable.indices_lhs()};
+    std::for_each(std::begin(indices_temp_lhs), std::end(indices_temp_lhs),
+                  [](auto &el) { el += 1; });
+    auto indices_temp_rhs{visitable.indices_rhs()};
+    std::for_each(std::begin(indices_temp_rhs), std::end(indices_temp_rhs),
+                  [](auto &el) { el += 1; });
+
+    if (indices_temp_lhs == sequence{1, 4} &&
+        indices_temp_rhs == sequence{2, 3}) {
+      m_out << "otimesl(";
+      apply(visitable.expr_lhs(), precedence);
+      m_out << ")";
+    } else if (indices_temp_lhs == sequence{1, 3} &&
+               indices_temp_rhs == sequence{2, 4}) {
+      m_out << "otimesu(";
+      apply(visitable.expr_lhs(), precedence);
+      m_out << ")";
+    } else {
+      m_out << "outer(";
+      apply(visitable.expr_lhs(), precedence);
+      m_out << ", [";
+      base::print_sequence(m_out, indices_temp_lhs, ',');
+      m_out << "]";
+      m_out << ", ";
+      apply(visitable.expr_rhs(), precedence);
+      m_out << ", [";
+      base::print_sequence(m_out, indices_temp_rhs, ',');
+      m_out << "]";
+      m_out << ")";
+    }
   }
 
   /**

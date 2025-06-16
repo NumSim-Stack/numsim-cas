@@ -22,16 +22,17 @@ namespace numsim::cas {
  * @tparam BaseRHS The base type of the right-hand side expression (defaults to
  * BaseLHS).
  */
-template <typename Derived, typename BaseLHS, typename BaseRHS = BaseLHS>
-class binary_op : public expression_crtp<binary_op<Derived, BaseLHS, BaseRHS>,
-                                         base_expression_t<BaseLHS, BaseRHS>> {
+template <typename Derived, typename Base, typename BaseLHS,
+          typename BaseRHS = BaseLHS>
+class binary_op
+    : public expression_crtp<binary_op<Derived, Base, BaseLHS, BaseRHS>, Base> {
 public:
   /**
    * @brief Type aliases for base types.
    */
-  using base = expression_crtp<binary_op<Derived, BaseLHS, BaseRHS>,
-                               base_expression_t<BaseLHS, BaseRHS>>;
-  using base_expr = base_expression_t<BaseLHS, BaseRHS>;
+  using base =
+      expression_crtp<binary_op<Derived, Base, BaseLHS, BaseRHS>, Base>;
+  using base_expr = Base;
 
   /**
    * @brief Constructor for binary operation expressions.
@@ -53,7 +54,7 @@ public:
         m_lhs(std::forward<ExprLHS>(expr_lhs)),
         m_rhs(std::forward<ExprRHS>(expr_rhs)) {
     base::m_hash_value =
-        update_hash<binary_op<Derived, BaseLHS, BaseRHS>>()(*this);
+        update_hash<binary_op<Derived, Base, BaseLHS, BaseRHS>>()(*this);
   }
 
   /**

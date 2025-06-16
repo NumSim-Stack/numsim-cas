@@ -7,10 +7,12 @@ namespace numsim::cas {
 template <typename ValueType>
 class tensor_pow final
     : public binary_op<tensor_pow<ValueType>, tensor_expression<ValueType>,
+                       tensor_expression<ValueType>,
                        scalar_expression<ValueType>> {
 public:
-  using base = binary_op<tensor_pow<ValueType>, tensor_expression<ValueType>,
-                         scalar_expression<ValueType>>;
+  using base =
+      binary_op<tensor_pow<ValueType>, tensor_expression<ValueType>,
+                tensor_expression<ValueType>, scalar_expression<ValueType>>;
 
   template <typename ExprTensor, typename ExprScalar>
   tensor_pow(ExprTensor &&tensor, ExprScalar &&scalar)

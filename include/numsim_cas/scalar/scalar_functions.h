@@ -28,12 +28,12 @@ public:
     return std::visit(*this, visitable.expr().get());
   }
 
-  template <typename Derived>
-  constexpr inline bool operator()(
-      binary_op<Derived, scalar_expression<ValueType>> const &visitable) {
-    return std::visit(*this, visitable.expr_lhs().get()) ||
-           std::visit(*this, visitable.expr_rhs().get());
-  }
+  //  template <typename Derived>
+  //  constexpr inline bool operator()(
+  //      binary_op<Derived, scalar_expression<ValueType>> const &visitable) {
+  //    return std::visit(*this, visitable.expr_lhs().get()) ||
+  //           std::visit(*this, visitable.expr_rhs().get());
+  //  }
 
   template <typename Derived>
   constexpr inline bool operator()(

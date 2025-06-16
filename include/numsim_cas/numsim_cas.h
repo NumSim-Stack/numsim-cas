@@ -89,6 +89,7 @@
 #include "tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_sub.h"
 #include "tensor_to_scalar/tensor_det.h"
 #include "tensor_to_scalar/tensor_dot.h"
+#include "tensor_to_scalar/tensor_inner_product_to_scalar.h"
 #include "tensor_to_scalar/tensor_norm.h"
 #include "tensor_to_scalar/tensor_to_scalar_expression.h"
 #include "tensor_to_scalar/tensor_to_scalar_negative.h"
