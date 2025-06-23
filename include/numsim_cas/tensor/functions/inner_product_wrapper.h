@@ -53,11 +53,11 @@ public:
         m_lhs_indices(std::move(data.m_lhs_indices)),
         m_rhs_indices(std::move(data.m_rhs_indices)) {}
 
-  [[nodiscard]] const auto &sequence_lhs() const noexcept {
+  [[nodiscard]] const auto &indices_lhs() const noexcept {
     return m_lhs_indices;
   }
 
-  [[nodiscard]] const auto &sequence_rhs() const noexcept {
+  [[nodiscard]] const auto &indices_rhs() const noexcept {
     return m_rhs_indices;
   }
 

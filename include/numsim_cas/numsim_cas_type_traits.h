@@ -205,6 +205,7 @@ template <typename ValueType> class tensor_scalar_mul;
 template <typename ValueType> class tensor_scalar_div;
 template <typename ValueType> class tensor_symmetry;
 template <typename ValueType> class tensor_zero;
+// det, tr, adj, skew, vol, dev,
 
 template <typename ValueType>
 using tensor_node =
