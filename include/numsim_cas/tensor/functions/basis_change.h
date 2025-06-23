@@ -36,8 +36,8 @@ public:
       : base(std::forward<Expr>(expr), call_tensor::dim(expr),
              call_tensor::rank(expr)),
         m_indices(std::forward<Indices>(indices)) {
-    std::for_each(m_indices.begin(), m_indices.end(),
-                  [](std::size_t &index) { index -= 1; });
+    std::for_each(std::begin(m_indices), std::end(m_indices),
+                  [](auto &index) { index -= 1ul; });
   }
 
   /**
@@ -60,7 +60,7 @@ protected:
   /**
    * @brief Stores the transformation indices.
    */
-  const std::vector<std::size_t> m_indices;
+  std::vector<std::size_t> m_indices;
 };
 
 } // namespace numsim::cas

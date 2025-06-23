@@ -30,6 +30,9 @@
 // #endif
 
 namespace numsim::cas {
+
+using sequence = std::vector<std::size_t>;
+
 namespace detail {
 struct expression_comparator {
   template <typename LHS, typename RHS>
@@ -202,6 +205,7 @@ template <typename ValueType> class tensor_scalar_mul;
 template <typename ValueType> class tensor_scalar_div;
 template <typename ValueType> class tensor_symmetry;
 template <typename ValueType> class tensor_zero;
+// det, tr, adj, skew, vol, dev,
 
 template <typename ValueType>
 using tensor_node =
@@ -281,6 +285,8 @@ template <typename ValueType> class tensor_to_scalar_with_scalar_div;
 template <typename ValueType> class scalar_with_tensor_to_scalar_div;
 template <typename ValueType> class tensor_to_scalar_pow;
 template <typename ValueType> class tensor_to_scalar_pow_with_scalar_exponent;
+template <typename ValueType> class tensor_inner_product_to_scalar;
+
 // var
 template <typename ValueType>
 using tensor_to_scalar_node = std::variant<
@@ -294,7 +300,9 @@ using tensor_to_scalar_node = std::variant<
     tensor_to_scalar_with_scalar_div<ValueType>,
     scalar_with_tensor_to_scalar_div<ValueType>,
     tensor_to_scalar_pow<ValueType>,
-    tensor_to_scalar_pow_with_scalar_exponent<ValueType>>;
+    tensor_to_scalar_pow_with_scalar_exponent<ValueType> /*,
+     tensor_inner_product_to_scalar<ValueType>*/
+    >;
 
 ////poly
 // template <typename Type, typename ValueType>

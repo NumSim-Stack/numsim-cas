@@ -12,9 +12,11 @@ template <typename ValueType>
 class tensor_to_scalar_with_scalar_div final
     : public binary_op<tensor_to_scalar_with_scalar_div<ValueType>,
                        tensor_to_scalar_expression<ValueType>,
+                       tensor_to_scalar_expression<ValueType>,
                        scalar_expression<ValueType>> {
 public:
   using base = binary_op<tensor_to_scalar_with_scalar_div<ValueType>,
+                         tensor_to_scalar_expression<ValueType>,
                          tensor_to_scalar_expression<ValueType>,
                          scalar_expression<ValueType>>;
   using base::base;
@@ -32,10 +34,12 @@ public:
 template <typename ValueType>
 class scalar_with_tensor_to_scalar_div final
     : public binary_op<scalar_with_tensor_to_scalar_div<ValueType>,
+                       tensor_to_scalar_expression<ValueType>,
                        scalar_expression<ValueType>,
                        tensor_to_scalar_expression<ValueType>> {
 public:
   using base = binary_op<scalar_with_tensor_to_scalar_div<ValueType>,
+                         tensor_to_scalar_expression<ValueType>,
                          scalar_expression<ValueType>,
                          tensor_to_scalar_expression<ValueType>>;
   using base::base;

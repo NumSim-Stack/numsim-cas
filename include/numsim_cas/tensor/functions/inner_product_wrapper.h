@@ -13,10 +13,12 @@ namespace numsim::cas {
 template <typename ValueType>
 class inner_product_wrapper final
     : public binary_op<inner_product_wrapper<ValueType>,
+                       tensor_expression<ValueType>,
                        tensor_expression<ValueType>> {
 public:
   using base =
-      binary_op<inner_product_wrapper<ValueType>, tensor_expression<ValueType>>;
+      binary_op<inner_product_wrapper<ValueType>, tensor_expression<ValueType>,
+                tensor_expression<ValueType>>;
 
   template <typename LHS, typename RHS, typename SeqLHS, typename SeqRHS>
   inner_product_wrapper(LHS &&_lhs, SeqLHS &&_lhs_indices, RHS &&_rhs,
@@ -51,11 +53,11 @@ public:
         m_lhs_indices(std::move(data.m_lhs_indices)),
         m_rhs_indices(std::move(data.m_rhs_indices)) {}
 
-  [[nodiscard]] const auto &sequence_lhs() const noexcept {
+  [[nodiscard]] const auto &indices_lhs() const noexcept {
     return m_lhs_indices;
   }
 
-  [[nodiscard]] const auto &sequence_rhs() const noexcept {
+  [[nodiscard]] const auto &indices_rhs() const noexcept {
     return m_rhs_indices;
   }
 

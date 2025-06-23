@@ -7,9 +7,11 @@ namespace numsim::cas {
 
 template <typename ValueType>
 class scalar_div final
-    : public binary_op<scalar_div<ValueType>, scalar_expression<ValueType>> {
+    : public binary_op<scalar_div<ValueType>, scalar_expression<ValueType>,
+                       scalar_expression<ValueType>> {
 public:
-  using base = binary_op<scalar_div<ValueType>, scalar_expression<ValueType>>;
+  using base = binary_op<scalar_div<ValueType>, scalar_expression<ValueType>,
+                         scalar_expression<ValueType>>;
 
   using base::base;
   scalar_div() = delete;

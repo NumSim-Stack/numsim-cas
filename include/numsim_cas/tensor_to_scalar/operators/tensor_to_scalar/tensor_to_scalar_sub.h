@@ -14,8 +14,6 @@ class tensor_to_scalar_sub final
 public:
   using base = n_ary_tree<tensor_to_scalar_expression<ValueType>,
                           tensor_to_scalar_sub<ValueType>>;
-  using base_expr = expression_crtp<tensor_to_scalar_sub<ValueType>,
-                                    tensor_to_scalar_expression<ValueType>>;
   using base::base;
 
   tensor_to_scalar_sub() : base() {}

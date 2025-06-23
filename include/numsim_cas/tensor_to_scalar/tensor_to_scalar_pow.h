@@ -9,9 +9,11 @@ namespace numsim::cas {
 template <typename ValueType>
 class tensor_to_scalar_pow final
     : public binary_op<tensor_to_scalar_pow<ValueType>,
+                       tensor_to_scalar_expression<ValueType>,
                        tensor_to_scalar_expression<ValueType>> {
 public:
   using base = binary_op<tensor_to_scalar_pow<ValueType>,
+                         tensor_to_scalar_expression<ValueType>,
                          tensor_to_scalar_expression<ValueType>>;
 
   using base::base;
@@ -28,9 +30,11 @@ template <typename ValueType>
 class tensor_to_scalar_pow_with_scalar_exponent final
     : public binary_op<tensor_to_scalar_pow_with_scalar_exponent<ValueType>,
                        tensor_to_scalar_expression<ValueType>,
+                       tensor_to_scalar_expression<ValueType>,
                        scalar_expression<ValueType>> {
 public:
   using base = binary_op<tensor_to_scalar_pow_with_scalar_exponent<ValueType>,
+                         tensor_to_scalar_expression<ValueType>,
                          tensor_to_scalar_expression<ValueType>,
                          scalar_expression<ValueType>>;
 

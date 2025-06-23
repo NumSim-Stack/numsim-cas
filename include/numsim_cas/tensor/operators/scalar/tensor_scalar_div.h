@@ -8,13 +8,14 @@
 namespace numsim::cas {
 
 template <typename ValueType>
-class tensor_scalar_div final : public binary_op<tensor_scalar_div<ValueType>,
-                                                 tensor_expression<ValueType>,
-                                                 scalar_expression<ValueType>> {
+class tensor_scalar_div final
+    : public binary_op<
+          tensor_scalar_div<ValueType>, tensor_expression<ValueType>,
+          tensor_expression<ValueType>, scalar_expression<ValueType>> {
 public:
   using base =
       binary_op<tensor_scalar_div<ValueType>, tensor_expression<ValueType>,
-                scalar_expression<ValueType>>;
+                tensor_expression<ValueType>, scalar_expression<ValueType>>;
 
   template <typename LHS, typename RHS>
   tensor_scalar_div(LHS &&lhs, RHS &&rhs)

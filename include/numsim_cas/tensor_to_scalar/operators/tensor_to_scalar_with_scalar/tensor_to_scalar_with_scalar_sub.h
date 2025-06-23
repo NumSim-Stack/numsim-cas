@@ -11,10 +11,12 @@ namespace numsim::cas {
 template <typename ValueType>
 class tensor_to_scalar_with_scalar_sub final
     : public binary_op<tensor_to_scalar_with_scalar_sub<ValueType>,
+                       tensor_to_scalar_expression<ValueType>,
                        scalar_expression<ValueType>,
                        tensor_to_scalar_expression<ValueType>> {
 public:
   using base = binary_op<tensor_to_scalar_with_scalar_sub<ValueType>,
+                         tensor_to_scalar_expression<ValueType>,
                          scalar_expression<ValueType>,
                          tensor_to_scalar_expression<ValueType>>;
   using base::base;

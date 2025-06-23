@@ -6,9 +6,11 @@
 namespace numsim::cas {
 template <typename ValueType>
 class scalar_pow final
-    : public binary_op<scalar_pow<ValueType>, scalar_expression<ValueType>> {
+    : public binary_op<scalar_pow<ValueType>, scalar_expression<ValueType>,
+                       scalar_expression<ValueType>> {
 public:
-  using base = binary_op<scalar_pow<ValueType>, scalar_expression<ValueType>>;
+  using base = binary_op<scalar_pow<ValueType>, scalar_expression<ValueType>,
+                         scalar_expression<ValueType>>;
 
   using base::base;
   scalar_pow(scalar_pow const &expr) : base(static_cast<base const &>(expr)) {}
