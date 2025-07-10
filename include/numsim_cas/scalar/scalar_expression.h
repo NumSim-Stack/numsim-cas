@@ -4,6 +4,7 @@
 #include "../expression.h"
 #include "../expression_holder.h"
 #include "../numsim_cas_type_traits.h"
+#include "simplifier/scalar_simplifier_negative.h"
 #include "visitors/scalar_printer.h"
 
 namespace numsim::cas {
@@ -44,8 +45,9 @@ struct expression_details<scalar_expression<ValueType>> {
   using variant = scalar_node<ValueType>;
 
   template <typename Expr> static inline auto negative(Expr &&expr) {
-    return make_expression<scalar_negative<ValueType>>(
+    simplifier::scalar_simplifier_negative<Expr> visitor(
         std::forward<Expr>(expr));
+    return std::visit(visitor, *expr);
   }
 };
 

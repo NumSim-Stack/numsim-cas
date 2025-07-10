@@ -148,6 +148,7 @@ set(PUBLIC_HEADER_FILES
     ${INCLUDE_PATH_SCALAR}/simplifier/scalar_simplifier_add.h
     ${INCLUDE_PATH_SCALAR}/simplifier/scalar_simplifier_mul.h
     ${INCLUDE_PATH_SCALAR}/simplifier/scalar_simplifier_sub.h
+    include/numsim_cas/scalar/simplifier/scalar_simplifier_negative.h
     include/numsim_cas/scalar/simplifier/scalar_simplifier_div.h
     ${INCLUDE_PATH_SCALAR}/scalar_functions.h
     ${INCLUDE_PATH_SCALAR}/scalar_constant.h
