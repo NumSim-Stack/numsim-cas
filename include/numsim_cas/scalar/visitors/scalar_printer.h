@@ -61,6 +61,7 @@ public:
       std::visit([this, parent_precedence](
                      auto &&arg) { (*this)(arg, parent_precedence); },
                  *expr);
+      m_first = false;
     }
   }
 
@@ -74,6 +75,15 @@ public:
   void operator()(scalar<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     m_out << visitable.name();
+  }
+
+  void operator()(scalar_function<ValueType> const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
+    m_out << visitable.name();
+    if (m_first) {
+      m_out << " = ";
+      apply(visitable.expr());
+    }
   }
 
   /**
@@ -150,6 +160,7 @@ public:
       apply(visitable.coeff(), precedence);
       m_out << "+";
     }
+
     for (auto &child : visitable.hash_map() | std::views::values) {
       if (!first && !is_same<scalar_negative<ValueType>>(child)) {
         m_out << "+";
@@ -316,8 +327,7 @@ public:
    * @param visitable The scalar cosine expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  template <typename Scalar>
-  void operator()(Scalar const &visitable,
+  void operator()(scalar_cos<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     print_unary("cos", visitable);
   }
@@ -357,6 +367,7 @@ public:
 
 private:
   using base::m_out; ///< The output stream used for printing.
+  bool m_first{true};
 };
 
 } // namespace numsim::cas

@@ -73,17 +73,17 @@ public:
     this->m_hash_value = 0;
 
     // otherwise we can not provide the order of the symbols
-    // hash_combine(this->m_hash_value, base::get_id());
+    hash_combine(this->m_hash_value, base::get_id());
 
     for (const auto &child : m_symbol_map | std::views::values) {
       child_hashes.push_back(get_hash_value(child));
     }
 
-    // for a single entry return this
-    if (child_hashes.size() == 1) {
-      this->m_hash_value = child_hashes.front();
-      return;
-    }
+    //    // for a single entry return this
+    //    if (child_hashes.size() == 1) {
+    //      this->m_hash_value = child_hashes.front();
+    //      return;
+    //    }
 
     // Sort for commutative operations like addition
     std::stable_sort(child_hashes.begin(), child_hashes.end());

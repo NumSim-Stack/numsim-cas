@@ -251,6 +251,8 @@ template <typename ValueType> class scalar_exp;
 template <typename ValueType> class scalar_sign;
 template <typename ValueType> class scalar_abs;
 
+template <typename ValueType> class scalar_function;
+
 template <typename ValueType>
 using scalar_node = std::variant<
     scalar<ValueType>, scalar_zero<ValueType>, scalar_one<ValueType>,
@@ -259,6 +261,8 @@ using scalar_node = std::variant<
     scalar_div<ValueType>, scalar_add<ValueType>,
     // scalar_sub<ValueType>,
     scalar_mul<ValueType>, scalar_negative<ValueType>,
+    scalar_function<ValueType>,
+
     // scalar_trigonometric_functions := {cos, sin, tan, asin, acos, atan}
     scalar_sin<ValueType>, scalar_cos<ValueType>, scalar_tan<ValueType>,
     scalar_asin<ValueType>, scalar_acos<ValueType>, scalar_atan<ValueType>,

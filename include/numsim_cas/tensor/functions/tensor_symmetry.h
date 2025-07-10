@@ -21,8 +21,8 @@ public:
 
   template <typename Expr, typename Indices>
   tensor_symmetry(Expr &&_expr, Indices &&_indices)
-      : base(std::forward<Expr>(_expr), call_tensor::dim(this->m_expr),
-             call_tensor::rank(this->m_expr)),
+      : base(std::forward<Expr>(_expr), call_tensor::dim(_expr),
+             call_tensor::rank(_expr)),
         m_symmetries(std::forward<Indices>(_indices)) {}
 
   auto const &symmetries() const { return m_symmetries; }

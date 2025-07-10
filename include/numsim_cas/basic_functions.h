@@ -70,6 +70,13 @@ auto make_scalar_constant(Args &&args) {
   return make_expression<scalar_constant<ValueType>>(std::forward<Args>(args));
 }
 
+template <typename Expr>
+auto make_scalar_function(std::string &&name, Expr &&expr) {
+  using value_type = typename Expr::value_type;
+  return make_expression<scalar_function<value_type>>(std::move(name),
+                                                      std::forward<Expr>(expr));
+}
+
 template <typename ValueType, typename... Args>
 auto make_tensor_variable(Args &&...args) {
   return std::make_tuple(make_expression<tensor<ValueType>>(
