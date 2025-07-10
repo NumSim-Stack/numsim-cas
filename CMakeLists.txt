@@ -160,6 +160,7 @@ set(PUBLIC_HEADER_FILES
     ${INCLUDE_PATH_SCALAR}/visitors/scalar_differentiation.h
     ${INCLUDE_PATH_SCALAR}/visitors/scalar_printer.h
     ${INCLUDE_PATH_SCALAR}/visitors/scalar_evaluator.h
+    include/numsim_cas/scalar/scalar_function.h
 
     #tensor valued scalar function
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h

@@ -24,8 +24,8 @@ public:
   inner_product_wrapper(LHS &&_lhs, SeqLHS &&_lhs_indices, RHS &&_rhs,
                         SeqRHS &&_rhs_indices)
       : base(std::forward<LHS>(_lhs), std::forward<RHS>(_rhs),
-             call_tensor::dim(this->m_lhs),
-             call_tensor::rank(this->m_lhs) + call_tensor::rank(this->m_rhs) -
+             call_tensor::dim(_lhs),
+             call_tensor::rank(_lhs) + call_tensor::rank(_rhs) -
                  _lhs_indices.size() - _rhs_indices.size()),
         m_lhs_indices(std::forward<SeqLHS>(_lhs_indices)),
         m_rhs_indices(std::forward<SeqRHS>(_rhs_indices)) {

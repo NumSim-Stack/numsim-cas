@@ -41,9 +41,8 @@ public:
 
 protected:
   void update_hash_value() {
-    static const auto id{base::get_id()};
+    hash_combine(base::m_hash_value, base::get_id());
     hash_combine(base::m_hash_value, m_expr.get().hash_value());
-    hash_combine(base::m_hash_value, id);
   }
 
   expression_holder<ExprType> m_expr;

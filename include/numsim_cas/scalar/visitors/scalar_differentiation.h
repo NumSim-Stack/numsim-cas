@@ -65,6 +65,15 @@ public:
     }
   }
 
+  void operator()(scalar_function<ValueType> const &visitable) {
+    scalar_differentiation<ValueType> diff(m_arg);
+    auto result{diff.apply(visitable.expr())};
+    if (result.is_valid()) {
+      m_result = make_expression<scalar_function<ValueType>>(
+          "d" + visitable.name(), result);
+    }
+  }
+
   /// product rule
   /// f(x)  = c * prod_i^n a_i(x)
   /// f'(x)  = c * sum_j^n a_j(x) prod_i^{n, i\neq j} a_i(x)
@@ -205,8 +214,17 @@ public:
                      make_expression<scalar_constant<ValueType>>(c_value));
       }
     } else {
-      auto temp{diff.apply(expr_rhs)};
-      assert(false);
+      // Implizite
+      // f(x) = pow(g(x),h(x))
+      // f'(x) = f(x)*(h'(x)*log(g(x)) + h(x)*g'(x)/g(x))
+      // f'(x) = g(x)^h(x)*(h'(x)*log(g(x)) + h(x)*g'(x)/g(x)) |*g(x)
+      // f'(x) = pow(g(x),(h(x)-1))*(h'(x)*log(g(x))*g(x) + h(x)*g'(x))
+      auto &g{expr_lhs};
+      auto &h{expr_rhs};
+      scalar_differentiation<ValueType> diff(m_arg);
+      auto dg{diff.apply(g)};
+      auto dh{diff.apply(h)};
+      m_result = std::pow(g, h - 1) * dh * std::log(std::pow(g, 2) + h * dg);
     }
   }
 

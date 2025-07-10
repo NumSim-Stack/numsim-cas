@@ -78,6 +78,11 @@ public:
     return visitable.data();
   }
 
+  ValueType
+  operator()([[maybe_unused]] scalar_function<ValueType> const &visitable) {
+    return apply(visitable.expr());
+  }
+
   /**
    * @brief Evaluates a scalar multiplication expression.
    *

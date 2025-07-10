@@ -1,5 +1,5 @@
-#ifndef SYMTM_FUNCTIONS_H
-#define SYMTM_FUNCTIONS_H
+#ifndef FUNCTIONS_H
+#define FUNCTIONS_H
 
 // #include "scalar_functions.h"
 // #include "tensor_functions.h"
@@ -93,4 +93,4 @@ constexpr inline auto merge_add(n_ary_tree<ExprType, Derived> const &lhs,
 
 } // namespace numsim::cas
 
-#endif // SYMTM_FUNCTIONS_H
+#endif // FUNCTIONS_H

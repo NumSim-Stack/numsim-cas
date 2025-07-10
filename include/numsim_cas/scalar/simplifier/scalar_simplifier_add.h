@@ -191,10 +191,12 @@ public:
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<scalar_mul<value_type>>()} {}
 
+  // constant*expr + expr --> (constant+1)*expr
   auto operator()(scalar<value_type> const &rhs) {
     const auto &hash_rhs{rhs.hash_value()};
-    const auto &hash_lhs{lhs.hash_value()};
-    if (hash_rhs == hash_lhs) {
+    // const auto &hash_lhs{lhs.hash_value()};
+    const auto pos{lhs.hash_map().find(hash_rhs)};
+    if (pos != lhs.hash_map().end() && lhs.hash_map().size() == 1) {
       auto expr{make_expression<scalar_mul<value_type>>(lhs)};
       auto &mul{expr.template get<scalar_mul<value_type>>()};
       mul.set_coeff(make_expression<scalar_constant<value_type>>(
@@ -254,9 +256,10 @@ public:
   }
 
   constexpr inline expr_type operator()(scalar_mul<value_type> const &rhs) {
-    const auto &hash_rhs{rhs.hash_value()};
+    // const auto &hash_rhs{rhs.hash_value()};
     const auto &hash_lhs{lhs.hash_value()};
-    if (hash_rhs == hash_lhs) {
+    const auto pos{rhs.hash_map().find(hash_lhs)};
+    if (pos != rhs.hash_map().end() && rhs.hash_map().size() == 1) {
       auto expr{make_expression<scalar_mul<value_type>>(rhs)};
       auto &mul{expr.template get<scalar_mul<value_type>>()};
       mul.set_coeff(make_expression<scalar_constant<value_type>>(

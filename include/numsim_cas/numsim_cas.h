@@ -108,6 +108,7 @@
 #include "scalar/scalar_cos.h"
 #include "scalar/scalar_div.h"
 #include "scalar/scalar_exp.h"
+#include "scalar/scalar_function.h"
 #include "scalar/scalar_globals.h"
 #include "scalar/scalar_log.h"
 #include "scalar/scalar_mul.h"
