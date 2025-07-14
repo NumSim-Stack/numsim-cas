@@ -53,9 +53,18 @@ public:
 
   const auto &data() const { return m_data; }
 
+  template <typename _ValueType>
+  friend bool operator<(scalar<_ValueType> const &lhs,
+                        scalar<_ValueType> const &rhs);
+
 private:
   ValueType m_data;
 };
+
+template <typename _ValueType>
+bool operator<(scalar<_ValueType> const &lhs, scalar<_ValueType> const &rhs) {
+  return lhs.name() < rhs.name();
+}
 
 } // namespace numsim::cas
 
