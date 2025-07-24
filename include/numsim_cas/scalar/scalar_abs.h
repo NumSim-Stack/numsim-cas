@@ -15,45 +15,9 @@ public:
   scalar_abs() = delete;
   ~scalar_abs() = default;
   const scalar_abs &operator=(scalar_abs &&) = delete;
-  template <typename _ValueType>
-  friend bool operator<(scalar_abs<_ValueType> const &lhs,
-                        scalar_abs<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator>(scalar_abs<_ValueType> const &lhs,
-                        scalar_abs<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator==(scalar_abs<_ValueType> const &lhs,
-                         scalar_abs<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator!=(scalar_abs<_ValueType> const &lhs,
-                         scalar_abs<_ValueType> const &rhs);
 
 private:
 };
-
-template <typename _ValueType>
-bool operator<(scalar_abs<_ValueType> const &lhs,
-               scalar_abs<_ValueType> const &rhs) {
-  return lhs.expr() < rhs.expr();
-}
-
-template <typename _ValueType>
-bool operator>(scalar_abs<_ValueType> const &lhs,
-               scalar_abs<_ValueType> const &rhs) {
-  return !(lhs < rhs);
-}
-
-template <typename _ValueType>
-bool operator==(scalar_abs<_ValueType> const &lhs,
-                scalar_abs<_ValueType> const &rhs) {
-  return lhs.expr() == rhs.expr();
-}
-
-template <typename _ValueType>
-bool operator!=(scalar_abs<_ValueType> const &lhs,
-                scalar_abs<_ValueType> const &rhs) {
-  return !(lhs == rhs);
-}
 
 } // namespace numsim::cas
 

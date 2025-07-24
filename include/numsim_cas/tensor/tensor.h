@@ -14,11 +14,9 @@ namespace numsim::cas {
 
 template <typename ValueType>
 class tensor final
-    : public symbol_base<
-          expression_crtp<tensor<ValueType>, tensor_expression<ValueType>>> {
+    : public symbol_base<tensor_expression<ValueType>, tensor<ValueType>> {
 public:
-  using base = symbol_base<
-      expression_crtp<tensor<ValueType>, tensor_expression<ValueType>>>;
+  using base = symbol_base<tensor_expression<ValueType>, tensor<ValueType>>;
   using base::operator=;
 
   tensor() = delete;

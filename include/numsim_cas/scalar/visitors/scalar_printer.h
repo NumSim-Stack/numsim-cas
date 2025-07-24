@@ -3,6 +3,7 @@
 
 #include "../../numsim_cas_type_traits.h"
 #include "../../printer_base.h"
+#include <algorithm>
 #include <iostream>
 #include <variant>
 #include <vector>
@@ -33,6 +34,7 @@ class scalar_printer final
     : public printer_base<scalar_printer<ValueType, StreamType>, StreamType> {
 public:
   using base = printer_base<scalar_printer<ValueType, StreamType>, StreamType>;
+  using expr_t = expression_holder<scalar_expression<ValueType>>;
   using base::begin;
   using base::end;
   using base::print_unary;
@@ -130,12 +132,17 @@ public:
                   [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
+    const auto values{visitable.hash_map() | std::views::values};
+    std::map<expr_t, expr_t> sorted_map;
+    std::for_each(std::begin(values), std::end(values),
+                  [&](auto &expr) { sorted_map[expr] = expr; });
+
     bool first = true;
     if (visitable.coeff().is_valid()) {
       apply(visitable.coeff(), precedence);
       m_out << "*";
     }
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    for (auto &child : sorted_map | std::views::values) {
       if (!first)
         m_out << "*";
       apply(child, precedence);
@@ -154,6 +161,10 @@ public:
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Addition};
     begin(precedence, parent_precedence);
+    const auto values{visitable.hash_map() | std::views::values};
+    std::map<expr_t, expr_t> sorted_map;
+    std::for_each(std::begin(values), std::end(values),
+                  [&](auto &expr) { sorted_map[expr] = expr; });
 
     bool first = true;
     if (visitable.coeff().is_valid()) {
@@ -161,7 +172,7 @@ public:
       m_out << "+";
     }
 
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    for (auto &child : sorted_map | std::views::values) {
       if (!first && !is_same<scalar_negative<ValueType>>(child)) {
         m_out << "+";
       }

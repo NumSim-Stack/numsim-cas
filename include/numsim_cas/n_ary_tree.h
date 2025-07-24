@@ -4,6 +4,7 @@
 #include "expression_crtp.h"
 #include "get_hash_scalar.h"
 #include "is_symbol.h"
+#include "numsim_cas_forward.h"
 #include "numsim_cas_type_traits.h"
 #include <memory>
 #include <vector>
@@ -94,6 +95,31 @@ public:
     }
   }
 
+  //  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
+  //  friend bool operator<(n_ary_tree<_Base, _DerivedLHS> const &lhs,
+  //                        n_ary_tree<_Base, _DerivedRHS> const &rhs);
+  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
+  friend bool operator<(n_ary_tree<_Base, _DerivedRHS> const &lhs,
+                        symbol_base<_Base, _DerivedLHS> const &rhs);
+  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
+  friend bool operator<(symbol_base<_Base, _DerivedLHS> const &lhs,
+                        n_ary_tree<_Base, _DerivedRHS> const &rhs);
+  template <typename _Base, typename _Derived>
+  friend bool operator<(n_ary_tree<_Base, _Derived> const &lhs,
+                        n_ary_tree<_Base, _Derived> const &rhs);
+  template <typename _Derived, typename _Base, typename _BaseLHS,
+            typename _BaseRHS>
+  friend bool operator>(n_ary_tree<_Base, _Derived> const &lhs,
+                        n_ary_tree<_Base, _Derived> const &rhs);
+  template <typename _Derived, typename _Base, typename _BaseLHS,
+            typename _BaseRHS>
+  friend bool operator==(n_ary_tree<_Base, _Derived> const &lhs,
+                         n_ary_tree<_Base, _Derived> const &rhs);
+  template <typename _Derived, typename _Base, typename _BaseLHS,
+            typename _BaseRHS>
+  friend bool operator!=(n_ary_tree<_Base, _Derived> const &lhs,
+                         n_ary_tree<_Base, _Derived> const &rhs);
+
 protected:
   expr_holder m_coeff;
   // Derived const &m_derived;
@@ -123,6 +149,54 @@ private:
     update_hash_value();
   }
 };
+
+template <typename _Base, typename _DerivedSymbol, typename _DerivedTree>
+bool operator<(symbol_base<_Base, _DerivedSymbol> const &lhs,
+               n_ary_tree<_Base, _DerivedTree> const &rhs) {
+  if (rhs.size() == 1) {
+    return lhs < get(rhs.hash_map().begin()->second);
+  }
+  return lhs.hash_value() < rhs.hash_value();
+}
+
+template <typename _Base, typename _DerivedSymbol, typename _DerivedTree>
+bool operator<(n_ary_tree<_Base, _DerivedTree> const &lhs,
+               symbol_base<_Base, _DerivedSymbol> const &rhs) {
+  if (lhs.size() == 1) {
+    return get(lhs.hash_map().begin()->second) < rhs;
+  }
+  return lhs.hash_value() < rhs.hash_value();
+}
+
+template <typename _Base, typename _Derived>
+bool operator<(n_ary_tree<_Base, _Derived> const &lhs,
+               n_ary_tree<_Base, _Derived> const &rhs) {
+  if (lhs.size() == 1 && rhs.size() == 1) {
+    return lhs.hash_map().begin()->second < rhs.hash_map().begin()->second;
+  }
+  return lhs.hash_value() < rhs.hash_value();
+}
+
+template <typename _Base, typename _Derived>
+bool operator>(n_ary_tree<_Base, _Derived> const &lhs,
+               n_ary_tree<_Base, _Derived> const &rhs) {
+  return !(lhs < rhs);
+}
+
+template <typename _Base, typename _Derived>
+bool operator==(n_ary_tree<_Base, _Derived> const &lhs,
+                n_ary_tree<_Base, _Derived> const &rhs) {
+  return lhs.hash_value() == rhs.hash_value();
+}
+
+template <typename _Base, typename _Derived>
+bool operator!=(n_ary_tree<_Base, _Derived> const &lhs,
+                n_ary_tree<_Base, _Derived> const &rhs) {
+  if (lhs.size() == 1 && rhs.size() == 1) {
+    return lhs.hash_map().begin()->second == rhs.hash_map().begin()->second;
+  }
+  return !(lhs == rhs);
+}
 
 } // namespace numsim::cas
 

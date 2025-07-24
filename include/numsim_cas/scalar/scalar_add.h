@@ -22,10 +22,8 @@ public:
   ~scalar_add() = default;
   scalar_add(scalar_add const &add) : base(static_cast<base const &>(add)) {}
   scalar_add(scalar_add &&add) : base(std::forward<base>(add)) {}
-
   const scalar_add &operator=(scalar_add &&) = delete;
 };
-
 } // namespace numsim::cas
 
 #endif // SCALAR_ADD_H

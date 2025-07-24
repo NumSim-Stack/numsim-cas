@@ -17,39 +17,10 @@ public:
   scalar_acos() = delete;
   ~scalar_acos() = default;
   const scalar_acos &operator=(scalar_acos &&) = delete;
-  template <typename _ValueType>
-  friend bool operator<(scalar_acos<_ValueType> const &lhs,
-                        scalar_acos<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator>(scalar_acos<_ValueType> const &lhs,
-                        scalar_acos<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator==(scalar_acos<_ValueType> const &lhs,
-                         scalar_acos<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator!=(scalar_acos<_ValueType> const &lhs,
-                         scalar_acos<_ValueType> const &rhs);
 
 private:
 };
 
-template <typename _ValueType>
-bool operator>(scalar_acos<_ValueType> const &lhs,
-               scalar_acos<_ValueType> const &rhs) {
-  return !(lhs < rhs);
-}
-
-template <typename _ValueType>
-bool operator==(scalar_acos<_ValueType> const &lhs,
-                scalar_acos<_ValueType> const &rhs) {
-  return lhs.expr() == rhs.expr();
-}
-
-template <typename _ValueType>
-bool operator!=(scalar_acos<_ValueType> const &lhs,
-                scalar_acos<_ValueType> const &rhs) {
-  return !(lhs == rhs);
-}
 } // namespace numsim::cas
 
 #endif // SCALAR_ACOS_H

@@ -13,13 +13,12 @@ namespace numsim::cas {
 
 template <typename ValueType>
 class scalar final
-    : public symbol_base<
-          expression_crtp<scalar<ValueType>, scalar_expression<ValueType>>>
+    : public symbol_base<scalar_expression<ValueType>, scalar<ValueType>>
 ///*scalar<ValueType>, */scalar_expression<ValueType>>, public
 {
 public:
-  using base_expr = symbol_base<
-      expression_crtp<scalar<ValueType>, scalar_expression<ValueType>>>;
+  using base_expr =
+      symbol_base<scalar_expression<ValueType>, scalar<ValueType>>;
 
   explicit scalar(std::string const &name) : base_expr(name), m_data() {}
 
@@ -53,42 +52,9 @@ public:
 
   const auto &data() const { return m_data; }
 
-  template <typename _ValueType>
-  friend bool operator<(scalar<_ValueType> const &lhs,
-                        scalar<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator>(scalar<_ValueType> const &lhs,
-                        scalar<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator==(scalar<_ValueType> const &lhs,
-                         scalar<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator!=(scalar<_ValueType> const &lhs,
-                         scalar<_ValueType> const &rhs);
-
 private:
   ValueType m_data;
 };
-
-template <typename _ValueType>
-bool operator<(scalar<_ValueType> const &lhs, scalar<_ValueType> const &rhs) {
-  return lhs.name() < rhs.name();
-}
-
-template <typename _ValueType>
-bool operator>(scalar<_ValueType> const &lhs, scalar<_ValueType> const &rhs) {
-  return !(lhs < rhs);
-}
-
-template <typename _ValueType>
-bool operator==(scalar<_ValueType> const &lhs, scalar<_ValueType> const &rhs) {
-  return lhs.name() == rhs.name();
-}
-
-template <typename _ValueType>
-bool operator!=(scalar<_ValueType> const &lhs, scalar<_ValueType> const &rhs) {
-  return !(lhs == rhs);
-}
 
 } // namespace numsim::cas
 

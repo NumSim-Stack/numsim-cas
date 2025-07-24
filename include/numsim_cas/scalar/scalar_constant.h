@@ -37,9 +37,47 @@ public:
   //  constexpr inline auto& operator()(){
   //    return m_data;
   //  }
+
+  template <typename _ValueType>
+  friend bool operator<(scalar_constant<_ValueType> const &lhs,
+                        scalar_constant<_ValueType> const &rhs);
+  template <typename _ValueType>
+  friend bool operator>(scalar_constant<_ValueType> const &lhs,
+                        scalar_constant<_ValueType> const &rhs);
+  template <typename _ValueType>
+  friend bool operator==(scalar_constant<_ValueType> const &lhs,
+                         scalar_constant<_ValueType> const &rhs);
+  template <typename _ValueType>
+  friend bool operator!=(scalar_constant<_ValueType> const &lhs,
+                         scalar_constant<_ValueType> const &rhs);
+
 private:
   ValueType m_data;
 };
+
+template <typename _ValueType>
+bool operator<(scalar_constant<_ValueType> const &lhs,
+               scalar_constant<_ValueType> const &rhs) {
+  return lhs.m_data < rhs.m_data;
+}
+
+template <typename _ValueType>
+bool operator>(scalar_constant<_ValueType> const &lhs,
+               scalar_constant<_ValueType> const &rhs) {
+  return !(lhs < rhs);
+}
+
+template <typename _ValueType>
+bool operator==(scalar_constant<_ValueType> const &lhs,
+                scalar_constant<_ValueType> const &rhs) {
+  return lhs.m_data == rhs.m_data;
+}
+
+template <typename _ValueType>
+bool operator!=(scalar_constant<_ValueType> const &lhs,
+                scalar_constant<_ValueType> const &rhs) {
+  return !(lhs == rhs);
+}
 
 } // namespace numsim::cas
 #endif // SCALAR_CONSTANT_H
