@@ -74,6 +74,8 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/simplify_rule_registry.h
     include/numsim_cas/numsim_cas_variant.h
     include/numsim_cas/update_hash.h
+    include/numsim_cas/compare_less_visitor.h
+    include/numsim_cas/compare_equal_visitor.h
 
     #tensor
     include/numsim_cas/tensor/tensor.h
@@ -162,6 +164,7 @@ set(PUBLIC_HEADER_FILES
     ${INCLUDE_PATH_SCALAR}/visitors/scalar_printer.h
     ${INCLUDE_PATH_SCALAR}/visitors/scalar_evaluator.h
     include/numsim_cas/scalar/scalar_function.h
+    include/numsim_cas/scalar/scalar_compare_less_visitor.h
 
     #tensor valued scalar function
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h

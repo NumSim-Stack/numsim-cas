@@ -1,6 +1,7 @@
 #ifndef EXPRESSION_HOLDER_H
 #define EXPRESSION_HOLDER_H
 
+#include "compare_less_visitor.h"
 #include "numsim_cas_type_traits.h"
 #include "operators.h"
 #include <type_traits>
