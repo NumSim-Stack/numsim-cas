@@ -7,10 +7,6 @@
 
 namespace numsim::cas {
 
-template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_scalar_add_simplify(ExprTypeLHS &&lhs,
-                                                 ExprTypeRHS &&rhs);
-
 namespace simplifier {
 template <typename ExprLHS, typename ExprRHS> class mul_default {
 public:
@@ -139,7 +135,7 @@ public:
     /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
     auto pos{lhs.hash_map().find(rhs.hash_value())};
     if (pos != lhs.hash_map().end()) {
-      auto expr{binary_scalar_add_simplify(pos->second, m_rhs)};
+      auto expr{binary_scalar_mul_simplify(pos->second, m_rhs)};
       mul.hash_map().erase(rhs.hash_value());
       mul.push_back(expr);
       return expr_mul;
