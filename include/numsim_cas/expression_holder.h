@@ -1,6 +1,8 @@
 #ifndef EXPRESSION_HOLDER_H
 #define EXPRESSION_HOLDER_H
 
+#include "compare_equal_visitor.h"
+#include "compare_less_visitor.h"
 #include "numsim_cas_type_traits.h"
 #include "operators.h"
 #include <type_traits>
@@ -148,10 +150,46 @@ public:
   template <typename _ExprBase>
   friend std::ostream &operator<<(std::ostream &os,
                                   expression_holder<_ExprBase> const &expr);
+  template <typename _ExprBase>
+  friend bool operator<(expression_holder<_ExprBase> const &lhs,
+                        expression_holder<_ExprBase> const &rhs);
+  template <typename _ExprBase>
+  friend bool operator>(expression_holder<_ExprBase> const &lhs,
+                        expression_holder<_ExprBase> const &rhs);
+  template <typename _ExprBase>
+  friend bool operator==(expression_holder<_ExprBase> const &lhs,
+                         expression_holder<_ExprBase> const &rhs);
+  template <typename _ExprBase>
+  friend bool operator!=(expression_holder<_ExprBase> const &lhs,
+                         expression_holder<_ExprBase> const &rhs);
 
 private:
   std::shared_ptr<node_type> m_expr;
 };
+
+template <typename _ExprBase>
+bool operator<(expression_holder<_ExprBase> const &lhs,
+               expression_holder<_ExprBase> const &rhs) {
+  return compare_less_visitor().template operator()<_ExprBase>(lhs, rhs);
+}
+
+template <typename _ExprBase>
+bool operator>(expression_holder<_ExprBase> const &lhs,
+               expression_holder<_ExprBase> const &rhs) {
+  return !(lhs < rhs);
+}
+
+template <typename _ExprBase>
+bool operator==(expression_holder<_ExprBase> const &lhs,
+                expression_holder<_ExprBase> const &rhs) {
+  return std::visit(compare_equal_visitor(), *lhs, *rhs);
+}
+
+template <typename _ExprBase>
+bool operator!=(expression_holder<_ExprBase> const &lhs,
+                expression_holder<_ExprBase> const &rhs) {
+  return !(lhs == rhs);
+}
 
 } // namespace numsim::cas
 

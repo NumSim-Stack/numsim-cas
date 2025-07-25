@@ -1,6 +1,7 @@
 #ifndef UTILITY_FUNC_H
 #define UTILITY_FUNC_H
 
+#include "numsim_cas_forward.h"
 #include "numsim_cas_type_traits.h"
 #include <string>
 #include <tuple>

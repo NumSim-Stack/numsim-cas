@@ -20,6 +20,7 @@ public:
 
 private:
 };
+
 } // namespace numsim::cas
 
 #endif // SCALAR_ACOS_H

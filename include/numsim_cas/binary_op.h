@@ -112,6 +112,27 @@ public:
    */
   [[nodiscard]] inline auto &expr_rhs() noexcept { return m_rhs; }
 
+  template <typename _Derived, typename _Base, typename _BaseLHS,
+            typename _BaseRHS>
+  friend bool
+  operator<(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
+            binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs);
+  template <typename _Derived, typename _Base, typename _BaseLHS,
+            typename _BaseRHS>
+  friend bool
+  operator>(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
+            binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs);
+  template <typename _Derived, typename _Base, typename _BaseLHS,
+            typename _BaseRHS>
+  friend bool
+  operator==(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
+             binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs);
+  template <typename _Derived, typename _Base, typename _BaseLHS,
+            typename _BaseRHS>
+  friend bool
+  operator!=(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
+             binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs);
+
 protected:
   /**
    * @brief Holds the left-hand side expression.
@@ -123,6 +144,34 @@ protected:
    */
   expression_holder<BaseRHS> m_rhs;
 };
+
+template <typename _Derived, typename _Base, typename _BaseLHS,
+          typename _BaseRHS>
+bool operator<(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
+               binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs) {
+  return lhs.m_lhs < rhs.m_lhs && lhs.m_rhs < rhs.m_rhs;
+}
+
+template <typename _Derived, typename _Base, typename _BaseLHS,
+          typename _BaseRHS>
+bool operator>(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
+               binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs) {
+  return !(lhs < rhs);
+}
+
+template <typename _Derived, typename _Base, typename _BaseLHS,
+          typename _BaseRHS>
+bool operator==(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
+                binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs) {
+  return lhs.m_lhs == rhs.m_lhs && lhs.m_rhs == rhs.m_rhs;
+}
+
+template <typename _Derived, typename _Base, typename _BaseLHS,
+          typename _BaseRHS>
+bool operator!=(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
+                binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs) {
+  return !(lhs == rhs);
+}
 
 template <typename... Args>
 struct update_hash<numsim::cas::binary_op<Args...>> {

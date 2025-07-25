@@ -123,6 +123,7 @@
 #include "scalar/scalar_visitor_typedef.h"
 #include "scalar/scalar_zero.h"
 
+#include "scalar/scalar_compare_less_visitor.h"
 #include "scalar/scalar_operators.h"
 #include "scalar/visitors/scalar_differentiation.h"
 #include "scalar/visitors/scalar_evaluator.h"

@@ -39,6 +39,19 @@ public:
     return m_expr;
   }
 
+  template <typename _Derived, typename _Base, typename _ExprType>
+  friend bool operator<(unary_op<_Derived, _Base, _ExprType> const &lhs,
+                        unary_op<_Derived, _Base, _ExprType> const &rhs);
+  template <typename _Derived, typename _Base, typename _ExprType>
+  friend bool operator>(unary_op<_Derived, _Base, _ExprType> const &lhs,
+                        unary_op<_Derived, _Base, _ExprType> const &rhs);
+  template <typename _Derived, typename _Base, typename _ExprType>
+  friend bool operator==(unary_op<_Derived, _Base, _ExprType> const &lhs,
+                         unary_op<_Derived, _Base, _ExprType> const &rhs);
+  template <typename _Derived, typename _Base, typename _ExprType>
+  friend bool operator!=(unary_op<_Derived, _Base, _ExprType> const &lhs,
+                         unary_op<_Derived, _Base, _ExprType> const &rhs);
+
 protected:
   void update_hash_value() {
     hash_combine(base::m_hash_value, base::get_id());
@@ -47,6 +60,30 @@ protected:
 
   expression_holder<ExprType> m_expr;
 };
+
+template <typename _Derived, typename _Base, typename _ExprType>
+bool operator<(unary_op<_Derived, _Base, _ExprType> const &lhs,
+               unary_op<_Derived, _Base, _ExprType> const &rhs) {
+  return lhs.expr() < rhs.expr();
+}
+
+template <typename _Derived, typename _Base, typename _ExprType>
+bool operator>(unary_op<_Derived, _Base, _ExprType> const &lhs,
+               unary_op<_Derived, _Base, _ExprType> const &rhs) {
+  return !(lhs < rhs);
+}
+
+template <typename _Derived, typename _Base, typename _ExprType>
+bool operator==(unary_op<_Derived, _Base, _ExprType> const &lhs,
+                unary_op<_Derived, _Base, _ExprType> const &rhs) {
+  return lhs.expr() == rhs.expr();
+}
+
+template <typename _Derived, typename _Base, typename _ExprType>
+bool operator!=(unary_op<_Derived, _Base, _ExprType> const &lhs,
+                unary_op<_Derived, _Base, _ExprType> const &rhs) {
+  return !(lhs == rhs);
+}
 
 } // namespace numsim::cas
 

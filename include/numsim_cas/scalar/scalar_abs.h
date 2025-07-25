@@ -18,6 +18,7 @@ public:
 
 private:
 };
+
 } // namespace numsim::cas
 
 #endif // SCALAR_ABS_H
