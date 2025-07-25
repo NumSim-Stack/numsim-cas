@@ -89,9 +89,9 @@ private:
 };
 } // namespace detail
 
-class compare_type {
+class compare_less_visitor {
 public:
-  compare_type() = default;
+  compare_less_visitor() = default;
 
   template <typename ExprType>
   constexpr inline auto
@@ -106,33 +106,6 @@ public:
   operator()(expression_holder<ExprTypeLHS> const &lhs,
              expression_holder<ExprTypeRHS> const &rhs) const {
     return lhs.get().hash_value() < rhs.get().hash_value();
-  }
-};
-
-class equal_type {
-public:
-  equal_type() = default;
-
-  template <typename Type>
-  constexpr inline auto operator()(expression_holder<Type> const &lhs,
-                                   expression_holder<Type> const &rhs) {
-    return std::visit(*this, *lhs, *rhs);
-  }
-
-  template <typename LHS, typename RHS>
-  constexpr inline auto operator()(LHS const &lhs, RHS const &rhs) {
-    return lhs.hash_value() == rhs.hash_value();
-  }
-
-  template <typename Type>
-  constexpr inline auto operator()(Type const &lhs, Type const &rhs) {
-    return lhs == rhs;
-  }
-
-  template <typename Type>
-  constexpr inline auto operator()(scalar_zero<Type> const &,
-                                   scalar_zero<Type> const &) {
-    return true;
   }
 };
 
