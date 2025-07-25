@@ -28,14 +28,6 @@ template <typename... Args> constexpr inline auto tuple(Args &&...args) {
   return std::make_tuple(std::forward<Args>(args)...);
 }
 
-template <typename BaseExpr>
-constexpr inline const auto &
-get(expression_holder<BaseExpr> const &expr_holder) {
-  return std::visit([](const auto &expr) { return std::ref(expr); },
-                    *expr_holder)
-      .get();
-}
-
 } // namespace numsim::cas
 
 #endif // UTILITY_FUNC_H
