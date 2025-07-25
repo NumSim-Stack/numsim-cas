@@ -147,6 +147,12 @@ template <typename ExprLHS, typename ExprRHS> struct div_base {
                  expr_rhs);
   }
 
+  // (-rhs) / lhs -->
+  constexpr inline expr_type
+  operator()(scalar_negative<value_type> const &lhs) {
+    return -(lhs.expr() / m_rhs);
+  }
+
   // 0 / expr
   constexpr inline expr_type operator()(scalar_zero<value_type> const &) {
     return get_scalar_zero<value_type>();

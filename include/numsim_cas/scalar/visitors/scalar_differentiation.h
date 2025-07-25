@@ -115,7 +115,7 @@ public:
   void operator()(scalar_negative<ValueType> const &visitable) {
     scalar_differentiation diff(m_arg);
     auto diff_expr{diff.apply(visitable.expr())};
-    if (diff_expr.is_valid()) {
+    if (diff_expr.is_valid() || !is_same<scalar_zero<ValueType>>(diff_expr)) {
       m_result = -diff_expr;
     }
   }
