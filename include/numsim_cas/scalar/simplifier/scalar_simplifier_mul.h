@@ -21,7 +21,7 @@ public:
     return get_default();
   }
 
-  // expr_lhs * (-expr_rhs) --> zero
+  // expr_lhs * (-expr_rhs) -->  -(expr_lhs * expr_rhs)
   constexpr inline expr_type
   operator()(scalar_negative<value_type> const &rhs) {
     return -(std::forward<ExprLHS>(m_lhs) * rhs.expr());
