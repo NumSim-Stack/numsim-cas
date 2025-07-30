@@ -21,6 +21,12 @@ public:
     return get_default();
   }
 
+  // expr_lhs * (-expr_rhs) --> zero
+  constexpr inline expr_type
+  operator()(scalar_negative<value_type> const &rhs) {
+    return -(std::forward<ExprLHS>(m_lhs) * rhs.expr());
+  }
+
   // expr * zero --> zero
   constexpr inline expr_type operator()(scalar_zero<value_type> const &) {
     return m_rhs;
@@ -80,6 +86,7 @@ public:
   using base = mul_default<ExprLHS, ExprRHS>;
   using base::operator();
   using base::get_coefficient;
+  using base::m_rhs;
 
   constant_mul(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
@@ -98,6 +105,14 @@ public:
     auto coeff{get_coefficient(mul, static_cast<value_type>(1)) * base::m_lhs};
     mul.set_coeff(std::move(coeff));
     return std::move(mul_expr);
+  }
+
+  template <typename ExprType>
+  constexpr inline expr_type operator()([[maybe_unused]] ExprType const &rhs) {
+    if (lhs() == static_cast<value_type>(1)) {
+      return std::forward<ExprRHS>(m_rhs);
+    }
+    return base::get_default();
   }
 
 private:
@@ -184,7 +199,10 @@ public:
   }
 
   auto operator()([[maybe_unused]] scalar_pow<value_type> const &rhs) {
+    std::cout << lhs.hash_value() << " " << m_lhs << std::endl;
+    std::cout << rhs.hash_value() << " " << m_rhs << std::endl;
     if (lhs.hash_value() == rhs.hash_value()) {
+      std::cout << "add" << std::endl;
       const auto rhs_expr{lhs.expr_rhs() + rhs.expr_rhs()};
       return make_expression<scalar_pow<value_type>>(lhs.expr_lhs(),
                                                      std::move(rhs_expr));
@@ -236,6 +254,12 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
 
   mul_base(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
+
+  constexpr inline expr_type
+  operator()(scalar_negative<value_type> const &lhs) {
+    auto expr{lhs.expr() * m_rhs};
+    return -expr;
+  }
 
   constexpr inline expr_type operator()(scalar_constant<value_type> const &) {
     return visit(constant_mul<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),

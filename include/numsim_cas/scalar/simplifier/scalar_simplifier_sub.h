@@ -37,7 +37,7 @@ public:
       add.set_coeff(make_expression<scalar_constant<value_type>>(
           -m_rhs.template get<scalar_constant<value_type>>()()));
     } else {
-      add_new.template get<scalar_add<value_type>>().push_back(m_rhs);
+      add_new.template get<scalar_add<value_type>>().push_back(-m_rhs);
     }
     return std::move(add_new);
   }

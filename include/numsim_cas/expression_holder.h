@@ -137,6 +137,10 @@ public:
     return expression_details<ExprBase>::negative(*this);
   }
 
+  constexpr inline expression_holder operator-() const {
+    return expression_details<ExprBase>::negative(*this);
+  }
+
   constexpr inline auto free() { return m_expr.reset(); }
 
   bool operator!=(expression_holder const &data) const {

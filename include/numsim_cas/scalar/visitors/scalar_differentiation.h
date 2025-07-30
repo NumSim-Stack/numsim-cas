@@ -202,7 +202,7 @@ public:
     scalar_differentiation<ValueType> diff(m_arg);
     if (is_same<scalar_constant<ValueType>>(expr_rhs)) {
       // f(x)  = pow(g(x),c)
-      // f'(x) = c*pow(g(x), c-1)
+      // f'(x) = c*pow(g(x), c-1)*g'(x)
       const auto c_value{expr_rhs.template get<scalar_constant<ValueType>>()() -
                          static_cast<ValueType>(1)};
       if (c_value == 1) {
@@ -224,7 +224,11 @@ public:
       scalar_differentiation<ValueType> diff(m_arg);
       auto dg{diff.apply(g)};
       auto dh{diff.apply(h)};
-      m_result = std::pow(g, h - 1) * dh * std::log(std::pow(g, 2) + h * dg);
+      if (is_same<scalar_zero<ValueType>>(dh)) {
+        m_result = h * std::pow(g, h - 1) * dg;
+      } else {
+        m_result = std::pow(g, h - 1) * dh * std::log(std::pow(g, 2) + h * dg);
+      }
     }
   }
 

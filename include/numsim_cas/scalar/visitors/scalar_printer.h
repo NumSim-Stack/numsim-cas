@@ -166,18 +166,18 @@ public:
     std::for_each(std::begin(values), std::end(values),
                   [&](auto &expr) { sorted_map[expr] = expr; });
 
-    bool first = true;
+    bool first{false};
     if (visitable.coeff().is_valid()) {
       apply(visitable.coeff(), precedence);
-      m_out << "+";
+      first = true;
     }
 
     for (auto &child : sorted_map | std::views::values) {
-      if (!first && !is_same<scalar_negative<ValueType>>(child)) {
+      if (first && !is_same<scalar_negative<ValueType>>(child)) {
         m_out << "+";
       }
       apply(child, precedence);
-      first = false;
+      first = true;
     }
 
     end(precedence, parent_precedence);
