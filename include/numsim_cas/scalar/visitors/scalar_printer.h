@@ -301,11 +301,11 @@ public:
   }
 
   void operator()(scalar_pow<ValueType> const &visitable,
-                  Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) {
     m_out << "pow(";
-    apply(visitable.expr_lhs(), parent_precedence);
+    apply(visitable.expr_lhs());
     m_out << ",";
-    apply(visitable.expr_rhs(), parent_precedence);
+    apply(visitable.expr_rhs());
     m_out << ")";
   }
 
