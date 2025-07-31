@@ -1,4 +1,4 @@
-# .github/workflows/test-cpp.yml
+# .github/workflows/testing.yml
 name: C++ Pull Request Test
 
 on:
