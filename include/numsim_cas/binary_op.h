@@ -149,7 +149,8 @@ template <typename _Derived, typename _Base, typename _BaseLHS,
           typename _BaseRHS>
 bool operator<(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
                binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs) {
-  return lhs.m_lhs < rhs.m_lhs && lhs.m_rhs < rhs.m_rhs;
+  return lhs.hash_value() < rhs.hash_value();
+  // lhs.m_lhs < rhs.m_lhs || lhs.m_rhs < rhs.m_rhs;
 }
 
 template <typename _Derived, typename _Base, typename _BaseLHS,
