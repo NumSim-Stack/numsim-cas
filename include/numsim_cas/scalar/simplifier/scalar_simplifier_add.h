@@ -27,8 +27,10 @@ public:
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   auto get_default() {
-    const auto lhs_constant{is_same<scalar_constant<value_type>>(m_lhs)};
-    const auto rhs_constant{is_same<scalar_constant<value_type>>(m_rhs)};
+    const auto lhs_constant{is_same<scalar_constant<value_type>>(m_lhs) ||
+                            is_same<scalar_one<value_type>>(m_lhs)};
+    const auto rhs_constant{is_same<scalar_constant<value_type>>(m_rhs) ||
+                            is_same<scalar_one<value_type>>(m_lhs)};
     auto add_new{make_expression<scalar_add<value_type>>()};
     if (lhs_constant) {
       auto &add{add_new.template get<scalar_add<value_type>>()};
