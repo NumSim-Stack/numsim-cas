@@ -2,15 +2,12 @@
 #define SCALAR_SIMPLIFIER_SUB_H
 
 #include "../../expression_holder.h"
+#include "../scalar_functions.h"
 #include "../scalar_globals.h"
 #include <set>
 #include <type_traits>
 
 namespace numsim::cas {
-template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_scalar_sub_simplify(ExprTypeLHS &&lhs,
-                                                 ExprTypeRHS &&rhs);
-
 namespace simplifier {
 template <typename ExprLHS, typename ExprRHS> class sub_default {
 public:

@@ -7,15 +7,14 @@
 #include "../../numsim_cas_type_traits.h"
 #include "../../operators.h"
 #include "../../simplify_rule_registry.h"
-#include "../scalar_functions.h"
 #include "../scalar_globals.h"
+#include "../scalar_functions.h"
 #include <functional>
 #include <optional>
 #include <set>
 #include <type_traits>
 
 namespace numsim::cas {
-
 namespace simplifier {
 template <typename ExprLHS, typename ExprRHS> class add_default {
 public:
