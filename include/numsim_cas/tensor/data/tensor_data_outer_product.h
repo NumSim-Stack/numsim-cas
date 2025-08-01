@@ -60,7 +60,7 @@ private:
   template <typename F, typename Vec, typename Arg, std::size_t... INDICES>
   static constexpr inline auto
   tuple_call(F const &f, Vec const &vec, Arg const &arg,
-             std::index_sequence<INDICES...> seq) noexcept {
+             [[maybe_unused]] std::index_sequence<INDICES...> seq) noexcept {
     return f(arg[vec[INDICES]]...);
   }
 

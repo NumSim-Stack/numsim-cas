@@ -25,7 +25,7 @@ public:
   const tensor_differentiation &
   operator=(tensor_differentiation const &) = delete;
 
-  expr_type apply(expr_type &expr) {
+  expr_type apply([[maybe_unused]] expr_type &expr) {
     //    auto &expr_ = expr.template get<VisitableTensor_t<ValueType>>();
     //    const auto &tensor_expr = expr.get();
     //    m_dim = tensor_expr.dim();
@@ -35,7 +35,7 @@ public:
     return m_data;
   }
 
-  expr_type apply(tensor_expression<ValueType> &expr) {
+  expr_type apply([[maybe_unused]] tensor_expression<ValueType> &expr) {
     //    auto &expr_ = static_cast<VisitableTensor_t<ValueType> &>(expr);
     //    m_dim = expr.dim();
     //    m_rank = expr.rank() + m_rank_arg;
@@ -43,7 +43,7 @@ public:
     return std::move(m_data);
   }
 
-  virtual void operator()(tensor<ValueType> &visitable) {
+  virtual void operator()([[maybe_unused]] tensor<ValueType> &visitable) {
     //    if (visitable) {
     //      tensor_differentiation diff(m_arg);
     //      m_data = diff.apply(visitable);
@@ -76,18 +76,20 @@ public:
     //    }
   }
 
-  virtual void operator()(tensor_add<ValueType> &visitable) {
+  virtual void operator()([[maybe_unused]] tensor_add<ValueType> &visitable) {
     // loop_result(visitable);
   }
 
-  virtual void operator()(tensor_negative<ValueType> &visitable) {
+  virtual void
+  operator()([[maybe_unused]] tensor_negative<ValueType> &visitable) {
     //    tensor_differentiation diff(m_arg);
     //    auto diff_lhs{diff.apply(visitable.expr())};
     //    m_data =
     //    std::move(make_expression<tensor_negative<ValueType>>(std::move(diff_lhs)));
   }
 
-  virtual void operator()(inner_product_wrapper<ValueType> &visitable) {
+  virtual void
+  operator()([[maybe_unused]] inner_product_wrapper<ValueType> &visitable) {
     //    auto& expr_lhs{visitable.expr_lhs()};
     //    auto& expr_rhs{visitable.expr_rhs()};
     //    auto seq_lhs{visitable.sequence_lhs()};
@@ -181,7 +183,8 @@ public:
     //    }
   }
 
-  virtual void operator()(basis_change_imp<ValueType> &visitable) {
+  virtual void
+  operator()([[maybe_unused]] basis_change_imp<ValueType> &visitable) {
     //    auto expr{visitable.expr()};
     //    const auto &seq{visitable.indices()};
     //    // get derivative
@@ -198,7 +201,8 @@ public:
     //    }
   }
 
-  virtual void operator()(outer_product_wrapper<ValueType> &visitable) {
+  virtual void
+  operator()([[maybe_unused]] outer_product_wrapper<ValueType> &visitable) {
     //    auto expr_lhs{visitable.expr_lhs()};
     //    auto expr_rhs{visitable.expr_rhs()};
     //    auto seq_lhs{visitable.sequence_lhs()};
@@ -270,7 +274,8 @@ public:
     //    }
   }
 
-  virtual void operator()(kronecker_delta<ValueType> &visitable) {
+  virtual void
+  operator()([[maybe_unused]] kronecker_delta<ValueType> &visitable) {
     // do nothing
   }
 
@@ -280,7 +285,8 @@ public:
 
   virtual void operator()(tensor_scalar_div<ValueType> &) {}
 
-  virtual void operator()(tensor_symmetry<ValueType> &visitable) {
+  virtual void
+  operator()([[maybe_unused]] tensor_symmetry<ValueType> &visitable) {
     //    auto
     //    divisor{make_expression<scalar_constant<ValueType>>(visitable.symmetries().size()+1)};
     //    auto add{make_expression<tensor_add<ValueType>>(visitable.dim(),

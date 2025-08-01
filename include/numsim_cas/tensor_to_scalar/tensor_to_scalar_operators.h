@@ -10,6 +10,7 @@
 #include "simplifier/tensor_to_scalar_with_scalar_simplifier_add.h"
 #include "simplifier/tensor_to_scalar_with_scalar_simplifier_div.h"
 #include "simplifier/tensor_to_scalar_with_scalar_simplifier_mul.h"
+#include "simplifier/tensor_to_scalar_with_scalar_simplifier_sub.h"
 #include "tensor_to_scalar_expression.h"
 
 namespace numsim::cas {

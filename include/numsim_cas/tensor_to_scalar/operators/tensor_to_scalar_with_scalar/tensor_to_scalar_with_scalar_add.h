@@ -3,6 +3,7 @@
 
 #include "../../../binary_op.h"
 #include "../../../numsim_cas_type_traits.h"
+#include "../../../operators.h"
 #include "../../tensor_to_scalar_expression.h"
 
 namespace numsim::cas {

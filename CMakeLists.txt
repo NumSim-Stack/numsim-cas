@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 project(NumSim_CAS VERSION 1.0.0 LANGUAGES CXX DESCRIPTION "NumSim_CAS description")
 
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
  if (MSVC)

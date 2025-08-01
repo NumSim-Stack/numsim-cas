@@ -3,6 +3,7 @@
 
 #include "../../basic_functions.h"
 #include "../../expression_holder.h"
+#include "../../functions.h"
 #include "../../numsim_cas_type_traits.h"
 #include "../../operators.h"
 #include "../../simplify_rule_registry.h"
@@ -14,8 +15,8 @@
 
 namespace numsim::cas {
 template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_scalar_add_simplify(ExprTypeLHS &&lhs,
-                                                 ExprTypeRHS &&rhs);
+constexpr inline base_expression_t<ExprTypeLHS, ExprTypeRHS>
+binary_scalar_add_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs);
 
 namespace simplifier {
 template <typename ExprLHS, typename ExprRHS> class add_default {

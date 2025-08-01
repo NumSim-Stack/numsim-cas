@@ -284,7 +284,7 @@ template <typename ValueType> class tensor_to_scalar_sub;
 template <typename ValueType> class tensor_to_scalar_div;
 template <typename ValueType> class tensor_to_scalar_with_scalar_add;
 template <typename ValueType> class tensor_to_scalar_with_scalar_mul;
-template <typename ValueType> class tensor_to_scalar_with_scalar_sub;
+// template <typename ValueType> class tensor_to_scalar_with_scalar_sub;
 template <typename ValueType> class tensor_to_scalar_with_scalar_div;
 template <typename ValueType> class scalar_with_tensor_to_scalar_div;
 template <typename ValueType> class tensor_to_scalar_pow;
@@ -300,7 +300,7 @@ using tensor_to_scalar_node = std::variant<
     tensor_to_scalar_sub<ValueType>, tensor_to_scalar_div<ValueType>,
     tensor_to_scalar_with_scalar_add<ValueType>,
     tensor_to_scalar_with_scalar_mul<ValueType>,
-    tensor_to_scalar_with_scalar_sub<ValueType>,
+    // tensor_to_scalar_with_scalar_sub<ValueType>,
     tensor_to_scalar_with_scalar_div<ValueType>,
     scalar_with_tensor_to_scalar_div<ValueType>,
     tensor_to_scalar_pow<ValueType>,
@@ -547,7 +547,8 @@ struct base_expression<tensor_to_scalar_expression<ValueType>,
 };
 
 template <typename LHS, typename RHS>
-using base_expression_t = typename base_expression<LHS, RHS>::type;
+using base_expression_t =
+    typename base_expression<std::decay_t<LHS>, std::decay_t<RHS>>::type;
 
 namespace detail {
 template <class AlwaysVoid, template <class...> class Op, class... Args>

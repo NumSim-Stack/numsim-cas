@@ -20,8 +20,6 @@ constexpr inline auto dot_product(ExprLHS &&lhs, sequence &&lhs_indices,
   using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
   const auto rank_lhs{call_tensor::rank(lhs)};
   const auto rank_rhs{call_tensor::rank(rhs)};
-  const auto size_lhs{lhs_indices.size()};
-  const auto size_rhs{rhs_indices.size()};
   // tensor_to_scalar_expression
   return make_expression<tensor_inner_product_to_scalar<ValueType>>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),

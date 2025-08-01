@@ -58,7 +58,7 @@ inline auto get_tensor(std::unique_ptr<tensor_data_base<T>> const &data) {
 ///   --> add (x+y+z) + (x+a) --> 2*x+y+z+a --> mul
 ///   --> mul (x*y*z) * (x*a) --> pow(x,2)*y*z*a --> pow
 template <typename Derived, typename ExprType>
-constexpr inline auto merge_add(n_ary_tree<ExprType, Derived> const &lhs,
+constexpr inline void merge_add(n_ary_tree<ExprType, Derived> const &lhs,
                                 n_ary_tree<ExprType, Derived> const &rhs,
                                 n_ary_tree<ExprType, Derived> &result) {
   if (lhs.coeff().is_valid() && rhs.coeff().is_valid()) {
