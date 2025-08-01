@@ -1,8 +1,8 @@
 #ifndef SCALAR_FUNCTIONS_H
 #define SCALAR_FUNCTIONS_H
 
-#include "../binary_op.h"
 #include "../expression_holder.h"
+#include "../numsim_cas_type_traits.h"
 #include "../unary_op.h"
 #include "scalar_expression.h"
 #include "simplifier/scalar_simplifier_add.h"
@@ -14,7 +14,7 @@
 namespace numsim::cas {
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline base_expression_t<ExprTypeLHS, ExprTypeRHS>
+constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
 binary_scalar_add_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
   //  auto &_lhs = *lhs;
   //  auto &_rhs = *rhs;
@@ -28,7 +28,7 @@ binary_scalar_add_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline base_expression_t<ExprTypeLHS, ExprTypeRHS>
+constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
 binary_scalar_sub_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
   //  auto &_lhs = *lhs;
   //  auto &_rhs = *rhs;
@@ -42,7 +42,7 @@ binary_scalar_sub_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline base_expression_t<ExprTypeLHS, ExprTypeRHS>
+constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
 binary_scalar_div_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
   //  using value_type = typename ExprTypeLHS::value_type;
   //  return make_expression<scalar_div<value_type>>(
@@ -55,7 +55,7 @@ binary_scalar_div_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline base_expression_t<ExprTypeLHS, ExprTypeRHS>
+constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
 binary_scalar_mul_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
   //  auto &_lhs = *lhs;
   //  auto &_rhs = *rhs;

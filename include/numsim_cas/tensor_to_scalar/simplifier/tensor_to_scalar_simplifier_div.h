@@ -13,7 +13,8 @@ template <typename ExprLHS, typename ExprRHS> struct div_default {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
 
-  div_default(ExprLHS lhs, ExprRHS rhs) : m_lhs(lhs), m_rhs(rhs) {}
+  div_default(ExprLHS &&lhs, ExprRHS &&rhs)
+      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   auto get_default() {
     auto div_new{
@@ -25,8 +26,8 @@ template <typename ExprLHS, typename ExprRHS> struct div_default {
     return get_default();
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 template <typename ExprLHS, typename ExprRHS>
@@ -139,7 +140,7 @@ template <typename ExprLHS, typename ExprRHS> struct div_base {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
 
-  div_base(ExprLHS lhs, ExprRHS rhs)
+  div_base(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   template <typename Type> constexpr inline expr_type operator()(Type const &) {
@@ -167,8 +168,8 @@ template <typename ExprLHS, typename ExprRHS> struct div_base {
         expr_rhs);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 } // namespace simplifier

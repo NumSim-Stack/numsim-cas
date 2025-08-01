@@ -126,6 +126,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/visitors/tensor_differentiation.h
     include/numsim_cas/tensor/visitors/tensor_printer.h
     include/numsim_cas/tensor/visitors/tensor_evaluator.h
+    include/numsim_cas/tensor/tensor_functions_fwd.h
 
     #scalar
     ${INCLUDE_PATH_SCALAR}/scalar.h

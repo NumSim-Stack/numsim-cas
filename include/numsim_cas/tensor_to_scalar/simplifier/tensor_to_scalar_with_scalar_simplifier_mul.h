@@ -14,10 +14,11 @@ template <typename ExprLHS, typename ExprRHS> struct mul_default {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
 
-  mul_default(ExprLHS lhs, ExprRHS rhs) : m_lhs(lhs), m_rhs(rhs) {}
+  mul_default(ExprLHS &&lhs, ExprRHS &&rhs)
+      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 template <typename ExprLHS, typename ExprRHS>
@@ -28,7 +29,7 @@ public:
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
   using base = mul_default<ExprLHS, ExprRHS>;
 
-  wrapper_scalar_mul(ExprLHS lhs, ExprRHS rhs)
+  wrapper_scalar_mul(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)) {}
 
   // scalar * tensor_scalar --> tensor_to_scalar_with_scalar_mul
@@ -60,7 +61,7 @@ public:
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
   using base = mul_default<ExprLHS, ExprRHS>;
 
-  wrapper_tensor_to_scalar_mul(ExprLHS lhs, ExprRHS rhs)
+  wrapper_tensor_to_scalar_mul(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)) {}
 
   // tensor_scalar * scalar --> tensor_to_scalar_with_scalar_mul
@@ -84,7 +85,7 @@ public:
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
   using base = mul_default<ExprLHS, ExprRHS>;
 
-  wrapper_tensor_to_scalar_mul_mul(ExprLHS lhs, ExprRHS rhs)
+  wrapper_tensor_to_scalar_mul_mul(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs
                 .template get<tensor_to_scalar_with_scalar_mul<value_type>>()} {
@@ -113,7 +114,7 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
 
-  mul_base(ExprLHS lhs, ExprRHS rhs)
+  mul_base(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   template <typename Expr,
@@ -149,8 +150,8 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
         expr_rhs);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 } // namespace simplifier
 } // namespace tensor_to_scalar_with_scalar_detail

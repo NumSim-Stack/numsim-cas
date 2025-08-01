@@ -504,51 +504,51 @@ struct variant_index<Index, T, std::variant<T, Args...>>
 //       trigonometric_functions<value_type>(T(std::forward<Args>(args)...))));
 // }
 
-template <typename LHS, typename RHS> struct base_expression;
+// template <typename LHS, typename RHS> struct base_expression;
 
-template <typename EXPR> struct base_expression<EXPR, EXPR> {
-  using type = EXPR;
-};
+// template <typename EXPR> struct base_expression<EXPR, EXPR> {
+//   using type = EXPR;
+// };
 
-template <typename ValueType>
-struct base_expression<scalar_expression<ValueType>,
-                       tensor_expression<ValueType>> {
-  using type = tensor_expression<ValueType>;
-};
+// template <typename ValueType>
+// struct base_expression<scalar_expression<ValueType>,
+//                        tensor_expression<ValueType>> {
+//   using type = tensor_expression<ValueType>;
+// };
 
-template <typename ValueType>
-struct base_expression<tensor_expression<ValueType>,
-                       scalar_expression<ValueType>> {
-  using type = tensor_expression<ValueType>;
-};
+// template <typename ValueType>
+// struct base_expression<tensor_expression<ValueType>,
+//                        scalar_expression<ValueType>> {
+//   using type = tensor_expression<ValueType>;
+// };
 
-template <typename ValueType>
-struct base_expression<scalar_expression<ValueType>,
-                       tensor_to_scalar_expression<ValueType>> {
-  using type = tensor_to_scalar_expression<ValueType>;
-};
+// template <typename ValueType>
+// struct base_expression<scalar_expression<ValueType>,
+//                        tensor_to_scalar_expression<ValueType>> {
+//   using type = tensor_to_scalar_expression<ValueType>;
+// };
 
-template <typename ValueType>
-struct base_expression<tensor_to_scalar_expression<ValueType>,
-                       scalar_expression<ValueType>> {
-  using type = tensor_to_scalar_expression<ValueType>;
-};
+// template <typename ValueType>
+// struct base_expression<tensor_to_scalar_expression<ValueType>,
+//                        scalar_expression<ValueType>> {
+//   using type = tensor_to_scalar_expression<ValueType>;
+// };
 
-template <typename ValueType>
-struct base_expression<tensor_expression<ValueType>,
-                       tensor_to_scalar_expression<ValueType>> {
-  using type = tensor_expression<ValueType>;
-};
+// template <typename ValueType>
+// struct base_expression<tensor_expression<ValueType>,
+//                        tensor_to_scalar_expression<ValueType>> {
+//   using type = tensor_expression<ValueType>;
+// };
 
-template <typename ValueType>
-struct base_expression<tensor_to_scalar_expression<ValueType>,
-                       tensor_expression<ValueType>> {
-  using type = tensor_expression<ValueType>;
-};
+// template <typename ValueType>
+// struct base_expression<tensor_to_scalar_expression<ValueType>,
+//                        tensor_expression<ValueType>> {
+//   using type = tensor_expression<ValueType>;
+// };
 
-template <typename LHS, typename RHS>
-using base_expression_t =
-    typename base_expression<std::decay_t<LHS>, std::decay_t<RHS>>::type;
+// template <typename LHS, typename RHS>
+// using base_expression_t =
+//     typename base_expression<std::decay_t<LHS>, std::decay_t<RHS>>::type;
 
 namespace detail {
 template <class AlwaysVoid, template <class...> class Op, class... Args>
@@ -589,5 +589,139 @@ concept isScalarConstant =
                    scalar_constant<typename T::value_type>>;
 
 } // NAMESPACE numsim::cas
+
+namespace numsim::cas {
+
+template <class LHS, class RHS> struct result_expression;
+
+template <class T> struct result_expression<T, T> {
+  using type = T;
+};
+
+template <class T>
+struct result_expression<expression_holder<scalar_expression<T>>, int> {
+  using type = expression_holder<scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<scalar_expression<T>>, double> {
+  using type = expression_holder<scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<scalar_expression<T>>, float> {
+  using type = expression_holder<scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<int, expression_holder<scalar_expression<T>>> {
+  using type = expression_holder<scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<double, expression_holder<scalar_expression<T>>> {
+  using type = expression_holder<scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<float, expression_holder<scalar_expression<T>>> {
+  using type = expression_holder<scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
+                         int> {
+  using type = expression_holder<tensor_to_scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
+                         double> {
+  using type = expression_holder<tensor_to_scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
+                         float> {
+  using type = expression_holder<tensor_to_scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<int,
+                         expression_holder<tensor_to_scalar_expression<T>>> {
+  using type = expression_holder<tensor_to_scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<double,
+                         expression_holder<tensor_to_scalar_expression<T>>> {
+  using type = expression_holder<tensor_to_scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<float,
+                         expression_holder<tensor_to_scalar_expression<T>>> {
+  using type = expression_holder<tensor_to_scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
+                         expression_holder<scalar_expression<T>>> {
+  using type = expression_holder<tensor_to_scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<scalar_expression<T>>,
+                         expression_holder<tensor_to_scalar_expression<T>>> {
+  using type = expression_holder<tensor_to_scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_expression<T>>,
+                         expression_holder<scalar_expression<T>>> {
+  using type = expression_holder<tensor_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<scalar_expression<T>>,
+                         expression_holder<tensor_expression<T>>> {
+  using type = expression_holder<tensor_expression<T>>;
+};
+
+template <class T>
+struct result_expression<int, expression_holder<tensor_expression<T>>> {
+  using type = expression_holder<tensor_expression<T>>;
+};
+
+template <class T>
+struct result_expression<double, expression_holder<tensor_expression<T>>> {
+  using type = expression_holder<tensor_expression<T>>;
+};
+
+template <class T>
+struct result_expression<float, expression_holder<tensor_expression<T>>> {
+  using type = expression_holder<tensor_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_expression<T>>, int> {
+  using type = expression_holder<tensor_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_expression<T>>, double> {
+  using type = expression_holder<tensor_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_expression<T>>, float> {
+  using type = expression_holder<tensor_expression<T>>;
+};
+
+template <class LHS, class RHS>
+using result_expression_t =
+    typename result_expression<std::decay_t<LHS>, std::decay_t<RHS>>::type;
+
+} // namespace numsim::cas
 
 #endif // NUMSIM_CAS_TRAITS_H
