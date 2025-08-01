@@ -3,9 +3,11 @@
 
 #include "../../basic_functions.h"
 #include "../../expression_holder.h"
+#include "../../functions.h"
 #include "../../numsim_cas_type_traits.h"
 #include "../../operators.h"
 #include "../../simplify_rule_registry.h"
+#include "../scalar_functions.h"
 #include "../scalar_globals.h"
 #include <functional>
 #include <optional>
@@ -13,9 +15,6 @@
 #include <type_traits>
 
 namespace numsim::cas {
-template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_scalar_add_simplify(ExprTypeLHS &&lhs,
-                                                 ExprTypeRHS &&rhs);
 
 namespace simplifier {
 template <typename ExprLHS, typename ExprRHS> class add_default {
@@ -28,8 +27,10 @@ public:
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   auto get_default() {
-    const auto lhs_constant{is_same<scalar_constant<value_type>>(m_lhs)};
-    const auto rhs_constant{is_same<scalar_constant<value_type>>(m_rhs)};
+    const auto lhs_constant{is_same<scalar_constant<value_type>>(m_lhs) ||
+                            is_same<scalar_one<value_type>>(m_lhs)};
+    const auto rhs_constant{is_same<scalar_constant<value_type>>(m_rhs) ||
+                            is_same<scalar_one<value_type>>(m_rhs)};
     auto add_new{make_expression<scalar_add<value_type>>()};
     if (lhs_constant) {
       auto &add{add_new.template get<scalar_add<value_type>>()};

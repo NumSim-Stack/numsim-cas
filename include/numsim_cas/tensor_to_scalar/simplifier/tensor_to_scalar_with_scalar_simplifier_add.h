@@ -14,7 +14,8 @@ template <typename ExprLHS, typename ExprRHS> struct add_default {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
 
-  add_default(ExprLHS lhs, ExprRHS rhs) : m_lhs(lhs), m_rhs(rhs) {}
+  add_default(ExprLHS &&lhs, ExprRHS &&rhs)
+      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   //  template<typename Expr>
   //  [[nodiscard]] constexpr inline auto operator()(Expr const&)noexcept{
@@ -44,8 +45,8 @@ template <typename ExprLHS, typename ExprRHS> struct add_default {
   //    return std::move(add_new);
   //  }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 template <typename ExprLHS, typename ExprRHS>
@@ -56,7 +57,7 @@ public:
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
   using base = add_default<ExprLHS, ExprRHS>;
 
-  wrapper_scalar_add(ExprLHS lhs, ExprRHS rhs)
+  wrapper_scalar_add(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)) {}
 
   // scalar + tensor_scalar --> tensor_scalar_with_scalar_add
@@ -87,7 +88,7 @@ public:
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
   using base = add_default<ExprLHS, ExprRHS>;
 
-  wrapper_tensor_to_scalar_add(ExprLHS lhs, ExprRHS rhs)
+  wrapper_tensor_to_scalar_add(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)) {}
 
   // tensor_scalar + scalar --> tensor_scalar_with_scalar_add
@@ -111,7 +112,7 @@ public:
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
   using base = add_default<ExprLHS, ExprRHS>;
 
-  wrapper_tensor_to_scalar_add_add(ExprLHS lhs, ExprRHS rhs)
+  wrapper_tensor_to_scalar_add_add(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs
                 .template get<tensor_to_scalar_with_scalar_add<value_type>>()} {
@@ -141,7 +142,7 @@ template <typename ExprLHS, typename ExprRHS> struct add_base {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
 
-  add_base(ExprLHS lhs, ExprRHS rhs)
+  add_base(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   template <typename Expr,
@@ -186,8 +187,8 @@ template <typename ExprLHS, typename ExprRHS> struct add_base {
         expr_rhs);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 } // namespace simplifier
 } // namespace tensor_to_scalar_with_scalar_detail

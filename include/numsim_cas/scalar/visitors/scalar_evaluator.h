@@ -187,11 +187,11 @@ public:
     return visitable();
   }
 
-  ValueType operator()(scalar_one<ValueType> &visitable) {
+  ValueType operator()([[maybe_unused]] scalar_one<ValueType> &visitable) {
     return static_cast<ValueType>(1);
   }
 
-  ValueType operator()(scalar_zero<ValueType> &visitable) {
+  ValueType operator()([[maybe_unused]] scalar_zero<ValueType> &visitable) {
     return static_cast<ValueType>(0);
   }
 

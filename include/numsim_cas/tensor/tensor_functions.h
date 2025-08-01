@@ -4,10 +4,63 @@
 #include "../numsim_cas_type_traits.h"
 #include "../tensor_to_scalar/tensor_inner_product_to_scalar.h"
 #include "data/tensor_data_make_imp.h"
+#include "simplifier/tensor_simplifier_add.h"
+#include "simplifier/tensor_simplifier_mul.h"
+#include "simplifier/tensor_simplifier_sub.h"
+#include "simplifier/tensor_with_scalar_simplifier_div.h"
+#include "simplifier/tensor_with_scalar_simplifier_mul.h"
 #include <cstdlib>
 #include <vector>
 
 namespace numsim::cas {
+
+template <typename ExprTypeLHS, typename ExprTypeRHS>
+[[nodiscard]] constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
+binary_add_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
+  const auto &_lhs{*lhs};
+  return visit(
+      simplifier::tensor_detail::add_base<ExprTypeLHS, ExprTypeRHS>(
+          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+      _lhs);
+}
+
+template <typename ExprTypeLHS, typename ExprTypeRHS>
+[[nodiscard]] constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
+binary_sub_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
+  return visit(
+      tensor_detail::simplifier::sub_base<ExprTypeLHS, ExprTypeRHS>(
+          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+      *lhs);
+}
+
+template <typename ExprTypeLHS, typename ExprTypeRHS>
+[[nodiscard]] constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
+binary_mul_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
+  return visit(
+      tensor_detail::simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(
+          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+      *lhs);
+}
+
+template <typename ExprTypeLHS, typename ExprTypeRHS>
+[[nodiscard]] constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
+binary_mul_tensor_with_scalar_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
+  // lhs := scalar_expression,
+  // rhs := tensor_expression
+  return visit(
+      tensor_with_scalar_detail::simplifier::mul_base<ExprTypeLHS, ExprTypeRHS>(
+          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+      *lhs);
+}
+
+template <typename ExprTypeLHS, typename ExprTypeRHS>
+[[nodiscard]] constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
+binary_div_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs) {
+  return visit(
+      tensor_with_scalar_detail::simplifier::div_base<ExprTypeLHS, ExprTypeRHS>(
+          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+      *lhs);
+}
 
 template <typename T>
 constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {
@@ -20,8 +73,6 @@ constexpr inline auto dot_product(ExprLHS &&lhs, sequence &&lhs_indices,
   using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
   const auto rank_lhs{call_tensor::rank(lhs)};
   const auto rank_rhs{call_tensor::rank(rhs)};
-  const auto size_lhs{lhs_indices.size()};
-  const auto size_rhs{rhs_indices.size()};
   // tensor_to_scalar_expression
   return make_expression<tensor_inner_product_to_scalar<ValueType>>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),

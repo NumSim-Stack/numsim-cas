@@ -1,6 +1,7 @@
 #ifndef TENSOR_TO_SCALAR_SIMPLIFIER_MUL_H
 #define TENSOR_TO_SCALAR_SIMPLIFIER_MUL_H
 
+#include "../../operators.h"
 #include "../operators/tensor_to_scalar/tensor_to_scalar_mul.h"
 #include "../tensor_to_scalar_expression.h"
 #include "../tensor_to_scalar_pow.h"
@@ -14,7 +15,8 @@ template <typename ExprLHS, typename ExprRHS> struct mul_default {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
 
-  mul_default(ExprLHS lhs, ExprRHS rhs) : m_lhs(lhs), m_rhs(rhs) {}
+  mul_default(ExprLHS &&lhs, ExprRHS &&rhs)
+      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   [[nodiscard]] constexpr inline expr_type get_default() {
     if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
@@ -52,8 +54,8 @@ protected:
     return std::move(mul_new);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 // tensor_scalar_with_scalar_add + tensor_to_scalar -->
@@ -70,7 +72,7 @@ public:
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
   using base = mul_default<ExprLHS, ExprRHS>;
 
-  wrapper_tensor_to_scalar_mul_mul(ExprLHS lhs, ExprRHS rhs)
+  wrapper_tensor_to_scalar_mul_mul(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs
                 .template get<tensor_to_scalar_with_scalar_mul<value_type>>()} {
@@ -103,7 +105,7 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
 
-  mul_base(ExprLHS lhs, ExprRHS rhs)
+  mul_base(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   [[nodiscard]] constexpr inline expr_type
@@ -141,8 +143,8 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
         expr_rhs);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 } // namespace simplifier

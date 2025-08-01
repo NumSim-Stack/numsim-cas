@@ -155,8 +155,8 @@ template <typename ExprLHS, typename ExprRHS> struct div_base {
         expr_rhs);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 } // namespace simplifier
 } // namespace tensor_to_scalar_with_scalar_detail

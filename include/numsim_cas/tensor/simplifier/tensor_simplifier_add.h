@@ -5,16 +5,12 @@
 #include "../../numsim_cas_forward.h"
 #include "../../numsim_cas_type_traits.h"
 #include "../../operators.h"
+#include "../tensor_functions_fwd.h"
 #include "../tensor_std.h"
 #include <set>
 #include <type_traits>
 
 namespace numsim::cas {
-
-template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_add_tensor_simplify(ExprTypeLHS &&lhs,
-                                                 ExprTypeRHS &&rhs);
-
 namespace simplifier {
 namespace tensor_detail {
 
@@ -24,7 +20,7 @@ public:
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  add_default(ExprLHS lhs, ExprRHS rhs)
+  add_default(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   auto get_default() {
@@ -70,8 +66,8 @@ public:
   //  }
 
 protected:
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 // template <typename ExprLHS, typename ExprRHS>
@@ -115,7 +111,7 @@ public:
   using base::operator();
   // using base::get_coefficient;
 
-  n_ary_add(ExprLHS lhs, ExprRHS rhs)
+  n_ary_add(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<tensor_add<value_type>>()} {}
 
@@ -249,7 +245,7 @@ public:
   using base::get_default;
   //  using base::get_coefficient;
 
-  symbol_add(ExprLHS lhs, ExprRHS rhs)
+  symbol_add(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<tensor<value_type>>()} {}
 
@@ -290,7 +286,7 @@ template <typename ExprLHS, typename ExprRHS> struct add_base {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  add_base(ExprLHS lhs, ExprRHS rhs)
+  add_base(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   //  constexpr inline expr_type operator()(scalar_constant<value_type> const&){
@@ -328,8 +324,8 @@ template <typename ExprLHS, typename ExprRHS> struct add_base {
                  *m_rhs);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 } // namespace tensor_detail
 } // namespace simplifier

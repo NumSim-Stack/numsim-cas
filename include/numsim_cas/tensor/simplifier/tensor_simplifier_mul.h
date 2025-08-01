@@ -13,11 +13,6 @@
 #include <type_traits>
 
 namespace numsim::cas {
-
-template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_mul_tensor_simplify(ExprTypeLHS &&lhs,
-                                                 ExprTypeRHS &&rhs);
-
 namespace tensor_detail {
 namespace simplifier {
 
@@ -86,8 +81,8 @@ protected:
   }
 
 protected:
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 template <typename ExprLHS, typename ExprRHS>
@@ -186,8 +181,8 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
                  expr);
   }
 
-  ExprLHS m_lhs;
-  ExprRHS m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 } // namespace simplifier

@@ -15,12 +15,14 @@ constexpr inline auto binary_tensor_sub_simplify(ExprTypeLHS &&lhs,
                                                  ExprTypeRHS &&rhs);
 namespace tensor_detail {
 namespace simplifier {
-template <typename T> class sub_default {
+template <typename ExprLHS, typename ExprRHS> class sub_default {
 public:
-  using value_type = T;
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  sub_default(expr_type lhs, expr_type rhs) : m_lhs(lhs), m_rhs(rhs) {}
+  sub_default(ExprLHS &&lhs, ExprRHS &&rhs)
+      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   // rhs is negative
   auto get_default() {
@@ -69,20 +71,22 @@ public:
   //  }
 
 protected:
-  expr_type m_lhs;
-  expr_type m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
-template <typename T> class negative_sub final : public sub_default<T> {
+template <typename ExprLHS, typename ExprRHS>
+class negative_sub final : public sub_default<ExprLHS, ExprRHS> {
 public:
-  using value_type = T;
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_expression<value_type>>;
-  using base = sub_default<T>;
+  using base = sub_default<ExprLHS, ExprRHS>;
   using base::operator();
   // using base::get_coefficient;
 
-  negative_sub(expr_type lhs, expr_type rhs)
-      : base(lhs, rhs),
+  negative_sub(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<tensor_negative<value_type>>()} {}
 
   //  template<typename Expr>
@@ -165,16 +169,18 @@ private:
 //   scalar_constant<value_type> const& lhs;
 // };
 
-template <typename T> class n_ary_sub final : public sub_default<T> {
+template <typename ExprLHS, typename ExprRHS>
+class n_ary_sub final : public sub_default<ExprLHS, ExprRHS> {
 public:
-  using value_type = T;
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_expression<value_type>>;
-  using base = sub_default<T>;
+  using base = sub_default<ExprLHS, ExprRHS>;
   using base::operator();
   // using base::get_coefficient;
 
-  n_ary_sub(expr_type lhs, expr_type rhs)
-      : base(lhs, rhs),
+  n_ary_sub(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<tensor_add<value_type>>()} {}
 
   //  constexpr inline expr_type
@@ -295,17 +301,20 @@ private:
 //   scalar_mul<value_type> const& lhs;
 // };
 
-template <typename T> class symbol_sub final : public sub_default<T> {
+template <typename ExprLHS, typename ExprRHS>
+class symbol_sub final : public sub_default<ExprLHS, ExprRHS> {
 public:
-  using value_type = T;
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_expression<value_type>>;
-  using base = sub_default<T>;
+  using base = sub_default<ExprLHS, ExprRHS>;
   using base::operator();
   using base::get_default;
   // using base::get_coefficient;
 
-  symbol_sub(expr_type lhs, expr_type rhs)
-      : base(lhs, rhs), lhs{base::m_lhs.template get<tensor<value_type>>()} {}
+  symbol_sub(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
+        lhs{base::m_lhs.template get<tensor<value_type>>()} {}
 
   /// x-x --> 0
   constexpr inline expr_type operator()(tensor<value_type> const &rhs) {
@@ -349,14 +358,17 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
       std::remove_const_t<ExprLHS>>::value_type;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  sub_base(expr_type lhs, expr_type rhs) : m_lhs(lhs), m_rhs(rhs) {}
+  sub_base(ExprLHS &&lhs, ExprRHS &&rhs)
+      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   //  constexpr inline expr_type operator()(scalar_constant<value_type> const&){
   //    return visit(constant_sub<value_type>(m_lhs,m_rhs), *m_rhs);
   //  }
 
   constexpr inline expr_type operator()(tensor_add<value_type> const &) {
-    return visit(n_ary_sub<value_type>(m_lhs, m_rhs), *m_rhs);
+    return visit(n_ary_sub<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                             std::forward<ExprRHS>(m_rhs)),
+                 *m_rhs);
   }
 
   //  constexpr inline expr_type operator()(scalar_mul<value_type> const&){
@@ -364,18 +376,21 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
   //  }
 
   constexpr inline expr_type operator()(tensor<value_type> const &) {
-    return visit(symbol_sub<value_type>(m_lhs, m_rhs), *m_rhs);
+    return visit(symbol_sub<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                              std::forward<ExprRHS>(m_rhs)),
+                 *m_rhs);
   }
 
   // 0 - expr
   constexpr inline expr_type operator()(tensor_zero<value_type> const &) {
-    return make_expression<tensor_negative<value_type>>(m_rhs);
+    return make_expression<tensor_negative<value_type>>(
+        std::forward<ExprRHS>(m_rhs));
   }
 
   // - expr_lhs - expr_rhs --> -(expr_lhs+expr_rhs)
   constexpr inline expr_type
   operator()(tensor_negative<value_type> const &lhs) {
-    auto expr{lhs.expr() + m_rhs};
+    auto expr{lhs.expr() + std::forward<ExprRHS>(m_rhs)};
     if (expr.is_valid()) {
       return make_expression<tensor_negative<value_type>>(expr);
     }
@@ -383,11 +398,13 @@ template <typename ExprLHS, typename ExprRHS> struct sub_base {
   }
 
   template <typename Type> constexpr inline expr_type operator()(Type const &) {
-    return visit(sub_default<value_type>(m_lhs, m_rhs), *m_rhs);
+    return visit(sub_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                               std::forward<ExprRHS>(m_rhs)),
+                 *m_rhs);
   }
 
-  expr_type m_lhs;
-  expr_type m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 } // namespace simplifier
 } // namespace tensor_detail

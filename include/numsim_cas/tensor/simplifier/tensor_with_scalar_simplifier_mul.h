@@ -10,11 +10,6 @@
 #include <type_traits>
 
 namespace numsim::cas {
-
-template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_mul_tensor_with_scalar_simplify(ExprTypeLHS &&lhs,
-                                                             ExprTypeRHS &&rhs);
-
 namespace tensor_with_scalar_detail {
 namespace simplifier {
 
@@ -28,7 +23,8 @@ public:
       typename std::remove_reference_t<std::remove_const_t<ExprRHS>>;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  mul_default(expr_lhs lhs, expr_rhs rhs) : m_lhs(lhs), m_rhs(rhs) {}
+  mul_default(ExprLHS &&lhs, ExprRHS &&rhs)
+      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   //  auto get_default(){
   //    //const auto lhs_constant{is_same<tensor_constant<value_type>>(m_lhs)};
@@ -78,8 +74,8 @@ public:
   }
 
 protected:
-  expr_lhs m_lhs;
-  expr_rhs m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 // template <typename ExprLHS, typename ExprRHS>
@@ -137,8 +133,8 @@ public:
   // using base::get_default;
   // using base::get_coefficient;
 
-  scalar_tensor_mul(expr_lhs lhs, expr_rhs rhs)
-      : base(lhs, rhs),
+  scalar_tensor_mul(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<scalar_expression<value_type>>()} {}
 
   constexpr inline expr_type
@@ -168,7 +164,8 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
       typename std::remove_reference_t<std::remove_const_t<ExprRHS>>;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  mul_base(expr_lhs lhs, expr_rhs rhs) : m_lhs(lhs), m_rhs(rhs) {}
+  mul_base(ExprLHS &&lhs, ExprRHS &&rhs)
+      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   //  constexpr inline expr_type operator()(tensor_scalar_mul<value_type>
   //  const&){
@@ -187,7 +184,10 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
       std::enable_if_t<std::is_base_of_v<scalar_expression<value_type>, Expr>,
                        bool> = true>
   constexpr inline expr_type operator()(Expr const &) {
-    return visit(scalar_tensor_mul<expr_lhs, expr_rhs>(m_lhs, m_rhs), *m_rhs);
+    return visit(
+        scalar_tensor_mul<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                            std::forward<ExprRHS>(m_rhs)),
+        *m_rhs);
   }
 
   template <
@@ -198,8 +198,8 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
     static_assert(true, "not supported");
   }
 
-  expr_lhs m_lhs;
-  expr_rhs m_rhs;
+  ExprLHS &&m_lhs;
+  ExprRHS &&m_rhs;
 };
 
 } // namespace simplifier

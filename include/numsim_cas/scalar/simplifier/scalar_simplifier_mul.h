@@ -190,8 +190,7 @@ public:
 
   auto operator()([[maybe_unused]] scalar<value_type> const &rhs) {
     if (lhs.expr_lhs().get().hash_value() == rhs.hash_value()) {
-      const auto rhs_expr{lhs.expr_rhs() +
-                          make_expression<scalar_one<value_type>>()};
+      const auto rhs_expr{lhs.expr_rhs() + get_scalar_one<value_type>()};
       return make_expression<scalar_pow<value_type>>(lhs.expr_lhs(),
                                                      std::move(rhs_expr));
     }

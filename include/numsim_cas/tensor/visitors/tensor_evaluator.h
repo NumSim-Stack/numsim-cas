@@ -19,7 +19,8 @@ public:
   tensor_evaluator(tensor_evaluator &&) = delete;
   const tensor_evaluator &operator=(tensor_evaluator const &) = delete;
 
-  std::unique_ptr<tensor_data_base<ValueType>> apply(expression &expr) {
+  std::unique_ptr<tensor_data_base<ValueType>>
+  apply([[maybe_unused]] expression &expr) {
     //    auto &expr_ = static_cast<VisitableTensor_t<ValueType> &>(expr);
     //    auto &tensor_expr = static_cast<tensor_expression<ValueType> &>(expr);
     //    dim = tensor_expr.dim();
@@ -30,7 +31,7 @@ public:
   }
 
   std::unique_ptr<tensor_data_base<ValueType>>
-  apply(expression_holder<tensor_expression<ValueType>> expr) {
+  apply([[maybe_unused]] expression_holder<tensor_expression<ValueType>> expr) {
     //    auto &expr_ = static_cast<VisitableTensor_t<ValueType> &>(expr.get());
     //    auto &tensor_expr = expr.get();
     //    dim = tensor_expr.dim();
@@ -101,7 +102,7 @@ public:
     op.evaluate(dim, result_rhs->rank(), result_lhs->rank());
   }
 
-  void operator()(kronecker_delta<ValueType> &visitable) {}
+  void operator()([[maybe_unused]] kronecker_delta<ValueType> &visitable) {}
 
   //  void operator()(simple_outer_product<ValueType> &visitable){
 

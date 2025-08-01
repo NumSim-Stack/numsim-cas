@@ -71,7 +71,8 @@ private:
 };
 
 template <typename ValueType>
-std::ostream &operator<<(std::ostream &os, const tensor<ValueType> &t) {
+std::ostream &operator<<(std::ostream &os,
+                         [[maybe_unused]] const tensor<ValueType> &t) {
   os << "tensor";
   return os;
 }

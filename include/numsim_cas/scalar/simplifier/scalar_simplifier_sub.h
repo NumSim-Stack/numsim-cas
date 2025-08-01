@@ -2,15 +2,12 @@
 #define SCALAR_SIMPLIFIER_SUB_H
 
 #include "../../expression_holder.h"
+#include "../scalar_functions.h"
 #include "../scalar_globals.h"
 #include <set>
 #include <type_traits>
 
 namespace numsim::cas {
-template <typename ExprTypeLHS, typename ExprTypeRHS>
-constexpr inline auto binary_scalar_sub_simplify(ExprTypeLHS &&lhs,
-                                                 ExprTypeRHS &&rhs);
-
 namespace simplifier {
 template <typename ExprLHS, typename ExprRHS> class sub_default {
 public:
@@ -23,8 +20,10 @@ public:
 
   // rhs is negative
   auto get_default() {
-    const auto lhs_constant{is_same<scalar_constant<value_type>>(m_lhs)};
-    const auto rhs_constant{is_same<scalar_constant<value_type>>(m_rhs)};
+    const auto lhs_constant{is_same<scalar_constant<value_type>>(m_lhs) ||
+                            is_same<scalar_one<value_type>>(m_lhs)};
+    const auto rhs_constant{is_same<scalar_constant<value_type>>(m_rhs) ||
+                            is_same<scalar_one<value_type>>(m_rhs)};
     auto add_new{make_expression<scalar_add<value_type>>()};
     auto &add{add_new.template get<scalar_add<value_type>>()};
     if (lhs_constant) {
