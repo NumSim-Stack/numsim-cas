@@ -154,6 +154,17 @@ TYPED_TEST(ScalarExpressionTest, ScalarFunctionPrint) {
   [[maybe_unused]] auto &_1 = this->_1;
   [[maybe_unused]] auto &_2 = this->_2;
   [[maybe_unused]] auto &_3 = this->_3;
+
+  std::cout << std::to_string(std::pow(x, _2) * x) << std::endl;
+  std::cout << std::to_string(std::pow(x, _2) * std::pow(x, _2)) << std::endl;
+  std::cout << std::to_string(std::pow(x, x) * x) << std::endl;
+  std::cout << std::to_string(std::pow(x, _1 + x) * x) << std::endl;
+
+  std::cout << std::to_string(std::cos(x)) << std::endl;
+  std::cout << std::to_string(std::sin(x)) << std::endl;
+  std::cout << std::to_string(std::tan(x)) << std::endl;
+  std::cout << std::to_string(std::exp(x)) << std::endl;
+
   EXPECT_EQ(std::to_string(std::pow(x, _2) * x), "pow(x,3)");
   EXPECT_EQ(std::to_string(std::pow(x, _2) * std::pow(x, _2)), "pow(x,4)");
   EXPECT_EQ(std::to_string(std::pow(x, x) * x), "pow(x,1+x)");
