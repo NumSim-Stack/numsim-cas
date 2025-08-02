@@ -166,6 +166,7 @@ set(PUBLIC_HEADER_FILES
     ${INCLUDE_PATH_SCALAR}/visitors/scalar_evaluator.h
     include/numsim_cas/scalar/scalar_function.h
     include/numsim_cas/scalar/scalar_compare_less_visitor.h
+    include/numsim_cas/scalar/scalar_functions_fwd.h
 
     #tensor valued scalar function
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h
