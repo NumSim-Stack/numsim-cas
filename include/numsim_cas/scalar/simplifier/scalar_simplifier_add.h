@@ -6,7 +6,6 @@
 #include "../../functions.h"
 #include "../../numsim_cas_type_traits.h"
 #include "../../operators.h"
-#include "../../simplify_rule_registry.h"
 #include "../scalar_functions.h"
 #include "../scalar_globals.h"
 #include <functional>
@@ -15,8 +14,8 @@
 #include <type_traits>
 
 namespace numsim::cas {
-
 namespace simplifier {
+
 template <typename ExprLHS, typename ExprRHS> class add_default {
 public:
   using value_type = typename std::remove_reference_t<
