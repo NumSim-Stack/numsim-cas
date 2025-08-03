@@ -2,7 +2,7 @@
 #define SCALAR_SIMPLIFIER_SUB_H
 
 #include "../../expression_holder.h"
-#include "../scalar_functions.h"
+#include "../scalar_functions_fwd.h"
 #include "../scalar_globals.h"
 #include <set>
 #include <type_traits>
