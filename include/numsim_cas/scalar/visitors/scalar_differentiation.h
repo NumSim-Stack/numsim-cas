@@ -17,17 +17,40 @@
 
 namespace numsim::cas {
 
+/**
+ * @brief Differentiates scalar expressions with respect to a single variable.
+ *
+ * This class implements symbolic differentiation rules over scalar expressions.
+ * It supports constants, symbols, addition, multiplication, division, common
+ * functions (sin, cos, tan, log, etc.), powers, and composite expressions.
+ *
+ * @tparam ValueType The numeric value type (e.g., float, double).
+ */
 template <typename ValueType> class scalar_differentiation {
 public:
-  using argument_type = expression_holder<scalar_expression<ValueType>>;
+  /// Alias for the argument type (symbol with respect to which we're
+  /// differentiating).
+  using argument_t = expression_holder<scalar_expression<ValueType>>;
+  /// Alias for the scalar expression wrapper type.
+  using expr_t = expression_holder<scalar_expression<ValueType>>;
 
-  scalar_differentiation(argument_type const &arg) : m_arg(arg) {}
+  /**
+   * @brief Construct a scalar_differentiation object.
+   * @param arg The variable with respect to which the derivative is taken.
+   */
+  scalar_differentiation(argument_t const &arg) : m_arg(arg) {}
   scalar_differentiation(scalar_differentiation const &) = delete;
   scalar_differentiation(scalar_differentiation &&) = delete;
   const scalar_differentiation &
   operator=(scalar_differentiation const &) = delete;
+  scalar_differentiation &operator=(scalar_differentiation &&) = delete;
 
-  auto apply(expression_holder<scalar_expression<ValueType>> &expr) {
+  /**
+   * @brief Apply differentiation to an expression.
+   * @param expr The expression to differentiate.
+   * @return The resulting derivative expression.
+   */
+  auto apply(expr_t &expr) {
     if (expr.is_valid()) {
       m_expr = expr;
       std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
@@ -37,7 +60,7 @@ public:
     }
   }
 
-  auto apply(expression_holder<scalar_expression<ValueType>> const &expr) {
+  auto apply(expr_t const &expr) {
     if (expr.is_valid()) {
       m_expr = expr;
       std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
@@ -47,7 +70,7 @@ public:
     }
   }
 
-  auto apply(expression_holder<scalar_expression<ValueType>> &&expr) {
+  auto apply(expr_t &&expr) {
     if (expr.is_valid()) {
       m_expr = expr;
       std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
@@ -57,6 +80,7 @@ public:
     }
   }
 
+  /// @brief Differentiates a symbol (variable).
   void operator()(scalar<ValueType> const &visitable) {
     if (&visitable == &m_arg.get()) {
       m_result = get_scalar_one<ValueType>();
@@ -65,6 +89,7 @@ public:
     }
   }
 
+  /// @brief Differentiates a user-defined scalar function.
   void operator()(scalar_function<ValueType> const &visitable) {
     scalar_differentiation<ValueType> diff(m_arg);
     auto result{diff.apply(visitable.expr())};
@@ -74,7 +99,7 @@ public:
     }
   }
 
-  /// product rule
+  /// @brief Applies the product rule.
   /// f(x)  = c * prod_i^n a_i(x)
   /// f'(x)  = c * sum_j^n a_j(x) prod_i^{n, i\neq j} a_i(x)
   /// TODO: just copy the vector and manipulate the current entry
@@ -99,7 +124,7 @@ public:
     }
   }
 
-  /// summation rule
+  /// @brief Applies the summation rule.
   /// f(x)  = c + sum_i^n a_i(x)
   /// f'(x) = sum_i^n a_i'(x)
   void operator()([[maybe_unused]] scalar_add<ValueType> const &visitable) {
@@ -112,15 +137,16 @@ public:
     m_result = std::move(expr_result);
   }
 
+  /// @brief Applies negation rule.
   void operator()(scalar_negative<ValueType> const &visitable) {
     scalar_differentiation diff(m_arg);
     auto diff_expr{diff.apply(visitable.expr())};
-    if (diff_expr.is_valid() || !is_same<scalar_zero<ValueType>>(diff_expr)) {
+    if (diff_expr.is_valid() && !is_same<scalar_zero<ValueType>>(diff_expr)) {
       m_result = -diff_expr;
     }
   }
 
-  /// Quotientenregel
+  /// @brief Applies the quotient rule.
   /// f(x) = g(x)/h(x)
   /// f(x) = (g(x)'*h(x) - g(x)*h(x)')/(h(x)*h(x)))
   /// g(x) := 0
@@ -136,66 +162,74 @@ public:
     m_result = (dg * h - g * dh) / (h * h);
   }
 
+  /// @brief Derivative of a constant is zero.
   void
   operator()([[maybe_unused]] scalar_constant<ValueType> const &visitable) {
     m_result = get_scalar_zero<ValueType>();
   }
 
-  // tan(x)' = sec^2(x) = (1/cos(x))^2
+  /// @brief Derivative of tan(x) is sec^2(x) = (1/cos(x))^2.
   void operator()([[maybe_unused]] scalar_tan<ValueType> const &visitable) {
     m_result = std::pow(1 / std::cos(visitable.expr()), 2);
   }
 
+  /// @brief Derivative of sin(x) is cos(x).
   void operator()([[maybe_unused]] scalar_sin<ValueType> const &visitable) {
     m_result = std::cos(visitable.expr());
     apply_inner_unary(visitable);
   }
 
+  /// @brief Derivative of cos(x) is -sin(x).
   void operator()([[maybe_unused]] scalar_cos<ValueType> const &visitable) {
     m_result = -std::sin(visitable.expr());
     apply_inner_unary(visitable);
   }
 
+  /// @brief Derivative of one is zero.
   void operator()([[maybe_unused]] scalar_one<ValueType> const &visitable) {
     m_result = get_scalar_zero<ValueType>();
   }
 
+  /// @brief Derivative of zero is zero.
   void operator()([[maybe_unused]] scalar_zero<ValueType> const &visitable) {
     m_result = get_scalar_zero<ValueType>();
   }
 
-  // 1/(expr^2+1)
+  /// @brief Derivative of atan(x) is 1 / (x² + 1).
   void operator()([[maybe_unused]] scalar_atan<ValueType> const &visitable) {
     auto &one{get_scalar_one<ValueType>()};
     m_result = (one / (one + std::pow(visitable.expr(), 2)));
     apply_inner_unary(visitable);
   }
 
-  // 1/sqrt(1-expr^2)
+  /// @brief Derivative of asin(x) is 1 / sqrt(1 - x²).
   void operator()([[maybe_unused]] scalar_asin<ValueType> const &visitable) {
     auto &one{get_scalar_one<ValueType>()};
     m_result = (one / (std::sqrt(one - std::pow(visitable.expr(), 2))));
     apply_inner_unary(visitable);
   }
 
-  //-1/sqrt(1-expr^2)
+  /// @brief Derivative of acos(x) is -1 / sqrt(1 - x²).
   void operator()([[maybe_unused]] scalar_acos<ValueType> const &visitable) {
     auto &one{get_scalar_one<ValueType>()};
     m_result = -(one / (std::sqrt(one - std::pow(visitable.expr(), 2))));
     apply_inner_unary(visitable);
   }
 
+  /// @brief Derivative of sqrt(x) is 1 / (2 * sqrt(x)).
   void operator()([[maybe_unused]] scalar_sqrt<ValueType> const &visitable) {
     auto &one{get_scalar_one<ValueType>()};
     m_result = one / (2 * m_expr);
     apply_inner_unary(visitable);
   }
 
+  /// @brief Derivative of exp(g(x)) is g(x)'*exp(x).
   void operator()([[maybe_unused]] scalar_exp<ValueType> const &visitable) {
     m_result = m_expr;
     apply_inner_unary(visitable);
   }
 
+  /// @brief Applies power rule or logarithmic differentiation.
   void operator()([[maybe_unused]] scalar_pow<ValueType> const &visitable) {
     auto &expr_lhs{visitable.expr_lhs()};
     auto &expr_rhs{visitable.expr_rhs()};
@@ -232,22 +266,39 @@ public:
     }
   }
 
+  /// @brief Derivative of sign(x) is zero (piecewise undefined).
   void operator()([[maybe_unused]] scalar_sign<ValueType> const &visitable) {
     m_result = get_scalar_zero<ValueType>();
   }
 
+  /// @brief Derivative of abs(x) is x / |x| (except at x = 0).
   void operator()([[maybe_unused]] scalar_abs<ValueType> const &visitable) {
     m_result = visitable.expr() / m_expr;
     apply_inner_unary(visitable);
   }
 
+  /// @brief Derivative of log(x) is 1 / x.
   void operator()([[maybe_unused]] scalar_log<ValueType> const &visitable) {
     auto &one{get_scalar_one<ValueType>()};
     m_result = one / visitable.expr();
     apply_inner_unary(visitable);
   }
 
+  /**
+   * @brief Fallback for unhandled scalar expression types.
+   * @tparam T Any scalar type not explicitly handled.
+   */
+  template <typename T> void operator()(T const &) {
+    static_assert(sizeof(T) == 0,
+                  "Unsupported expression in scalar_differentiation");
+  }
+
 private:
+  /**
+   * @brief Applies chain rule to unary functions.
+   * @param unary The unary expression whose inner expression will be
+   * differentiated.
+   */
   template <typename T> void apply_inner_unary(T const &unary) {
     scalar_differentiation<ValueType> diff(m_arg);
     auto inner{diff.apply(unary.expr())};
@@ -255,9 +306,10 @@ private:
       m_result *= std::move(inner);
     }
   }
-  argument_type const &m_arg;
-  expression_holder<scalar_expression<ValueType>> m_expr;
-  expression_holder<scalar_expression<ValueType>> m_result;
+
+  argument_t const &m_arg; ///< Differentiation variable
+  expr_t m_result;         ///< Holds the result of differentiation
+  expr_t m_expr;
 };
 
 } // namespace numsim::cas
