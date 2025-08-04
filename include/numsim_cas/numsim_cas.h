@@ -116,9 +116,11 @@
 #include "tensor_to_scalar/tensor_inner_product_to_scalar.h"
 #include "tensor_to_scalar/tensor_norm.h"
 #include "tensor_to_scalar/tensor_to_scalar_expression.h"
+#include "tensor_to_scalar/tensor_to_scalar_functions.h"
 #include "tensor_to_scalar/tensor_to_scalar_negative.h"
 #include "tensor_to_scalar/tensor_to_scalar_operators.h"
 #include "tensor_to_scalar/tensor_to_scalar_pow.h"
+#include "tensor_to_scalar/tensor_to_scalar_std.h"
 #include "tensor_to_scalar/tensor_trace.h"
 
 // generall headers

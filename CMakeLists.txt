@@ -180,6 +180,8 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_mul.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_div.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h
 )
 
 add_library(${PROJECT_NAME} INTERFACE

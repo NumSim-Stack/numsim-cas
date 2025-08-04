@@ -17,17 +17,14 @@ class tensor_inner_product_to_scalar final
                        tensor_to_scalar_expression<ValueType>,
                        tensor_expression<ValueType>> {
 public:
-  using base = binary_op<tensor_inner_product_to_scalar<ValueType>,
+  using base = binary_op<inner_product_wrapper<ValueType>,
                          tensor_to_scalar_expression<ValueType>,
                          tensor_expression<ValueType>>;
 
   template <typename LHS, typename RHS, typename SeqLHS, typename SeqRHS>
   tensor_inner_product_to_scalar(LHS &&_lhs, SeqLHS &&_lhs_indices, RHS &&_rhs,
                                  SeqRHS &&_rhs_indices)
-      : base(std::forward<LHS>(_lhs), std::forward<RHS>(_rhs),
-             call_tensor::dim(this->m_lhs),
-             call_tensor::rank(this->m_lhs) + call_tensor::rank(this->m_rhs) -
-                 _lhs_indices.size() - _rhs_indices.size()),
+      : base(std::forward<LHS>(_lhs), std::forward<RHS>(_rhs)),
         m_lhs_indices(std::forward<SeqLHS>(_lhs_indices)),
         m_rhs_indices(std::forward<SeqRHS>(_rhs_indices)) {
     std::for_each(m_lhs_indices.begin(), m_lhs_indices.end(),
@@ -41,11 +38,11 @@ public:
         m_lhs_indices(std::move(data.m_lhs_indices)),
         m_rhs_indices(std::move(data.m_rhs_indices)) {}
 
-  [[nodiscard]] const auto &sequence_lhs() const noexcept {
+  [[nodiscard]] const auto &indices_lhs() const noexcept {
     return m_lhs_indices;
   }
 
-  [[nodiscard]] const auto &sequence_rhs() const noexcept {
+  [[nodiscard]] const auto &indices_rhs() const noexcept {
     return m_rhs_indices;
   }
 

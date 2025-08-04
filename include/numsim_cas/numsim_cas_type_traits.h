@@ -304,9 +304,8 @@ using tensor_to_scalar_node = std::variant<
     tensor_to_scalar_with_scalar_div<ValueType>,
     scalar_with_tensor_to_scalar_div<ValueType>,
     tensor_to_scalar_pow<ValueType>,
-    tensor_to_scalar_pow_with_scalar_exponent<ValueType> /*,
-     tensor_inner_product_to_scalar<ValueType>*/
-    >;
+    tensor_to_scalar_pow_with_scalar_exponent<ValueType>,
+    tensor_inner_product_to_scalar<ValueType>>;
 
 ////poly
 // template <typename Type, typename ValueType>
