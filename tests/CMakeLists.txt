@@ -33,4 +33,6 @@ add_numsim_cas_test(numsim_cas_test
     symTM_test.h
     symTM_print_test.h
     symTM_diff_test.h
-test_scalar_operators.h)
+    ScalarExpressionTest.h
+    TensorToScalarExpressionTest.h
+    TensorExpressionTest.h)

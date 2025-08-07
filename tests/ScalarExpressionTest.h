@@ -1,5 +1,5 @@
-#ifndef TEST_SCALAR_OPERATORS_H
-#define TEST_SCALAR_OPERATORS_H
+#ifndef SCALAREXPRESSIONTEST_H
+#define SCALAREXPRESSIONTEST_H
 
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
@@ -155,16 +155,6 @@ TYPED_TEST(ScalarExpressionTest, ScalarFunctionPrint) {
   [[maybe_unused]] auto &_2 = this->_2;
   [[maybe_unused]] auto &_3 = this->_3;
 
-  std::cout << std::to_string(std::pow(x, _2) * x) << std::endl;
-  std::cout << std::to_string(std::pow(x, _2) * std::pow(x, _2)) << std::endl;
-  std::cout << std::to_string(std::pow(x, x) * x) << std::endl;
-  std::cout << std::to_string(std::pow(x, _1 + x) * x) << std::endl;
-
-  std::cout << std::to_string(std::cos(x)) << std::endl;
-  std::cout << std::to_string(std::sin(x)) << std::endl;
-  std::cout << std::to_string(std::tan(x)) << std::endl;
-  std::cout << std::to_string(std::exp(x)) << std::endl;
-
   EXPECT_EQ(std::to_string(std::pow(x, _2) * x), "pow(x,3)");
   EXPECT_EQ(std::to_string(std::pow(x, _2) * std::pow(x, _2)), "pow(x,4)");
   EXPECT_EQ(std::to_string(std::pow(x, x) * x), "pow(x,1+x)");
@@ -199,108 +189,4 @@ TYPED_TEST(ScalarExpressionTest, ScalarFundamentalDerivatives) {
   //  EXPECT_EQ(std::to_string(numsim::cas::diff(-x - x - y - z, z)), "-1");
 }
 
-////TEST(ScalarExpressionTest, AdditionTests) {
-////  auto [x,y,z]{numsim::cas::make_scalar_variable<double>("x","y","z")};
-////  auto [a,b,c]{numsim::cas::make_scalar_variable<double>("a","b","c")};
-////  auto [_1,_2,_3]{numsim::cas::make_scalar_constant<double>(1,2,3)};
-
-////  EXPECT_EQ(std::to_string(_2 + x), "2+x");
-////  EXPECT_EQ(std::to_string(x + _2), "2+x");
-////  EXPECT_EQ(std::to_string(_2 + x), "2+x");
-////  EXPECT_EQ(std::to_string(x + _2), "2+x");
-////  EXPECT_EQ(std::to_string(_1 + x + _3), "4+x");
-////  EXPECT_EQ(std::to_string(_1 + x + _3 + y + _2), "6+x+y");
-////  EXPECT_EQ(std::to_string(x + x), "2*x");
-////  EXPECT_EQ(std::to_string(x + x + _1), "1+2*x");
-////}
-
-// TEST(ExpressionTest, MultiplicationTests) {
-//   auto [x,y,z]{numsim::cas::make_scalar_variable<double>("x","y","z")};
-//   auto [a,b,c]{numsim::cas::make_scalar_variable<double>("a","b","c")};
-//   auto [_1,_2,_3]{numsim::cas::make_scalar_constant<double>(1,2,3)};
-
-//  EXPECT_EQ(std::to_string(_2 * x + x), "3*x");
-//  EXPECT_EQ(std::to_string(y * x + x), "x+x*y");
-//  EXPECT_EQ(std::to_string(y * x + x * y), "2*x*y");
-//  EXPECT_EQ(std::to_string(_2 * y * x + _3 * x * y), "5*x*y");
-//  EXPECT_EQ(std::to_string(_2 * y * x + _3 * x * y + _1 * x * y), "6*x*y");
-//}
-
-// TEST(ExpressionTest, ParenthesisTests) {
-//   auto [x,y,z]{numsim::cas::make_scalar_variable<double>("x","y","z")};
-//   auto [a,b,c]{numsim::cas::make_scalar_variable<double>("a","b","c")};
-//   auto [_1,_2,_3]{numsim::cas::make_scalar_constant<double>(1,2,3)};
-
-//  EXPECT_EQ(std::to_string((_2 + y + x) + (_3 + x + y)), "5+2*x+2*y");
-//  EXPECT_EQ(std::to_string((_2 + y + x + z) + (_3 + x + y)), "5+2*x+2*y+z");
-//  EXPECT_EQ(std::to_string((_2 + y + x) + (_3 + x + y + z)), "5+2*x+2*y+z");
-//  EXPECT_EQ(std::to_string((_2 * y * x) + (_3 * x * y)), "5*x*y");
-//  EXPECT_EQ(std::to_string(_2 * y * x + _3 * x + _3 * x * y), "3*x+5*x*y");
-//}
-
-// TEST(ExpressionTest, VariableTests) {
-//   auto [x,y,z]{numsim::cas::make_scalar_variable<double>("x","y","z")};
-//   auto [a,b,c]{numsim::cas::make_scalar_variable<double>("a","b","c")};
-//   auto [_1,_2,_3]{numsim::cas::make_scalar_constant<double>(1,2,3)};
-
-//  EXPECT_EQ(std::to_string(x), "x");
-//  EXPECT_EQ(std::to_string(x + x), "2*x");
-//  EXPECT_EQ(std::to_string(x + a), "a+x");
-//  EXPECT_EQ(std::to_string(x + _1), "1+x");
-//  EXPECT_EQ(std::to_string(_1 + (x + 2.0)), "3+x");
-//}
-
-// TEST(ExpressionTest, SubtractionAndNegationTests) {
-//   auto [x,y,z]{numsim::cas::make_scalar_variable<double>("x","y","z")};
-//   auto [a,b,c]{numsim::cas::make_scalar_variable<double>("a","b","c")};
-//   auto [_1,_2,_3]{numsim::cas::make_scalar_constant<double>(1,2,3)};
-
-//  EXPECT_EQ(std::to_string(-x), "-x");
-//  EXPECT_EQ(std::to_string(x - x), "0");
-//  EXPECT_EQ(std::to_string(-x - x), "-(2*x)");
-//  EXPECT_EQ(std::to_string(x - x - y - z), "-(y+z)");
-//  EXPECT_EQ(std::to_string(-x - x - y - z), "-(2*x+y+z)");
-//}
-
-// TEST(ExpressionTest, MixedOperationsTests) {
-//   auto [x,y,z]{numsim::cas::make_scalar_variable<double>("x","y","z")};
-//   auto [a,b,c]{numsim::cas::make_scalar_variable<double>("a","b","c")};
-//   auto [_1,_2,_3]{numsim::cas::make_scalar_constant<double>(1,2,3)};
-
-//  EXPECT_EQ(std::to_string(x * _2), "2*x");
-//  EXPECT_EQ(std::to_string(x * _2 + x), "3*x");
-//  EXPECT_EQ(std::to_string((x * _2 + x) + x + _2), "2+4*x");
-//  EXPECT_EQ(std::to_string(_2 * (x + y + z)), "2*(x+y+z)");
-//  EXPECT_EQ(std::to_string(_2 * _3), "6");
-//  EXPECT_EQ(std::to_string(_2 * _3 * x), "6*x");
-//  EXPECT_EQ(std::to_string(x * _2 * _3), "6*x");
-//  EXPECT_EQ(std::to_string(_2 * x * _3), "6*x");
-//  EXPECT_EQ(std::to_string(x * x), "pow(x,2)");
-//}
-
-// TEST(gtest, scalar_add_variables){
-//   auto [x,y,z]{numsim_cas::make_scalar_variable<double>("x","y","z")};
-//   auto expr{x+y+z};
-//   EXPECT_EQ(std::to_string(expr), "x+y+z");
-// }
-
-// TEST(gtest, scalar_add_same_variables){
-//   auto [x,y,z]{numsim_cas::make_scalar_variable<double>("x","y","z")};
-//   auto expr{x+y+z+x+y+z};
-//   EXPECT_EQ(std::to_string(expr), "2*x+2*y+2*z");
-// }
-
-// TEST(gtest, scalar_add_constant_variable){
-//   auto [x,y,z]{numsim_cas::make_scalar_variable<double>("x","y","z")};
-//   auto [_1,_2,_3]{numsim_cas::make_scalar_constant<double>(1,2,3)};
-//   auto expr{x+_1+y+_2+z+_3};
-//   EXPECT_EQ(std::to_string(expr), "6+x+y+z");
-// }
-
-// TEST(gtest, scalar_add_constant_variable_inplace){
-//   auto [x,y,z]{numsim_cas::make_scalar_variable<double>("x","y","z")};
-//   auto expr{x+1+y+2+z+3};
-//   EXPECT_EQ(std::to_string(expr), "6+x+y+z");
-// }
-
-#endif // TEST_SCALAR_OPERATORS_H
+#endif // SCALAREXPRESSIONTEST_H

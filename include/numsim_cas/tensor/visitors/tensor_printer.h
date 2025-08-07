@@ -25,6 +25,7 @@ class tensor_printer final
     : public printer_base<tensor_printer<ValueType, StreamType>, StreamType> {
 public:
   using base = printer_base<tensor_printer<ValueType, StreamType>, StreamType>;
+  using expr_t = expression_holder<tensor_expression<ValueType>>;
   using base::begin;
   using base::end;
   using base::print_unary;
@@ -77,13 +78,25 @@ public:
                   [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Addition};
     begin(precedence, parent_precedence);
-    bool first = true;
-    for (auto &child : visitable.hash_map() | std::views::values) {
-      if (!first)
-        m_out << "+";
-      apply(child, precedence);
-      first = false;
+    const auto values{visitable.hash_map() | std::views::values};
+    std::map<expr_t, expr_t> sorted_map;
+    std::for_each(std::begin(values), std::end(values),
+                  [&](auto &expr) { sorted_map[expr] = expr; });
+
+    bool first{false};
+    if (visitable.coeff().is_valid()) {
+      apply(visitable.coeff(), precedence);
+      first = true;
     }
+
+    for (auto &child : sorted_map | std::views::values) {
+      if (first && !is_same<scalar_negative<ValueType>>(child)) {
+        m_out << "+";
+      }
+      apply(child, precedence);
+      first = true;
+    }
+
     end(precedence, parent_precedence);
   }
 
@@ -91,8 +104,17 @@ public:
                   [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
+    const auto values{visitable.hash_map() | std::views::values};
+    std::map<expr_t, expr_t> sorted_map;
+    std::for_each(std::begin(values), std::end(values),
+                  [&](auto &expr) { sorted_map[expr] = expr; });
+
     bool first = true;
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    if (visitable.coeff().is_valid()) {
+      apply(visitable.coeff(), precedence);
+      m_out << "*";
+    }
+    for (auto &child : sorted_map | std::views::values) {
       if (!first)
         m_out << "*";
       apply(child, precedence);
