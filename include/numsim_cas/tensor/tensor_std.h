@@ -46,7 +46,6 @@ auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
   using value_type = std::common_type_t<
       typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
       typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type::value_type>;
-
   return numsim::cas::make_expression<numsim::cas::tensor_pow<value_type>>(
       std::forward<ExprLHS>(expr_lhs), std::forward<ExprRHS>(expr_rhs));
 }

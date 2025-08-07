@@ -42,9 +42,11 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
   //    auto& x = this->x;
   //    auto& y = this->y;
   //    auto& z = this->z;
-  //    auto& _1 = this->_1; auto& _2 = this->_2; auto& _3 = this->_3;
-  //    auto& zero{this->_zero};
-  //    auto& one{this->_one};
+  //    auto& _1 = this->_1;
+  auto &_2 = this->_2;
+  // auto& _3 = this->_3;
+  //     auto& zero{this->_zero};
+  //     auto& one{this->_one};
 
   EXPECT_EQ(std::to_string(X), "X");
   EXPECT_EQ(std::to_string(Y), "Y");
@@ -58,7 +60,11 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
   EXPECT_EQ(std::to_string(X * X), "pow(X,2)");
   EXPECT_EQ(std::to_string(X * X * X), "pow(X,3)");
   EXPECT_EQ(std::to_string(Y * X), "X*Y");
-  EXPECT_EQ(std::to_string(Y * X * Y), "pow(Y,2)*X");
+  EXPECT_EQ(std::to_string(Y * X * Y), "X*pow(Y,2)");
+  EXPECT_EQ(std::to_string(std::pow(X, _2) * X), "pow(X,3)");
+  EXPECT_EQ(std::to_string(X * std::pow(X, _2)), "pow(X,3)");
+  EXPECT_EQ(std::to_string(X * (X * X)), "pow(X,3)");
+  EXPECT_EQ(std::to_string((X * X) * X), "pow(X,3)");
 }
 
 TYPED_TEST(TensorExpressionTest, TensorScalarExpressionTestPrint) {

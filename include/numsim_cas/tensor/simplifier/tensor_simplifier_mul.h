@@ -67,10 +67,7 @@ public:
 protected:
   auto get_default() {
     if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
-      return make_expression<tensor_pow<value_type>>(
-          std::forward<ExprRHS>(m_lhs),
-          make_expression<scalar_constant<value_type>>(2));
-      // return std::pow(m_lhs, 2);
+      return std::pow(std::forward<ExprLHS>(m_lhs), 2);
     }
     // const auto lhs_constant{is_same<tensor_constant<value_type>>(m_lhs)};
     // const auto rhs_constant{is_same<tensor_constant<value_type>>(m_rhs)};
@@ -96,7 +93,7 @@ class tensor_pow_mul final : public mul_default<ExprLHS, ExprRHS> {
 public:
   using value_type = typename std::remove_reference_t<
       std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<scalar_expression<value_type>>;
+  using expr_type = expression_holder<tensor_expression<value_type>>;
   using base = mul_default<ExprLHS, ExprRHS>;
   using base::operator();
   using base::get_default;
@@ -106,7 +103,7 @@ public:
         lhs{base::m_lhs.template get<tensor_pow<value_type>>()} {}
 
   auto operator()([[maybe_unused]] tensor<value_type> const &rhs) {
-    if (lhs.hash_value() == rhs.hash_value()) {
+    if (lhs.expr_lhs().get().hash_value() == rhs.hash_value()) {
       const auto rhs_expr{lhs.expr_rhs() + get_scalar_one<value_type>()};
       return make_expression<tensor_pow<value_type>>(lhs.expr_lhs(),
                                                      std::move(rhs_expr));
@@ -146,8 +143,7 @@ public:
   /// X*X --> pow(X,2)
   constexpr inline expr_type operator()(tensor<value_type> const &rhs) {
     if (&lhs == &rhs) {
-      return make_expression<tensor_pow<value_type>>(
-          m_rhs, make_expression<scalar_constant<value_type>>(2));
+      return std::pow(std::forward<ExprLHS>(m_lhs), 2);
     }
     return get_default();
   }
@@ -164,6 +160,49 @@ private:
   using base::m_lhs;
   using base::m_rhs;
   tensor<value_type> const &lhs;
+};
+
+template <typename ExprLHS, typename ExprRHS>
+class n_ary_mul final : public mul_default<ExprLHS, ExprRHS> {
+public:
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
+  using expr_type = expression_holder<tensor_expression<value_type>>;
+  using base = mul_default<ExprLHS, ExprRHS>;
+  using base::operator();
+
+  n_ary_mul(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
+        lhs{base::m_lhs.template get<tensor_mul<value_type>>()} {}
+
+  auto operator()([[maybe_unused]] tensor<value_type> const &rhs) {
+    /// do a deep copy of data
+    auto expr_mul{make_expression<tensor_mul<value_type>>(lhs)};
+    auto &mul{expr_mul.template get<tensor_mul<value_type>>()};
+    /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
+    auto pos{lhs.hash_map().find(rhs.hash_value())};
+    if (pos != lhs.hash_map().end()) {
+      auto expr{pos->second * std::forward<ExprRHS>(m_rhs)};
+      mul.hash_map().erase(rhs.hash_value());
+      mul.push_back(expr);
+      return expr_mul;
+    }
+    /// no equal expr or sub_expr
+    mul.push_back(m_rhs);
+    return expr_mul;
+  }
+
+  template <typename Expr> auto operator()([[maybe_unused]] Expr const &rhs) {
+    auto expr_mul{make_expression<tensor_mul<value_type>>(lhs)};
+    auto &mul{expr_mul.template get<tensor_mul<value_type>>()};
+    mul.push_back(m_rhs);
+    return expr_mul;
+  }
+
+private:
+  using base::m_lhs;
+  using base::m_rhs;
+  tensor_mul<value_type> const &lhs;
 };
 
 template <typename ExprLHS, typename ExprRHS> struct mul_base {
@@ -186,6 +225,12 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
     return visit(tensor_pow_mul<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
                                                   std::forward<ExprRHS>(m_rhs)),
                  expr);
+  }
+
+  constexpr inline expr_type operator()(tensor_mul<value_type> const &) {
+    return visit(n_ary_mul<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                             std::forward<ExprRHS>(m_rhs)),
+                 *m_rhs);
   }
 
   template <typename Expr> constexpr inline expr_type operator()(Expr const &) {
