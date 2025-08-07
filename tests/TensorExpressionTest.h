@@ -31,6 +31,10 @@ protected:
   scalar_t _1, _2, _3;
   scalar_t _zero{numsim::cas::get_scalar_zero<T>()};
   scalar_t _one{numsim::cas::get_scalar_one<T>()};
+  tensor_t _Zero{
+      numsim::cas::make_expression<numsim::cas::tensor_zero<T>>(3, 2)};
+  tensor_t _One{
+      numsim::cas::make_expression<numsim::cas::kronecker_delta<T>>(3)};
 };
 
 TYPED_TEST_SUITE(TensorExpressionTest, TestTypes);
@@ -45,10 +49,12 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
   //    auto& _1 = this->_1;
   auto &_2 = this->_2;
   // auto& _3 = this->_3;
-  //     auto& zero{this->_zero};
-  //     auto& one{this->_one};
+  auto &Zero{this->_Zero};
+  auto &One{this->_One};
 
-  EXPECT_EQ(std::to_string(X), "X");
+  EXPECT_EQ(std::to_string(Zero * X), "0");
+  EXPECT_EQ(std::to_string(Zero * X), "0");
+  EXPECT_EQ(std::to_string(One), "I");
   EXPECT_EQ(std::to_string(Y), "Y");
   EXPECT_EQ(std::to_string(Z), "Z");
   EXPECT_EQ(std::to_string(X + X), "2*X");

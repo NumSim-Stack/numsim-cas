@@ -114,6 +114,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/visitors/tensor_evaluator.h
     include/numsim_cas/tensor/tensor_functions_fwd.h
     include/numsim_cas/tensor/tensor_compare_less_visitor.h
+    include/numsim_cas/tensor/tensor_globals.h
 
     #scalar
     include/numsim_cas/scalar/scalar.h
