@@ -154,7 +154,7 @@ template <typename _Base, typename _DerivedSymbol, typename _DerivedTree>
 bool operator<(symbol_base<_Base, _DerivedSymbol> const &lhs,
                n_ary_tree<_Base, _DerivedTree> const &rhs) {
   if (rhs.size() == 1) {
-    return lhs < get(rhs.hash_map().begin()->second);
+    return lhs.hash_value() < rhs.hash_map().begin()->second.get().hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
@@ -163,7 +163,7 @@ template <typename _Base, typename _DerivedSymbol, typename _DerivedTree>
 bool operator<(n_ary_tree<_Base, _DerivedTree> const &lhs,
                symbol_base<_Base, _DerivedSymbol> const &rhs) {
   if (lhs.size() == 1) {
-    return get(lhs.hash_map().begin()->second) < rhs;
+    return lhs.hash_map().begin()->second.get().hash_value() < rhs.hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }

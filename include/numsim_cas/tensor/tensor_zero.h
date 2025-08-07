@@ -19,7 +19,44 @@ public:
       : base(static_cast<base const &>(data), data.dim(), data.rank()) {}
   ~tensor_zero() = default;
   const tensor_zero &operator=(tensor_zero &&) = delete;
+
+  template <typename _ValueType>
+  friend bool operator<(tensor_zero<_ValueType> const &lhs,
+                        tensor_zero<_ValueType> const &rhs);
+  template <typename _ValueType>
+  friend bool operator>(tensor_zero<_ValueType> const &lhs,
+                        tensor_zero<_ValueType> const &rhs);
+  template <typename _ValueType>
+  friend bool operator==(tensor_zero<_ValueType> const &lhs,
+                         tensor_zero<_ValueType> const &rhs);
+  template <typename _ValueType>
+  friend bool operator!=(tensor_zero<_ValueType> const &lhs,
+                         tensor_zero<_ValueType> const &rhs);
 };
+
+template <typename ValueType>
+bool operator<(tensor_zero<ValueType> const &lhs,
+               tensor_zero<ValueType> const &rhs) {
+  return lhs.hash_value() < rhs.hash_value();
+}
+
+template <typename ValueType>
+bool operator>(tensor_zero<ValueType> const &lhs,
+               tensor_zero<ValueType> const &rhs) {
+  return !(lhs < rhs);
+}
+
+template <typename ValueType>
+bool operator==(tensor_zero<ValueType> const &lhs,
+                tensor_zero<ValueType> const &rhs) {
+  return lhs.hash_value() == rhs.hash_value();
+}
+
+template <typename ValueType>
+bool operator!=(tensor_zero<ValueType> const &lhs,
+                tensor_zero<ValueType> const &rhs) {
+  return !(lhs == rhs);
+}
 } // namespace numsim::cas
 
 #endif // TENSOR_ZERO_H

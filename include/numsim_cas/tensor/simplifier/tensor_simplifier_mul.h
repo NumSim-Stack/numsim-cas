@@ -66,6 +66,12 @@ public:
 
 protected:
   auto get_default() {
+    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
+      return make_expression<tensor_pow<value_type>>(
+          std::forward<ExprRHS>(m_lhs),
+          make_expression<scalar_constant<value_type>>(2));
+      // return std::pow(m_lhs, 2);
+    }
     // const auto lhs_constant{is_same<tensor_constant<value_type>>(m_lhs)};
     // const auto rhs_constant{is_same<tensor_constant<value_type>>(m_rhs)};
     auto mul_new{make_expression<tensor_mul<value_type>>(m_lhs.get().dim(),

@@ -142,6 +142,9 @@ TYPED_TEST(ScalarExpressionTest, ScalarMixedOperationsPrint) {
   EXPECT_EQ(std::to_string(x * x * x * x), "pow(x,4)");
   EXPECT_EQ(std::to_string((x + y + z) + (x + y + z)), "2*x+2*y+2*z");
   EXPECT_EQ(std::to_string(std::pow(x, _2) * x), "pow(x,3)");
+  EXPECT_EQ(std::to_string(x * std::pow(x, _2)), "pow(x,3)");
+  EXPECT_EQ(std::to_string(x * (x * x)), "pow(x,3)");
+  EXPECT_EQ(std::to_string((x * x) * x), "pow(x,3)");
   EXPECT_EQ(std::to_string(std::pow(x, _2) * std::pow(x, _2)), "pow(x,4)");
   EXPECT_EQ(std::to_string(std::pow(x, x) * x), "pow(x,1+x)");
   EXPECT_EQ(std::to_string(std::pow(x, _1 + x) * x), "pow(x,2+x)");

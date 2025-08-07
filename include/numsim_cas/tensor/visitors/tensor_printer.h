@@ -90,7 +90,7 @@ public:
     }
 
     for (auto &child : sorted_map | std::views::values) {
-      if (first && !is_same<scalar_negative<ValueType>>(child)) {
+      if (first && !is_same<tensor_negative<ValueType>>(child)) {
         m_out << "+";
       }
       apply(child, precedence);

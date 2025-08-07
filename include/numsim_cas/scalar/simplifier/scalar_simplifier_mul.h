@@ -237,6 +237,14 @@ public:
     return get_default();
   }
 
+  /// x --> pow(x,2)
+  constexpr inline expr_type operator()(scalar_pow<value_type> const &rhs) {
+    if (lhs.hash_value() == rhs.expr_lhs().get().hash_value()) {
+      return std::pow(m_lhs, rhs.expr_rhs() + get_scalar_one<value_type>());
+    }
+    return get_default();
+  }
+
 private:
   using base::m_lhs;
   using base::m_rhs;
