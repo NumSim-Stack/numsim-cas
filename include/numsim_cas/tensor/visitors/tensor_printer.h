@@ -104,17 +104,12 @@ public:
                   [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
-    const auto values{visitable.hash_map() | std::views::values};
-    std::map<expr_t, expr_t> sorted_map;
-    std::for_each(std::begin(values), std::end(values),
-                  [&](auto &expr) { sorted_map[expr] = expr; });
-
     bool first = true;
     if (visitable.coeff().is_valid()) {
       apply(visitable.coeff(), precedence);
       m_out << "*";
     }
-    for (auto &child : sorted_map | std::views::values) {
+    for (auto &child : visitable.data()) {
       if (!first)
         m_out << "*";
       apply(child, precedence);
@@ -268,6 +263,26 @@ public:
       m_out << "]";
       m_out << ")";
     }
+  }
+
+  void
+  operator()([[maybe_unused]] simple_outer_product<ValueType> const &visitable,
+             [[maybe_unused]] Precedence parent_precedence) {
+    constexpr auto precedence{Precedence::Multiplication};
+    begin(precedence, parent_precedence);
+    bool first = true;
+    if (visitable.coeff().is_valid()) {
+      apply(visitable.coeff(), precedence);
+      m_out << "*";
+    }
+    m_out << "outer(";
+    for (auto &child : visitable.hash_map() | std::views::values) {
+      if (!first)
+        m_out << ",";
+      apply(child, precedence);
+      first = false;
+    }
+    end(precedence, parent_precedence);
   }
 
   /**

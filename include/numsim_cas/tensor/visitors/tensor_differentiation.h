@@ -12,38 +12,28 @@ namespace numsim::cas {
 
 template <typename ValueType> class tensor_differentiation {
 public:
-  using expr_type = expression_holder<tensor_expression<ValueType>>;
+  using value_type = ValueType;
+  using expr_t = expression_holder<tensor_expression<value_type>>;
 
-  tensor_differentiation(expr_type const &arg)
-      : m_dim(0), m_rank(0), m_data(), m_arg(arg) {
-    auto &tensor_expr = m_arg.get();
-    m_rank_arg = tensor_expr.rank();
-  }
-
+  tensor_differentiation(expr_t const &arg) : m_arg(arg) {}
   tensor_differentiation(tensor_differentiation const &) = delete;
   tensor_differentiation(tensor_differentiation &&) = delete;
   const tensor_differentiation &
   operator=(tensor_differentiation const &) = delete;
 
-  expr_type apply([[maybe_unused]] expr_type &expr) {
-    //    auto &expr_ = expr.template get<VisitableTensor_t<ValueType>>();
-    //    const auto &tensor_expr = expr.get();
-    //    m_dim = tensor_expr.dim();
-    //    m_rank = tensor_expr.rank();
-    //    m_rank_result = tensor_expr.rank() + m_rank_arg;
-    //    expr_.accept(*this);
-    return m_data;
-  }
+  auto apply([[maybe_unused]] expr_t &expr) { return apply_imp(expr); }
 
-  expr_type apply([[maybe_unused]] tensor_expression<ValueType> &expr) {
-    //    auto &expr_ = static_cast<VisitableTensor_t<ValueType> &>(expr);
-    //    m_dim = expr.dim();
-    //    m_rank = expr.rank() + m_rank_arg;
-    //    expr_.accept(*this);
-    return std::move(m_data);
-  }
+  auto apply([[maybe_unused]] expr_t const &expr) { return apply_imp(expr); }
 
-  virtual void operator()([[maybe_unused]] tensor<ValueType> &visitable) {
+  auto apply([[maybe_unused]] expr_t &&expr) { return apply_imp(expr); }
+
+  void operator()([[maybe_unused]] tensor<ValueType> &visitable) {
+    if (&visitable == &m_arg.get()) {
+      if (m_rank_result == 2) {
+        m_result = make_expression<kronecker_delta<ValueType>>(m_dim);
+        return;
+      }
+    }
     //    if (visitable) {
     //      tensor_differentiation diff(m_arg);
     //      m_data = diff.apply(visitable);
@@ -306,8 +296,8 @@ public:
   }
 
 private:
-  template <typename Type> std::vector<expr_type> loop(Type &type) {
-    std::vector<expr_type> diff_vec;
+  template <typename Type> std::vector<expr_t> loop(Type &type) {
+    std::vector<expr_t> diff_vec;
     diff_vec.reserve(type.size());
 
     for (auto &child : type) {
@@ -327,23 +317,37 @@ private:
     }
 
     if (diff_vec.size() == 1) {
-      m_data = std::move(diff_vec.back());
+      m_result = std::move(diff_vec.back());
       return;
     }
 
-    auto temp{make_expression<Type>(m_dim, m_rank + m_rank_arg)};
+    auto temp{make_expression<Type>(m_dim, m_rank_result)};
     for (auto &child : diff_vec) {
       temp.template get<Type>().add_child(std::move(child));
     }
-    m_data = std::move(temp);
+    m_result = std::move(temp);
   }
 
-  std::size_t m_dim;
-  std::size_t m_rank;
-  std::size_t m_rank_result;
-  std::size_t m_rank_arg;
-  expr_type m_data;
-  expr_type const &m_arg;
+  auto apply_imp(expr_t const &expr) {
+    if (expr.is_valid()) {
+      const auto &tensor_expr = expr.get();
+      m_dim = tensor_expr.dim();
+      m_rank_arg = m_arg.get().rank();
+      m_rank_result = tensor_expr.rank() + m_rank_arg;
+      m_expr = expr;
+      std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
+      return m_result;
+    } else {
+      return make_expression<tensor_zero<value_type>>(m_dim, m_rank_result);
+    }
+  }
+
+  expr_t const &m_arg;
+  std::size_t m_dim{0};
+  std::size_t m_rank_result{0};
+  std::size_t m_rank_arg{0};
+  expr_t m_result{nullptr};
+  expr_t m_expr;
 };
 
 } // namespace numsim::cas

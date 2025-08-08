@@ -50,6 +50,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/expression.h
     include/numsim_cas/functions.h
     include/numsim_cas/n_ary_tree.h
+    include/numsim_cas/n_ary_vector.h
     include/numsim_cas/symbol_base.h
     include/numsim_cas/numsim_cas_type_traits.h
     include/numsim_cas/unary_op.h

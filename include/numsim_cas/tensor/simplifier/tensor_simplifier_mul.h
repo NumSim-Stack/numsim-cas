@@ -136,22 +136,9 @@ public:
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<kronecker_delta<value_type>>()} {}
 
-  auto operator()([[maybe_unused]] tensor<value_type> const &rhs) {
-    if (lhs.expr_lhs().get().hash_value() == rhs.hash_value()) {
-      const auto rhs_expr{lhs.expr_rhs() + get_scalar_one<value_type>()};
-      return make_expression<tensor_pow<value_type>>(lhs.expr_lhs(),
-                                                     std::move(rhs_expr));
-    }
-    return get_default();
-  }
-
-  auto operator()([[maybe_unused]] tensor_pow<value_type> const &rhs) {
-    if (lhs.hash_value() == rhs.hash_value()) {
-      const auto rhs_expr{lhs.expr_rhs() + rhs.expr_rhs()};
-      return make_expression<tensor_pow<value_type>>(lhs.expr_lhs(),
-                                                     std::move(rhs_expr));
-    }
-    return get_default();
+  // I_ij*expr_jkmnop.... --> expr_ikmnop....
+  template <typename Expr> auto operator()([[maybe_unused]] Expr const &rhs) {
+    return std::forward<ExprRHS>(m_rhs);
   }
 
 private:
@@ -214,13 +201,13 @@ public:
     auto expr_mul{make_expression<tensor_mul<value_type>>(lhs)};
     auto &mul{expr_mul.template get<tensor_mul<value_type>>()};
     /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
-    auto pos{lhs.hash_map().find(rhs.hash_value())};
-    if (pos != lhs.hash_map().end()) {
-      auto expr{pos->second * std::forward<ExprRHS>(m_rhs)};
-      mul.hash_map().erase(rhs.hash_value());
-      mul.push_back(expr);
-      return expr_mul;
-    }
+    //    auto pos{lhs.hash_map().find(rhs.hash_value())};
+    //    if (pos != lhs.hash_map().end()) {
+    //      auto expr{pos->second * std::forward<ExprRHS>(m_rhs)};
+    //      mul.hash_map().erase(rhs.hash_value());
+    //      mul.push_back(expr);
+    //      return expr_mul;
+    //    }
     /// no equal expr or sub_expr
     mul.push_back(m_rhs);
     return expr_mul;
@@ -266,9 +253,10 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
   }
 
   constexpr inline expr_type operator()(kronecker_delta<value_type> const &) {
-    return visit(n_ary_mul<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                             std::forward<ExprRHS>(m_rhs)),
-                 *m_rhs);
+    return visit(
+        kronecker_delta_mul<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                              std::forward<ExprRHS>(m_rhs)),
+        *m_rhs);
   }
 
   constexpr inline expr_type operator()(tensor_mul<value_type> const &) {

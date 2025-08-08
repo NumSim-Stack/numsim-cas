@@ -4,24 +4,47 @@
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
 
-using TestTypes =
-    ::testing::Types<double, float, int /*, std::complex<double>*/>;
+using TestTypesTensor =
+    ::testing::Types<std::tuple<float, std::index_sequence<1>>,
+                     std::tuple<float, std::index_sequence<2>>,
+                     std::tuple<float, std::index_sequence<3>>,
+                     std::tuple<int, std::index_sequence<1>>,
+                     std::tuple<int, std::index_sequence<2>>,
+                     std::tuple<int, std::index_sequence<3>>,
+                     std::tuple<double, std::index_sequence<1>>,
+                     std::tuple<double, std::index_sequence<2>>,
+                     std::tuple<double, std::index_sequence<3>>
+                     /*std::complex<double>*/>;
+
+template <std::size_t Number>
+constexpr inline long unsigned int
+get(std::integer_sequence<long unsigned int, Number> const &) {
+  return Number;
+}
 
 template <typename T> class TensorExpressionTest : public ::testing::Test {
 protected:
-  using tensor_t =
-      numsim::cas::expression_holder<numsim::cas::tensor_expression<T>>;
-  using scalar_t =
-      numsim::cas::expression_holder<numsim::cas::scalar_expression<T>>;
+  using value_type = std::decay_t<decltype(std::get<0>(T()))>;
+  using sequence = decltype(std::get<1>(T()));
+  using tensor_t = numsim::cas::expression_holder<
+      numsim::cas::tensor_expression<value_type>>;
+  using scalar_t = numsim::cas::expression_holder<
+      numsim::cas::scalar_expression<value_type>>;
 
   TensorExpressionTest() {
-    std::tie(X, Y, Z) = numsim::cas::make_tensor_variable<T>(
-        std::tuple{"X", 3, 2}, std::tuple{"Y", 3, 2}, std::tuple{"Z", 3, 2});
-    std::tie(A, B, C) = numsim::cas::make_tensor_variable<T>(
-        std::tuple{"A", 3, 4}, std::tuple{"B", 3, 4}, std::tuple{"C", 3, 4});
-    std::tie(x, y, z) = numsim::cas::make_scalar_variable<T>("x", "y", "z");
-    std::tie(a, b, c) = numsim::cas::make_scalar_variable<T>("a", "b", "c");
-    std::tie(_1, _2, _3) = numsim::cas::make_scalar_constant<T>(1, 2, 3);
+    const auto Dim{get(std::get<1>(T()))};
+    std::tie(X, Y, Z) = numsim::cas::make_tensor_variable<value_type>(
+        std::tuple{"X", Dim, 2}, std::tuple{"Y", Dim, 2},
+        std::tuple{"Z", Dim, 2});
+    std::tie(A, B, C) = numsim::cas::make_tensor_variable<value_type>(
+        std::tuple{"A", Dim, 4}, std::tuple{"B", Dim, 4},
+        std::tuple{"C", Dim, 4});
+    std::tie(x, y, z) =
+        numsim::cas::make_scalar_variable<value_type>("x", "y", "z");
+    std::tie(a, b, c) =
+        numsim::cas::make_scalar_variable<value_type>("a", "b", "c");
+    std::tie(_1, _2, _3) =
+        numsim::cas::make_scalar_constant<value_type>(1, 2, 3);
   }
 
   tensor_t X, Y, Z;
@@ -29,20 +52,23 @@ protected:
   scalar_t x, y, z;
   scalar_t a, b, c;
   scalar_t _1, _2, _3;
-  scalar_t _zero{numsim::cas::get_scalar_zero<T>()};
-  scalar_t _one{numsim::cas::get_scalar_one<T>()};
+  scalar_t _zero{numsim::cas::get_scalar_zero<value_type>()};
+  scalar_t _one{numsim::cas::get_scalar_one<value_type>()};
   tensor_t _Zero{
-      numsim::cas::make_expression<numsim::cas::tensor_zero<T>>(3, 2)};
+      numsim::cas::make_expression<numsim::cas::tensor_zero<value_type>>(
+          get(std::get<1>(T())), 2)};
   tensor_t _One{
-      numsim::cas::make_expression<numsim::cas::kronecker_delta<T>>(3)};
+      numsim::cas::make_expression<numsim::cas::kronecker_delta<value_type>>(
+          get(std::get<1>(T())))};
 };
 
-TYPED_TEST_SUITE(TensorExpressionTest, TestTypes);
+TYPED_TEST_SUITE(TensorExpressionTest, TestTypesTensor);
 
 TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
   auto &X = this->X;
   auto &Y = this->Y;
   auto &Z = this->Z;
+  auto &A = this->A;
   //    auto& x = this->x;
   //    auto& y = this->y;
   //    auto& z = this->z;
@@ -52,6 +78,8 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
   auto &Zero{this->_Zero};
   auto &One{this->_One};
 
+  EXPECT_EQ(std::to_string(One * X), "X");
+  EXPECT_EQ(std::to_string(One * A), "A");
   EXPECT_EQ(std::to_string(Zero * X), "0");
   EXPECT_EQ(std::to_string(Zero * X), "0");
   EXPECT_EQ(std::to_string(One), "I");
@@ -65,8 +93,9 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
   EXPECT_EQ(std::to_string((Z + X + Y) + (Z + X + Y)), "2*X+2*Y+2*Z");
   EXPECT_EQ(std::to_string(X * X), "pow(X,2)");
   EXPECT_EQ(std::to_string(X * X * X), "pow(X,3)");
-  EXPECT_EQ(std::to_string(Y * X), "X*Y");
-  EXPECT_EQ(std::to_string(Y * X * Y), "X*pow(Y,2)");
+  EXPECT_EQ(std::to_string(Y * X), "Y*X");
+  EXPECT_EQ(std::to_string((Y * X) * X), "Y*pow(X,2)");
+  EXPECT_EQ(std::to_string(Y * X * Y), "Y*X*Y");
   EXPECT_EQ(std::to_string(std::pow(X, _2) * X), "pow(X,3)");
   EXPECT_EQ(std::to_string(X * std::pow(X, _2)), "pow(X,3)");
   EXPECT_EQ(std::to_string(X * (X * X)), "pow(X,3)");
@@ -122,6 +151,9 @@ TYPED_TEST(TensorExpressionTest, TensorSubtractionAndNegationPrint) {
 
 TYPED_TEST(TensorExpressionTest, TensorInnerproductPrint) {
   using seq = numsim::cas::sequence;
+  using numsim::cas::dot_product;
+  using numsim::cas::inner_product;
+
   auto &X = this->X;
   // auto& Y = this->Y;
   // auto& Z = this->Z;
@@ -129,31 +161,22 @@ TYPED_TEST(TensorExpressionTest, TensorInnerproductPrint) {
   auto &B = this->B;
   auto &x = this->x;
 
-  EXPECT_EQ(std::to_string(numsim::cas::inner_product(X, seq{2}, X, seq{1})),
-            "X*X");
-  EXPECT_EQ(
-      std::to_string(numsim::cas::inner_product(A, seq{3, 4}, X, seq{1, 2})),
-      "A:X");
-  EXPECT_EQ(std::to_string(numsim::cas::dot_product(A, seq{1, 2, 3, 4}, B,
-                                                    seq{1, 2, 3, 4})),
+  EXPECT_EQ(std::to_string(inner_product(X, seq{2}, X, seq{1})), "X*X");
+  EXPECT_EQ(std::to_string(inner_product(A, seq{3, 4}, X, seq{1, 2})), "A:X");
+  EXPECT_EQ(std::to_string(dot_product(A, seq{1, 2, 3, 4}, B, seq{1, 2, 3, 4})),
             "A::B");
-  EXPECT_EQ(std::to_string(numsim::cas::dot_product(A + B, seq{1, 2, 3, 4},
-                                                    B + A, seq{1, 2, 3, 4})),
-            "(A+B)::(A+B)");
-  EXPECT_EQ(
-      std::to_string(numsim::cas::dot_product(A, seq{1, 2}, X, seq{1, 2})),
-      "A:X");
-  EXPECT_EQ(
-      std::to_string(numsim::cas::dot_product(A, seq{2, 1}, X, seq{1, 2})),
-      "dot(A, [2,1], X, [1,2])");
   EXPECT_EQ(std::to_string(
-                numsim::cas::dot_product(A + X, seq{1, 2}, X * x, seq{1, 2})),
+                dot_product(A + B, seq{1, 2, 3, 4}, B + A, seq{1, 2, 3, 4})),
+            "(A+B)::(A+B)");
+  EXPECT_EQ(std::to_string(dot_product(A, seq{1, 2}, X, seq{1, 2})), "A:X");
+  EXPECT_EQ(std::to_string(dot_product(A, seq{2, 1}, X, seq{1, 2})),
+            "dot(A, [2,1], X, [1,2])");
+  EXPECT_EQ(std::to_string(dot_product(A + X, seq{1, 2}, X * x, seq{1, 2})),
             "(A+X):x*X");
-  EXPECT_EQ(std::to_string(numsim::cas::dot_product(A, seq{1, 3, 2, 4}, B,
-                                                    seq{1, 2, 3, 4})),
+  EXPECT_EQ(std::to_string(dot_product(A, seq{1, 3, 2, 4}, B, seq{1, 2, 3, 4})),
             "dot(A, [1,3,2,4], B, [1,2,3,4])");
-  EXPECT_EQ(std::to_string(numsim::cas::dot_product(A + B, seq{1, 3, 2, 4},
-                                                    B + A, seq{1, 2, 3, 4})),
+  EXPECT_EQ(std::to_string(
+                dot_product(A + B, seq{1, 3, 2, 4}, B + A, seq{1, 2, 3, 4})),
             "dot(A+B, [1,3,2,4], A+B, [1,2,3,4])");
 }
 

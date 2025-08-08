@@ -93,6 +93,7 @@ template <typename Derived, typename Base> class expression_crtp;
 //};
 
 template <typename ExprType> using umap = std::map<std::size_t, ExprType>;
+template <typename ExprType> using expr_vector = std::vector<ExprType>;
 
 // template<typename _Visitor, typename... _Variants>
 // constexpr std::__detail::__variant::__visit_result_t<_Visitor, _Variants...>
@@ -200,7 +201,7 @@ template <typename ValueType> class inner_product_wrapper;
 template <typename ValueType> class basis_change_imp;
 template <typename ValueType> class outer_product_wrapper;
 template <typename ValueType> class kronecker_delta;
-// template <typename ValueType> class simple_outer_product;
+template <typename ValueType> class simple_outer_product;
 template <typename ValueType> class tensor_scalar_mul;
 template <typename ValueType> class tensor_scalar_div;
 template <typename ValueType> class tensor_symmetry;
@@ -212,11 +213,10 @@ using tensor_node =
     std::variant<tensor<ValueType>, tensor_negative<ValueType>,
                  inner_product_wrapper<ValueType>, basis_change_imp<ValueType>,
                  outer_product_wrapper<ValueType>, kronecker_delta<ValueType>,
-                 // simple_outer_product<ValueType>,
-                 tensor_add<ValueType>, tensor_mul<ValueType>,
-                 tensor_scalar_mul<ValueType>, tensor_scalar_div<ValueType>,
-                 tensor_symmetry<ValueType>, tensor_zero<ValueType>,
-                 tensor_pow<ValueType>>;
+                 simple_outer_product<ValueType>, tensor_add<ValueType>,
+                 tensor_mul<ValueType>, tensor_scalar_mul<ValueType>,
+                 tensor_scalar_div<ValueType>, tensor_symmetry<ValueType>,
+                 tensor_zero<ValueType>, tensor_pow<ValueType>>;
 
 // scalar
 template <typename ValueType> class scalar_expression;

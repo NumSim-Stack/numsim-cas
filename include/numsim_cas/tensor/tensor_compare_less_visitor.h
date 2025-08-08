@@ -31,17 +31,17 @@ public:
     return compare(lhs, rhs);
   }
 
-  template <typename Base>
-  constexpr inline auto operator()(tensor_mul<Base> const &lhs,
-                                   tensor<Base> const &rhs) const {
-    return compare(lhs, rhs);
-  }
+  //  template <typename Base>
+  //  constexpr inline auto operator()(tensor_mul<Base> const &lhs,
+  //                                   tensor<Base> const &rhs) const {
+  //    return compare(lhs, rhs);
+  //  }
 
-  template <typename Base>
-  constexpr inline auto operator()(tensor<Base> const &lhs,
-                                   tensor_mul<Base> const &rhs) const {
-    return compare(lhs, rhs);
-  }
+  //  template <typename Base>
+  //  constexpr inline auto operator()(tensor<Base> const &lhs,
+  //                                   tensor_mul<Base> const &rhs) const {
+  //    return compare(lhs, rhs);
+  //  }
 
   template <typename Base>
   constexpr inline auto
