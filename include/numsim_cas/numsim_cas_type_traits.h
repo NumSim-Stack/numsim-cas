@@ -205,6 +205,7 @@ template <typename ValueType> class simple_outer_product;
 template <typename ValueType> class tensor_scalar_mul;
 template <typename ValueType> class tensor_scalar_div;
 template <typename ValueType> class tensor_symmetry;
+template <typename ValueType> class tensor_deviatoric;
 template <typename ValueType> class tensor_zero;
 template <typename ValueType> class tensor_identity;
 // det, tr, adj, skew, vol, dev,
@@ -217,8 +218,8 @@ using tensor_node =
                  simple_outer_product<ValueType>, tensor_add<ValueType>,
                  tensor_mul<ValueType>, tensor_scalar_mul<ValueType>,
                  tensor_scalar_div<ValueType>, tensor_symmetry<ValueType>,
-                 tensor_zero<ValueType>, tensor_pow<ValueType>,
-                 tensor_identity<ValueType>>;
+                 tensor_deviatoric<ValueType>, tensor_zero<ValueType>,
+                 tensor_pow<ValueType>, tensor_identity<ValueType>>;
 
 // scalar
 template <typename ValueType> class scalar_expression;

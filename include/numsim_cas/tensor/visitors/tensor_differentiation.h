@@ -299,6 +299,8 @@ public:
 
   void operator()(tensor_scalar_div<ValueType> const &) {}
 
+  void operator()(tensor_deviatoric<ValueType> const &) {}
+
   void operator()(tensor_symmetry<ValueType> const &visitable) {
     auto result{diff(visitable.expr(), m_arg)};
     if (result.is_valid()) {

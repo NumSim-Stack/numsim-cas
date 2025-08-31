@@ -359,6 +359,17 @@ public:
   }
 
   /**
+   * @brief Prints a tensor deviatoric expression.
+   *
+   * @param visitable The tensor deviatoric expression to be printed.
+   * @param parent_precedence The precedence of the parent expression.
+   */
+  void operator()(tensor_deviatoric<ValueType> const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
+    print_unary("dev", visitable);
+  }
+
+  /**
    * @brief Prints a tensor symmetry expression.
    *
    * @param visitable The tensor symmetry expression to be printed.

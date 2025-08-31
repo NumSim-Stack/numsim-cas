@@ -15,8 +15,8 @@ public:
 
   template <typename Expr>
   explicit tensor_symmetry(Expr &&_expr)
-      : base(std::forward<Expr>(_expr), call_tensor::dim(this->m_expr),
-             call_tensor::rank(this->m_expr)),
+      : base(std::forward<Expr>(_expr), call_tensor::dim(_expr),
+             call_tensor::rank(_expr)),
         m_symmetries() {}
 
   template <typename Expr, typename Indices>

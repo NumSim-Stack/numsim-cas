@@ -94,6 +94,7 @@
 #include "tensor/functions/inner_product_wrapper.h"
 #include "tensor/functions/outer_product_wrapper.h"
 #include "tensor/functions/simple_outer_product.h"
+#include "tensor/functions/tensor_deviatoric.h"
 #include "tensor/functions/tensor_pow.h"
 #include "tensor/functions/tensor_symmetry.h"
 #include "tensor/operators/scalar/tensor_scalar_div.h"

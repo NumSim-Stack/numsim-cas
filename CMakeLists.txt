@@ -78,6 +78,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/functions/outer_product_wrapper.h
     include/numsim_cas/tensor/functions/simple_outer_product.h
     include/numsim_cas/tensor/functions/tensor_symmetry.h
+    include/numsim_cas/tensor/functions/tensor_deviatoric.h
     include/numsim_cas/tensor/functions/tensor_pow.h
     include/numsim_cas/tensor/data/tensor_data.h
     include/numsim_cas/tensor/data/tensor_data_add.h

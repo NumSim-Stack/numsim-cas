@@ -134,6 +134,8 @@ public:
 
   virtual void operator()(tensor_symmetry<ValueType> &) {}
 
+  virtual void operator()(tensor_deviatoric<ValueType> &) {}
+
 protected:
   std::size_t dim;
   std::size_t rank;
