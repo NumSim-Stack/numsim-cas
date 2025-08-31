@@ -7,32 +7,47 @@
 #include "../kronecker_delta.h"
 #include "../tensor_expression.h"
 #include "../tensor_functions.h"
+#include "../tensor_functions_fwd.h"
 
 namespace numsim::cas {
 
 template <typename ValueType> class tensor_differentiation {
 public:
   using value_type = ValueType;
-  using expr_t = expression_holder<tensor_expression<value_type>>;
+  using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  tensor_differentiation(expr_t const &arg) : m_arg(arg) {}
+  tensor_differentiation(expr_type const &arg) : m_arg(arg) {}
   tensor_differentiation(tensor_differentiation const &) = delete;
   tensor_differentiation(tensor_differentiation &&) = delete;
   const tensor_differentiation &
   operator=(tensor_differentiation const &) = delete;
 
-  auto apply([[maybe_unused]] expr_t &expr) { return apply_imp(expr); }
+  auto apply(expr_type const &expr) {
+    if (expr.is_valid()) {
+      m_expr = expr;
+      m_dim = expr.get().dim();
+      m_rank_result = expr.get().rank() + m_arg.get().rank();
+      m_rank_arg = m_arg.get().rank();
+      std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
+    }
+    return m_result;
+  }
 
-  auto apply([[maybe_unused]] expr_t const &expr) { return apply_imp(expr); }
-
-  auto apply([[maybe_unused]] expr_t &&expr) { return apply_imp(expr); }
-
-  void operator()([[maybe_unused]] tensor<ValueType> &visitable) {
+  void operator()([[maybe_unused]] tensor<ValueType> const &visitable) {
     if (&visitable == &m_arg.get()) {
       if (m_rank_result == 2) {
         m_result = make_expression<kronecker_delta<ValueType>>(m_dim);
         return;
       }
+      if (m_rank_result == 4) {
+        auto I{make_expression<kronecker_delta<ValueType>>(m_dim)};
+        m_result = otimes(I, sequence{1, 3}, I, sequence{2, 4});
+        return;
+      }
+      // \frac{\partial A_{ijkl...}}{\partial A_{mnop...}} = I_{im} I_{jn}
+      // I_{ko} I_{lp} ...
+      m_result =
+          make_expression<tensor_identity<ValueType>>(m_dim, m_rank_result);
     }
     //    if (visitable) {
     //      tensor_differentiation diff(m_arg);
@@ -66,20 +81,29 @@ public:
     //    }
   }
 
-  virtual void operator()([[maybe_unused]] tensor_add<ValueType> &visitable) {
+  void operator()([[maybe_unused]] tensor_identity<ValueType> const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
+    m_result = make_expression<tensor_zero<ValueType>>(m_dim, m_rank_result);
+  }
+
+  void operator()([[maybe_unused]] tensor_add<ValueType> const &visitable) {
     // loop_result(visitable);
   }
 
-  virtual void
-  operator()([[maybe_unused]] tensor_negative<ValueType> &visitable) {
+  void
+  operator()([[maybe_unused]] tensor_negative<ValueType> const &visitable) {
     //    tensor_differentiation diff(m_arg);
     //    auto diff_lhs{diff.apply(visitable.expr())};
     //    m_data =
     //    std::move(make_expression<tensor_negative<ValueType>>(std::move(diff_lhs)));
   }
 
-  virtual void
-  operator()([[maybe_unused]] inner_product_wrapper<ValueType> &visitable) {
+  template <typename T> void operator()([[maybe_unused]] T const &visitable) {
+    assert(0);
+  }
+
+  void operator()(
+      [[maybe_unused]] inner_product_wrapper<ValueType> const &visitable) {
     //    auto& expr_lhs{visitable.expr_lhs()};
     //    auto& expr_rhs{visitable.expr_rhs()};
     //    auto seq_lhs{visitable.sequence_lhs()};
@@ -173,8 +197,8 @@ public:
     //    }
   }
 
-  virtual void
-  operator()([[maybe_unused]] basis_change_imp<ValueType> &visitable) {
+  void
+  operator()([[maybe_unused]] basis_change_imp<ValueType> const &visitable) {
     //    auto expr{visitable.expr()};
     //    const auto &seq{visitable.indices()};
     //    // get derivative
@@ -191,8 +215,8 @@ public:
     //    }
   }
 
-  virtual void
-  operator()([[maybe_unused]] outer_product_wrapper<ValueType> &visitable) {
+  void operator()(
+      [[maybe_unused]] outer_product_wrapper<ValueType> const &visitable) {
     //    auto expr_lhs{visitable.expr_lhs()};
     //    auto expr_rhs{visitable.expr_rhs()};
     //    auto seq_lhs{visitable.sequence_lhs()};
@@ -264,19 +288,25 @@ public:
     //    }
   }
 
-  virtual void
-  operator()([[maybe_unused]] kronecker_delta<ValueType> &visitable) {
+  void
+  operator()([[maybe_unused]] kronecker_delta<ValueType> const &visitable) {
     // do nothing
   }
 
-  // virtual void operator()(simple_outer_product<ValueType> &visitable) {}
+  // void operator()(simple_outer_product<ValueType> &visitable) {}
 
-  virtual void operator()(tensor_scalar_mul<ValueType> &) {}
+  void operator()(tensor_scalar_mul<ValueType> const &) {}
 
-  virtual void operator()(tensor_scalar_div<ValueType> &) {}
+  void operator()(tensor_scalar_div<ValueType> const &) {}
 
-  virtual void
-  operator()([[maybe_unused]] tensor_symmetry<ValueType> &visitable) {
+  void operator()(tensor_symmetry<ValueType> const &visitable) {
+    auto result{diff(visitable.expr(), m_arg)};
+    if (result.is_valid()) {
+      // ijkl    --> ikjl    + iljk
+      // 1,2,3,4 --> 1,3,2,4 + 1,4,2,3
+      m_result = static_cast<ValueType>(0.5) *
+                 (result + permute_indices(result, sequence{1, 4, 3, 2}));
+    }
     //    auto
     //    divisor{make_expression<scalar_constant<ValueType>>(visitable.symmetries().size()+1)};
     //    auto add{make_expression<tensor_add<ValueType>>(visitable.dim(),
@@ -296,8 +326,8 @@ public:
   }
 
 private:
-  template <typename Type> std::vector<expr_t> loop(Type &type) {
-    std::vector<expr_t> diff_vec;
+  template <typename Type> std::vector<expr_type> loop(Type const &type) {
+    std::vector<expr_type> diff_vec;
     diff_vec.reserve(type.size());
 
     for (auto &child : type) {
@@ -310,7 +340,7 @@ private:
     return diff_vec;
   }
 
-  template <typename Type> void loop_result(Type &type) {
+  template <typename Type> void loop_result(Type const &type) {
     auto diff_vec{loop(type)};
     if (diff_vec.empty()) {
       return;
@@ -328,7 +358,7 @@ private:
     m_result = std::move(temp);
   }
 
-  auto apply_imp(expr_t const &expr) {
+  auto apply_imp(expr_type const &expr) {
     if (expr.is_valid()) {
       const auto &tensor_expr = expr.get();
       m_dim = tensor_expr.dim();
@@ -342,12 +372,12 @@ private:
     }
   }
 
-  expr_t const &m_arg;
+  expr_type const &m_arg;
   std::size_t m_dim{0};
   std::size_t m_rank_result{0};
   std::size_t m_rank_arg{0};
-  expr_t m_result{nullptr};
-  expr_t m_expr;
+  expr_type m_result{nullptr};
+  expr_type m_expr;
 };
 
 } // namespace numsim::cas

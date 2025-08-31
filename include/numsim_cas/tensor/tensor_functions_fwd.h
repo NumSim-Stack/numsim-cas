@@ -5,6 +5,13 @@
 
 namespace numsim::cas {
 
+template <typename ValueType>
+[[nodiscard]] constexpr inline expression_holder<tensor_expression<ValueType>>
+diff(expression_holder<tensor_expression<ValueType>> const &expr,
+     expression_holder<tensor_expression<ValueType>> const &arg);
+
+template <typename Expr> constexpr inline auto trans(Expr &&expr);
+
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
 binary_add_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs);

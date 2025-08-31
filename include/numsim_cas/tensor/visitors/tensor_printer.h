@@ -68,6 +68,12 @@ public:
     m_out << visitable.name();
   }
 
+  void operator()([[maybe_unused]] tensor_identity<ValueType> const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
+    m_out << "tensor_identity{" << visitable.dim() << " " << visitable.rank()
+          << "}";
+  }
+
   /**
    * @brief Prints a tensor addition expression.
    *

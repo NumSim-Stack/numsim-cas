@@ -52,10 +52,7 @@ public:
   binary_op(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs, Args &&...args)
       : base(std::forward<Args>(args)...),
         m_lhs(std::forward<ExprLHS>(expr_lhs)),
-        m_rhs(std::forward<ExprRHS>(expr_rhs)) {
-    base::m_hash_value =
-        update_hash<binary_op<Derived, Base, BaseLHS, BaseRHS>>()(*this);
-  }
+        m_rhs(std::forward<ExprRHS>(expr_rhs)) {}
 
   /**
    * @brief Move constructor.
@@ -134,6 +131,10 @@ public:
              binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs);
 
 protected:
+  virtual void update_hash_value() const {
+    base::m_hash_value =
+        update_hash<binary_op<Derived, Base, BaseLHS, BaseRHS>>()(*this);
+  }
   /**
    * @brief Holds the left-hand side expression.
    */

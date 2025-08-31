@@ -64,27 +64,6 @@ public:
   [[nodiscard]] inline auto &coeff() const noexcept { return m_coeff; }
   [[nodiscard]] inline auto &coeff() noexcept { return m_coeff; }
 
-  void update_hash_value() {
-    std::vector<std::size_t> child_hashes;
-    child_hashes.reserve(m_data.size());
-    this->m_hash_value = 0;
-
-    // otherwise we can not provide the order of the symbols
-    hash_combine(this->m_hash_value, base::get_id());
-
-    for (const auto &child : m_data) {
-      child_hashes.push_back(get_hash_value(child));
-    }
-
-    // Sort for commutative operations like addition
-    std::stable_sort(child_hashes.begin(), child_hashes.end());
-
-    // Combine all child hashes
-    for (const auto &child_hash : child_hashes) {
-      hash_combine(this->m_hash_value, child_hash);
-    }
-  }
-
   //  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
   //  friend bool operator<(n_ary_vector<_Base, _DerivedLHS> const &lhs,
   //                        n_ary_vector<_Base, _DerivedRHS> const &rhs);
@@ -111,6 +90,27 @@ public:
                          n_ary_vector<_Base, _Derived> const &rhs);
 
 protected:
+  virtual void update_hash_value() const override {
+    std::vector<std::size_t> child_hashes;
+    child_hashes.reserve(m_data.size());
+    this->m_hash_value = 0;
+
+    // otherwise we can not provide the order of the symbols
+    hash_combine(this->m_hash_value, base::get_id());
+
+    for (const auto &child : m_data) {
+      child_hashes.push_back(get_hash_value(child));
+    }
+
+    // Sort for commutative operations like addition
+    std::stable_sort(child_hashes.begin(), child_hashes.end());
+
+    // Combine all child hashes
+    for (const auto &child_hash : child_hashes) {
+      hash_combine(this->m_hash_value, child_hash);
+    }
+  }
+
   expr_holder m_coeff;
 
 private:

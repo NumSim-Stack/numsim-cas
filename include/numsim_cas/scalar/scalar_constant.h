@@ -38,6 +38,10 @@ public:
   //    return m_data;
   //  }
 
+  virtual void update_hash_value() const override {
+    hash_combine(base::m_hash_value, base::get_id());
+  }
+
   template <typename _ValueType>
   friend bool operator<(scalar_constant<_ValueType> const &lhs,
                         scalar_constant<_ValueType> const &rhs);

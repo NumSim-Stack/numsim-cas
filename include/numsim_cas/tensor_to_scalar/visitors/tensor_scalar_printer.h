@@ -260,6 +260,7 @@ public:
   template <typename Expr>
   void operator()([[maybe_unused]] Expr const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
+    std::cout << "Error: type not defined" << std::endl;
     assert(0);
   }
 

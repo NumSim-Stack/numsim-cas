@@ -29,6 +29,10 @@ public:
   template <typename _ValueType>
   friend bool operator!=(scalar_one<_ValueType> const &lhs,
                          scalar_one<_ValueType> const &rhs);
+
+  virtual void update_hash_value() const override {
+    hash_combine(base::m_hash_value, base::get_id());
+  }
 };
 
 template <typename _ValueType>

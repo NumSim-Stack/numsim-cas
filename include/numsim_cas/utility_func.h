@@ -24,6 +24,13 @@ inline void hash_combine(std::size_t &seed, const std::string &value) {
   }
 }
 
+template <typename T>
+inline void hash_combine(std::size_t &seed, const std::vector<T> &value) {
+  for (const auto &c : value) {
+    hash_combine(seed, c);
+  }
+}
+
 template <typename... Args> constexpr inline auto tuple(Args &&...args) {
   return std::make_tuple(std::forward<Args>(args)...);
 }

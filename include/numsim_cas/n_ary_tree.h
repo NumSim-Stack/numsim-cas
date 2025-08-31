@@ -62,38 +62,17 @@ public:
   }
 
   [[nodiscard]] inline auto &hash_map() noexcept { return m_symbol_map; }
+  [[nodiscard]] inline auto hash_map_values() noexcept {
+    return m_symbol_map | std::views::values;
+  }
+  [[nodiscard]] inline auto hash_map_values() const noexcept {
+    return m_symbol_map | std::views::values;
+  }
 
   inline auto set_coeff(expr_holder const &expr) noexcept { m_coeff = expr; }
 
   [[nodiscard]] inline auto &coeff() const noexcept { return m_coeff; }
   [[nodiscard]] inline auto &coeff() noexcept { return m_coeff; }
-
-  void update_hash_value() {
-    std::vector<std::size_t> child_hashes;
-    child_hashes.reserve(m_symbol_map.size());
-    this->m_hash_value = 0;
-
-    // otherwise we can not provide the order of the symbols
-    hash_combine(this->m_hash_value, base::get_id());
-
-    for (const auto &child : m_symbol_map | std::views::values) {
-      child_hashes.push_back(get_hash_value(child));
-    }
-
-    //    // for a single entry return this
-    //    if (child_hashes.size() == 1) {
-    //      this->m_hash_value = child_hashes.front();
-    //      return;
-    //    }
-
-    // Sort for commutative operations like addition
-    std::stable_sort(child_hashes.begin(), child_hashes.end());
-
-    // Combine all child hashes
-    for (const auto &child_hash : child_hashes) {
-      hash_combine(this->m_hash_value, child_hash);
-    }
-  }
 
   //  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
   //  friend bool operator<(n_ary_tree<_Base, _DerivedLHS> const &lhs,
@@ -121,6 +100,33 @@ public:
                          n_ary_tree<_Base, _Derived> const &rhs);
 
 protected:
+  virtual void update_hash_value() const override {
+    std::vector<std::size_t> child_hashes;
+    child_hashes.reserve(m_symbol_map.size());
+    this->m_hash_value = 0;
+
+    // otherwise we can not provide the order of the symbols
+    hash_combine(this->m_hash_value, base::get_id());
+
+    for (const auto &child : m_symbol_map | std::views::values) {
+      child_hashes.push_back(get_hash_value(child));
+    }
+
+    //    // for a single entry return this
+    //    if (child_hashes.size() == 1) {
+    //      this->m_hash_value = child_hashes.front();
+    //      return;
+    //    }
+
+    // Sort for commutative operations like addition
+    std::stable_sort(child_hashes.begin(), child_hashes.end());
+
+    // Combine all child hashes
+    for (const auto &child_hash : child_hashes) {
+      hash_combine(this->m_hash_value, child_hash);
+    }
+  }
+
   expr_holder m_coeff;
   // Derived const &m_derived;
 

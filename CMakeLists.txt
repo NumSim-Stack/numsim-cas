@@ -98,6 +98,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/scalar_tensor_op.h
     include/numsim_cas/tensor/tensor_constant.h
     include/numsim_cas/tensor/tensor_zero.h
+    include/numsim_cas/tensor/tensor_identity.h
     include/numsim_cas/tensor/operators/tensor/tensor_mul.h
     include/numsim_cas/tensor/operators/tensor/tensor_sub.h
     include/numsim_cas/tensor/operators/tensor/tensor_add.h

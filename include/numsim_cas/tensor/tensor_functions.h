@@ -10,6 +10,7 @@
 #include "simplifier/tensor_with_scalar_simplifier_div.h"
 #include "simplifier/tensor_with_scalar_simplifier_mul.h"
 #include <cstdlib>
+#include <ranges>
 #include <vector>
 
 namespace numsim::cas {
@@ -80,8 +81,8 @@ constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
 }
 
 template <typename ExprLHS, typename ExprRHS>
-constexpr inline auto outer_product(ExprLHS &&lhs, sequence &&lhs_indices,
-                                    ExprRHS &&rhs, sequence &&rhs_indices) {
+constexpr inline auto otimes(ExprLHS &&lhs, sequence &&lhs_indices,
+                             ExprRHS &&rhs, sequence &&rhs_indices) {
   using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
   return make_expression<outer_product_wrapper<ValueType>>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
@@ -91,9 +92,98 @@ constexpr inline auto outer_product(ExprLHS &&lhs, sequence &&lhs_indices,
 template <typename Expr>
 constexpr inline auto permute_indices(Expr &&expr, sequence &&indices) {
   using ValueType = typename remove_cvref_t<Expr>::value_type;
+
+  if (is_same<basis_change_imp<ValueType>>(expr)) {
+    std::cout << "basis_change_imp" << std::endl;
+    auto &tensor{expr.template get<basis_change_imp<ValueType>>()};
+    const auto &t_indices{tensor.indices()};
+    sequence new_order(t_indices.size());
+    for (std::size_t i{0}; i < t_indices.size(); ++i) {
+      new_order[i] = t_indices[indices[i] - 1];
+    }
+    // std::ranges::transform(indices, new_order,
+    //                        [&](std::size_t from){ return
+    //                        std::move(t_indices[from-1]);});
+    for (const auto &el : indices) {
+      std::cout << el << " ";
+    }
+    std::cout << std::endl;
+    for (const auto &el : t_indices) {
+      std::cout << el << " ";
+    }
+    std::cout << std::endl;
+    for (const auto &el : new_order) {
+      std::cout << el << " ";
+    }
+    std::cout << std::endl;
+  }
+
+  if (is_same<outer_product_wrapper<ValueType>>(expr)) {
+    std::cout << "outer_product_wrapper" << std::endl;
+    auto &tensor{expr.template get<outer_product_wrapper<ValueType>>()};
+    const auto &indices_lhs{tensor.indices_lhs()};
+    const auto &indices_rhs{tensor.indices_rhs()};
+    sequence indices_old;
+    indices_old.reserve(indices_lhs.size() + indices_rhs.size());
+    indices_old.insert(indices_old.end(), indices_lhs.begin(),
+                       indices_lhs.end());
+    indices_old.insert(indices_old.end(), indices_rhs.begin(),
+                       indices_rhs.end());
+    sequence indices_new(indices_lhs.size() + indices_rhs.size());
+    sequence indices_new_lhs, indices_new_rhs;
+    indices_new_lhs.reserve(indices_lhs.size());
+    indices_new_rhs.reserve(indices_rhs.size());
+
+    // I_ik I_jl
+    // basis_change(outer_product(I, {1,3}, I, {2,4}), [3,2,1,4])
+    // {}
+    // old {1,3,2,4}
+    // new {2,3,1,4}
+
+    for (std::size_t i{0}; i < indices.size(); ++i) {
+      indices_new[i] = 1 + indices_old[indices[i] - 1];
+    }
+
+    indices_new_lhs.insert(indices_new_lhs.begin(), indices_new.begin(),
+                           indices_new.begin() + indices_lhs.size());
+    indices_new_rhs.insert(indices_new_rhs.begin(),
+                           indices_new.begin() + indices_lhs.size(),
+                           indices_new.end());
+    return otimes(tensor.expr_lhs(), std::move(indices_new_lhs),
+                  tensor.expr_rhs(), std::move(indices_new_rhs));
+    //
+    //    const auto& t_indices{tensor.indices()};
+    //    sequence new_order(t_indices.size());
+    //    for(std::size_t i{0}; i<t_indices.size(); ++i){
+    //      new_order[i] = t_indices[indices[i]-1];
+    //    }
+    //    //std::ranges::transform(indices, new_order,
+    //    //                       [&](std::size_t from){ return
+    //    std::move(t_indices[from-1]);}); for(const auto& el : indices){
+    //      std::cout<<el<<" ";
+    //    }
+    //    std::cout<<std::endl;
+    //    for(const auto& el : t_indices){
+    //      std::cout<<el<<" ";
+    //    }
+    //    std::cout<<std::endl;
+    //    for(const auto& el : new_order){
+    //      std::cout<<el<<" ";
+    //    }
+    //    std::cout<<std::endl;
+  }
+
+  // outer_product_wrapper
   return make_expression<basis_change_imp<ValueType>>(std::forward<Expr>(expr),
                                                       std::move(indices));
 }
+
+template <typename Expr> constexpr inline auto trans(Expr &&expr) {
+  using ValueType = typename remove_cvref_t<Expr>::value_type;
+  return make_expression<basis_change_imp<ValueType>>(std::forward<Expr>(expr),
+                                                      sequence{2, 1});
+}
+
 } // namespace numsim::cas
 
 #endif // TENSOR_FUNCTIONS_SYMTM_H

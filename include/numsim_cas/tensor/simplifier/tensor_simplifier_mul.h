@@ -196,27 +196,26 @@ public:
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
         lhs{base::m_lhs.template get<tensor_mul<value_type>>()} {}
 
-  auto operator()([[maybe_unused]] tensor<value_type> const &rhs) {
-    /// do a deep copy of data
+  // check if last element == rhs; if not just pushback element
+  template <typename Expr> auto operator()([[maybe_unused]] Expr const &rhs) {
     auto expr_mul{make_expression<tensor_mul<value_type>>(lhs)};
     auto &mul{expr_mul.template get<tensor_mul<value_type>>()};
-    /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
-    //    auto pos{lhs.hash_map().find(rhs.hash_value())};
-    //    if (pos != lhs.hash_map().end()) {
-    //      auto expr{pos->second * std::forward<ExprRHS>(m_rhs)};
-    //      mul.hash_map().erase(rhs.hash_value());
-    //      mul.push_back(expr);
-    //      return expr_mul;
-    //    }
-    /// no equal expr or sub_expr
+    if (lhs.data().back() == m_rhs) {
+      auto last_element{lhs.data().back()};
+      mul.data().erase(mul.data().end() - 1);
+      return std::move(expr_mul) * (last_element * m_rhs);
+    }
     mul.push_back(m_rhs);
     return expr_mul;
   }
 
-  template <typename Expr> auto operator()([[maybe_unused]] Expr const &rhs) {
+  // merge to tensor_mul objects
+  auto operator()([[maybe_unused]] tensor_mul<value_type> const &rhs) {
     auto expr_mul{make_expression<tensor_mul<value_type>>(lhs)};
     auto &mul{expr_mul.template get<tensor_mul<value_type>>()};
-    mul.push_back(m_rhs);
+    for (const auto &expr : rhs.data()) {
+      mul.push_back(expr);
+    }
     return expr_mul;
   }
 

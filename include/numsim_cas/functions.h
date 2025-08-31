@@ -6,6 +6,7 @@
 #include "numsim_cas_type_traits.h"
 #include "scalar/visitors/scalar_differentiation.h"
 #include "scalar/visitors/scalar_evaluator.h"
+#include "tensor/visitors/tensor_differentiation.h"
 #include "tensor/visitors/tensor_evaluator.h"
 
 namespace numsim::cas {
@@ -31,8 +32,10 @@ inline auto diff(expression_holder<scalar_expression<ValueType>> &&expr,
 }
 
 template <typename ValueType>
-inline auto diff(expression_holder<tensor_expression<ValueType>> expr) {
-  tensor_evaluator<ValueType> eval;
+constexpr inline expression_holder<tensor_expression<ValueType>>
+diff(expression_holder<tensor_expression<ValueType>> const &expr,
+     expression_holder<tensor_expression<ValueType>> const &arg) {
+  tensor_differentiation<ValueType> eval(arg);
   return eval.apply(expr);
 }
 
