@@ -27,7 +27,7 @@ public:
     if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
       auto constant{make_expression<scalar_constant<value_type>>(2)};
       return make_expression<tensor_scalar_mul<value_type>>(
-          constant, std::forward<ExprRHS>(m_rhs));
+          std::move(constant), std::forward<ExprRHS>(m_rhs));
     }
     // const auto lhs_constant{is_same<tensor_constant<value_type>>(m_lhs)};
     // const auto rhs_constant{is_same<tensor_constant<value_type>>(m_rhs)};
