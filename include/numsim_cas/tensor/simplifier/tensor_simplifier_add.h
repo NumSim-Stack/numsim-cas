@@ -24,6 +24,11 @@ public:
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   auto get_default() {
+    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
+      auto constant{make_expression<scalar_constant<value_type>>(2)};
+      return make_expression<tensor_scalar_mul<value_type>>(
+          constant, std::forward<ExprRHS>(m_rhs));
+    }
     // const auto lhs_constant{is_same<tensor_constant<value_type>>(m_lhs)};
     // const auto rhs_constant{is_same<tensor_constant<value_type>>(m_rhs)};
     auto add_new{make_expression<tensor_add<value_type>>(m_lhs.get().dim(),
@@ -136,16 +141,15 @@ public:
   //    return add_expr;
   //  }
 
-  auto operator()([[maybe_unused]] tensor<value_type> const &rhs) {
+  template <typename Expr> auto operator()(Expr const &rhs) {
     /// do a deep copy of data
     auto expr_add{make_expression<tensor_add<value_type>>(lhs)};
     auto &add{expr_add.template get<tensor_add<value_type>>()};
     /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
     auto pos{lhs.hash_map().find(rhs.hash_value())};
     if (pos != lhs.hash_map().end()) {
-      auto expr{binary_add_tensor_simplify(pos->second, m_rhs)};
       add.hash_map().erase(rhs.hash_value());
-      add.push_back(expr);
+      add.push_back(pos->second + m_rhs);
       return expr_add;
     }
     /// no equal expr or sub_expr
