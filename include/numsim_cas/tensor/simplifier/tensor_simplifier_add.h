@@ -285,6 +285,45 @@ private:
   tensor<value_type> const &lhs;
 };
 
+template <typename ExprLHS, typename ExprRHS>
+class tensor_scalar_mul_add final : public add_default<ExprLHS, ExprRHS> {
+public:
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
+  using expr_type = expression_holder<tensor_expression<value_type>>;
+  using base = add_default<ExprLHS, ExprRHS>;
+  using base::operator();
+  using base::get_default;
+
+  tensor_scalar_mul_add(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
+        lhs{base::m_lhs.template get<tensor_scalar_mul<value_type>>()} {}
+
+  // scalar_expr * lhs + rhs
+  template <typename Expr>
+  constexpr inline expr_type operator()(Expr const &rhs) {
+    if (lhs.expr_rhs().get().hash_value() == rhs.hash_value()) {
+      return (lhs.expr_lhs() + 1) * m_rhs;
+    }
+    return get_default();
+  }
+
+  // scalar_expr_lhs * lhs + scalar_expr_rhs * rhs
+  constexpr inline expr_type
+  operator()(tensor_scalar_mul<value_type> const &rhs) {
+    if (lhs.expr_rhs().get().hash_value() ==
+        rhs.expr_rhs().get().hash_value()) {
+      return (lhs.expr_lhs() + rhs.expr_lhs()) * m_rhs;
+    }
+    return get_default();
+  }
+
+private:
+  using base::m_lhs;
+  using base::m_rhs;
+  tensor_scalar_mul<value_type> const &lhs;
+};
+
 template <typename ExprLHS, typename ExprRHS> struct add_base {
   using value_type = typename std::remove_reference_t<
       std::remove_const_t<ExprLHS>>::value_type;
@@ -301,6 +340,13 @@ template <typename ExprLHS, typename ExprRHS> struct add_base {
     return visit(n_ary_add<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
                                              std::forward<ExprRHS>(m_rhs)),
                  *m_rhs);
+  }
+
+  constexpr inline expr_type operator()(tensor_scalar_mul<value_type> const &) {
+    return visit(
+        tensor_scalar_mul_add<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                                std::forward<ExprRHS>(m_rhs)),
+        *m_rhs);
   }
 
   //  constexpr inline expr_type operator()(scalar_mul<value_type> const&){
