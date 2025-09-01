@@ -5,7 +5,6 @@
 #include "../../operators.h"
 #include "../kronecker_delta.h"
 #include "../tensor_expression.h"
-#include "../tensor_functions.h"
 #include "../tensor_functions_fwd.h"
 #include <algorithm>
 

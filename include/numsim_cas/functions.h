@@ -10,13 +10,10 @@
 #include "tensor/visitors/tensor_evaluator.h"
 #include "tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h"
 
-namespace numsim::cas {
+#include "tensor/tensor_functions.h"
+#include "tensor_to_scalar/tensor_to_scalar_functions.h"
 
-template <typename ValueType>
-inline auto eval(expression_holder<tensor_expression<ValueType>> expr) {
-  tensor_evaluator<ValueType> eval;
-  return eval.apply(expr);
-}
+namespace numsim::cas {
 
 template <typename ValueType>
 inline auto diff(expression_holder<scalar_expression<ValueType>> &expr,
@@ -30,22 +27,6 @@ inline auto diff(expression_holder<scalar_expression<ValueType>> &&expr,
                  expression_holder<scalar_expression<ValueType>> const &arg) {
   scalar_differentiation<ValueType> visitor(arg);
   return visitor.apply(std::move(expr));
-}
-
-template <typename ValueType>
-inline auto
-diff(expression_holder<tensor_to_scalar_expression<ValueType>> const &expr,
-     expression_holder<tensor_expression<ValueType>> const &arg) {
-  tensor_to_scalar_differentiation<ValueType> visitor(arg);
-  return visitor.apply(expr);
-}
-
-template <typename ValueType>
-constexpr inline expression_holder<tensor_expression<ValueType>>
-diff(expression_holder<tensor_expression<ValueType>> const &expr,
-     expression_holder<tensor_expression<ValueType>> const &arg) {
-  tensor_differentiation<ValueType> eval(arg);
-  return eval.apply(expr);
 }
 
 template <typename ValueType>

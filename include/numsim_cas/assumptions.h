@@ -42,8 +42,8 @@ private:
 
 namespace std {
 template <> struct less<std::any> {
-  constexpr inline auto operator()(std::any const &lhs,
-                                   std::any const &rhs) const noexcept {
+  inline auto operator()(std::any const &lhs,
+                         std::any const &rhs) const noexcept {
     return lhs.type().hash_code() < rhs.type().hash_code();
   }
 };

@@ -4,6 +4,8 @@
 #include "../../numsim_cas_type_traits.h"
 #include "../../printer_base.h"
 #include "../../scalar/visitors/scalar_printer.h"
+#include "../../tensor_to_scalar/visitors/tensor_to_scalar_printer.h"
+
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -352,21 +354,38 @@ public:
              [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
+    scalar_printer<ValueType, StreamType> scalar_printer(m_out);
     apply(visitable.expr_lhs(), Precedence::Division_LHS);
     m_out << "/";
-    apply(visitable.expr_rhs(), Precedence::Division_RHS);
+    scalar_printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
     end(precedence, parent_precedence);
   }
 
   void
   operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul<ValueType> const
                  &visitable,
-             [[maybe_unused]] Precedence parent_precedence) {}
+             [[maybe_unused]] Precedence parent_precedence) {
+    constexpr auto precedence{Precedence::Multiplication};
+    begin(precedence, parent_precedence);
+    tensor_to_scalar_printer<ValueType, StreamType> printer(m_out);
+    printer.apply(visitable.expr_lhs(), precedence);
+    m_out << "*";
+    apply(visitable.expr_rhs(), precedence);
+    end(precedence, parent_precedence);
+  }
 
   void
   operator()([[maybe_unused]] tensor_to_scalar_with_tensor_div<ValueType> const
                  &visitable,
-             [[maybe_unused]] Precedence parent_precedence) {}
+             [[maybe_unused]] Precedence parent_precedence) {
+    constexpr auto precedence{Precedence::Multiplication};
+    tensor_to_scalar_printer<ValueType, StreamType> printer(m_out);
+    begin(precedence, parent_precedence);
+    apply(visitable.expr_lhs(), Precedence::Division_LHS);
+    m_out << "/";
+    printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
+    end(precedence, parent_precedence);
+  }
 
   /**
    * @brief Prints a tensor deviatoric expression.

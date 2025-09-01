@@ -4,7 +4,7 @@
 #include "../expression.h"
 #include "../expression_holder.h"
 #include "../numsim_cas_type_traits.h"
-#include "visitors/tensor_scalar_printer.h"
+#include "visitors/tensor_to_scalar_printer.h"
 #include <cstdlib>
 
 namespace numsim::cas {

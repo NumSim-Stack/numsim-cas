@@ -3,6 +3,7 @@
 
 #include "../../numsim_cas_type_traits.h"
 #include "../../printer_base.h"
+#include "../scalar_functions_fwd.h"
 #include <algorithm>
 #include <iostream>
 #include <variant>

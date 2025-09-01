@@ -21,8 +21,6 @@ template <typename Derived, typename StreamType> class printer_base {
 public:
   printer_base(StreamType &out) : m_out(out) {}
 
-  void print(std::string_view out) { m_out << out; }
-
   template <typename ExprType>
   auto apply(expression_holder<ExprType> const &expr,
              Precedence parent_precedence = Precedence::None) {
@@ -62,7 +60,7 @@ protected:
   template <typename Visitable>
   void print_unary(std::string_view name, Visitable const &visitable) {
     m_out << name << "(";
-    static_cast<Derived &>(*this).apply(visitable.expr());
+    print(m_out, visitable.expr());
     m_out << ")";
   }
 

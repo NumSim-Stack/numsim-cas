@@ -2,13 +2,16 @@
 #define TENSOR_FUNCTIONS_SYMTM_H
 
 #include "../numsim_cas_type_traits.h"
-#include "../tensor_to_scalar/tensor_inner_product_to_scalar.h"
 #include "data/tensor_data_make_imp.h"
 #include "simplifier/tensor_simplifier_add.h"
 #include "simplifier/tensor_simplifier_mul.h"
 #include "simplifier/tensor_simplifier_sub.h"
 #include "simplifier/tensor_with_scalar_simplifier_div.h"
 #include "simplifier/tensor_with_scalar_simplifier_mul.h"
+#include "visitors/tensor_differentiation.h"
+#include "visitors/tensor_evaluator.h"
+#include "visitors/tensor_printer.h"
+
 #include <cstdlib>
 #include <ranges>
 #include <vector>
@@ -184,6 +187,28 @@ template <typename Expr> constexpr inline auto trans(Expr &&expr) {
                                                       sequence{2, 1});
 }
 
+template <typename ValueType, typename StreamType>
+constexpr inline void
+print(StreamType &out,
+      expression_holder<tensor_expression<ValueType>> const &expr,
+      Precedence precedence) {
+  tensor_printer<ValueType, StreamType> eval(out);
+  eval.apply(expr, precedence);
+}
+
+template <typename ValueType>
+constexpr inline expression_holder<tensor_expression<ValueType>>
+diff(expression_holder<tensor_expression<ValueType>> const &expr,
+     expression_holder<tensor_expression<ValueType>> const &arg) {
+  tensor_differentiation<ValueType> eval(arg);
+  return eval.apply(expr);
+}
+
+template <typename ValueType>
+inline auto eval(expression_holder<tensor_expression<ValueType>> expr) {
+  tensor_evaluator<ValueType> eval;
+  return eval.apply(expr);
+}
 } // namespace numsim::cas
 
 #endif // TENSOR_FUNCTIONS_SYMTM_H
