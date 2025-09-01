@@ -409,6 +409,11 @@ public:
     print_unary("sym", visitable);
   }
 
+  void operator()(tensor_inv<ValueType> const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
+    print_unary("inv", visitable);
+  }
+
   /**
    * @brief Prints a zero tensor.
    *

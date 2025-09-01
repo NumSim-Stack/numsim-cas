@@ -6,12 +6,13 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
-[[nodiscard]] constexpr inline expression_holder<tensor_expression<ValueType>>
-diff(expression_holder<tensor_expression<ValueType>> const &expr,
-     expression_holder<tensor_expression<ValueType>> const &arg);
+template <typename ExprLHS, typename ExprRHS>
+constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
+                                    ExprRHS &&rhs, sequence &&rhs_indices);
 
 template <typename Expr> constexpr inline auto trans(Expr &&expr);
+
+template <typename Expr> constexpr inline auto inv(Expr &&expr);
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>

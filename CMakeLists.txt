@@ -80,6 +80,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/functions/tensor_symmetry.h
     include/numsim_cas/tensor/functions/tensor_deviatoric.h
     include/numsim_cas/tensor/functions/tensor_pow.h
+    include/numsim_cas/tensor/functions/tensor_inv.h
     include/numsim_cas/tensor/data/tensor_data.h
     include/numsim_cas/tensor/data/tensor_data_add.h
     include/numsim_cas/tensor/data/tensor_data_basis_change.h

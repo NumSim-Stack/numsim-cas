@@ -82,12 +82,12 @@ struct operator_overload<
     expression_holder<tensor_expression<ValueType>>,
     expression_holder<tensor_to_scalar_expression<ValueType>>> {
 
-  //  template <typename ExprTypeLHS, typename ExprTypeRHS>
-  //  [[nodiscard]] static constexpr inline auto div(ExprTypeLHS &&lhs,
-  //                                                 ExprTypeRHS &&rhs) {
-  //    return binary_div_tensor_simplify(std::forward<ExprTypeLHS>(lhs),
-  //                                      std::forward<ExprTypeRHS>(rhs));
-  //  }
+  template <typename ExprTypeLHS, typename ExprTypeRHS>
+  [[nodiscard]] static constexpr inline auto div(ExprTypeLHS &&lhs,
+                                                 ExprTypeRHS &&rhs) {
+    return make_expression<tensor_to_scalar_with_tensor_div<ValueType>>(
+        std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
+  }
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto mul(ExprTypeLHS &&lhs,

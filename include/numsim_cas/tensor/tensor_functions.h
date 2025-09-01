@@ -187,6 +187,11 @@ template <typename Expr> constexpr inline auto trans(Expr &&expr) {
                                                       sequence{2, 1});
 }
 
+template <typename Expr> constexpr inline auto inv(Expr &&expr) {
+  using ValueType = typename remove_cvref_t<Expr>::value_type;
+  return make_expression<tensor_inv<ValueType>>(std::forward<Expr>(expr));
+}
+
 template <typename ValueType, typename StreamType>
 constexpr inline void
 print(StreamType &out,
