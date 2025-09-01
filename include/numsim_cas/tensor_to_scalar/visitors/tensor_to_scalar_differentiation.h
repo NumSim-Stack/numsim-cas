@@ -78,7 +78,7 @@ public:
 
   // d(-expr) = -dexpr
   void operator()(tensor_to_scalar_negative<ValueType> const &visitable) {
-    return -diff(visitable.expr(), m_arg);
+    m_result = -diff(visitable.expr(), m_arg);
   }
 
   void operator()(
