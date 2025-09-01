@@ -1,13 +1,13 @@
 #ifndef TENSOR_DIFFERENTIATION_H
 #define TENSOR_DIFFERENTIATION_H
 
-#include <algorithm>
-
 #include "../../numsim_cas_type_traits.h"
+#include "../../operators.h"
 #include "../kronecker_delta.h"
 #include "../tensor_expression.h"
 #include "../tensor_functions.h"
 #include "../tensor_functions_fwd.h"
+#include <algorithm>
 
 namespace numsim::cas {
 
@@ -298,6 +298,10 @@ public:
   void operator()(tensor_scalar_mul<ValueType> const &) {}
 
   void operator()(tensor_scalar_div<ValueType> const &) {}
+
+  void operator()(tensor_to_scalar_with_tensor_mul<ValueType> const &) {}
+
+  void operator()(tensor_to_scalar_with_tensor_div<ValueType> const &) {}
 
   void operator()(tensor_deviatoric<ValueType> const &) {}
 

@@ -202,24 +202,27 @@ template <typename ValueType> class basis_change_imp;
 template <typename ValueType> class outer_product_wrapper;
 template <typename ValueType> class kronecker_delta;
 template <typename ValueType> class simple_outer_product;
-template <typename ValueType> class tensor_scalar_mul;
-template <typename ValueType> class tensor_scalar_div;
 template <typename ValueType> class tensor_symmetry;
 template <typename ValueType> class tensor_deviatoric;
 template <typename ValueType> class tensor_zero;
 template <typename ValueType> class tensor_identity;
-// det, tr, adj, skew, vol, dev,
-
+template <typename ValueType> class tensor_scalar_mul;
+template <typename ValueType> class tensor_scalar_div;
+template <typename ValueType> class tensor_to_scalar_with_tensor_mul;
+template <typename ValueType> class tensor_to_scalar_with_tensor_div;
+// det, adj, skew, vol, dev,
 template <typename ValueType>
 using tensor_node =
     std::variant<tensor<ValueType>, tensor_negative<ValueType>,
                  inner_product_wrapper<ValueType>, basis_change_imp<ValueType>,
                  outer_product_wrapper<ValueType>, kronecker_delta<ValueType>,
                  simple_outer_product<ValueType>, tensor_add<ValueType>,
-                 tensor_mul<ValueType>, tensor_scalar_mul<ValueType>,
-                 tensor_scalar_div<ValueType>, tensor_symmetry<ValueType>,
+                 tensor_mul<ValueType>, tensor_symmetry<ValueType>,
                  tensor_deviatoric<ValueType>, tensor_zero<ValueType>,
-                 tensor_pow<ValueType>, tensor_identity<ValueType>>;
+                 tensor_pow<ValueType>, tensor_identity<ValueType>,
+                 tensor_scalar_mul<ValueType>, tensor_scalar_div<ValueType>,
+                 tensor_to_scalar_with_tensor_mul<ValueType>,
+                 tensor_to_scalar_with_tensor_div<ValueType>>;
 
 // scalar
 template <typename ValueType> class scalar_expression;
@@ -664,6 +667,18 @@ template <class T>
 struct result_expression<float,
                          expression_holder<tensor_to_scalar_expression<T>>> {
   using type = expression_holder<tensor_to_scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
+                         expression_holder<tensor_expression<T>>> {
+  using type = expression_holder<tensor_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_expression<T>>,
+                         expression_holder<tensor_to_scalar_expression<T>>> {
+  using type = expression_holder<tensor_expression<T>>;
 };
 
 template <class T>

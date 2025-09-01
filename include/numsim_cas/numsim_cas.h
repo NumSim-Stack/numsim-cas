@@ -102,6 +102,8 @@
 #include "tensor/operators/tensor/tensor_add.h"
 #include "tensor/operators/tensor/tensor_mul.h"
 #include "tensor/operators/tensor/tensor_sub.h"
+#include "tensor/operators/tensor_to_scalar/tensor_to_scalar_with_tensor_div.h"
+#include "tensor/operators/tensor_to_scalar/tensor_to_scalar_with_tensor_mul.h"
 #include "tensor/scalar_tensor_op.h"
 #include "tensor/tensor.h"
 #include "tensor/tensor_compare_less_visitor.h"
@@ -125,6 +127,7 @@
 #include "tensor_to_scalar/tensor_to_scalar_pow.h"
 #include "tensor_to_scalar/tensor_to_scalar_std.h"
 #include "tensor_to_scalar/tensor_trace.h"
+#include "tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h"
 
 // generall headers
 #include "operators.h"

@@ -132,6 +132,10 @@ public:
     //  op.evaluate(dim, rank);
   }
 
+  void operator()(tensor_to_scalar_with_tensor_mul<ValueType> const &) {}
+
+  void operator()(tensor_to_scalar_with_tensor_div<ValueType> const &) {}
+
   virtual void operator()(tensor_symmetry<ValueType> &) {}
 
   virtual void operator()(tensor_deviatoric<ValueType> &) {}

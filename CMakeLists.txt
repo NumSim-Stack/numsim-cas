@@ -181,6 +181,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_sub.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_div.h
     include/numsim_cas/tensor_to_scalar/visitors/tensor_scalar_printer.h
+    include/numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_sub.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_mul.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h

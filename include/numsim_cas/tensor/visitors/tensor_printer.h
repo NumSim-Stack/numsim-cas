@@ -358,6 +358,16 @@ public:
     end(precedence, parent_precedence);
   }
 
+  void
+  operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul<ValueType> const
+                 &visitable,
+             [[maybe_unused]] Precedence parent_precedence) {}
+
+  void
+  operator()([[maybe_unused]] tensor_to_scalar_with_tensor_div<ValueType> const
+                 &visitable,
+             [[maybe_unused]] Precedence parent_precedence) {}
+
   /**
    * @brief Prints a tensor deviatoric expression.
    *
