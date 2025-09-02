@@ -113,6 +113,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/simplifier/tensor_with_scalar_simplifier_div.h
     include/numsim_cas/tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_mul.h
     include/numsim_cas/tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_div.h
+    include/numsim_cas/tensor/simplifier/tensor_inner_product_simplifier.h
     include/numsim_cas/tensor/visitors/tensor_differentiation.h
     include/numsim_cas/tensor/visitors/tensor_printer.h
     include/numsim_cas/tensor/visitors/tensor_evaluator.h

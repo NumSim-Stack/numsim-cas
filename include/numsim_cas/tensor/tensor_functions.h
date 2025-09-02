@@ -3,6 +3,7 @@
 
 #include "../numsim_cas_type_traits.h"
 #include "data/tensor_data_make_imp.h"
+#include "simplifier/tensor_inner_product_simplifier.h"
 #include "simplifier/tensor_simplifier_add.h"
 #include "simplifier/tensor_simplifier_mul.h"
 #include "simplifier/tensor_simplifier_sub.h"
@@ -74,13 +75,17 @@ constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {
 template <typename ExprLHS, typename ExprRHS>
 constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                     ExprRHS &&rhs, sequence &&rhs_indices) {
-  using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
+  // using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
   assert(call_tensor::rank(lhs) != lhs_indices.size() ||
          call_tensor::rank(rhs) != rhs_indices.size());
-  // tensor_expression
-  return make_expression<inner_product_wrapper<ValueType>>(
+  const auto &_lhs{*lhs};
+  inner_product_simplifier<ExprLHS, ExprRHS> simplifier(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
+  return std::visit(simplifier, _lhs);
+  //  return make_expression<inner_product_wrapper<ValueType>>(
+  //      std::forward<ExprLHS>(lhs), std::move(lhs_indices),
+  //      std::forward<ExprRHS>(rhs), std::move(rhs_indices));
 }
 
 template <typename ExprLHS, typename ExprRHS>
@@ -90,6 +95,22 @@ constexpr inline auto otimes(ExprLHS &&lhs, sequence &&lhs_indices,
   return make_expression<outer_product_wrapper<ValueType>>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
+}
+
+template <typename ExprLHS, typename ExprRHS>
+constexpr inline auto otimesu(ExprLHS &&lhs, ExprRHS &&rhs) {
+  using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
+  return make_expression<outer_product_wrapper<ValueType>>(
+      std::forward<ExprLHS>(lhs), std::move(sequence{1, 3}),
+      std::forward<ExprRHS>(rhs), std::move(sequence{2, 4}));
+}
+
+template <typename ExprLHS, typename ExprRHS>
+constexpr inline auto otimesl(ExprLHS &&lhs, ExprRHS &&rhs) {
+  using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
+  return make_expression<outer_product_wrapper<ValueType>>(
+      std::forward<ExprLHS>(lhs), std::move(sequence{1, 4}),
+      std::forward<ExprRHS>(rhs), std::move(sequence{2, 3}));
 }
 
 template <typename Expr>

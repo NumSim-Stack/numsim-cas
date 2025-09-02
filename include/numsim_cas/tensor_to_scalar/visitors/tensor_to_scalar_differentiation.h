@@ -82,7 +82,9 @@ public:
   }
 
   void operator()(
-      [[maybe_unused]] tensor_to_scalar_mul<ValueType> const &visitable) {}
+      [[maybe_unused]] tensor_to_scalar_mul<ValueType> const &visitable) {
+    // expr_type result;
+  }
 
   void operator()(
       [[maybe_unused]] tensor_to_scalar_add<ValueType> const &visitable) {}
