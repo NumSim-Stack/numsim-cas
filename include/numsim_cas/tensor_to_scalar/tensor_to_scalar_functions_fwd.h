@@ -9,6 +9,9 @@ template <typename ExprLHS, typename ExprRHS>
 constexpr inline auto dot_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                   ExprRHS &&rhs, sequence &&rhs_indices);
 
+template <typename Expr>
+constexpr inline auto dot(Expr &&expr);
+
 template <typename ValueType, typename StreamType>
 constexpr inline void
 print(StreamType &out,

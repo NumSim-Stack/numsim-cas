@@ -80,7 +80,6 @@ public:
   /// f'(x) = sum_i^n a_i'(x)
   void operator()([[maybe_unused]] scalar_add<ValueType> const &visitable) {
     expr_t expr_result;
-    auto add{make_expression<scalar_add<ValueType>>()};
     for (auto &child : visitable.hash_map() | std::views::values) {
       scalar_differentiation diff(m_arg);
       expr_result += diff.apply(child);

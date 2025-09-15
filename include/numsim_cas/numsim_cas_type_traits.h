@@ -204,6 +204,7 @@ template <typename ValueType> class kronecker_delta;
 template <typename ValueType> class simple_outer_product;
 template <typename ValueType> class tensor_symmetry;
 template <typename ValueType> class tensor_deviatoric;
+template <typename ValueType> class tensor_volumetric;
 template <typename ValueType> class tensor_inv;
 template <typename ValueType> class tensor_zero;
 template <typename ValueType> class tensor_identity;
@@ -219,7 +220,8 @@ using tensor_node = std::variant<
     outer_product_wrapper<ValueType>, kronecker_delta<ValueType>,
     simple_outer_product<ValueType>, tensor_add<ValueType>,
     tensor_mul<ValueType>, tensor_symmetry<ValueType>, tensor_inv<ValueType>,
-    tensor_deviatoric<ValueType>, tensor_zero<ValueType>, tensor_pow<ValueType>,
+    tensor_deviatoric<ValueType>, tensor_volumetric<ValueType>,
+    tensor_zero<ValueType>, tensor_pow<ValueType>,
     tensor_identity<ValueType>, tensor_scalar_mul<ValueType>,
     tensor_scalar_div<ValueType>, tensor_to_scalar_with_tensor_mul<ValueType>,
     tensor_to_scalar_with_tensor_div<ValueType>>;

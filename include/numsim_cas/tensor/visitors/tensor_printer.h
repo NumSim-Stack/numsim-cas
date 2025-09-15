@@ -398,6 +398,11 @@ public:
     print_unary("dev", visitable);
   }
 
+  void operator()(tensor_volumetric<ValueType> const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
+    print_unary("vol", visitable);
+  }
+
   /**
    * @brief Prints a tensor symmetry expression.
    *

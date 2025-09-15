@@ -20,8 +20,6 @@ public:
   tensor_dot() = delete;
   ~tensor_dot() = default;
   const tensor_dot &operator=(tensor_dot &&) = delete;
-
-private:
 };
 } // namespace numsim::cas
 

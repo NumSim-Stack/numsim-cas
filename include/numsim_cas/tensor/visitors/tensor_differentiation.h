@@ -15,7 +15,9 @@ public:
   using value_type = ValueType;
   using expr_type = expression_holder<tensor_expression<value_type>>;
 
-  tensor_differentiation(expr_type const &arg) : m_arg(arg) {}
+  tensor_differentiation(expr_type const &arg) : m_arg(arg) {
+    I = make_expression<kronecker_delta<value_type>>(m_arg.get().dim());
+  }
   tensor_differentiation(tensor_differentiation const &) = delete;
   tensor_differentiation(tensor_differentiation &&) = delete;
   const tensor_differentiation &
@@ -28,6 +30,9 @@ public:
       m_rank_result = expr.get().rank() + m_arg.get().rank();
       m_rank_arg = m_arg.get().rank();
       std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
+    }
+    if(!m_result.is_valid()){
+      return make_expression<tensor_zero<value_type>>(m_dim, m_rank_result);
     }
     return m_result;
   }
@@ -294,7 +299,10 @@ public:
 
   // void operator()(simple_outer_product<ValueType> &visitable) {}
 
-  void operator()(tensor_scalar_mul<ValueType> const &) {}
+  // (scalar*tensor)' = scalar*tensor'
+  void operator()(tensor_scalar_mul<ValueType> const &visitable) {
+    m_result = visitable.expr_lhs()*diff(visitable.expr_rhs(), m_arg);
+  }
 
   void operator()(tensor_scalar_div<ValueType> const &) {}
 
@@ -302,7 +310,22 @@ public:
 
   void operator()(tensor_to_scalar_with_tensor_div<ValueType> const &) {}
 
-  void operator()(tensor_deviatoric<ValueType> const &) {}
+  //dev(A[X])' = (A[X] - vol(A[X]))' = (A[X] - trace(A[X])/dim(A)*I)'
+  //        = dAdX - otimes(I,I):dAdX/dim(A)
+  void operator()([[maybe_unused]]tensor_deviatoric<ValueType> const &visitable) {
+    auto result{diff(visitable.expr(), m_arg)};
+    m_result = result - inner_product(otimes(I,I), sequence{3,4}, result, sequence{1,2})/static_cast<value_type>(m_dim);
+  }
+
+  // (vol(A[X]))' = (trace(A[X])*I/dim(A))' = otimes(I,I):dAdX/dim(A)
+  void operator()(tensor_volumetric<ValueType> const &visitable) {
+    auto result{diff(visitable.expr(), m_arg)};
+    // 0.5 * I_ij * I_kl * (I_km * I_ln + I_kn * I_lm)
+    // 0.5 * I_ij * (I_lm * I_ln + I_ln * I_lm)
+    // 0.5 * I_ij * (I_mn + I_mn)
+    // I_ij * I_mn
+    m_result = inner_product(otimes(I,I), sequence{3,4}, result, sequence{1,2});
+  }
 
   void operator()(tensor_inv<ValueType> const &) {}
 
@@ -385,6 +408,7 @@ private:
   std::size_t m_rank_arg{0};
   expr_type m_result{nullptr};
   expr_type m_expr;
+  expr_type I;
 };
 
 } // namespace numsim::cas

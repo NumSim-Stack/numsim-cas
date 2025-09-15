@@ -40,6 +40,8 @@ struct otimes_check {
 } // namespace detail
 } // namespace numsim::cas
 
+
+
 namespace numsim::cas {
 
 template <typename ExprLHS, typename ExprRHS>
@@ -64,11 +66,13 @@ public:
     return get_default();
   }
 
-  // otimesu(I,I) [*] expr
+  // expr [*] otimesu(I,I)
   constexpr inline auto operator()(outer_product_wrapper<value_type> const &) {
     const detail::otimes_check<value_type, kronecker_delta, kronecker_delta>
         check(sequence{0, 2}, sequence{1, 3});
-    if (m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{2, 4} &&
+    if (((m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{1, 2}) ||
+         (m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{3, 4})
+         ) &&
         m_lhs.get().rank() == 2 && check.inner_check(m_rhs)) {
       return std::forward<ExprLHS>(m_lhs);
     }
@@ -96,6 +100,8 @@ template <typename ExprLHS, typename ExprRHS>
 class inner_product_simplifier_kronecker_delta final
     : public inner_product_simplifier_default<ExprLHS, ExprRHS> {
 public:
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
   using base = inner_product_simplifier_default<ExprLHS, ExprRHS>;
   using base::operator();
   using base::get_default;
@@ -112,6 +118,16 @@ public:
     if (rhs.rank() == 2 && sequence{2} == m_seq_lhs &&
         sequence{1} == m_seq_rhs) {
       return std::forward<ExprRHS>(m_rhs);
+    }
+    return get_default();
+  }
+
+  constexpr inline auto operator()(outer_product_wrapper<value_type> const &rhs) {
+    // I:otimes(epxr, expr) = I_ij (expr_ij, expr_kl) = trace(expr)*expr
+    if(rhs.expr_lhs().get().rank() == 2 && m_seq_lhs == sequence{1,2} && m_seq_lhs == sequence{1,2}){
+      if(rhs.indices_lhs() == sequence{1,2}){
+        return trace(rhs.expr_lhs())*rhs.expr_rhs();
+      }
     }
     return get_default();
   }
@@ -141,7 +157,8 @@ public:
     // otimesu(I,I) : expr --> expr
     const detail::otimes_check<value_type, kronecker_delta, kronecker_delta>
         check(sequence{0, 2}, sequence{1, 3});
-    if (m_seq_lhs == sequence{2, 4} && m_seq_rhs == sequence{1, 2} &&
+    if (((m_seq_lhs == sequence{3, 4} && m_seq_rhs == sequence{1, 2}) ||
+         (m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{1, 2})) &&
         rhs.rank() == 2 && check.inner_check(m_lhs)) {
       return std::forward<ExprRHS>(m_rhs);
     }
@@ -164,6 +181,12 @@ public:
                            ExprRHS &&rhs, sequence &&sequence_rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)),
         m_seq_lhs(std::move(sequence_lhs)), m_seq_rhs(std::move(sequence_rhs)) {
+  }
+
+  inner_product_simplifier(ExprLHS &&lhs, sequence const&sequence_lhs,
+                           ExprRHS &&rhs, sequence const&sequence_rhs)
+      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)),
+        m_seq_lhs(sequence_lhs), m_seq_rhs(sequence_rhs) {
   }
 
   // I [*] expr

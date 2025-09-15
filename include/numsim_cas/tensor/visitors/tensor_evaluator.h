@@ -136,10 +136,12 @@ public:
 
   void operator()(tensor_to_scalar_with_tensor_div<ValueType> const &) {}
 
-  virtual void operator()(tensor_symmetry<ValueType> &) {}
+  void operator()(tensor_symmetry<ValueType> const&) {}
 
-  virtual void operator()(tensor_deviatoric<ValueType> &) {}
-  virtual void operator()(tensor_inv<ValueType> &) {}
+  void operator()(tensor_deviatoric<ValueType> const&) {}
+  void operator()(tensor_volumetric<ValueType> const &) {
+  }
+  void operator()(tensor_inv<ValueType> const&) {}
 
 protected:
   std::size_t dim;

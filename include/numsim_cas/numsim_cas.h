@@ -98,6 +98,7 @@
 #include "tensor/functions/tensor_inv.h"
 #include "tensor/functions/tensor_pow.h"
 #include "tensor/functions/tensor_symmetry.h"
+#include "tensor/functions/tensor_volumetric.h"
 #include "tensor/operators/scalar/tensor_scalar_div.h"
 #include "tensor/operators/scalar/tensor_scalar_mul.h"
 #include "tensor/operators/tensor/tensor_add.h"
