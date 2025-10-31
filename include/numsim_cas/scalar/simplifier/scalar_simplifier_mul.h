@@ -198,7 +198,7 @@ public:
   }
 
   auto operator()([[maybe_unused]] scalar_pow<value_type> const &rhs) {
-    if (lhs.hash_value() == rhs.hash_value()) {
+    if (lhs.expr_lhs().get().hash_value() == rhs.expr_lhs().get().hash_value()) {
       const auto rhs_expr{lhs.expr_rhs() + rhs.expr_rhs()};
       return make_expression<scalar_pow<value_type>>(lhs.expr_lhs(),
                                                      std::move(rhs_expr));

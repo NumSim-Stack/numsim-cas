@@ -124,11 +124,11 @@ public:
 
   constexpr inline auto operator()(outer_product_wrapper<value_type> const &rhs) {
     // I:otimes(epxr, expr) = I_ij (expr_ij, expr_kl) = trace(expr)*expr
-    if(rhs.expr_lhs().get().rank() == 2 && m_seq_lhs == sequence{1,2} && m_seq_lhs == sequence{1,2}){
-      if(rhs.indices_lhs() == sequence{1,2}){
-        return trace(rhs.expr_lhs())*rhs.expr_rhs();
-      }
-    }
+    // if(rhs.expr_lhs().get().rank() == 2 && m_seq_lhs == sequence{1,2} && m_seq_lhs == sequence{1,2}){
+    //   if(rhs.indices_lhs() == sequence{1,2}){
+    //     return trace(rhs.expr_lhs())*rhs.expr_rhs();
+    //   }
+    // }
     return get_default();
   }
 

@@ -93,9 +93,31 @@ public:
     m_result = -diff(visitable.expr(), m_arg);
   }
 
+  /// product rule
+  /// f(x)  = c * prod_i^n a_i(x)
+  /// f'(x)  = c * sum_j^n a_j(x) prod_i^{n, i\neq j} a_i(x)
   void operator()(
       [[maybe_unused]] tensor_to_scalar_mul<ValueType> const &visitable) {
-    // expr_type result;
+    result_expr_type expr_result;
+    for (auto &expr_out : visitable.hash_map() | std::views::values) {
+      result_expr_type expr_result_in;
+      // first get the diff
+      for (auto &expr_in : visitable.hash_map() | std::views::values) {
+        if (expr_out == expr_in) {
+          expr_result_in *= diff(expr_in, m_arg);
+          break;
+        }
+      }
+
+      // now check if the diff is valid and not zero
+      if(expr_result_in.is_valid() && is_same<tensor_zero<value_type>>(expr_result_in)){
+        for (auto &expr_in : visitable.hash_map() | std::views::values) {
+          expr_result_in = std::move(std::move(expr_result_in) * expr_in);
+        }
+      }
+      expr_result += expr_result_in;
+    }
+    m_result = std::move(expr_result);
   }
 
   /// summation rule

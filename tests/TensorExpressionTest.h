@@ -180,4 +180,94 @@ TYPED_TEST(TensorExpressionTest, TensorInnerproductPrint) {
             "dot(A+B, [1,3,2,4], A+B, [1,2,3,4])");
 }
 
+TYPED_TEST(TensorExpressionTest, TensorIdentityAndZeroMore) {
+  auto &X = this->X, &A = this->A;
+  auto &Zero = this->_Zero, &One = this->_One;
+
+  EXPECT_EQ(std::to_string(X * One), "X");    // right identity
+  EXPECT_EQ(std::to_string(One * X), "X");    // left identity (already have)
+  EXPECT_EQ(std::to_string(A * One), "A");
+  EXPECT_EQ(std::to_string(One * A), "A");
+
+  EXPECT_EQ(std::to_string(X + Zero), "X");   // additive identity
+  EXPECT_EQ(std::to_string(Zero + X), "X");
+
+  EXPECT_EQ(std::to_string(X * Zero), "0");   // annihilator (right)
+  EXPECT_EQ(std::to_string(Zero * X), "0");   // annihilator (left)
+}
+
+TYPED_TEST(TensorExpressionTest, TensorAdditionAssociativityCanonical) {
+  auto &X = this->X, &Y = this->Y, &Z = this->Z;
+
+  EXPECT_EQ(std::to_string(X + (Y + Z)), "X+Y+Z");          // flattening
+  EXPECT_EQ(std::to_string((X + Y) + Z), "X+Y+Z");          // associativity (print)
+  EXPECT_EQ(std::to_string(X + X + X), "3*X");              // coefficient collection
+  EXPECT_EQ(std::to_string(Z + Y + X + Y + Z + X), "2*X+2*Y+2*Z"); // ordering + grouping
+}
+
+TYPED_TEST(TensorExpressionTest, TensorScalarCoeffCollection) {
+  auto &X = this->X;
+  auto &_2 = this->_2, &_3 = this->_3;
+  auto &x = this->x, &y = this->y;
+
+  EXPECT_EQ(std::to_string(_2 * X + _3 * X), "5*X");        // numeric coeffs
+  EXPECT_EQ(std::to_string(x * X + x * X), "2*x*X");        // same symbolic coeff
+  EXPECT_EQ(std::to_string(y * x * X + x * y * X), "2*x*y*X"); // product canon + merge
+}
+
+TYPED_TEST(TensorExpressionTest, TensorProductOrderAndPowersMore) {
+  auto &X = this->X, &Y = this->Y;
+  auto &x = this->x, &y = this->y;
+  auto &_2 = this->_2, &_3 = this->_3;
+
+  EXPECT_EQ(std::to_string(x * y * X * Y), "x*y*X*Y");      // scalars before tensors; keep tensor order
+  EXPECT_EQ(std::to_string(y * x * X * Y), "x*y*X*Y");      // canonical product ordering
+  EXPECT_EQ(std::to_string(std::pow(X, _2) * std::pow(X, _2)), "pow(X,4)"); // power add
+  EXPECT_EQ(std::to_string(std::pow(X, _2) * X * Y), "pow(X,3)*Y");         // assoc + pow bump
+}
+
+TYPED_TEST(TensorExpressionTest, TensorDivisionFormattingMore) {
+  auto &X = this->X;
+  auto &x = this->x, &y = this->y;
+
+  EXPECT_EQ(std::to_string(X / (y * x)), "X/(x*y)");        // denominator canonicalization
+  EXPECT_EQ(std::to_string((X / x) / y), "X/(x*y)");        // flatten chain
+}
+
+TYPED_TEST(TensorExpressionTest, TensorNegationCombinations) {
+  auto &X = this->X, &Y = this->Y;
+
+  EXPECT_EQ(std::to_string(X + (-X)), "0");                 // additive inverse
+  EXPECT_EQ(std::to_string((-X) + (-X)), "-2*X");           // negative factor combine
+  EXPECT_EQ(std::to_string(-(X + Y)), "-(X+Y)");            // parentheses under negation
+}
+
+TYPED_TEST(TensorExpressionTest, TensorInnerProductScalarFactor) {
+  using seq = numsim::cas::sequence;
+  using numsim::cas::inner_product;
+
+  auto &X = this->X;
+  auto &x = this->x;
+
+         // pull-through of scalar factors (no distribution over sums)
+  EXPECT_EQ(std::to_string(inner_product(x * X, seq{2}, X, seq{1})), "x*X*X");
+  EXPECT_EQ(std::to_string(inner_product(X, seq{2}, x * X, seq{1})), "x*X*X");
+}
+
+TYPED_TEST(TensorExpressionTest, TensorDotProductNoDistribution) {
+  using seq = numsim::cas::sequence;
+  using numsim::cas::dot_product;
+
+  auto &A = this->A, &B = this->B, &X = this->X, &Y = this->Y;
+  auto &x = this->x;
+
+  EXPECT_EQ(std::to_string(dot_product(A + B, seq{1,2,3,4}, B, seq{1,2,3,4})),
+            "(A+B)::B");                                   // keep grouping
+  EXPECT_EQ(std::to_string(dot_product(A, seq{1,2}, X + Y, seq{1,2})),
+            "A:(X+Y)");                                    // no distribution over +
+  EXPECT_EQ(std::to_string(dot_product(A, seq{1,2}, x * X, seq{1,2})),
+            "A:x*X");                                      // scalar factors pulled cleanly
+}
+
+
 #endif // TENSOREXPRESSIONTEST_H

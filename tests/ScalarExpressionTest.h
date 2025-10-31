@@ -89,6 +89,7 @@ TYPED_TEST(ScalarExpressionTest, ScalarMultiplicationPrint) {
 }
 
 TYPED_TEST(ScalarExpressionTest, ScalarDivPrint) {
+  using value_type = typename TestFixture::value_type;
   auto &x = this->x;
   auto &y = this->y;
   auto &a = this->a;
@@ -97,8 +98,7 @@ TYPED_TEST(ScalarExpressionTest, ScalarDivPrint) {
   auto &d = this->d;
   auto &_1 = this->_1;
   auto &_2 = this->_2; // auto& _3 = this->_3;
-  if constexpr (std::is_floating_point_v<
-                    typename decltype(this->x)::value_type>) {
+  if constexpr (std::is_floating_point_v<value_type>) {
     EXPECT_EQ(std::to_string(_1 / _2), "0.5");
   } else {
     EXPECT_EQ(std::to_string(_1 / _2), "1/2");
@@ -191,5 +191,123 @@ TYPED_TEST(ScalarExpressionTest, ScalarFundamentalDerivatives) {
   //  EXPECT_EQ(std::to_string(numsim::cas::diff(-x - x - y - z, y)), "-1");
   //  EXPECT_EQ(std::to_string(numsim::cas::diff(-x - x - y - z, z)), "-1");
 }
+
+TYPED_TEST(ScalarExpressionTest, ScalarCanonicalOrderingPrint) {
+  auto &x = this->x, &y = this->y, &z = this->z;
+  EXPECT_EQ(std::to_string(y * x), "x*y");                                 // product ordering
+  EXPECT_EQ(std::to_string(y + x + z + y + x), "2*x+2*y+z");               // sum collection + ordering
+  EXPECT_EQ(std::to_string(this->_2 + x), "2+x");                          // constant first
+  EXPECT_EQ(std::to_string(x + this->_2), "2+x");
+}
+
+TYPED_TEST(ScalarExpressionTest, ScalarDivisionSimplifyPrint) {
+  auto &x = this->x, &y = this->y, &a = this->a, &b = this->b;
+  using std::pow;
+  EXPECT_EQ(std::to_string(x / x), "1");
+  EXPECT_EQ(std::to_string(y * x / x), "x*y/x");
+  EXPECT_EQ(std::to_string(pow(x, this->_3) / x), "pow(x,2)");
+  EXPECT_EQ(std::to_string((a * b) / a), "a*b/a");
+  EXPECT_EQ(std::to_string((x / y) * y), "y*x/y");
+}
+
+TYPED_TEST(ScalarExpressionTest, ScalarNegationAndParensPrint) {
+  auto &x = this->x, &y = this->y;
+  EXPECT_EQ(std::to_string(-(x + y)), "-(x+y)");      // wrap sums in parens under negation
+  EXPECT_EQ(std::to_string(-(-x)), "x");              // double negation
+  EXPECT_EQ(std::to_string(x + (-x)), "0");           // additive inverse
+}
+
+TYPED_TEST(ScalarExpressionTest, ScalarPowerLawsPrint) {
+  auto &x = this->x, &y = this->y;
+  using std::pow;
+  EXPECT_EQ(std::to_string(pow(x, this->_2) * pow(x, this->_3)), "pow(x,5)");
+  EXPECT_EQ(std::to_string(pow(x, this->_2) / pow(x, this->_1)), "x");
+  EXPECT_EQ(std::to_string(pow(x, y) * x), "pow(x,1+y)");   // symbolic exponent bump
+}
+
+TYPED_TEST(ScalarExpressionTest, ScalarMoreDivisionFormatting) {
+  // int vs float already covered for 1/2; add a sanity for 2/1 -> "2"
+  auto &_1 = this->_1, &_2 = this->_2;
+  EXPECT_EQ(std::to_string(_2 / _1), "2");
+}
+
+TYPED_TEST(ScalarExpressionTest, DerivativeLinearityAndBasics) {
+  auto &x = this->x, &y = this->y, &a = this->a, &b = this->b, &c = this->c;
+  EXPECT_EQ(std::to_string(numsim::cas::diff(this->_2 * x + this->_3, x)), "2");
+  EXPECT_EQ(std::to_string(numsim::cas::diff(a * x + b * y + c, x)), "a"); // a,b,c independent of x
+  EXPECT_EQ(std::to_string(numsim::cas::diff(x * y, x)), "y");             // product rule w/ const factor
+  EXPECT_EQ(std::to_string(numsim::cas::diff((x + y) * x, x)), "2*x+y");   // product rule + simplification
+  EXPECT_EQ(std::to_string(numsim::cas::diff(x / y, x)), "pow(y,-1)");           // quotient rule w/ const denom
+}
+
+TYPED_TEST(ScalarExpressionTest, DerivativeChainRule) {
+  auto &x = this->x;
+  using std::pow;
+  // d/dx (x+1)^3 = 3*(x+1)^2  (your canonical form seems to prefer "1+x")
+  EXPECT_EQ(std::to_string(numsim::cas::diff(pow(x + this->_1, this->_3), x)), "3*pow(1+x,2)");
+}
+
+TYPED_TEST(ScalarExpressionTest, ScalarMixedCollection) {
+  auto &x = this->x, &y = this->y, &z = this->z;
+  EXPECT_EQ(std::to_string((x + y + z) + (y + x)), "2*x+2*y+z"); // cross-sum collection
+  EXPECT_EQ(std::to_string(this->_2 * (this->_3 + x)), "2*(3+x)"); // no forced distribution; constant first inside
+}
+
+TYPED_TEST(ScalarExpressionTest, Add_CombineSameSymbol) {
+  auto &x = this->x;
+  EXPECT_EQ(std::to_string(x + x), "2*x");
+}
+
+TYPED_TEST(ScalarExpressionTest, Add_CombineMulAndSymbol_EitherSide) {
+  auto &x = this->x;
+  auto &_2 = this->_2;
+  EXPECT_EQ(std::to_string(_2 * x + x), "3*x");
+  EXPECT_EQ(std::to_string(x + _2 * x), "3*x");
+}
+
+TYPED_TEST(ScalarExpressionTest, Add_CombineTwoMultiplies) {
+  auto &x = this->x;
+  auto &_2 = this->_2, &_3 = this->_3;
+  EXPECT_EQ(std::to_string(_2 * x + _3 * x), "5*x");
+}
+
+TYPED_TEST(ScalarExpressionTest, Add_ZeroRules) {
+  auto &x = this->x, &y = this->y;
+  auto &zero = this->_zero;
+  EXPECT_EQ(std::to_string(x + zero), "x");
+  EXPECT_EQ(std::to_string(zero + (x + y)), "x+y");
+}
+
+TYPED_TEST(ScalarExpressionTest, Add_NegationAndInverse) {
+  auto &x = this->x, &y = this->y;
+  EXPECT_EQ(std::to_string(x + (-x)), "0");
+  EXPECT_EQ(std::to_string((-x) + (-x)), "-2*x");
+  EXPECT_EQ(std::to_string((x + y) + (-x)), "y");
+}
+
+TYPED_TEST(ScalarExpressionTest, Add_ConstantFoldingIntoNAry_LeftAndRight) {
+  auto &x = this->x, &y = this->y;
+  auto &_1 = this->_1, &_2 = this->_2;
+  EXPECT_EQ(std::to_string((x + y) + _2), "2+x+y");   // exercises lvalue branch (bug #1)
+  EXPECT_EQ(std::to_string(_2 + (x + y)), "2+x+y");   // symmetric path
+  EXPECT_EQ(std::to_string((x + _1) + _2), "3+x");
+  EXPECT_EQ(std::to_string(_2 + (x + _1)), "3+x");
+}
+
+TYPED_TEST(ScalarExpressionTest, Add_MergeAcrossNestedAdd) {
+  auto &x = this->x, &y = this->y, &z = this->z;
+  EXPECT_EQ(std::to_string((x + y) + x), "2*x+y");
+  EXPECT_EQ(std::to_string((x + y + z) + (y + x)), "2*x+2*y+z");
+}
+
+TYPED_TEST(ScalarExpressionTest, Add_CanonicalOrderingAndCoeffFirst) {
+  auto &x = this->x, &y = this->y, &z = this->z;
+  auto &_2 = this->_2, &_3 = this->_3;
+  EXPECT_EQ(std::to_string(y + x + z + y + x), "2*x+2*y+z");
+  EXPECT_EQ(std::to_string(x + _2), "2+x");          // constant first
+  EXPECT_EQ(std::to_string(_3 + x + y + _2), "5+x+y");
+}
+
+
 
 #endif // SCALAREXPRESSIONTEST_H

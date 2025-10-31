@@ -55,6 +55,13 @@ public:
     return m_lhs;
   }
 
+  constexpr inline expr_type operator()(scalar_negative<value_type> const & expr) {
+    if(m_lhs.get().hash_value() == expr.expr().get().hash_value()){
+      return get_scalar_zero<value_type>();
+    }
+    return get_default();
+  }
+
   template <typename _Expr, typename _ValueType>
   constexpr auto get_coefficient(_Expr const &expr, _ValueType const &value) {
     if constexpr (is_detected_v<has_coefficient, _Expr>) {
@@ -97,13 +104,13 @@ public:
   operator()([[maybe_unused]] scalar_add<value_type> const &rhs) {
     auto add_expr{make_expression<scalar_add<value_type>>(rhs)};
     auto &add{add_expr.template get<scalar_add<value_type>>()};
-    auto coeff{add.coeff() + base::m_lhs};
+    auto coeff{get_coefficient(add, value_type{0}) + base::m_lhs};
     add.set_coeff(std::move(coeff));
     return std::move(add_expr);
   }
 
   constexpr inline expr_type operator()(scalar_one<value_type> const &) {
-    const auto value{lhs() + 1};
+    const auto value{lhs() + value_type{1}};
     return make_expression<scalar_constant<value_type>>(value);
   }
 
@@ -120,6 +127,7 @@ public:
   using base = add_default<ExprLHS, ExprRHS>;
   using base::operator();
   using base::get_coefficient;
+  using base::get_default;
 
   n_ary_add(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
@@ -129,7 +137,7 @@ public:
   operator()([[maybe_unused]] scalar_constant<value_type> const &rhs) {
     auto add_expr{make_expression<scalar_add<value_type>>(lhs)};
     auto &add{add_expr.template get<scalar_add<value_type>>()};
-    auto coeff{add.coeff() + m_rhs};
+    auto coeff{get_coefficient(add, value_type{0}) + m_rhs};
     add.set_coeff(std::move(coeff));
     return std::move(add_expr);
   }
@@ -139,7 +147,7 @@ public:
     auto add_expr{make_expression<scalar_add<value_type>>(lhs)};
     auto &add{add_expr.template get<scalar_add<value_type>>()};
     auto coeff{make_expression<scalar_constant<value_type>>(
-        get_coefficient(add, 0.0) + static_cast<value_type>(1))};
+        get_coefficient(add, value_type{0}) + value_type{1})};
     // auto coeff{add.coeff() + m_rhs};
     add.set_coeff(std::move(coeff));
     return add_expr;
@@ -170,6 +178,17 @@ public:
     return expr;
   }
 
+  auto operator()(scalar_negative<value_type> const &rhs) {
+    const auto &hash_rhs{rhs.expr().get().hash_value()};
+    const auto pos{lhs.hash_map().find(hash_rhs)};
+    if(pos != lhs.hash_map().end()){
+      auto expr{make_expression<scalar_add<value_type>>(lhs)};
+      auto& add{expr.template get<scalar_add<value_type>>()};
+      add.hash_map().erase(hash_rhs);
+      return expr;
+    }
+    return get_default();
+  }
 private:
   using base::m_lhs;
   using base::m_rhs;
@@ -200,7 +219,7 @@ public:
       auto expr{make_expression<scalar_mul<value_type>>(lhs)};
       auto &mul{expr.template get<scalar_mul<value_type>>()};
       mul.set_coeff(make_expression<scalar_constant<value_type>>(
-          get_coefficient(lhs, 1.0) + 1.0));
+          get_coefficient(lhs, value_type{1}) + value_type{1}));
       return std::move(expr);
     }
     return get_default();
@@ -211,8 +230,8 @@ public:
     const auto &hash_rhs{rhs.hash_value()};
     const auto &hash_lhs{lhs.hash_value()};
     if (hash_rhs == hash_lhs) {
-      const auto fac_lhs{get_coefficient(lhs, 1.0)};
-      const auto fac_rhs{get_coefficient(rhs, 1.0)};
+      const auto fac_lhs{get_coefficient(lhs, value_type{1})};
+      const auto fac_rhs{get_coefficient(rhs, value_type{1})};
       auto expr{make_expression<scalar_mul<value_type>>(lhs)};
       auto &mul{expr.template get<scalar_mul<value_type>>()};
       mul.set_coeff(
@@ -263,7 +282,7 @@ public:
       auto expr{make_expression<scalar_mul<value_type>>(rhs)};
       auto &mul{expr.template get<scalar_mul<value_type>>()};
       mul.set_coeff(make_expression<scalar_constant<value_type>>(
-          get_coefficient(rhs, 1.0) + 1.0));
+          get_coefficient(rhs, value_type{1}) + value_type{1}));
       return std::move(expr);
     }
     return get_default();
@@ -276,6 +295,32 @@ private:
   using base::m_lhs;
   using base::m_rhs;
   scalar<value_type> const &lhs;
+};
+
+template <typename ExprLHS, typename ExprRHS>
+class add_negative final : public add_default<ExprLHS, ExprRHS> {
+public:
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
+  using expr_type = expression_holder<scalar_expression<value_type>>;
+  using base = add_default<ExprLHS, ExprRHS>;
+  using base::operator();
+  using base::get_coefficient;
+  using base::get_default;
+
+  add_negative(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
+        lhs{base::m_lhs.template get<scalar_negative<value_type>>()} {}
+
+  // (-lhs) + (-rhs) --> -(lhs+rhs)
+  constexpr inline expr_type operator()(scalar_negative<value_type> const &rhs) {
+    return -(lhs.expr() + rhs.expr());
+  }
+
+private:
+  using base::m_lhs;
+  using base::m_rhs;
+  scalar_negative<value_type> const &lhs;
 };
 
 template <typename ExprLHS, typename ExprRHS> struct add_base {
@@ -306,6 +351,12 @@ template <typename ExprLHS, typename ExprRHS> struct add_base {
 
   constexpr inline expr_type operator()(scalar<value_type> const &) {
     return visit(symbol_add<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                              std::forward<ExprRHS>(m_rhs)),
+                 *m_rhs);
+  }
+
+  constexpr inline expr_type operator()(scalar_negative<value_type> const &) {
+    return visit(add_negative<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
                                               std::forward<ExprRHS>(m_rhs)),
                  *m_rhs);
   }
