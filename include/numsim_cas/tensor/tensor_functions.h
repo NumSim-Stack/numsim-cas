@@ -13,10 +13,10 @@
 #include "visitors/tensor_evaluator.h"
 #include "visitors/tensor_printer.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <ranges>
 #include <vector>
-#include <algorithm>
 
 namespace numsim::cas {
 
@@ -90,24 +90,25 @@ constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
 }
 
 template <typename ExprLHS, typename ExprRHS>
-constexpr inline auto inner_product(ExprLHS &&lhs, sequence const&lhs_indices,
-                                    ExprRHS &&rhs, sequence const&rhs_indices) {
+constexpr inline auto inner_product(ExprLHS &&lhs, sequence const &lhs_indices,
+                                    ExprRHS &&rhs,
+                                    sequence const &rhs_indices) {
   assert(call_tensor::rank(lhs) != lhs_indices.size() ||
          call_tensor::rank(rhs) != rhs_indices.size());
   const auto &_lhs{*lhs};
   inner_product_simplifier<ExprLHS, ExprRHS> simplifier(
-      std::forward<ExprLHS>(lhs), lhs_indices,
-      std::forward<ExprRHS>(rhs), rhs_indices);
+      std::forward<ExprLHS>(lhs), lhs_indices, std::forward<ExprRHS>(rhs),
+      rhs_indices);
   return std::visit(simplifier, _lhs);
 }
 
 template <typename ExprLHS, typename ExprRHS>
-constexpr inline auto otimes(ExprLHS &&lhs,
-                             ExprRHS &&rhs) {
+constexpr inline auto otimes(ExprLHS &&lhs, ExprRHS &&rhs) {
   using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
   sequence lhs_indices(lhs.get().rank()), rhs_indices(rhs.get().rank());
   std::iota(std::begin(lhs_indices), std::end(lhs_indices), 1);
-  std::iota(std::begin(rhs_indices), std::end(rhs_indices), lhs_indices.size()+1);
+  std::iota(std::begin(rhs_indices), std::end(rhs_indices),
+            lhs_indices.size() + 1);
   return make_expression<outer_product_wrapper<ValueType>>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));

@@ -31,7 +31,7 @@ public:
       m_rank_arg = m_arg.get().rank();
       std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
     }
-    if(!m_result.is_valid()){
+    if (!m_result.is_valid()) {
       return make_expression<tensor_zero<value_type>>(m_dim, m_rank_result);
     }
     return m_result;
@@ -301,7 +301,7 @@ public:
 
   // (scalar*tensor)' = scalar*tensor'
   void operator()(tensor_scalar_mul<ValueType> const &visitable) {
-    m_result = visitable.expr_lhs()*diff(visitable.expr_rhs(), m_arg);
+    m_result = visitable.expr_lhs() * diff(visitable.expr_rhs(), m_arg);
   }
 
   void operator()(tensor_scalar_div<ValueType> const &) {}
@@ -310,11 +310,14 @@ public:
 
   void operator()(tensor_to_scalar_with_tensor_div<ValueType> const &) {}
 
-  //dev(A[X])' = (A[X] - vol(A[X]))' = (A[X] - trace(A[X])/dim(A)*I)'
-  //        = dAdX - otimes(I,I):dAdX/dim(A)
-  void operator()([[maybe_unused]]tensor_deviatoric<ValueType> const &visitable) {
+  // dev(A[X])' = (A[X] - vol(A[X]))' = (A[X] - trace(A[X])/dim(A)*I)'
+  //         = dAdX - otimes(I,I):dAdX/dim(A)
+  void
+  operator()([[maybe_unused]] tensor_deviatoric<ValueType> const &visitable) {
     auto result{diff(visitable.expr(), m_arg)};
-    m_result = result - inner_product(otimes(I,I), sequence{3,4}, result, sequence{1,2})/static_cast<value_type>(m_dim);
+    m_result = result - inner_product(otimes(I, I), sequence{3, 4}, result,
+                                      sequence{1, 2}) /
+                            static_cast<value_type>(m_dim);
   }
 
   // (vol(A[X]))' = (trace(A[X])*I/dim(A))' = otimes(I,I):dAdX/dim(A)
@@ -324,7 +327,8 @@ public:
     // 0.5 * I_ij * (I_lm * I_ln + I_ln * I_lm)
     // 0.5 * I_ij * (I_mn + I_mn)
     // I_ij * I_mn
-    m_result = inner_product(otimes(I,I), sequence{3,4}, result, sequence{1,2});
+    m_result =
+        inner_product(otimes(I, I), sequence{3, 4}, result, sequence{1, 2});
   }
 
   void operator()(tensor_inv<ValueType> const &) {}
