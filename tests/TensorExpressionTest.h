@@ -162,8 +162,9 @@
 //   auto &x = this->x;
 
 //   EXPECT_EQ(std::to_string(inner_product(X, seq{2}, X, seq{1})), "X*X");
-//   EXPECT_EQ(std::to_string(inner_product(A, seq{3, 4}, X, seq{1, 2})), "A:X");
-//   EXPECT_EQ(std::to_string(dot_product(A, seq{1, 2, 3, 4}, B, seq{1, 2, 3, 4})),
+//   EXPECT_EQ(std::to_string(inner_product(A, seq{3, 4}, X, seq{1, 2})),
+//   "A:X"); EXPECT_EQ(std::to_string(dot_product(A, seq{1, 2, 3, 4}, B, seq{1,
+//   2, 3, 4})),
 //             "A::B");
 //   EXPECT_EQ(std::to_string(
 //                 dot_product(A + B, seq{1, 2, 3, 4}, B + A, seq{1, 2, 3, 4})),
@@ -173,7 +174,8 @@
 //             "dot(A, [2,1], X, [1,2])");
 //   EXPECT_EQ(std::to_string(dot_product(A + X, seq{1, 2}, X * x, seq{1, 2})),
 //             "(A+X):x*X");
-//   EXPECT_EQ(std::to_string(dot_product(A, seq{1, 3, 2, 4}, B, seq{1, 2, 3, 4})),
+//   EXPECT_EQ(std::to_string(dot_product(A, seq{1, 3, 2, 4}, B, seq{1, 2, 3,
+//   4})),
 //             "dot(A, [1,3,2,4], B, [1,2,3,4])");
 //   EXPECT_EQ(std::to_string(
 //                 dot_product(A + B, seq{1, 3, 2, 4}, B + A, seq{1, 2, 3, 4})),
@@ -246,7 +248,8 @@
 
 //   EXPECT_EQ(std::to_string(X + (-X)), "0");       // additive inverse
 //   EXPECT_EQ(std::to_string((-X) + (-X)), "-2*X"); // negative factor combine
-//   EXPECT_EQ(std::to_string(-(X + Y)), "-(X+Y)");  // parentheses under negation
+//   EXPECT_EQ(std::to_string(-(X + Y)), "-(X+Y)");  // parentheses under
+//   negation
 // }
 
 // TYPED_TEST(TensorExpressionTest, TensorInnerProductScalarFactor) {
@@ -257,8 +260,9 @@
 //   auto &x = this->x;
 
 //   // pull-through of scalar factors (no distribution over sums)
-//   EXPECT_EQ(std::to_string(inner_product(x * X, seq{2}, X, seq{1})), "x*X*X");
-//   EXPECT_EQ(std::to_string(inner_product(X, seq{2}, x * X, seq{1})), "x*X*X");
+//   EXPECT_EQ(std::to_string(inner_product(x * X, seq{2}, X, seq{1})),
+//   "x*X*X"); EXPECT_EQ(std::to_string(inner_product(X, seq{2}, x * X,
+//   seq{1})), "x*X*X");
 // }
 
 // TYPED_TEST(TensorExpressionTest, TensorDotProductNoDistribution) {
@@ -269,7 +273,8 @@
 //   auto &x = this->x;
 
 //   EXPECT_EQ(
-//       std::to_string(dot_product(A + B, seq{1, 2, 3, 4}, B, seq{1, 2, 3, 4})),
+//       std::to_string(dot_product(A + B, seq{1, 2, 3, 4}, B, seq{1, 2, 3,
+//       4})),
 //       "(A+B)::B"); // keep grouping
 //   EXPECT_EQ(std::to_string(dot_product(A, seq{1, 2}, X + Y, seq{1, 2})),
 //             "A:(X+Y)"); // no distribution over +
