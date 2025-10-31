@@ -1,6 +1,7 @@
 #ifndef EXPRESSION_H
 #define EXPRESSION_H
 
+#include "assumptions.h"
 #include <cstdlib>
 
 namespace numsim::cas {
@@ -52,13 +53,24 @@ public:
    * @brief Retrieves the hash value of the expression.
    * @return The hash value.
    */
-  hash_type const &hash_value() const { return m_hash_value; }
+  hash_type const &hash_value() const {
+    if (!m_hash_value) {
+      update_hash_value();
+    }
+    return m_hash_value;
+  }
+
+  inline auto &assumptions() noexcept { return m_assumption; }
+
+  inline auto const &assumptions() const noexcept { return m_assumption; }
 
 protected:
+  virtual void update_hash_value() const = 0;
   /**
    * @brief Stores the hash value of the expression.
    */
-  hash_type m_hash_value{0};
+  mutable hash_type m_hash_value{0};
+  assumption_manager<> m_assumption{};
 };
 
 } // namespace numsim::cas

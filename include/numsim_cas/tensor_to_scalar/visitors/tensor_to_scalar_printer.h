@@ -1,9 +1,10 @@
-#ifndef TENSOR_SCALAR_PRINTER_H
-#define TENSOR_SCALAR_PRINTER_H
+#ifndef TENSOR_TO_SCALAR_PRINTER_H
+#define TENSOR_TO_SCALAR_PRINTER_H
 
 #include "../../numsim_cas_type_traits.h"
 #include "../../printer_base.h"
-#include "../../scalar/visitors/scalar_printer.h"
+#include "../../scalar/scalar_functions_fwd.h"
+#include "../../tensor/tensor_functions_fwd.h"
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -40,16 +41,19 @@ public:
     }
   }
 
-  auto apply(expression_holder<tensor_expression<ValueType>> const &expr,
-             [[maybe_unused]] Precedence parent_precedence = Precedence::None) {
-    m_out << expr;
-  }
+  //  auto apply(expression_holder<tensor_expression<ValueType>> const &expr,
+  //             [[maybe_unused]] Precedence parent_precedence =
+  //             Precedence::None) {
+  //    tensor_printer<ValueType, StreamType> printer(m_out);
+  //    printer.apply(expr, parent_precedence);
+  //  }
 
-  auto apply(expression_holder<scalar_expression<ValueType>> const &expr,
-             [[maybe_unused]] Precedence parent_precedence = Precedence::None) {
-    scalar_printer<ValueType, StreamType> printer(m_out);
-    printer.apply(expr, parent_precedence);
-  }
+  //  auto apply(expression_holder<scalar_expression<ValueType>> const &expr,
+  //             [[maybe_unused]] Precedence parent_precedence =
+  //             Precedence::None) {
+  //    scalar_printer<ValueType, StreamType> printer(m_out);
+  //    printer.apply(expr, parent_precedence);
+  //  }
 
   void operator()(tensor_trace<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
@@ -181,7 +185,7 @@ public:
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
-    apply(visitable.expr_lhs(), precedence);
+    print(m_out, visitable.expr_lhs(), precedence);
     m_out << "*";
     apply(visitable.expr_rhs(), precedence);
     end(precedence, parent_precedence);
@@ -191,7 +195,7 @@ public:
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Addition};
     begin(precedence, parent_precedence);
-    apply(visitable.expr_lhs(), precedence);
+    print(m_out, visitable.expr_lhs(), precedence);
     m_out << "+";
     apply(visitable.expr_rhs(), precedence);
     end(precedence, parent_precedence);
@@ -203,7 +207,7 @@ public:
     begin(precedence, parent_precedence);
     apply(visitable.expr_lhs(), Precedence::Division_LHS);
     m_out << "/";
-    apply(visitable.expr_rhs(), Precedence::Division_RHS);
+    print(m_out, visitable.expr_rhs(), Precedence::Division_RHS);
     end(precedence, parent_precedence);
   }
 
@@ -211,15 +215,54 @@ public:
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
-    apply(visitable.expr_lhs(), Precedence::Division_LHS);
+    print(m_out, visitable.expr_lhs(), Precedence::Division_LHS);
     m_out << "/";
     apply(visitable.expr_rhs(), Precedence::Division_RHS);
     end(precedence, parent_precedence);
   }
 
+  void operator()(tensor_inner_product_to_scalar<ValueType> const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
+    auto indices_temp_lhs{visitable.indices_lhs()};
+    std::for_each(std::begin(indices_temp_lhs), std::end(indices_temp_lhs),
+                  [](auto &el) { el += 1; });
+    auto indices_temp_rhs{visitable.indices_rhs()};
+    std::for_each(std::begin(indices_temp_rhs), std::end(indices_temp_rhs),
+                  [](auto &el) { el += 1; });
+
+    if (indices_temp_lhs == sequence{1, 2} &&
+        indices_temp_rhs == sequence{1, 2}) {
+      begin(Precedence::Multiplication, parent_precedence);
+      print(m_out, visitable.expr_lhs(), Precedence::Multiplication);
+      m_out << ":";
+      print(m_out, visitable.expr_rhs(), Precedence::Multiplication);
+      end(Precedence::Multiplication, parent_precedence);
+    } else if (indices_temp_lhs == sequence{1, 2, 3, 4} &&
+               indices_temp_rhs == sequence{1, 2, 3, 4}) {
+      begin(Precedence::Multiplication, parent_precedence);
+      print(m_out, visitable.expr_lhs(), Precedence::Multiplication);
+      m_out << "::";
+      print(m_out, visitable.expr_rhs(), Precedence::Multiplication);
+      end(Precedence::Multiplication, parent_precedence);
+    } else {
+      m_out << "dot(";
+      print(m_out, visitable.expr_lhs(), Precedence::None);
+      m_out << ", [";
+      base::print_sequence(m_out, indices_temp_lhs, ',');
+      m_out << "]";
+      m_out << ", ";
+      print(m_out, visitable.expr_rhs(), Precedence::None);
+      m_out << ", [";
+      base::print_sequence(m_out, indices_temp_rhs, ',');
+      m_out << "]";
+      m_out << ")";
+    }
+  }
+
   template <typename Expr>
   void operator()([[maybe_unused]] Expr const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
+    std::cout << "Error: type not defined" << std::endl;
     assert(0);
   }
 
@@ -228,4 +271,4 @@ private:
 };
 
 } // namespace numsim::cas
-#endif // TENSOR_SCALAR_PRINTER_H
+#endif // TENSOR_TO_SCALAR_PRINTER_H

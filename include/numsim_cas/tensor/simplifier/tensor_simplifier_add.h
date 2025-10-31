@@ -24,6 +24,11 @@ public:
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   auto get_default() {
+    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
+      auto constant{make_expression<scalar_constant<value_type>>(2)};
+      return make_expression<tensor_scalar_mul<value_type>>(
+          std::move(constant), std::forward<ExprRHS>(m_rhs));
+    }
     // const auto lhs_constant{is_same<tensor_constant<value_type>>(m_lhs)};
     // const auto rhs_constant{is_same<tensor_constant<value_type>>(m_rhs)};
     auto add_new{make_expression<tensor_add<value_type>>(m_lhs.get().dim(),
@@ -136,16 +141,15 @@ public:
   //    return add_expr;
   //  }
 
-  auto operator()([[maybe_unused]] tensor<value_type> const &rhs) {
+  template <typename Expr> auto operator()(Expr const &rhs) {
     /// do a deep copy of data
     auto expr_add{make_expression<tensor_add<value_type>>(lhs)};
     auto &add{expr_add.template get<tensor_add<value_type>>()};
     /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
     auto pos{lhs.hash_map().find(rhs.hash_value())};
     if (pos != lhs.hash_map().end()) {
-      auto expr{binary_add_tensor_simplify(pos->second, m_rhs)};
       add.hash_map().erase(rhs.hash_value());
-      add.push_back(expr);
+      add.push_back(pos->second + m_rhs);
       return expr_add;
     }
     /// no equal expr or sub_expr
@@ -281,6 +285,45 @@ private:
   tensor<value_type> const &lhs;
 };
 
+template <typename ExprLHS, typename ExprRHS>
+class tensor_scalar_mul_add final : public add_default<ExprLHS, ExprRHS> {
+public:
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
+  using expr_type = expression_holder<tensor_expression<value_type>>;
+  using base = add_default<ExprLHS, ExprRHS>;
+  using base::operator();
+  using base::get_default;
+
+  tensor_scalar_mul_add(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
+        lhs{base::m_lhs.template get<tensor_scalar_mul<value_type>>()} {}
+
+  // scalar_expr * lhs + rhs
+  template <typename Expr>
+  constexpr inline expr_type operator()(Expr const &rhs) {
+    if (lhs.expr_rhs().get().hash_value() == rhs.hash_value()) {
+      return (lhs.expr_lhs() + 1) * m_rhs;
+    }
+    return get_default();
+  }
+
+  // scalar_expr_lhs * lhs + scalar_expr_rhs * rhs
+  constexpr inline expr_type
+  operator()(tensor_scalar_mul<value_type> const &rhs) {
+    if (lhs.expr_rhs().get().hash_value() ==
+        rhs.expr_rhs().get().hash_value()) {
+      return (lhs.expr_lhs() + rhs.expr_lhs()) * m_rhs;
+    }
+    return get_default();
+  }
+
+private:
+  using base::m_lhs;
+  using base::m_rhs;
+  tensor_scalar_mul<value_type> const &lhs;
+};
+
 template <typename ExprLHS, typename ExprRHS> struct add_base {
   using value_type = typename std::remove_reference_t<
       std::remove_const_t<ExprLHS>>::value_type;
@@ -297,6 +340,13 @@ template <typename ExprLHS, typename ExprRHS> struct add_base {
     return visit(n_ary_add<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
                                              std::forward<ExprRHS>(m_rhs)),
                  *m_rhs);
+  }
+
+  constexpr inline expr_type operator()(tensor_scalar_mul<value_type> const &) {
+    return visit(
+        tensor_scalar_mul_add<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
+                                                std::forward<ExprRHS>(m_rhs)),
+        *m_rhs);
   }
 
   //  constexpr inline expr_type operator()(scalar_mul<value_type> const&){

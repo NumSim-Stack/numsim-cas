@@ -42,6 +42,8 @@ public:
                            tensor_negative<ValueType>>(this);
   }
 
+  tensor_space_set m_space{};
+
 protected:
   std::size_t m_dim;
   std::size_t m_rank;

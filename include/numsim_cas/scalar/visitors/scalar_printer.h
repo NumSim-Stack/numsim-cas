@@ -3,6 +3,7 @@
 
 #include "../../numsim_cas_type_traits.h"
 #include "../../printer_base.h"
+#include "../scalar_functions_fwd.h"
 #include <algorithm>
 #include <iostream>
 #include <variant>
@@ -10,18 +11,6 @@
 
 namespace numsim::cas {
 
-// external polymorphism maybe used in future
-// template<typename Derived, typename StreamType, typename ValueType>
-// void print_imp(printer_base<Derived, StreamType> & printer,
-// scalar_cos<ValueType> const& visitable, [[maybe_unused]]Precedence
-// parent_precedence){
-//   printer.print("cos(");
-//   printer.apply(visitable.expr());
-//   printer.print(")");
-// }
-
-// Assuming other required definitions for expressions and Precedence are
-// provided
 /**
  * @brief Class for printing scalar expressions with correct precedence and
  * formatting.

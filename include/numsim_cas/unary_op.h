@@ -21,9 +21,7 @@ public:
           bool> = true,
       typename... Args>
   explicit unary_op(Expr &&expr, Args &&...args)
-      : base(std::forward<Args>(args)...), m_expr(std::forward<Expr>(expr)) {
-    update_hash_value();
-  }
+      : base(std::forward<Args>(args)...), m_expr(std::forward<Expr>(expr)) {}
 
   explicit unary_op(unary_op &&data)
       : base(std::move(static_cast<base_expr &&>(data))),
@@ -53,7 +51,8 @@ public:
                          unary_op<_Derived, _Base, _ExprType> const &rhs);
 
 protected:
-  void update_hash_value() {
+  virtual void update_hash_value() const override {
+    base::m_hash_value = 0;
     hash_combine(base::m_hash_value, base::get_id());
     hash_combine(base::m_hash_value, m_expr.get().hash_value());
   }

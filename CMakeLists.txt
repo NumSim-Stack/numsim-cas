@@ -50,6 +50,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/expression.h
     include/numsim_cas/functions.h
     include/numsim_cas/n_ary_tree.h
+    include/numsim_cas/n_ary_vector.h
     include/numsim_cas/symbol_base.h
     include/numsim_cas/numsim_cas_type_traits.h
     include/numsim_cas/unary_op.h
@@ -77,7 +78,9 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/functions/outer_product_wrapper.h
     include/numsim_cas/tensor/functions/simple_outer_product.h
     include/numsim_cas/tensor/functions/tensor_symmetry.h
+    include/numsim_cas/tensor/functions/tensor_deviatoric.h
     include/numsim_cas/tensor/functions/tensor_pow.h
+    include/numsim_cas/tensor/functions/tensor_inv.h
     include/numsim_cas/tensor/data/tensor_data.h
     include/numsim_cas/tensor/data/tensor_data_add.h
     include/numsim_cas/tensor/data/tensor_data_basis_change.h
@@ -97,6 +100,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/scalar_tensor_op.h
     include/numsim_cas/tensor/tensor_constant.h
     include/numsim_cas/tensor/tensor_zero.h
+    include/numsim_cas/tensor/tensor_identity.h
     include/numsim_cas/tensor/operators/tensor/tensor_mul.h
     include/numsim_cas/tensor/operators/tensor/tensor_sub.h
     include/numsim_cas/tensor/operators/tensor/tensor_add.h
@@ -109,10 +113,13 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/simplifier/tensor_with_scalar_simplifier_div.h
     include/numsim_cas/tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_mul.h
     include/numsim_cas/tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_div.h
+    include/numsim_cas/tensor/simplifier/tensor_inner_product_simplifier.h
     include/numsim_cas/tensor/visitors/tensor_differentiation.h
     include/numsim_cas/tensor/visitors/tensor_printer.h
     include/numsim_cas/tensor/visitors/tensor_evaluator.h
     include/numsim_cas/tensor/tensor_functions_fwd.h
+    include/numsim_cas/tensor/tensor_compare_less_visitor.h
+    include/numsim_cas/tensor/tensor_globals.h
 
     #scalar
     include/numsim_cas/scalar/scalar.h
@@ -151,6 +158,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/scalar/visitors/scalar_printer.h
     include/numsim_cas/scalar/visitors/scalar_evaluator.h
     include/numsim_cas/scalar/scalar_function.h
+    include/numsim_cas/scalar/scalar_functions_fwd.h
     include/numsim_cas/scalar/scalar_compare_less_visitor.h
 
     #tensor valued scalar function
@@ -175,11 +183,15 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_add.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_sub.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_div.h
-    include/numsim_cas/tensor_to_scalar/visitors/tensor_scalar_printer.h
+    include/numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_printer.h
+    include/numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_sub.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_mul.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h
     include/numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_div.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_functions_fwd.h
 )
 
 add_library(${PROJECT_NAME} INTERFACE

@@ -22,7 +22,7 @@ FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
 macro(add_numsim_cas_test TARGET_NAME)
-    add_executable(${TARGET_NAME} ${ARGN})    
+    add_executable(${TARGET_NAME} ${ARGN})
     target_link_libraries(${TARGET_NAME} PRIVATE gtest_main NumSim_CAS)
     add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
     gtest_discover_tests(${TARGET_NAME})
@@ -33,4 +33,6 @@ add_numsim_cas_test(numsim_cas_test
     symTM_test.h
     symTM_print_test.h
     symTM_diff_test.h
-test_scalar_operators.h)
+    ScalarExpressionTest.h
+    TensorToScalarExpressionTest.h
+    TensorExpressionTest.h)

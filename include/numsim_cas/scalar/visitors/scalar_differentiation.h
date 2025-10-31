@@ -19,43 +19,19 @@ namespace numsim::cas {
 
 template <typename ValueType> class scalar_differentiation {
 public:
-  using argument_type = expression_holder<scalar_expression<ValueType>>;
+  using expr_t = expression_holder<scalar_expression<ValueType>>;
 
-  scalar_differentiation(argument_type const &arg) : m_arg(arg) {}
+  scalar_differentiation(expr_t const &arg) : m_arg(arg) {}
   scalar_differentiation(scalar_differentiation const &) = delete;
   scalar_differentiation(scalar_differentiation &&) = delete;
   const scalar_differentiation &
   operator=(scalar_differentiation const &) = delete;
 
-  auto apply(expression_holder<scalar_expression<ValueType>> &expr) {
-    if (expr.is_valid()) {
-      m_expr = expr;
-      std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
-      return m_result;
-    } else {
-      return get_scalar_zero<ValueType>();
-    }
-  }
+  auto apply(expr_t &expr) { return apply_imp(expr); }
 
-  auto apply(expression_holder<scalar_expression<ValueType>> const &expr) {
-    if (expr.is_valid()) {
-      m_expr = expr;
-      std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
-      return m_result;
-    } else {
-      return get_scalar_zero<ValueType>();
-    }
-  }
+  auto apply(expr_t const &expr) { return apply_imp(expr); }
 
-  auto apply(expression_holder<scalar_expression<ValueType>> &&expr) {
-    if (expr.is_valid()) {
-      m_expr = expr;
-      std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
-      return m_result;
-    } else {
-      return get_scalar_zero<ValueType>();
-    }
-  }
+  auto apply(expr_t &&expr) { return apply_imp(expr); }
 
   void operator()(scalar<ValueType> const &visitable) {
     if (&visitable == &m_arg.get()) {
@@ -79,9 +55,9 @@ public:
   /// f'(x)  = c * sum_j^n a_j(x) prod_i^{n, i\neq j} a_i(x)
   /// TODO: just copy the vector and manipulate the current entry
   void operator()(scalar_mul<ValueType> const &visitable) {
-    expression_holder<scalar_expression<ValueType>> expr_result;
+    expr_t expr_result;
     for (auto &expr_out : visitable.hash_map() | std::views::values) {
-      expression_holder<scalar_expression<ValueType>> expr_result_in;
+      expr_t expr_result_in;
       for (auto &expr_in : visitable.hash_map() | std::views::values) {
         if (expr_out == expr_in) {
           scalar_differentiation<ValueType> diff(m_arg);
@@ -103,8 +79,7 @@ public:
   /// f(x)  = c + sum_i^n a_i(x)
   /// f'(x) = sum_i^n a_i'(x)
   void operator()([[maybe_unused]] scalar_add<ValueType> const &visitable) {
-    expression_holder<scalar_expression<ValueType>> expr_result;
-    auto add{make_expression<scalar_add<ValueType>>()};
+    expr_t expr_result;
     for (auto &child : visitable.hash_map() | std::views::values) {
       scalar_differentiation diff(m_arg);
       expr_result += diff.apply(child);
@@ -255,9 +230,19 @@ private:
       m_result *= std::move(inner);
     }
   }
-  argument_type const &m_arg;
-  expression_holder<scalar_expression<ValueType>> m_expr;
-  expression_holder<scalar_expression<ValueType>> m_result;
+  auto apply_imp(expr_t const &expr) {
+    if (expr.is_valid()) {
+      m_expr = expr;
+      std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
+      return m_result;
+    } else {
+      return get_scalar_zero<ValueType>();
+    }
+  }
+
+  expr_t const &m_arg;
+  expr_t m_expr;
+  expr_t m_result;
 };
 
 } // namespace numsim::cas

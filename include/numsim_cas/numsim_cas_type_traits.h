@@ -93,6 +93,7 @@ template <typename Derived, typename Base> class expression_crtp;
 //};
 
 template <typename ExprType> using umap = std::map<std::size_t, ExprType>;
+template <typename ExprType> using expr_vector = std::vector<ExprType>;
 
 // template<typename _Visitor, typename... _Variants>
 // constexpr std::__detail::__variant::__visit_result_t<_Visitor, _Variants...>
@@ -200,23 +201,31 @@ template <typename ValueType> class inner_product_wrapper;
 template <typename ValueType> class basis_change_imp;
 template <typename ValueType> class outer_product_wrapper;
 template <typename ValueType> class kronecker_delta;
-// template <typename ValueType> class simple_outer_product;
+template <typename ValueType> class simple_outer_product;
+template <typename ValueType> class tensor_symmetry;
+template <typename ValueType> class tensor_deviatoric;
+template <typename ValueType> class tensor_volumetric;
+template <typename ValueType> class tensor_inv;
+template <typename ValueType> class tensor_zero;
+template <typename ValueType> class tensor_identity;
 template <typename ValueType> class tensor_scalar_mul;
 template <typename ValueType> class tensor_scalar_div;
-template <typename ValueType> class tensor_symmetry;
-template <typename ValueType> class tensor_zero;
-// det, tr, adj, skew, vol, dev,
-
+template <typename ValueType> class tensor_to_scalar_with_tensor_mul;
+template <typename ValueType> class tensor_to_scalar_with_tensor_div;
+// det, adj, skew, vol, dev,
 template <typename ValueType>
 using tensor_node =
     std::variant<tensor<ValueType>, tensor_negative<ValueType>,
                  inner_product_wrapper<ValueType>, basis_change_imp<ValueType>,
                  outer_product_wrapper<ValueType>, kronecker_delta<ValueType>,
-                 // simple_outer_product<ValueType>,
-                 tensor_add<ValueType>, tensor_mul<ValueType>,
+                 simple_outer_product<ValueType>, tensor_add<ValueType>,
+                 tensor_mul<ValueType>, tensor_symmetry<ValueType>,
+                 tensor_inv<ValueType>, tensor_deviatoric<ValueType>,
+                 tensor_volumetric<ValueType>, tensor_zero<ValueType>,
+                 tensor_pow<ValueType>, tensor_identity<ValueType>,
                  tensor_scalar_mul<ValueType>, tensor_scalar_div<ValueType>,
-                 tensor_symmetry<ValueType>, tensor_zero<ValueType>,
-                 tensor_pow<ValueType>>;
+                 tensor_to_scalar_with_tensor_mul<ValueType>,
+                 tensor_to_scalar_with_tensor_div<ValueType>>;
 
 // scalar
 template <typename ValueType> class scalar_expression;
@@ -304,9 +313,8 @@ using tensor_to_scalar_node = std::variant<
     tensor_to_scalar_with_scalar_div<ValueType>,
     scalar_with_tensor_to_scalar_div<ValueType>,
     tensor_to_scalar_pow<ValueType>,
-    tensor_to_scalar_pow_with_scalar_exponent<ValueType> /*,
-     tensor_inner_product_to_scalar<ValueType>*/
-    >;
+    tensor_to_scalar_pow_with_scalar_exponent<ValueType>,
+    tensor_inner_product_to_scalar<ValueType>>;
 
 ////poly
 // template <typename Type, typename ValueType>
@@ -662,6 +670,18 @@ template <class T>
 struct result_expression<float,
                          expression_holder<tensor_to_scalar_expression<T>>> {
   using type = expression_holder<tensor_to_scalar_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
+                         expression_holder<tensor_expression<T>>> {
+  using type = expression_holder<tensor_expression<T>>;
+};
+
+template <class T>
+struct result_expression<expression_holder<tensor_expression<T>>,
+                         expression_holder<tensor_to_scalar_expression<T>>> {
+  using type = expression_holder<tensor_expression<T>>;
 };
 
 template <class T>

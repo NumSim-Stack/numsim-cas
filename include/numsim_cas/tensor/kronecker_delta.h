@@ -10,12 +10,53 @@ class kronecker_delta final
     : public expression_crtp<kronecker_delta<ValueType>,
                              tensor_expression<ValueType>> {
 public:
-  using base_expr =
+  using base =
       expression_crtp<kronecker_delta<ValueType>, tensor_expression<ValueType>>;
   using value_type = ValueType;
-  kronecker_delta(std::size_t dim) : base_expr(dim, 2) {}
-  kronecker_delta(kronecker_delta const &data) : base_expr(data.m_dim, 2) {}
+  kronecker_delta(std::size_t dim) : base(dim, 2) {}
+  kronecker_delta(kronecker_delta const &data) : base(data.m_dim, 2) {}
+
+  virtual void update_hash_value() const override {
+    hash_combine(base::m_hash_value, base::get_id());
+  }
+
+  template <typename _ValueType>
+  friend bool operator<(kronecker_delta<_ValueType> const &lhs,
+                        kronecker_delta<_ValueType> const &rhs);
+  template <typename _ValueType>
+  friend bool operator>(kronecker_delta<_ValueType> const &lhs,
+                        kronecker_delta<_ValueType> const &rhs);
+  template <typename _ValueType>
+  friend bool operator==(kronecker_delta<_ValueType> const &lhs,
+                         kronecker_delta<_ValueType> const &rhs);
+  template <typename _ValueType>
+  friend bool operator!=(kronecker_delta<_ValueType> const &lhs,
+                         kronecker_delta<_ValueType> const &rhs);
 };
+
+template <typename ValueType>
+bool operator<(kronecker_delta<ValueType> const &lhs,
+               kronecker_delta<ValueType> const &rhs) {
+  return lhs.hash_value() < rhs.hash_value();
+}
+
+template <typename ValueType>
+bool operator>(kronecker_delta<ValueType> const &lhs,
+               kronecker_delta<ValueType> const &rhs) {
+  return !(lhs < rhs);
+}
+
+template <typename ValueType>
+bool operator==(kronecker_delta<ValueType> const &lhs,
+                kronecker_delta<ValueType> const &rhs) {
+  return lhs.hash_value() == rhs.hash_value();
+}
+
+template <typename ValueType>
+bool operator!=(kronecker_delta<ValueType> const &lhs,
+                kronecker_delta<ValueType> const &rhs) {
+  return !(lhs == rhs);
+}
 
 } // namespace numsim::cas
 

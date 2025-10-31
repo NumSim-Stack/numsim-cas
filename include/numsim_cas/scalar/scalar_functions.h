@@ -115,5 +115,14 @@ bool contains_symbol(
   return std::visit(detail::contains_symbol<ValueType>(), *expr);
 }
 
+template <typename ValueType, typename StreamType>
+constexpr inline void
+print(StreamType &out,
+      expression_holder<scalar_expression<ValueType>> const &expr,
+      Precedence precedence) {
+  scalar_printer<ValueType, StreamType> eval(out);
+  eval.apply(expr, precedence);
+}
+
 } // namespace numsim::cas
 #endif // SCALAR_FUNCTIONS_H

@@ -3,7 +3,7 @@
 
 #include "../../../binary_op.h"
 #include "../../../tensor/tensor_expression.h"
-#include "../../tensor_to_scalar_expression.h"
+#include "../../../tensor_to_scalar/tensor_to_scalar_expression.h"
 
 namespace numsim::cas {
 

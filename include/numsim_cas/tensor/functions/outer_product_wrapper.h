@@ -34,6 +34,16 @@ public:
   const auto &indices_rhs() const noexcept { return m_rhs_indices; }
 
 protected:
+  virtual void update_hash_value() const override {
+    hash_combine(base::m_hash_value, base::get_id());
+    numsim::cas::hash_combine(base::m_hash_value,
+                              base::expr_lhs().get().hash_value());
+    numsim::cas::hash_combine(base::m_hash_value,
+                              base::expr_rhs().get().hash_value());
+    numsim::cas::hash_combine(base::m_hash_value, indices_lhs());
+    numsim::cas::hash_combine(base::m_hash_value, indices_rhs());
+  }
+
   void init() {
     std::for_each(m_lhs_indices.begin(), m_lhs_indices.end(),
                   [](std::size_t &index) { index -= 1; });
@@ -45,6 +55,24 @@ protected:
 
   sequence m_lhs_indices;
   sequence m_rhs_indices;
+};
+
+template <typename T, typename... Args>
+struct update_hash<
+    numsim::cas::binary_op<numsim::cas::outer_product_wrapper<T>, Args...>> {
+  using type_t =
+      numsim::cas::binary_op<numsim::cas::outer_product_wrapper<T>, Args...>;
+  std::size_t operator()(const type_t &expr) const noexcept {
+    std::size_t seed{0};
+    numsim::cas::hash_combine(seed, type_t::get_id());
+    numsim::cas::hash_combine(seed, expr.expr_lhs().get().hash_value());
+    numsim::cas::hash_combine(seed, expr.expr_rhs().get().hash_value());
+    auto const &derived{
+        static_cast<numsim::cas::outer_product_wrapper<T> const &>(expr)};
+    numsim::cas::hash_combine(seed, derived.indices_lhs());
+    numsim::cas::hash_combine(seed, derived.indices_rhs());
+    return seed;
+  }
 };
 
 } // namespace numsim::cas
