@@ -40,8 +40,6 @@ struct otimes_check {
 } // namespace detail
 } // namespace numsim::cas
 
-
-
 namespace numsim::cas {
 
 template <typename ExprLHS, typename ExprRHS>
@@ -71,8 +69,7 @@ public:
     const detail::otimes_check<value_type, kronecker_delta, kronecker_delta>
         check(sequence{0, 2}, sequence{1, 3});
     if (((m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{1, 2}) ||
-         (m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{3, 4})
-         ) &&
+         (m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{3, 4})) &&
         m_lhs.get().rank() == 2 && check.inner_check(m_rhs)) {
       return std::forward<ExprLHS>(m_lhs);
     }
@@ -122,9 +119,11 @@ public:
     return get_default();
   }
 
-  constexpr inline auto operator()(outer_product_wrapper<value_type> const &rhs) {
+  constexpr inline auto
+  operator()(outer_product_wrapper<value_type> const &rhs) {
     // I:otimes(epxr, expr) = I_ij (expr_ij, expr_kl) = trace(expr)*expr
-    // if(rhs.expr_lhs().get().rank() == 2 && m_seq_lhs == sequence{1,2} && m_seq_lhs == sequence{1,2}){
+    // if(rhs.expr_lhs().get().rank() == 2 && m_seq_lhs == sequence{1,2} &&
+    // m_seq_lhs == sequence{1,2}){
     //   if(rhs.indices_lhs() == sequence{1,2}){
     //     return trace(rhs.expr_lhs())*rhs.expr_rhs();
     //   }
@@ -183,11 +182,10 @@ public:
         m_seq_lhs(std::move(sequence_lhs)), m_seq_rhs(std::move(sequence_rhs)) {
   }
 
-  inner_product_simplifier(ExprLHS &&lhs, sequence const&sequence_lhs,
-                           ExprRHS &&rhs, sequence const&sequence_rhs)
+  inner_product_simplifier(ExprLHS &&lhs, sequence const &sequence_lhs,
+                           ExprRHS &&rhs, sequence const &sequence_rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)),
-        m_seq_lhs(sequence_lhs), m_seq_rhs(sequence_rhs) {
-  }
+        m_seq_lhs(sequence_lhs), m_seq_rhs(sequence_rhs) {}
 
   // I [*] expr
   constexpr inline auto operator()(kronecker_delta<value_type> const &) {

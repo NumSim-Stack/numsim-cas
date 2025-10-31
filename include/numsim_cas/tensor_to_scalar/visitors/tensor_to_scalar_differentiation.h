@@ -38,8 +38,9 @@ public:
       m_expr = expr;
       std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
     }
-    if(!m_result.is_valid()){
-      return make_expression<tensor_zero<value_type>>(m_arg.get().dim(),m_arg.get().rank());
+    if (!m_result.is_valid()) {
+      return make_expression<tensor_zero<value_type>>(m_arg.get().dim(),
+                                                      m_arg.get().rank());
     }
     return m_result;
   }
@@ -57,12 +58,14 @@ public:
   void operator()(tensor_dot<ValueType> const &visitable) {
     auto result{diff(visitable.expr(), m_arg)};
     if (result.is_valid()) {
-      if(visitable.expr().get().rank() == 1){
+      if (visitable.expr().get().rank() == 1) {
         m_result = visitable.expr() * std::move(result);
       }
       sequence indices(visitable.expr().get().rank());
       std::iota(indices.begin(), indices.end(), 1);
-      m_result = static_cast<value_type>(2)*inner_product(visitable.expr(), indices, std::move(result), indices);
+      m_result =
+          static_cast<value_type>(2) *
+          inner_product(visitable.expr(), indices, std::move(result), indices);
     }
   }
 
@@ -110,7 +113,8 @@ public:
       }
 
       // now check if the diff is valid and not zero
-      if(expr_result_in.is_valid() && is_same<tensor_zero<value_type>>(expr_result_in)){
+      if (expr_result_in.is_valid() &&
+          is_same<tensor_zero<value_type>>(expr_result_in)) {
         for (auto &expr_in : visitable.hash_map() | std::views::values) {
           expr_result_in = std::move(std::move(expr_result_in) * expr_in);
         }
@@ -133,9 +137,7 @@ public:
   }
 
   void operator()(
-      [[maybe_unused]] tensor_to_scalar_sub<ValueType> const &visitable) {
-
-  }
+      [[maybe_unused]] tensor_to_scalar_sub<ValueType> const &visitable) {}
 
   /// f(x) = g(x)/h(x)
   /// f(x) = (g(x)'*h(x) - g(x)*h(x)')/(h(x)*h(x)))
@@ -158,20 +160,17 @@ public:
                   ValueType> const &visitable) {}
 
   void
-  operator()(tensor_to_scalar_with_scalar_mul<ValueType> const
-                 &visitable) {
-    m_result = visitable.expr_lhs()*diff(visitable.expr_rhs(), m_arg);
+  operator()(tensor_to_scalar_with_scalar_mul<ValueType> const &visitable) {
+    m_result = visitable.expr_lhs() * diff(visitable.expr_rhs(), m_arg);
   }
 
   void
-  operator()(tensor_to_scalar_with_scalar_add<ValueType> const
-                 &visitable) {
+  operator()(tensor_to_scalar_with_scalar_add<ValueType> const &visitable) {
     m_result = diff(visitable.expr_rhs(), m_arg);
   }
 
   void
-  operator()(tensor_to_scalar_with_scalar_div<ValueType> const
-                 &visitable) {
+  operator()(tensor_to_scalar_with_scalar_div<ValueType> const &visitable) {
     m_result = diff(visitable.expr_lhs(), m_arg) / visitable.expr_rhs();
   }
 

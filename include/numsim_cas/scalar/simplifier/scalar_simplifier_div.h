@@ -93,10 +93,10 @@ struct constant_div_simplifier final : public div_default<ExprLHS, ExprRHS> {
 
   constexpr inline expr_type
   operator()(scalar_constant<value_type> const &rhs) {
-    if constexpr (std::is_floating_point_v<value_type>){
+    if constexpr (std::is_floating_point_v<value_type>) {
       return make_expression<scalar_constant<value_type>>(m_expr() / rhs());
-    }else{
-      if(rhs() == value_type{1}){
+    } else {
+      if (rhs() == value_type{1}) {
         return m_lhs;
       }
     }
@@ -137,10 +137,12 @@ struct pow_div_simplifier final : public div_default<ExprLHS, ExprRHS> {
   // pow(lhs, expo_lhs) / pow(rhs, expo_rhs)
   // lhs == rhs --> pow(expr, expo_lhs - expo_rhs)
   constexpr inline expr_type operator()(scalar_pow<value_type> const &rhs) {
-    if (m_expr.expr_lhs().get().hash_value() == rhs.expr_lhs().get().hash_value()) {
+    if (m_expr.expr_lhs().get().hash_value() ==
+        rhs.expr_lhs().get().hash_value()) {
       const auto expo{m_expr.expr_rhs() - rhs.expr_rhs()};
       if (is_same<scalar_constant<value_type>>(expo)) {
-        if (expo.template get<scalar_constant<value_type>>()() == value_type{1}) {
+        if (expo.template get<scalar_constant<value_type>>()() ==
+            value_type{1}) {
           return rhs.expr_lhs();
         }
       }
@@ -198,7 +200,8 @@ template <typename ExprLHS, typename ExprRHS> struct div_base {
   }
 
   // template <typename ValueType = value_type,
-  //           std::enable_if_t<std::is_floating_point_v<ValueType>, bool> = true>
+  //           std::enable_if_t<std::is_floating_point_v<ValueType>, bool> =
+  //           true>
   constexpr inline expr_type operator()(scalar_constant<value_type> const &) {
     auto &expr_rhs{*m_rhs};
     return visit(

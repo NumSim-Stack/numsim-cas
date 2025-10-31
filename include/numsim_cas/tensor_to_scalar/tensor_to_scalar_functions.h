@@ -19,11 +19,9 @@ constexpr inline auto dot_product(ExprLHS &&lhs, sequence &&lhs_indices,
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
 }
 
-template <typename Expr>
-constexpr inline auto dot(Expr &&expr){
+template <typename Expr> constexpr inline auto dot(Expr &&expr) {
   using ValueType = typename remove_cvref_t<Expr>::value_type;
-  return make_expression<tensor_dot<ValueType>>(
-      std::forward<Expr>(expr));
+  return make_expression<tensor_dot<ValueType>>(std::forward<Expr>(expr));
 }
 
 template <typename ValueType, typename StreamType>

@@ -55,7 +55,7 @@ public:
     return *this;
   }
 
-  //template<typename ExprRHS>
+  // template<typename ExprRHS>
   expression_holder &operator*=(expression_holder const &data) {
     if (is_valid()) {
       *this = std::move(*this) * data;

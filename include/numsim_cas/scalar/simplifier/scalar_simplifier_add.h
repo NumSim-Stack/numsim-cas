@@ -55,8 +55,9 @@ public:
     return m_lhs;
   }
 
-  constexpr inline expr_type operator()(scalar_negative<value_type> const & expr) {
-    if(m_lhs.get().hash_value() == expr.expr().get().hash_value()){
+  constexpr inline expr_type
+  operator()(scalar_negative<value_type> const &expr) {
+    if (m_lhs.get().hash_value() == expr.expr().get().hash_value()) {
       return get_scalar_zero<value_type>();
     }
     return get_default();
@@ -181,14 +182,15 @@ public:
   auto operator()(scalar_negative<value_type> const &rhs) {
     const auto &hash_rhs{rhs.expr().get().hash_value()};
     const auto pos{lhs.hash_map().find(hash_rhs)};
-    if(pos != lhs.hash_map().end()){
+    if (pos != lhs.hash_map().end()) {
       auto expr{make_expression<scalar_add<value_type>>(lhs)};
-      auto& add{expr.template get<scalar_add<value_type>>()};
+      auto &add{expr.template get<scalar_add<value_type>>()};
       add.hash_map().erase(hash_rhs);
       return expr;
     }
     return get_default();
   }
+
 private:
   using base::m_lhs;
   using base::m_rhs;
@@ -313,7 +315,8 @@ public:
         lhs{base::m_lhs.template get<scalar_negative<value_type>>()} {}
 
   // (-lhs) + (-rhs) --> -(lhs+rhs)
-  constexpr inline expr_type operator()(scalar_negative<value_type> const &rhs) {
+  constexpr inline expr_type
+  operator()(scalar_negative<value_type> const &rhs) {
     return -(lhs.expr() + rhs.expr());
   }
 
@@ -357,7 +360,7 @@ template <typename ExprLHS, typename ExprRHS> struct add_base {
 
   constexpr inline expr_type operator()(scalar_negative<value_type> const &) {
     return visit(add_negative<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                              std::forward<ExprRHS>(m_rhs)),
+                                                std::forward<ExprRHS>(m_rhs)),
                  *m_rhs);
   }
 
