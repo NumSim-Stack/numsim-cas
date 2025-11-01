@@ -284,12 +284,13 @@ public:
       m_out << "*";
     }
     m_out << "outer(";
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    for (auto &child : visitable.data()) {
       if (!first)
         m_out << ",";
       apply(child, precedence);
       first = false;
     }
+    m_out << ")";
     end(precedence, parent_precedence);
   }
 

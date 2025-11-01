@@ -9,6 +9,7 @@
 #include "simplifier/tensor_simplifier_sub.h"
 #include "simplifier/tensor_with_scalar_simplifier_div.h"
 #include "simplifier/tensor_with_scalar_simplifier_mul.h"
+#include "tensor_globals.h"
 #include "visitors/tensor_differentiation.h"
 #include "visitors/tensor_evaluator.h"
 #include "visitors/tensor_printer.h"
@@ -260,6 +261,32 @@ template <typename ValueType>
 inline auto eval(expression_holder<tensor_expression<ValueType>> expr) {
   tensor_evaluator<ValueType> eval;
   return eval.apply(expr);
+}
+
+template <typename T>
+[[nodiscard]] inline auto
+build_identity_tensor(expression_holder<tensor_expression<T>> const &expr) {
+  const auto &I{get_identity_tensor<T>(expr.get().dim())};
+  const auto &tensor{expr.get()};
+
+  if (tensor.rank() == 1) {
+    return I;
+  }
+
+  if (expr.get().rank() == 2) {
+    return otimesu(I, I);
+  }
+
+  auto outer_expr{make_expression<simple_outer_product<T>>(tensor.dim(),
+                                                           tensor.rank() * 2)};
+  auto &outer{outer_expr.template get<simple_outer_product<T>>()};
+  sequence basis(tensor.rank() * 2);
+  for (std::size_t i{0}; i < tensor.rank(); ++i) {
+    outer.push_back(I);
+    basis[(i * 2)] = i + 1;
+    basis[(i * 2) + 1] = tensor.rank() + i + 1;
+  }
+  return permute_indices(std::move(outer_expr), std::move(basis));
 }
 } // namespace numsim::cas
 

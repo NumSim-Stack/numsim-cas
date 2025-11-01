@@ -1,72 +1,73 @@
-// #ifndef TENSOR_GLOBALS_H
-// #define TENSOR_GLOBALS_H
+#ifndef TENSOR_GLOBALS_H
+#define TENSOR_GLOBALS_H
 
-// #include "../basic_functions.h"
-// #include "kronecker_delta.h"
+#include "../basic_functions.h"
+#include "kronecker_delta.h"
 // #include "tensor_zero.h"
 
-// namespace numsim::cas {
-// namespace detail {
-// auto scalar_zero_d{make_expression<scalar_zero<double>>()};
-// auto scalar_zero_i{make_expression<scalar_zero<int>>()};
-// auto scalar_zero_f{make_expression<scalar_zero<float>>()};
+namespace numsim::cas {
+namespace detail {
+auto tensor_one_1_d{make_expression<kronecker_delta<double>>(1)};
+auto tensor_one_2_d{make_expression<kronecker_delta<double>>(2)};
+auto tensor_one_3_d{make_expression<kronecker_delta<double>>(3)};
 
-// auto scalar_zero_cd{make_expression<scalar_zero<std::complex<double>>>()};
-// auto scalar_zero_ci{make_expression<scalar_zero<std::complex<int>>>()};
-// auto scalar_zero_cf{make_expression<scalar_zero<std::complex<float>>>()};
+auto tensor_one_1_f{make_expression<kronecker_delta<double>>(1)};
+auto tensor_one_2_f{make_expression<kronecker_delta<double>>(2)};
+auto tensor_one_3_f{make_expression<kronecker_delta<double>>(3)};
 
-// auto scalar_one_d{make_expression<scalar_one<double>>()};
-// auto scalar_one_i{make_expression<scalar_one<int>>()};
-// auto scalar_one_f{make_expression<scalar_one<float>>()};
+auto tensor_one_1_i{make_expression<kronecker_delta<double>>(1)};
+auto tensor_one_2_i{make_expression<kronecker_delta<double>>(2)};
+auto tensor_one_3_i{make_expression<kronecker_delta<double>>(3)};
+} // namespace detail
 
-// auto scalar_one_cd{make_expression<scalar_one<std::complex<double>>>()};
-// auto scalar_one_ci{make_expression<scalar_one<std::complex<int>>>()};
-// auto scalar_one_cf{make_expression<scalar_one<std::complex<float>>>()};
-// } // NAMESPACE detail
+template <typename T>
+constexpr inline const auto &get_identity_tensor(std::size_t dim);
 
-// template <typename T> constexpr inline auto &get_scalar_zero();
-// template <> constexpr inline auto &get_scalar_zero<double>() {
-//   return detail::scalar_zero_d;
-// }
-// template <> constexpr inline auto &get_scalar_zero<float>() {
-//   return detail::scalar_zero_f;
-// }
-// template <> constexpr inline auto &get_scalar_zero<int>() {
-//   return detail::scalar_zero_i;
-// }
+template <>
+constexpr inline const auto &get_identity_tensor<double>(std::size_t dim) {
+  switch (dim) {
+  case 1:
+    return detail::tensor_one_1_d;
+  case 2:
+    return detail::tensor_one_2_d;
+  case 3:
+    return detail::tensor_one_3_d;
+  default:
+    assert(true);
+    return detail::tensor_one_3_d;
+  }
+}
 
-// template <typename T> constexpr inline auto &get_scalar_zero();
-// template <> constexpr inline auto &get_scalar_zero<std::complex<double>>() {
-//   return detail::scalar_zero_cd;
-// }
-// template <> constexpr inline auto &get_scalar_zero<std::complex<float>>() {
-//   return detail::scalar_zero_cf;
-// }
-// template <> constexpr inline auto &get_scalar_zero<std::complex<int>>() {
-//   return detail::scalar_zero_ci;
-// }
+template <>
+constexpr inline const auto &get_identity_tensor<float>(std::size_t dim) {
+  switch (dim) {
+  case 1:
+    return detail::tensor_one_1_f;
+  case 2:
+    return detail::tensor_one_2_f;
+  case 3:
+    return detail::tensor_one_3_f;
+  default:
+    assert(true);
+    return detail::tensor_one_3_f;
+  }
+}
 
-// template <typename T> constexpr inline auto &get_scalar_one();
-// template <> constexpr inline auto &get_scalar_one<double>() {
-//   return detail::scalar_one_d;
-// }
-// template <> constexpr inline auto &get_scalar_one<float>() {
-//   return detail::scalar_one_f;
-// }
-// template <> constexpr inline auto &get_scalar_one<int>() {
-//   return detail::scalar_one_i;
-// }
+template <>
+constexpr inline const auto &get_identity_tensor<int>(std::size_t dim) {
+  switch (dim) {
+  case 1:
+    return detail::tensor_one_1_i;
+  case 2:
+    return detail::tensor_one_2_i;
+  case 3:
+    return detail::tensor_one_3_i;
+  default:
+    assert(true);
+    return detail::tensor_one_3_i;
+  }
+}
 
-// template <typename T> constexpr inline auto &get_scalar_one();
-// template <> constexpr inline auto &get_scalar_one<std::complex<double>>() {
-//   return detail::scalar_one_cd;
-// }
-// template <> constexpr inline auto &get_scalar_one<std::complex<float>>() {
-//   return detail::scalar_one_cf;
-// }
-// template <> constexpr inline auto &get_scalar_one<std::complex<int>>() {
-//   return detail::scalar_one_ci;
-// }
-// } // namespace numsim::cas
+} // namespace numsim::cas
 
-// #endif // TENSOR_GLOBALS_H
+#endif // TENSOR_GLOBALS_H

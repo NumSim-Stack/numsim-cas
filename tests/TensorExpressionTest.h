@@ -220,7 +220,8 @@ TYPED_TEST(TensorExpressionTest, TensorScalarCoeffCollection) {
 TYPED_TEST(TensorExpressionTest, TensorProductOrderAndPowersMore) {
   auto &X = this->X, &Y = this->Y;
   auto &x = this->x, &y = this->y;
-  auto &_2 = this->_2, &_3 = this->_3;
+  auto &_2 = this->_2;
+  //  &_3 = this->_3;
 
   EXPECT_EQ(std::to_string(x * y * X * Y),
             "x*y*X*Y"); // scalars before tensors; keep tensor order

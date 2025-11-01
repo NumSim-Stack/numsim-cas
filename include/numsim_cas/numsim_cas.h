@@ -110,6 +110,7 @@
 #include "tensor/tensor.h"
 #include "tensor/tensor_compare_less_visitor.h"
 #include "tensor/tensor_functions.h"
+#include "tensor/tensor_globals.h"
 #include "tensor/tensor_identity.h"
 #include "tensor/tensor_operators.h"
 #include "tensor/tensor_std.h"

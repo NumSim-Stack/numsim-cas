@@ -1,18 +1,18 @@
 #ifndef SIMPLE_OUTER_PRODUCT_H
 #define SIMPLE_OUTER_PRODUCT_H
 
-#include "../../n_ary_tree.h"
+#include "../../n_ary_vector.h"
 #include "../../numsim_cas_type_traits.h"
 
 namespace numsim::cas {
 
 template <typename ValueType>
 class simple_outer_product final
-    : public n_ary_tree<tensor_expression<ValueType>,
-                        simple_outer_product<ValueType>> {
+    : public n_ary_vector<tensor_expression<ValueType>,
+                          simple_outer_product<ValueType>> {
 public:
-  using base =
-      n_ary_tree<tensor_expression<ValueType>, simple_outer_product<ValueType>>;
+  using base = n_ary_vector<tensor_expression<ValueType>,
+                            simple_outer_product<ValueType>>;
 
   simple_outer_product(std::size_t dim, std::size_t rank) : base(dim, rank) {}
   simple_outer_product(simple_outer_product const &add)

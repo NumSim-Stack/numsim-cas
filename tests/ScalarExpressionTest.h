@@ -174,7 +174,8 @@ TYPED_TEST(ScalarFixture, PRINT_NegationAndParens) {
 //
 TYPED_TEST(ScalarFixture, PRINT_Mixed) {
   auto &x = this->x, &y = this->y, &z = this->z;
-  auto &_1 = this->_1, &_2 = this->_2, &_3 = this->_3;
+  // auto &_1 = this->_1,
+  auto &_2 = this->_2, &_3 = this->_3;
 
   EXPECT_PRINT(x * _2, "2*x");
   EXPECT_PRINT(x * _2 + x, "3*x");
