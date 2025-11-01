@@ -42,6 +42,10 @@ public:
     return std::forward<ExprRHS>(m_rhs);
   }
 
+  constexpr inline expr_type operator()(kronecker_delta<value_type> const &) {
+    return std::forward<ExprLHS>(m_lhs);
+  }
+
   //  template <typename _Expr, typename _ValueType>
   //  constexpr auto get_coefficient(_Expr const &expr, _ValueType const &value)
   //  {
