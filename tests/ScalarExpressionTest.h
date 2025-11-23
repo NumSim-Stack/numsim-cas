@@ -1,17 +1,12 @@
 #ifndef SCALAREXPRESSIONTEST_H
 #define SCALAREXPRESSIONTEST_H
 
+#include "cas_test_helpers.h"
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
 
 #include <cmath>
 #include <tuple>
-
-// Assertions
-#define EXPECT_PRINT(expr, expected)                                           \
-  EXPECT_EQ(std::to_string((expr)), std::string(expected))
-
-#define EXPECT_SAME_PRINT(lhs, rhs) EXPECT_EQ(std::to_string((lhs)), ::S((rhs)))
 
 // ---------- Scalar fixture ----------
 template <typename T> struct ScalarFixture : ::testing::Test {

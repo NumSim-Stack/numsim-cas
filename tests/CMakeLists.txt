@@ -40,6 +40,11 @@ add_numsim_cas_test(numsim_cas_test
     TensorToScalarExpressionTest.h
     TensorExpressionTest.h)
 
+target_sources(numsim_cas_test
+  PRIVATE
+    cas_test_helpers.h
+)
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE  -Wall -Wpedantic -Werror -Wextra -pedantic -Wno-error=comment)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")

@@ -19,9 +19,30 @@ constexpr inline auto dot_product(ExprLHS &&lhs, sequence &&lhs_indices,
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
 }
 
-template <typename Expr> constexpr inline auto dot(Expr &&expr) {
+template <typename Expr> [[nodiscard]] constexpr inline auto dot(Expr &&expr) {
   using ValueType = typename remove_cvref_t<Expr>::value_type;
   return make_expression<tensor_dot<ValueType>>(std::forward<Expr>(expr));
+}
+
+template <typename T>
+[[nodiscard]] constexpr inline auto
+trace(expression_holder<tensor_expression<T>> const &expr) {
+  assert(expr.get().rank() == 2);
+  return make_expression<tensor_trace<T>>(expr);
+}
+
+template <typename T>
+[[nodiscard]] constexpr inline auto
+norm(expression_holder<tensor_expression<T>> const &expr) {
+  assert(expr.get().rank() == 2);
+  return make_expression<tensor_norm<T>>(expr);
+}
+
+template <typename T>
+[[nodiscard]] constexpr inline auto
+det(expression_holder<tensor_expression<T>> const &expr) {
+  assert(expr.get().rank() == 2);
+  return make_expression<tensor_det<T>>(expr);
 }
 
 template <typename ValueType, typename StreamType>
