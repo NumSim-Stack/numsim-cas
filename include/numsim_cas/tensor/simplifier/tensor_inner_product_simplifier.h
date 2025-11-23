@@ -76,6 +76,24 @@ public:
     return get_default();
   }
 
+  constexpr inline auto operator()(identity_tensor<value_type> const &rhs) {
+    // expr{2}*Identity{2}
+    if (rhs.rank() == 2 && sequence{2} == m_seq_lhs &&
+        sequence{1} == m_seq_rhs) {
+      return std::forward<ExprLHS>(m_lhs);
+    }
+    // Identity{rank} * expr{rank}
+    const std::size_t half{rhs.rank() / 2};
+    sequence ilhs(half), irhs(half);
+    const auto start{m_lhs.get().rank() - half + 1};
+    std::iota(ilhs.begin(), ilhs.end(), start);
+    std::iota(irhs.begin(), irhs.end(), 1);
+    if (ilhs == m_seq_lhs && irhs == m_seq_rhs) {
+      return std::forward<ExprLHS>(m_lhs);
+    }
+    return get_default();
+  }
+
   // inner(lhs, scalar*rhs) --> scalar*inner(lhs,rhs)
   constexpr inline auto operator()(tensor_scalar_mul<value_type> const &rhs) {
     return rhs.expr_lhs() * inner_product(std::forward<ExprLHS>(m_lhs),
@@ -134,6 +152,44 @@ public:
     //     return trace(rhs.expr_lhs())*rhs.expr_rhs();
     //   }
     // }
+    return get_default();
+  }
+
+  using base::m_lhs;
+  using base::m_rhs;
+  using base::m_seq_lhs;
+  using base::m_seq_rhs;
+};
+
+template <typename ExprLHS, typename ExprRHS>
+class inner_product_simplifier_identity_tensor final
+    : public inner_product_simplifier_default<ExprLHS, ExprRHS> {
+public:
+  using value_type = typename std::remove_reference_t<
+      std::remove_const_t<ExprLHS>>::value_type;
+  using base = inner_product_simplifier_default<ExprLHS, ExprRHS>;
+  using base::operator();
+  using base::get_default;
+
+  inner_product_simplifier_identity_tensor(ExprLHS &&lhs,
+                                           sequence &&sequence_lhs,
+                                           ExprRHS &&rhs,
+                                           sequence &&sequence_rhs)
+      : base(std::forward<ExprLHS>(lhs), std::move(sequence_lhs),
+             std::forward<ExprRHS>(rhs), std::move(sequence_rhs)) {}
+
+  // Identity [*] expr --> expr
+  template <typename Expr> constexpr inline auto operator()(Expr const &rhs) {
+    // Identity{2} * expr{2}
+    if (rhs.rank() == 2 && sequence{2} == m_seq_lhs &&
+        sequence{1} == m_seq_rhs) {
+      return std::forward<ExprRHS>(m_rhs);
+    }
+    // Identity{rank} * expr{rank}
+    const std::size_t half{rhs.rank() / 2};
+    sequence ilhs(half), irhs(half);
+    std::iota(ilhs.begin(), ilhs.end(), half + 1);
+    std::iota(irhs.begin(), irhs.end(), 1);
     return get_default();
   }
 
@@ -231,6 +287,15 @@ public:
   constexpr inline auto operator()(kronecker_delta<value_type> const &) {
     return std::visit(
         inner_product_simplifier_kronecker_delta<ExprLHS, ExprRHS>(
+            std::forward<ExprLHS>(m_lhs), std::move(m_seq_lhs),
+            std::forward<ExprRHS>(m_rhs), std::move(m_seq_rhs)),
+        *m_rhs);
+  }
+
+  // Identoty [*] expr
+  constexpr inline auto operator()(identity_tensor<value_type> const &) {
+    return std::visit(
+        inner_product_simplifier_identity_tensor<ExprLHS, ExprRHS>(
             std::forward<ExprLHS>(m_lhs), std::move(m_seq_lhs),
             std::forward<ExprRHS>(m_rhs), std::move(m_seq_rhs)),
         *m_rhs);

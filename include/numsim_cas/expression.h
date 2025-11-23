@@ -70,7 +70,7 @@ protected:
    * @brief Stores the hash value of the expression.
    */
   mutable hash_type m_hash_value{0};
-  assumption_manager<> m_assumption{};
+  numeric_assumption_manager m_assumption{};
 };
 
 } // namespace numsim::cas

@@ -74,6 +74,22 @@ constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {
   return make_tensor_data_imp<T>().evaluate(dim, rank);
 }
 
+template <typename Expr,
+          std::enable_if_t<
+              std::is_base_of_v<
+                  numsim::cas::tensor_expression<
+                      typename numsim::cas::remove_cvref_t<Expr>::value_type>,
+                  typename numsim::cas::remove_cvref_t<Expr>::expr_type>,
+              bool> = true>
+constexpr inline auto dev(Expr &&expr) {
+  using ValueType = typename remove_cvref_t<Expr>::value_type;
+  if (expr.get().rank() == 2) {
+    return make_expression<tensor_deviatoric<ValueType>>(
+        std::forward<Expr>(expr));
+  }
+  throw std::runtime_error("");
+}
+
 template <typename ExprLHS, typename ExprRHS>
 constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                     ExprRHS &&rhs, sequence &&rhs_indices) {
@@ -263,31 +279,32 @@ inline auto eval(expression_holder<tensor_expression<ValueType>> expr) {
   return eval.apply(expr);
 }
 
-template <typename T>
-[[nodiscard]] inline auto
-build_identity_tensor(expression_holder<tensor_expression<T>> const &expr) {
-  const auto &I{get_identity_tensor<T>(expr.get().dim())};
-  const auto &tensor{expr.get()};
+// template <typename T>
+// [[nodiscard]] inline auto
+// identity_tensor(expression_holder<tensor_expression<T>> const &expr) {
+//   const auto &I{get_identity_tensor<T>(expr.get().dim())};
+//   const auto &tensor{expr.get()};
 
-  if (tensor.rank() == 1) {
-    return I;
-  }
+//   if (tensor.rank() == 1) {
+//     return I;
+//   }
 
-  if (expr.get().rank() == 2) {
-    return otimesu(I, I);
-  }
+//   if (expr.get().rank() == 2) {
+//     return otimesu(I, I);
+//   }
 
-  auto outer_expr{make_expression<simple_outer_product<T>>(tensor.dim(),
-                                                           tensor.rank() * 2)};
-  auto &outer{outer_expr.template get<simple_outer_product<T>>()};
-  sequence basis(tensor.rank() * 2);
-  for (std::size_t i{0}; i < tensor.rank(); ++i) {
-    outer.push_back(I);
-    basis[(i * 2)] = i + 1;
-    basis[(i * 2) + 1] = tensor.rank() + i + 1;
-  }
-  return permute_indices(std::move(outer_expr), std::move(basis));
-}
+//   auto outer_expr{make_expression<simple_outer_product<T>>(tensor.dim(),
+//                                                            tensor.rank() *
+//                                                            2)};
+//   auto &outer{outer_expr.template get<simple_outer_product<T>>()};
+//   sequence basis(tensor.rank() * 2);
+//   for (std::size_t i{0}; i < tensor.rank(); ++i) {
+//     outer.push_back(I);
+//     basis[(i * 2)] = i + 1;
+//     basis[(i * 2) + 1] = tensor.rank() + i + 1;
+//   }
+//   return permute_indices(std::move(outer_expr), std::move(basis));
+// }
 } // namespace numsim::cas
 
 #endif // TENSOR_FUNCTIONS_SYMTM_H

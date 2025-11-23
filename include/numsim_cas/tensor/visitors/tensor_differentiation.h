@@ -3,9 +3,11 @@
 
 #include "../../numsim_cas_type_traits.h"
 #include "../../operators.h"
+#include "../../tensor_to_scalar/tensor_to_scalar_std.h"
 #include "../kronecker_delta.h"
 #include "../tensor_expression.h"
 #include "../tensor_functions_fwd.h"
+#include "../tensor_std.h"
 #include <algorithm>
 
 namespace numsim::cas {
@@ -43,15 +45,15 @@ public:
         m_result = make_expression<kronecker_delta<ValueType>>(m_dim);
         return;
       }
-      if (m_rank_result == 4) {
-        auto I{make_expression<kronecker_delta<ValueType>>(m_dim)};
-        m_result = otimes(I, sequence{1, 3}, I, sequence{2, 4});
-        return;
-      }
+      // if (m_rank_result == 4) {
+      //   auto I{make_expression<kronecker_delta<ValueType>>(m_dim)};
+      //   m_result = otimes(I, sequence{1, 3}, I, sequence{2, 4});
+      //   return;
+      // }
       // \frac{\partial A_{ijkl...}}{\partial A_{mnop...}} = I_{im} I_{jn}
       // I_{ko} I_{lp} ...
       m_result =
-          make_expression<tensor_identity<ValueType>>(m_dim, m_rank_result);
+          make_expression<identity_tensor<ValueType>>(m_dim, m_rank_result);
     }
     //    if (visitable) {
     //      tensor_differentiation diff(m_arg);
@@ -85,7 +87,7 @@ public:
     //    }
   }
 
-  void operator()([[maybe_unused]] tensor_identity<ValueType> const &visitable,
+  void operator()([[maybe_unused]] identity_tensor<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     m_result = make_expression<tensor_zero<ValueType>>(m_dim, m_rank_result);
   }
@@ -96,10 +98,7 @@ public:
 
   void
   operator()([[maybe_unused]] tensor_negative<ValueType> const &visitable) {
-    //    tensor_differentiation diff(m_arg);
-    //    auto diff_lhs{diff.apply(visitable.expr())};
-    //    m_data =
-    //    std::move(make_expression<tensor_negative<ValueType>>(std::move(diff_lhs)));
+    m_result = -diff(visitable.expr(), m_arg);
   }
 
   template <typename T> void operator()([[maybe_unused]] T const &visitable) {
@@ -294,7 +293,7 @@ public:
 
   void
   operator()([[maybe_unused]] kronecker_delta<ValueType> const &visitable) {
-    // do nothing
+    m_result = make_expression<tensor_zero<ValueType>>(m_dim, m_rank_result);
   }
 
   // void operator()(simple_outer_product<ValueType> &visitable) {}
@@ -304,14 +303,31 @@ public:
     m_result = visitable.expr_lhs() * diff(visitable.expr_rhs(), m_arg);
   }
 
-  void operator()(tensor_scalar_div<ValueType> const &) {}
+  // (tensor/scalar)' = tensor'/scalar
+  void operator()(tensor_scalar_div<ValueType> const &visitable) {
+    m_result = diff(visitable.expr_lhs(), m_arg) / visitable.expr_rhs();
+  }
 
-  void operator()(tensor_to_scalar_with_tensor_mul<ValueType> const &) {}
+  // (tensor_to_scalar*tensor)' = tensor_to_scalar*tensor' +
+  // otimes(tensor,tensor_to_scalar')
+  void
+  operator()(tensor_to_scalar_with_tensor_mul<ValueType> const &visitable) {
+    m_result = visitable.expr_lhs() * diff(visitable.expr_rhs(), m_arg) +
+               otimes(visitable.expr_rhs(), diff(visitable.expr_lhs(), m_arg));
+  }
 
-  void operator()(tensor_to_scalar_with_tensor_div<ValueType> const &) {}
+  // (tensor/tensor_to_scalar)' = tensor'/tensor_to_scalar -
+  // otimes(tensor,tensor_to_scalar') / pow(tensor_to_scalar,2)
+  void
+  operator()(tensor_to_scalar_with_tensor_div<ValueType> const &visitable) {
+    m_result = diff(visitable.expr_lhs(), m_arg) / visitable.expr_rhs() +
+               otimes(visitable.expr_lhs(), diff(visitable.expr_rhs(), m_arg)) /
+                   std::pow(visitable.expr_rhs(), 2);
+  }
 
-  // dev(A[X])' = (A[X] - vol(A[X]))' = (A[X] - trace(A[X])/dim(A)*I)'
-  //         = dAdX - otimes(I,I):dAdX/dim(A)
+  // dev(A[X])' = (A[X] - vol(A[X]))'
+  //            = (A[X] - trace(A[X])/dim(A)*I)'
+  //            =  dAdX - otimes(I,I):dAdX/dim(A)
   void
   operator()([[maybe_unused]] tensor_deviatoric<ValueType> const &visitable) {
     auto result{diff(visitable.expr(), m_arg)};

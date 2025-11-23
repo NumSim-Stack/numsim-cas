@@ -5,6 +5,7 @@
 #include "../../printer_base.h"
 #include "../../scalar/visitors/scalar_printer.h"
 #include "../../tensor_to_scalar/visitors/tensor_to_scalar_printer.h"
+#include "../projection_tensor.h"
 
 #include <algorithm>
 #include <functional>
@@ -70,10 +71,28 @@ public:
     m_out << visitable.name();
   }
 
-  void operator()([[maybe_unused]] tensor_identity<ValueType> const &visitable,
+  /**
+   * @brief Prints a identity tensor.
+   *
+   * @param visitable The idenity tensor to be printed.
+   * @param parent_precedence The precedence of the parent expression.
+   */
+  void operator()([[maybe_unused]] identity_tensor<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
-    m_out << "tensor_identity{" << visitable.dim() << " " << visitable.rank()
-          << "}";
+    m_out << "I{" << visitable.rank() << "}";
+  }
+
+  /**
+   * @brief Prints a projection tensor.
+   *
+   * @param visitable The projection tensor to be printed.
+   * @param parent_precedence The precedence of the parent expression.
+   */
+  void operator()([[maybe_unused]] tensor_projector<ValueType> const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
+    tensor_trace_print_visitor<ValueType> perm_trace_printer(visitable);
+    auto to_print{perm_trace_printer.apply()};
+    m_out << to_print << "{" << visitable.rank() << "}";
   }
 
   /**

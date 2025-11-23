@@ -26,7 +26,7 @@ endif()
 
 
 # do not install google test framework
-set(INSTALL_GTEST OFF)
+set(INSTALL_GTEST ON)
 OPTION(NUMSIM_CAS_INSTALL_LIBRARY
        "Enable installing of tmech library into default locations"
        ${IS_TOPLEVEL_PROJECT})
@@ -36,12 +36,16 @@ OPTION(BUILD_BENCHMARK "NumSim_CAS benchmark" OFF)
 OPTION(DOWNLOAD_GTEST "build gtest from downloaded sources" OFF)
 OPTION(DOWNLOAD_GBENCHMARK "download google benchmark and build from source" OFF)
 
-FetchContent_Declare(
-  tmech
-  GIT_REPOSITORY https://github.com/petlenz/tmech.git
-  GIT_TAG master
-)
-FetchContent_MakeAvailable(tmech)
+
+find_package(tmech QUIET)
+if(!TMECH_IS_DETECTED)
+    FetchContent_Declare(
+      tmech
+      GIT_REPOSITORY https://github.com/petlenz/tmech.git
+      GIT_TAG master
+    )
+    FetchContent_MakeAvailable(tmech)
+endif()
 
 set(PUBLIC_HEADER_FILES
     #common
@@ -100,7 +104,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/scalar_tensor_op.h
     include/numsim_cas/tensor/tensor_constant.h
     include/numsim_cas/tensor/tensor_zero.h
-    include/numsim_cas/tensor/tensor_identity.h
+    include/numsim_cas/tensor/identity_tensor.h
     include/numsim_cas/tensor/operators/tensor/tensor_mul.h
     include/numsim_cas/tensor/operators/tensor/tensor_sub.h
     include/numsim_cas/tensor/operators/tensor/tensor_add.h
@@ -120,6 +124,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/tensor_functions_fwd.h
     include/numsim_cas/tensor/tensor_compare_less_visitor.h
     include/numsim_cas/tensor/tensor_globals.h
+    include/numsim_cas/tensor/projection_tensor.h
 
     #scalar
     include/numsim_cas/scalar/scalar.h
@@ -171,6 +176,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_pow.h
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h
     include/numsim_cas/tensor_to_scalar/tensor_inner_product_to_scalar.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h
     include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_add.h
     include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_mul.h
     include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_sub.h

@@ -36,13 +36,13 @@ public:
     return m_rank;
   }
 
-  constexpr inline auto operator-() {
+  constexpr inline auto operator-() const {
     // TODO check if this is already negative
     return make_expression<tensor_expression<ValueType>,
                            tensor_negative<ValueType>>(this);
   }
 
-  tensor_space_set m_space{};
+  // tensor_space_manager m_space{};
 
 protected:
   std::size_t m_dim;

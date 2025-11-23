@@ -3,6 +3,7 @@
 
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
+#include <iostream>
 
 using TestTypesTensor =
     ::testing::Types<std::tuple<float, std::index_sequence<1>>,
@@ -32,7 +33,6 @@ protected:
       numsim::cas::scalar_expression<value_type>>;
 
   TensorExpressionTest() {
-    const auto Dim{get(std::get<1>(T()))};
     std::tie(X, Y, Z) = numsim::cas::make_tensor_variable<value_type>(
         std::tuple{"X", Dim, 2}, std::tuple{"Y", Dim, 2},
         std::tuple{"Z", Dim, 2});
@@ -60,6 +60,7 @@ protected:
   tensor_t _One{
       numsim::cas::make_expression<numsim::cas::kronecker_delta<value_type>>(
           get(std::get<1>(T())))};
+  const std::size_t Dim{get(std::get<1>(T()))};
 };
 
 TYPED_TEST_SUITE(TensorExpressionTest, TestTypesTensor);
@@ -277,5 +278,50 @@ TYPED_TEST(TensorExpressionTest, TensorDotProductNoDistribution) {
   EXPECT_EQ(std::to_string(dot_product(A, seq{1, 2}, x * X, seq{1, 2})),
             "A:x*X"); // scalar factors pulled cleanly
 }
+
+TYPED_TEST(TensorExpressionTest, TensorDiff) {
+  auto &X = this->X;
+  auto &x = this->x;
+
+  EXPECT_EQ(std::to_string(numsim::cas::diff(X + X, X)), "2*I{4}");
+
+  EXPECT_EQ(std::to_string(numsim::cas::diff(x * X, X)), "x*I{4}");
+  EXPECT_EQ(std::to_string(numsim::cas::diff(X * x, X)), "x*I{4}");
+  EXPECT_EQ(std::to_string(numsim::cas::diff(X / x, X)), "I{4}/x");
+  EXPECT_EQ(std::to_string(numsim::cas::diff(X * numsim::cas::dot(X), X)),
+            "dot(X)*I{4}+outer(X, [1,2], 2*X, [3,4])");
+  EXPECT_EQ(std::to_string(numsim::cas::diff(X / numsim::cas::dot(X), X)),
+            "I{4}/dot(X)+outer(X, [1,2], 2*X, [3,4])/pow(dot(X),2)");
+
+  if (this->Dim == 1) {
+    EXPECT_EQ(std::to_string(numsim::cas::diff(numsim::cas::dev(X), X)),
+              "I{4}+outer(I, [1,2], I, [3,4])");
+  } else {
+    EXPECT_EQ(std::to_string(numsim::cas::diff(numsim::cas::dev(X), X)),
+              "I{4}+outer(I, [1,2], I, [3,4])/" + std::to_string(this->Dim));
+  }
+}
+
+// std::cout<<numsim::cas::build_identity_tensor(numsim::cas::make_expression<numsim::cas::tensor<double>>("X",3,1))<<std::endl;
+// std::cout<<numsim::cas::build_identity_tensor(numsim::cas::make_expression<numsim::cas::tensor<double>>("X",3,2))<<std::endl;
+// std::cout<<numsim::cas::build_identity_tensor(numsim::cas::make_expression<numsim::cas::tensor<double>>("X",3,3))<<std::endl;
+// std::cout<<numsim::cas::build_identity_tensor(numsim::cas::make_expression<numsim::cas::tensor<double>>("X",3,4))<<std::endl;
+// std::cout<<numsim::cas::build_identity_tensor(numsim::cas::make_expression<numsim::cas::tensor<double>>("X",3,5))<<std::endl;
+// std::cout<<numsim::cas::build_identity_tensor(numsim::cas::make_expression<numsim::cas::tensor<double>>("X",3,6))<<std::endl;
+// std::cout<<numsim::cas::build_identity_tensor(numsim::cas::make_expression<numsim::cas::tensor<double>>("X",3,7))<<std::endl;
+// std::cout<<numsim::cas::build_identity_tensor(numsim::cas::make_expression<numsim::cas::tensor<double>>("X",3,8))<<std::endl;
+// otimesu(I,I)
+//     permute_indices(outer(I,I,I), [1,4,2,5,3,6])
+//     permute_indices(outer(I,I,I,I), [1,5,2,6,3,7,4,8])
+//     permute_indices(outer(I,I,I,I,I), [1,6,2,7,3,8,4,9,5,10])
+//     permute_indices(outer(I,I,I,I,I,I), [1,7,2,8,3,9,4,10,5,11,6,12])
+//     permute_indices(outer(I,I,I,I,I,I,I), [1,8,2,9,3,10,4,11,5,12,6,13,7,14])
+//     permute_indices(outer(I,I,I,I,I,I,I,I),
+//     [1,9,2,10,3,11,4,12,5,13,6,14,7,15,8,16])
+
+// EXPECT_PRINT(numsim::cas::to_string(sym(dev(X))),
+// numsim::cas::to_string(dev(sym(X)))); EXPECT_PRINT(sym(skew(X)), "0");
+// EXPECT_PRINT(dev(vol(X)), "0");
+// EXPECT_PRINT(vol(skew(X)), "0");
 
 #endif // TENSOREXPRESSIONTEST_H
