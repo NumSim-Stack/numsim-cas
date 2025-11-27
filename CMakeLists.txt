@@ -198,6 +198,8 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_functions_fwd.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_one.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_zero.h
 )
 
 add_library(${PROJECT_NAME} INTERFACE

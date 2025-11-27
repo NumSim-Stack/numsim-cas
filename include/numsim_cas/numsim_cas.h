@@ -127,9 +127,11 @@
 #include "tensor_to_scalar/tensor_to_scalar_expression.h"
 #include "tensor_to_scalar/tensor_to_scalar_functions.h"
 #include "tensor_to_scalar/tensor_to_scalar_negative.h"
+#include "tensor_to_scalar/tensor_to_scalar_one.h"
 #include "tensor_to_scalar/tensor_to_scalar_operators.h"
 #include "tensor_to_scalar/tensor_to_scalar_pow.h"
 #include "tensor_to_scalar/tensor_to_scalar_std.h"
+#include "tensor_to_scalar/tensor_to_scalar_zero.h"
 #include "tensor_to_scalar/tensor_trace.h"
 #include "tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h"
 

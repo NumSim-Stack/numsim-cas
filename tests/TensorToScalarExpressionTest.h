@@ -49,7 +49,7 @@ TYPED_TEST(TF, TensorToScalar_Basics_PrintAndAlgebra) {
   // Self algebra
   EXPECT_PRINT(X_tr + X_tr, "2*tr(X)");
   EXPECT_PRINT(X_tr * X_tr, "pow(tr(X),2)");
-  EXPECT_PRINT(X_tr / X_tr, "1");
+  EXPECT_PRINT(X_tr / X_tr, "tr(X)/tr(X)");
 
   EXPECT_PRINT(X_norm * X_norm, "pow(norm(X),2)");
   EXPECT_PRINT(X_det * X_det, "pow(det(X),2)");
