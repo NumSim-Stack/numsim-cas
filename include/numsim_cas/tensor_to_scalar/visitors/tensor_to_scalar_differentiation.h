@@ -45,7 +45,7 @@ public:
     return m_result;
   }
 
-  // trace(expr) = I:expr = expr_ii
+  // trace(expr) = I:expr/dim(expr) = expr_ii/dim(expr)
   // dtrace(expr)/dX = dtrace(expr)/dexpr:dexpr/dX
   //                 = I:dexpr
   void operator()([[maybe_unused]] tensor_trace<ValueType> const &visitable) {
@@ -58,14 +58,14 @@ public:
   void operator()(tensor_dot<ValueType> const &visitable) {
     auto result{diff(visitable.expr(), m_arg)};
     if (result.is_valid()) {
+      constexpr auto two{static_cast<value_type>(2)};
       if (visitable.expr().get().rank() == 1) {
-        m_result = visitable.expr() * std::move(result);
+        m_result = two * visitable.expr() * std::move(result);
       }
       sequence indices(visitable.expr().get().rank());
       std::iota(indices.begin(), indices.end(), 1);
-      m_result =
-          static_cast<value_type>(2) *
-          inner_product(visitable.expr(), indices, std::move(result), indices);
+      m_result = two * inner_product(visitable.expr(), indices,
+                                     std::move(result), indices);
     }
   }
 
@@ -105,12 +105,7 @@ public:
     for (auto &expr_out : visitable.hash_map() | std::views::values) {
       result_expr_type expr_result_in;
       // first get the diff
-      for (auto &expr_in : visitable.hash_map() | std::views::values) {
-        if (expr_out == expr_in) {
-          expr_result_in *= diff(expr_in, m_arg);
-          break;
-        }
-      }
+      expr_result_in *= diff(expr_out, m_arg);
 
       // now check if the diff is valid and not zero
       if (expr_result_in.is_valid() &&

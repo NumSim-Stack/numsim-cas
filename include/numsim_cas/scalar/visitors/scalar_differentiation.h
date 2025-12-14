@@ -12,7 +12,6 @@
 #include "../scalar_mul.h"
 #include "../scalar_one.h"
 #include "../scalar_std.h"
-#include "../scalar_sub.h"
 #include "../scalar_zero.h"
 
 namespace numsim::cas {
@@ -119,6 +118,7 @@ public:
   // tan(x)' = sec^2(x) = (1/cos(x))^2
   void operator()([[maybe_unused]] scalar_tan<ValueType> const &visitable) {
     m_result = std::pow(1 / std::cos(visitable.expr()), 2);
+    apply_inner_unary(visitable);
   }
 
   void operator()([[maybe_unused]] scalar_sin<ValueType> const &visitable) {

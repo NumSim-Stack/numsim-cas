@@ -3,9 +3,7 @@
 
 #include "../../numsim_cas_type_traits.h"
 #include "../../printer_base.h"
-#include "../scalar_functions_fwd.h"
 #include <algorithm>
-#include <iostream>
 #include <variant>
 #include <vector>
 
@@ -47,12 +45,12 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   auto apply(expression_holder<scalar_expression<ValueType>> const &expr,
-             Precedence parent_precedence = Precedence::None) {
+             Precedence parent_precedence = Precedence::None) noexcept {
     if (expr.is_valid()) {
       std::visit([this, parent_precedence](
                      auto &&arg) { (*this)(arg, parent_precedence); },
                  *expr);
-      m_first = false;
+      m_first_term = false;
     }
   }
 
@@ -64,14 +62,14 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     m_out << visitable.name();
   }
 
   void operator()(scalar_function<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     m_out << visitable.name();
-    if (m_first) {
+    if (m_first_term) {
       m_out << " = ";
       apply(visitable.expr());
     }
@@ -84,7 +82,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_constant<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     m_out << visitable();
   }
 
@@ -95,7 +93,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()([[maybe_unused]] scalar_one<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     m_out << "1";
   }
 
@@ -106,7 +104,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()([[maybe_unused]] scalar_zero<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     m_out << "0";
   }
 
@@ -118,7 +116,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_mul<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
     const auto values{visitable.hash_map() | std::views::values};
@@ -147,7 +145,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_add<ValueType> const &visitable,
-                  Precedence parent_precedence) {
+                  Precedence parent_precedence) noexcept {
     constexpr auto precedence{Precedence::Addition};
     begin(precedence, parent_precedence);
     const auto values{visitable.hash_map() | std::views::values};
@@ -172,41 +170,6 @@ public:
     end(precedence, parent_precedence);
   }
 
-  //  /**
-  //   * @brief Prints a scalar subtraction expression.
-  //   *
-  //   * @param visitable The scalar subtraction expression to be printed.
-  //   * @param parent_precedence The precedence of the parent expression.
-  //   */
-  //  void operator()(scalar_sub<ValueType> const &visitable,
-  //                  Precedence parent_precedence) {
-  //    constexpr auto precedence{Precedence::Addition};
-  //    begin(precedence, parent_precedence);
-
-  //    bool first = true;
-  //    if (visitable.coeff().is_valid()) {
-  //      apply(visitable.coeff(), precedence);
-  //      m_out << "*";
-  //    }
-
-  //    if (visitable.size() > 1) {
-  //      m_out << "(";
-  //    }
-
-  //    for (auto &child : visitable.hash_map() | std::views::values) {
-  //      if (!first)
-  //        m_out << "-";
-  //      apply(child, precedence);
-  //      first = false;
-  //    }
-
-  //    if (visitable.size() > 1) {
-  //      m_out << ")";
-  //    }
-
-  //    end(precedence, parent_precedence);
-  //  }
-
   /**
    * @brief Prints a scalar division expression.
    *
@@ -214,7 +177,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_div<ValueType> const &visitable,
-                  Precedence parent_precedence) {
+                  Precedence parent_precedence) noexcept {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
     apply(visitable.expr_lhs(), Precedence::Division_LHS);
@@ -223,8 +186,14 @@ public:
     end(precedence, parent_precedence);
   }
 
+  /**
+   * @brief Prints a neative scalar expression.
+   *
+   * @param visitable The negative scalar expression to be printed.
+   * @param parent_precedence The precedence of the parent expression.
+   */
   void operator()(scalar_negative<ValueType> const &visitable,
-                  Precedence parent_precedence) {
+                  Precedence parent_precedence) noexcept {
     constexpr auto precedence{Precedence::Negative};
 
     m_out << "-";
@@ -241,7 +210,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_log<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("log", visitable);
   }
 
@@ -252,7 +221,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_sqrt<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("sqrt", visitable);
   }
 
@@ -263,7 +232,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_exp<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("exp", visitable);
   }
 
@@ -274,7 +243,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_sign<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("sign", visitable);
   }
 
@@ -285,12 +254,12 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_abs<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("abs", visitable);
   }
 
   void operator()(scalar_pow<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     m_out << "pow(";
     apply(visitable.expr_lhs());
     m_out << ",";
@@ -306,7 +275,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_tan<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("tan", visitable);
   }
 
@@ -317,7 +286,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_sin<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("sin", visitable);
   }
 
@@ -328,7 +297,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_cos<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("cos", visitable);
   }
 
@@ -339,7 +308,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_atan<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("atan", visitable);
   }
 
@@ -350,7 +319,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_asin<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("asin", visitable);
   }
 
@@ -361,13 +330,13 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_acos<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("acos", visitable);
   }
 
 private:
+  using base::m_first_term;
   using base::m_out; ///< The output stream used for printing.
-  bool m_first{true};
 };
 
 } // namespace numsim::cas

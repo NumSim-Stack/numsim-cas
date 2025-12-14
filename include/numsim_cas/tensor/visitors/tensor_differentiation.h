@@ -9,6 +9,7 @@
 #include "../tensor_functions_fwd.h"
 #include "../tensor_std.h"
 #include <algorithm>
+#include <ranges>
 
 namespace numsim::cas {
 
@@ -45,46 +46,12 @@ public:
         m_result = make_expression<kronecker_delta<ValueType>>(m_dim);
         return;
       }
-      // if (m_rank_result == 4) {
-      //   auto I{make_expression<kronecker_delta<ValueType>>(m_dim)};
-      //   m_result = otimes(I, sequence{1, 3}, I, sequence{2, 4});
-      //   return;
-      // }
+
       // \frac{\partial A_{ijkl...}}{\partial A_{mnop...}} = I_{im} I_{jn}
       // I_{ko} I_{lp} ...
       m_result =
           make_expression<identity_tensor<ValueType>>(m_dim, m_rank_result);
     }
-    //    if (visitable) {
-    //      tensor_differentiation diff(m_arg);
-    //      m_data = diff.apply(visitable);
-    //    } else {
-    //      if (&visitable == &m_arg.get()) {
-    //        if (m_rank_result == 2) {
-    //          m_data = make_expression<kronecker_delta<ValueType>>(m_dim);
-    //        } else {
-    //          // \frac{\partial A_{ijkl...}}{\partial A_{mnop...}} = I_{im}
-    //          I_{jn} I_{ko} I_{lp}
-    //          // 1,rank(A)+1,2,rank(A)+2,3,rank(A)+3,4,rank(A)+4,...
-    //          auto
-    //          temp{make_expression<simple_outer_product<ValueType>>(m_dim,
-    //          m_rank_result)}; for (std::size_t i{0}; i < m_rank_result; i +=
-    //          2) {
-    //            temp.template
-    //            get<simple_outer_product<ValueType>>().add_child(make_expression<kronecker_delta<ValueType>>(m_dim));
-    //          }
-    //          std::size_t iter{1};
-    //          std::vector<std::size_t> indices(m_rank_result);
-    //          for(auto& i : nth_range(indices.begin(),indices.end(),2)){
-    //            i = iter++;
-    //          }
-    //          for(auto& i : nth_range(++indices.begin(),indices.end(),2)){
-    //            i = iter++;
-    //          }
-    //          m_data = basis_change(std::move(temp), std::move(indices));
-    //        }
-    //      }
-    //    }
   }
 
   void operator()([[maybe_unused]] identity_tensor<ValueType> const &visitable,
@@ -93,16 +60,13 @@ public:
   }
 
   void operator()([[maybe_unused]] tensor_add<ValueType> const &visitable) {
-    // loop_result(visitable);
+    loop(visitable.hash_map() | std::views::values,
+         [&](auto dexpr) { m_result += dexpr; });
   }
 
   void
   operator()([[maybe_unused]] tensor_negative<ValueType> const &visitable) {
     m_result = -diff(visitable.expr(), m_arg);
-  }
-
-  template <typename T> void operator()([[maybe_unused]] T const &visitable) {
-    assert(0);
   }
 
   void operator()(
@@ -347,6 +311,8 @@ public:
         inner_product(otimes(I, I), sequence{3, 4}, result, sequence{1, 2});
   }
 
+  // rank() == 2
+  // rank() == 4
   void operator()(tensor_inv<ValueType> const &) {}
 
   void operator()(tensor_symmetry<ValueType> const &visitable) {
@@ -375,6 +341,29 @@ public:
     //    std::move(add))}; m_data = std::move(result);
   }
 
+  // pow(expr, scalar) scalar \in N
+  // pow(expr, 0) = I
+  // A^2 = A_im*A_mj
+  // d(A_im*A_mj)/dA_op = dA_im/dA_op*A_mj + A_im*dA_mj/dA_op  (i,j,o,p)
+  //                    = I_io * I_mp * A_mj + A_im * I_mo * I_jp
+  //                    = I_io * I_pm * A_mj + A_im * I_mo * I_jp
+  //                    = I_io * A_pj + A_io * I_jp
+  void operator()([[maybe_unused]] tensor_pow<ValueType> const &visitable) {
+    m_result = make_expression<tensor_power_diff<ValueType>>(
+        visitable.expr_lhs(), visitable.expr_rhs());
+  }
+
+  // A^n = A*A*A...
+  // sum_r^n otimesu(pow(expr, r), pow(expr, (n-1)-r)), n := scalar expr \in N
+  void
+  operator()([[maybe_unused]] tensor_power_diff<ValueType> const &visitable) {
+    assert(0);
+  }
+
+  template <typename T> void operator()([[maybe_unused]] T const &visitable) {
+    assert(0);
+  }
+
 private:
   template <typename Type> std::vector<expr_type> loop(Type const &type) {
     std::vector<expr_type> diff_vec;
@@ -388,6 +377,15 @@ private:
       }
     }
     return diff_vec;
+  }
+
+  template <typename Type, typename Func>
+  void loop(Type const &type, Func func) {
+    for (auto &child : type) {
+      tensor_differentiation diff(m_arg);
+      auto temp{diff.apply(child)};
+      func(temp);
+    }
   }
 
   template <typename Type> void loop_result(Type const &type) {

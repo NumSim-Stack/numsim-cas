@@ -94,8 +94,8 @@ template <typename ExprLHS, typename ExprRHS>
 constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                     ExprRHS &&rhs, sequence &&rhs_indices) {
   // using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
-  assert(call_tensor::rank(lhs) != lhs_indices.size() ||
-         call_tensor::rank(rhs) != rhs_indices.size());
+  // assert(call_tensor::rank(lhs) != lhs_indices.size() ||
+  //        call_tensor::rank(rhs) != rhs_indices.size());
   const auto &_lhs{*lhs};
   inner_product_simplifier<ExprLHS, ExprRHS> simplifier(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),

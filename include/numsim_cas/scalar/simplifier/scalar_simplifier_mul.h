@@ -128,6 +128,7 @@ public:
   using base = mul_default<ExprLHS, ExprRHS>;
   using base::operator();
   using base::get_coefficient;
+  using base::get_default;
 
   n_ary_mul(ExprLHS &&lhs, ExprRHS &&rhs)
       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
@@ -158,6 +159,19 @@ public:
     /// no equal expr or sub_expr
     mul.push_back(m_rhs);
     return expr_mul;
+  }
+
+  auto operator()([[maybe_unused]] scalar_pow<value_type> const &rhs) {
+    const auto &hash_map{lhs.hash_map()};
+    if (hash_map.contains(rhs.expr_lhs().get().hash_value())) {
+      auto expr_mul{make_expression<scalar_mul<value_type>>(lhs)};
+      auto &mul{expr_mul.template get<scalar_mul<value_type>>()};
+      mul.hash_map().erase(rhs.expr_lhs().get().hash_value());
+      mul.push_back(std::pow(rhs.expr_lhs(),
+                             rhs.expr_rhs() + get_scalar_one<value_type>()));
+      return expr_mul;
+    }
+    return get_default();
   }
 
   template <typename Expr> auto operator()([[maybe_unused]] Expr const &rhs) {

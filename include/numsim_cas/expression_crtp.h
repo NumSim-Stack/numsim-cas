@@ -6,6 +6,20 @@
 
 namespace numsim::cas {
 
+template <typename Type> struct get_derived {
+  using derived_type = Type;
+};
+
+template <typename Derived, typename... Args>
+struct get_derived<unary_op<Derived, Args...>> {
+  using derived_type = Derived;
+};
+
+template <typename Derived, typename... Args>
+struct get_derived<binary_op<Derived, Args...>> {
+  using derived_type = Derived;
+};
+
 /**
  * @class expression_crtp
  * @brief A CRTP (Curiously Recurring Template Pattern) base class for
@@ -61,7 +75,9 @@ private:
   /**
    * @brief Stores the unique type identifier for the derived class.
    */
-  static inline auto m_id{detail::expression_id<Derived>::value};
+  static inline constexpr auto m_id{
+      variant_index<0, typename get_derived<Derived>::derived_type,
+                    typename Base::node_type>::index};
 };
 
 } // namespace numsim::cas

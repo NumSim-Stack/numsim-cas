@@ -459,10 +459,22 @@ public:
     m_out << ")";
   }
 
+  // (A^2)' = (A*A)'
+  // sum_r^n otimesu(pow(expr, r), pow(expr, (n-1)-r)), n := scalar expr
+  void operator()(tensor_power_diff<ValueType> const &visitable,
+                  Precedence parent_precedence) {
+    m_out << "pow_diff(";
+    apply(visitable.expr_lhs(), parent_precedence);
+    m_out << ",";
+    apply(visitable.expr_rhs(), parent_precedence);
+    m_out << ")";
+  }
+
 private:
-  auto apply(expression_holder<scalar_expression<ValueType>> const &expr,
+  template <typename T>
+  auto apply(expression_holder<scalar_expression<T>> const &expr,
              [[maybe_unused]] Precedence parent_precedence = Precedence::None) {
-    scalar_printer<ValueType, StreamType> printer(m_out);
+    scalar_printer<T, StreamType> printer(m_out);
     printer.apply(expr, parent_precedence);
   }
 

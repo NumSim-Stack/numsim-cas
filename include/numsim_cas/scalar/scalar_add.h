@@ -9,9 +9,7 @@ namespace numsim::cas {
 
 template <typename ValueType>
 class scalar_add final
-    : // public expression_crtp<scalar_add<ValueType>,
-      // scalar_expression<ValueType>>,
-      public n_ary_tree<scalar_expression<ValueType>, scalar_add<ValueType>> {
+    : public n_ary_tree<scalar_expression<ValueType>, scalar_add<ValueType>> {
 public:
   using base = n_ary_tree<scalar_expression<ValueType>, scalar_add<ValueType>>;
   using base_expr =
@@ -19,6 +17,8 @@ public:
   using base::base;
 
   scalar_add() : base() {}
+  template <typename... Expr>
+  scalar_add(Expr &&...expr) : base(std::forward<Expr>(expr)...) {}
   ~scalar_add() = default;
   scalar_add(scalar_add const &add) : base(static_cast<base const &>(add)) {}
   scalar_add(scalar_add &&add) : base(std::forward<base>(add)) {}

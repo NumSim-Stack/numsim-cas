@@ -14,6 +14,7 @@ namespace numsim::cas {
 template <typename Base, typename Derived>
 class n_ary_vector : public expression_crtp<Derived, Base> {
 public:
+  using derived_type = Derived;
   using base = expression_crtp<Derived, Base>;
   using expr_type = typename Base::expr_type;
   using hash_type = typename expr_type::hash_type;

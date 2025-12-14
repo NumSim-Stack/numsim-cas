@@ -27,6 +27,7 @@ template <typename Derived, typename Base, typename BaseLHS,
 class binary_op
     : public expression_crtp<binary_op<Derived, Base, BaseLHS, BaseRHS>, Base> {
 public:
+  using derived_type = Derived;
   /**
    * @brief Type aliases for base types.
    */

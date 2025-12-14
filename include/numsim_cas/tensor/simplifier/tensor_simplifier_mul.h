@@ -104,7 +104,7 @@ public:
 
   auto operator()([[maybe_unused]] tensor<value_type> const &rhs) {
     if (lhs.expr_lhs().get().hash_value() == rhs.hash_value()) {
-      const auto rhs_expr{lhs.expr_rhs() + get_scalar_one<value_type>()};
+      const auto rhs_expr{lhs.expr_rhs() + get_scalar_one<int>()};
       return make_expression<tensor_pow<value_type>>(lhs.expr_lhs(),
                                                      std::move(rhs_expr));
     }
@@ -176,7 +176,7 @@ public:
   /// X * pow(X,expr) --> pow(X,expr+1)
   constexpr inline expr_type operator()(tensor_pow<value_type> const &rhs) {
     if (lhs.hash_value() == rhs.expr_lhs().get().hash_value()) {
-      return std::pow(m_lhs, rhs.expr_rhs() + get_scalar_one<value_type>());
+      return std::pow(m_lhs, rhs.expr_rhs() + get_scalar_one<int>());
     }
     return get_default();
   }

@@ -190,7 +190,8 @@ operator*(ExprLHS &&lhs, ExprRHS &&rhs) {
 }
 
 template <typename ExprLHS, typename ExprRHS,
-          typename = std::enable_if_t<std::is_arithmetic_v<ExprLHS>, bool>,
+          typename = std::enable_if_t<
+              std::is_arithmetic_v<std::remove_cvref_t<ExprLHS>>, bool>,
           std::enable_if_t<
               std::is_base_of_v<numsim::cas::expression,
                                 typename std::decay_t<ExprRHS>::expr_type>,
@@ -211,7 +212,8 @@ template <typename ExprLHS, typename ExprRHS,
               std::is_base_of_v<numsim::cas::expression,
                                 typename std::decay_t<ExprLHS>::expr_type>,
               bool> = true,
-          std::enable_if_t<std::is_arithmetic_v<ExprRHS>, bool> = true>
+          std::enable_if_t<std::is_arithmetic_v<std::remove_cvref_t<ExprRHS>>,
+                           bool> = true>
 constexpr inline numsim::cas::result_expression_t<ExprLHS, ExprRHS>
 operator*([[maybe_unused]] ExprLHS &&lhs, [[maybe_unused]] ExprRHS &&rhs) {
   using value_type = typename std::decay_t<ExprLHS>::expr_type::value_type;

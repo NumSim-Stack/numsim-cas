@@ -74,7 +74,7 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
   //    auto& y = this->y;
   //    auto& z = this->z;
   //    auto& _1 = this->_1;
-  auto &_2 = this->_2;
+  // auto &_2 = this->_2;
   // auto& _3 = this->_3;
   auto &Zero{this->_Zero};
   auto &One{this->_One};
@@ -97,8 +97,8 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
   EXPECT_EQ(std::to_string(Y * X), "Y*X");
   EXPECT_EQ(std::to_string((Y * X) * X), "Y*pow(X,2)");
   EXPECT_EQ(std::to_string(Y * X * Y), "Y*X*Y");
-  EXPECT_EQ(std::to_string(std::pow(X, _2) * X), "pow(X,3)");
-  EXPECT_EQ(std::to_string(X * std::pow(X, _2)), "pow(X,3)");
+  EXPECT_EQ(std::to_string(std::pow(X, 2) * X), "pow(X,3)");
+  EXPECT_EQ(std::to_string(X * std::pow(X, 2)), "pow(X,3)");
   EXPECT_EQ(std::to_string(X * (X * X)), "pow(X,3)");
   EXPECT_EQ(std::to_string((X * X) * X), "pow(X,3)");
 }
@@ -221,16 +221,16 @@ TYPED_TEST(TensorExpressionTest, TensorScalarCoeffCollection) {
 TYPED_TEST(TensorExpressionTest, TensorProductOrderAndPowersMore) {
   auto &X = this->X, &Y = this->Y;
   auto &x = this->x, &y = this->y;
-  auto &_2 = this->_2;
-  //  &_3 = this->_3;
+  // auto &_2 = this->_2;
+  //   &_3 = this->_3;
 
   EXPECT_EQ(std::to_string(x * y * X * Y),
             "x*y*X*Y"); // scalars before tensors; keep tensor order
   EXPECT_EQ(std::to_string(y * x * X * Y),
             "x*y*X*Y"); // canonical product ordering
-  EXPECT_EQ(std::to_string(std::pow(X, _2) * std::pow(X, _2)),
+  EXPECT_EQ(std::to_string(std::pow(X, 2) * std::pow(X, 2)),
             "pow(X,4)"); // power add
-  EXPECT_EQ(std::to_string(std::pow(X, _2) * X * Y),
+  EXPECT_EQ(std::to_string(std::pow(X, 2) * X * Y),
             "pow(X,3)*Y"); // assoc + pow bump
 }
 
@@ -281,9 +281,12 @@ TYPED_TEST(TensorExpressionTest, TensorDotProductNoDistribution) {
 
 TYPED_TEST(TensorExpressionTest, TensorDiff) {
   auto &X = this->X;
+  auto &Y = this->Y;
   auto &x = this->x;
 
   EXPECT_EQ(std::to_string(numsim::cas::diff(X + X, X)), "2*I{4}");
+  EXPECT_EQ(std::to_string(numsim::cas::diff(X + Y, X)), "I{4}");
+  EXPECT_EQ(std::to_string(numsim::cas::diff(X + Y, Y)), "I{4}");
 
   EXPECT_EQ(std::to_string(numsim::cas::diff(x * X, X)), "x*I{4}");
   EXPECT_EQ(std::to_string(numsim::cas::diff(X * x, X)), "x*I{4}");

@@ -84,6 +84,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor/functions/tensor_symmetry.h
     include/numsim_cas/tensor/functions/tensor_deviatoric.h
     include/numsim_cas/tensor/functions/tensor_pow.h
+    include/numsim_cas/tensor/functions/tensor_power_diff.h
     include/numsim_cas/tensor/functions/tensor_inv.h
     include/numsim_cas/tensor/data/tensor_data.h
     include/numsim_cas/tensor/data/tensor_data_add.h
@@ -143,7 +144,6 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/scalar/scalar_power.h
     include/numsim_cas/scalar/scalar_abs.h
     include/numsim_cas/scalar/scalar_sign.h
-    include/numsim_cas/scalar/scalar_sub.h
     include/numsim_cas/scalar/scalar_std.h
     include/numsim_cas/scalar/scalar_globals.h
     include/numsim_cas/scalar/simplifier/scalar_simplifier_add.h

@@ -11,6 +11,7 @@ template <typename Derived, typename Base, typename ExprType = Base>
 class unary_op
     : public expression_crtp<unary_op<Derived, Base, ExprType>, Base> {
 public:
+  using derived_type = Derived;
   using base = expression_crtp<unary_op<Derived, Base, ExprType>, Base>;
   using base_expr = Base;
 

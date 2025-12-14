@@ -97,6 +97,7 @@
 #include "tensor/functions/tensor_deviatoric.h"
 #include "tensor/functions/tensor_inv.h"
 #include "tensor/functions/tensor_pow.h"
+#include "tensor/functions/tensor_power_diff.h"
 #include "tensor/functions/tensor_symmetry.h"
 #include "tensor/functions/tensor_volumetric.h"
 #include "tensor/identity_tensor.h"

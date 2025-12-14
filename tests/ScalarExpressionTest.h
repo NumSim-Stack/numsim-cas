@@ -30,10 +30,15 @@ template <typename T> struct ScalarFixture : ::testing::Test {
 };
 
 // Bring numeric overloads; ADL will pick CAS overloads for expressions
+using std::abs;
+using std::acos;
+using std::asin;
+using std::atan;
 using std::cos;
 using std::exp;
 using std::log;
 using std::pow;
+using std::sign;
 using std::sin;
 using std::sqrt;
 using std::tan;
@@ -187,11 +192,72 @@ TYPED_TEST(ScalarFixture, PRINT_Mixed) {
 // PRINT_FUNCTIONS — trig/exp/log prints (no derivatives here)
 //
 TYPED_TEST(ScalarFixture, PRINT_Functions) {
+  using value_type = typename TestFixture::value_type;
+  using namespace numsim::cas;
+
+  auto expect_print = [&](auto const &expr, std::string_view expected) {
+    std::stringstream stream;
+    scalar_printer<value_type, std::stringstream> printer(stream);
+    printer.apply(expr);
+    EXPECT_EQ(stream.str(), expected);
+  };
+
   auto &x = this->x;
-  EXPECT_PRINT(cos(x), "cos(x)");
-  EXPECT_PRINT(sin(x), "sin(x)");
-  EXPECT_PRINT(tan(x), "tan(x)");
-  EXPECT_PRINT(exp(x), "exp(x)");
+
+  // Base literals / symbols
+  expect_print(x, "x");
+  expect_print(make_expression<scalar_zero<value_type>>(), "0");
+  expect_print(make_expression<scalar_one<value_type>>(), "1");
+
+  // Constant (adjust value/format if needed)
+  auto two = make_expression<scalar_constant<value_type>>(value_type{2});
+  expect_print(two, "2");
+
+  // Unary ops
+  expect_print(make_expression<scalar_negative<value_type>>(x), "-x");
+  expect_print(make_expression<scalar_abs<value_type>>(x), "abs(x)");
+  expect_print(make_expression<scalar_sign<value_type>>(x), "sign(x)");
+
+  // Binary ops
+  auto add{make_expression<scalar_add<value_type>>()};
+  add.template get<scalar_add<value_type>>().push_back(x);
+  add.template get<scalar_add<value_type>>().push_back(two);
+  expect_print(add, "x+2");
+
+  auto mul{make_expression<scalar_mul<value_type>>()};
+  mul.template get<scalar_mul<value_type>>().push_back(x);
+  mul.template get<scalar_mul<value_type>>().push_back(two);
+  expect_print(mul, "x*2");
+  expect_print(make_expression<scalar_div<value_type>>(x, two), "x/2");
+
+  // Powers / exponentials / logs
+  expect_print(make_expression<scalar_pow<value_type>>(x, two), "pow(x,2)");
+  expect_print(make_expression<scalar_sqrt<value_type>>(x), "sqrt(x)");
+  expect_print(make_expression<scalar_log<value_type>>(x), "log(x)");
+  expect_print(make_expression<scalar_exp<value_type>>(x), "exp(x)");
+
+  // Trig
+  expect_print(make_expression<scalar_sin<value_type>>(x), "sin(x)");
+  expect_print(make_expression<scalar_cos<value_type>>(x), "cos(x)");
+  expect_print(make_expression<scalar_tan<value_type>>(x), "tan(x)");
+
+  // Inverse trig
+  expect_print(make_expression<scalar_asin<value_type>>(x), "asin(x)");
+  expect_print(make_expression<scalar_acos<value_type>>(x), "acos(x)");
+  expect_print(make_expression<scalar_atan<value_type>>(x), "atan(x)");
+
+  expect_print(make_expression<scalar_sign<value_type>>(x), "sign(x)");
+  expect_print(make_expression<scalar_abs<value_type>>(x), "abs(x)");
+
+  expect_print(make_expression<scalar_function<value_type>>("func", x * x),
+               "func = pow(x,2)");
+
+  // Test for deterministic hashing
+  expect_print(x * sqrt(x) * log(x) * exp(x) * cos(x) * sin(x) * tan(x) *
+                   acos(x) * asin(x) * atan(x) * abs(x) * sign(x) * pow(x, x) *
+                   (two / x),
+               "acos(x)*asin(x)*tan(x)*cos(x)*sin(x)*abs(x)*sign(x)*exp(x)*log("
+               "x)*sqrt(x)*atan(x)*pow(x,1+x)*2/x");
 }
 
 //

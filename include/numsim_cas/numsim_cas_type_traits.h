@@ -114,24 +114,6 @@ using type_id = unsigned int;
 
 template <typename ExprTypeLHS, typename ExprTypeRHS> struct operator_overload;
 
-namespace detail {
-/// class for counting the different expression types
-/// like scalar, tensorial, matrix, ...
-template <typename ExpressionBase> struct expression_id_imp {
-  static inline type_id m_id{0};
-  static inline type_id m_max_id{0};
-
-  static type_id getID() {
-    m_max_id++;
-    return m_id++;
-  }
-};
-
-template <typename Type, typename ExpressionBase = void> struct expression_id {
-  static inline type_id value{expression_id_imp<ExpressionBase>::getID()};
-};
-} // namespace detail
-
 template <typename Expr> class expression_holder;
 template <typename T> class tensor_expression;
 
@@ -196,6 +178,7 @@ template <typename ValueType> class tensor_expression;
 template <typename ValueType> class tensor_add;
 template <typename ValueType> class tensor_mul;
 template <typename ValueType> class tensor_pow;
+template <typename ValueType> class tensor_power_diff;
 template <typename ValueType> class tensor_negative;
 template <typename ValueType> class inner_product_wrapper;
 template <typename ValueType> class basis_change_imp;
@@ -215,17 +198,19 @@ template <typename ValueType> class tensor_to_scalar_with_tensor_mul;
 template <typename ValueType> class tensor_to_scalar_with_tensor_div;
 // det, adj, skew, vol, dev,
 template <typename ValueType>
-using tensor_node = std::variant<
-    tensor<ValueType>, tensor_negative<ValueType>,
-    inner_product_wrapper<ValueType>, basis_change_imp<ValueType>,
-    outer_product_wrapper<ValueType>, kronecker_delta<ValueType>,
-    simple_outer_product<ValueType>, tensor_add<ValueType>,
-    tensor_mul<ValueType>, tensor_symmetry<ValueType>, tensor_inv<ValueType>,
-    tensor_deviatoric<ValueType>, tensor_volumetric<ValueType>,
-    tensor_zero<ValueType>, tensor_pow<ValueType>, identity_tensor<ValueType>,
-    tensor_projector<ValueType>, tensor_scalar_mul<ValueType>,
-    tensor_scalar_div<ValueType>, tensor_to_scalar_with_tensor_mul<ValueType>,
-    tensor_to_scalar_with_tensor_div<ValueType>>;
+using tensor_node =
+    std::variant<tensor<ValueType>, tensor_negative<ValueType>,
+                 inner_product_wrapper<ValueType>, basis_change_imp<ValueType>,
+                 outer_product_wrapper<ValueType>, kronecker_delta<ValueType>,
+                 simple_outer_product<ValueType>, tensor_add<ValueType>,
+                 tensor_mul<ValueType>, tensor_symmetry<ValueType>,
+                 tensor_inv<ValueType>, tensor_deviatoric<ValueType>,
+                 tensor_volumetric<ValueType>, tensor_zero<ValueType>,
+                 tensor_pow<ValueType>, identity_tensor<ValueType>,
+                 tensor_projector<ValueType>, tensor_scalar_mul<ValueType>,
+                 tensor_power_diff<ValueType>, tensor_scalar_div<ValueType>,
+                 tensor_to_scalar_with_tensor_mul<ValueType>,
+                 tensor_to_scalar_with_tensor_div<ValueType>>;
 
 // scalar
 template <typename ValueType> class scalar_expression;
@@ -267,10 +252,8 @@ using scalar_node = std::variant<
     scalar<ValueType>, scalar_zero<ValueType>, scalar_one<ValueType>,
     scalar_constant<ValueType>,
     // scalar_basic_operators := {+,-,*,/,negative}
-    scalar_div<ValueType>, scalar_add<ValueType>,
-    // scalar_sub<ValueType>,
-    scalar_mul<ValueType>, scalar_negative<ValueType>,
-    scalar_function<ValueType>,
+    scalar_div<ValueType>, scalar_add<ValueType>, scalar_mul<ValueType>,
+    scalar_negative<ValueType>, scalar_function<ValueType>,
 
     // scalar_trigonometric_functions := {cos, sin, tan, asin, acos, atan}
     scalar_sin<ValueType>, scalar_cos<ValueType>, scalar_tan<ValueType>,
