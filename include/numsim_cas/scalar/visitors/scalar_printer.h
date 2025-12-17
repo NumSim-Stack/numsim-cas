@@ -66,6 +66,15 @@ public:
     m_out << visitable.name();
   }
 
+  /**
+   * @brief Prints a scalar function.
+   *
+   * Prints the function name. If this is the first printed term, also prints an
+   * assignment (" = ") followed by the function expression.
+   *
+   * @param visitable The scalar function to be printed.
+   * @param parent_precedence The precedence of the parent expression.
+   */
   void operator()(scalar_function<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) noexcept {
     m_out << visitable.name();
@@ -258,6 +267,14 @@ public:
     print_unary("abs", visitable);
   }
 
+  /**
+   * @brief Prints a scalar power expression.
+   *
+   * Formats the expression as pow(lhs, rhs).
+   *
+   * @param visitable The scalar power expression to be printed.
+   * @param parent_precedence The precedence of the parent expression.
+   */
   void operator()(scalar_pow<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) noexcept {
     m_out << "pow(";
@@ -335,8 +352,8 @@ public:
   }
 
 private:
-  using base::m_first_term;
-  using base::m_out; ///< The output stream used for printing.
+  using base::m_first_term; ///< First term of the expression to be printed
+  using base::m_out;        ///< The output stream used for printing.
 };
 
 } // namespace numsim::cas
