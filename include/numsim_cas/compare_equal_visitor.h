@@ -5,6 +5,8 @@
 #include <variant>
 
 namespace numsim::cas {
+template <typename ExprBase> class expression_holder;
+
 class compare_equal_visitor {
 public:
   compare_equal_visitor() = default;

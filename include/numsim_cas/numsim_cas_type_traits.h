@@ -1,7 +1,6 @@
 #ifndef NUMSIM_CAS_TRAITS_H
 #define NUMSIM_CAS_TRAITS_H
 
-#include "compare_less_visitor.h"
 #include "numsim_cas_forward.h"
 #include "tensor/data/tensor_data.h"
 #include "tensor/data/tensor_data_eval.h"

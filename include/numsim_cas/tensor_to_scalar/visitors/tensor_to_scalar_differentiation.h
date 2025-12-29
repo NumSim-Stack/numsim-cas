@@ -314,7 +314,6 @@ public:
    */
   void operator()([[maybe_unused]] tensor_to_scalar_pow_with_scalar_exponent<
                   ValueType> const &) {}
-  void operator()([[maybe_unused]] tensor_to_scalar_log<ValueType> const &) {}
 
   /**
    * @brief Scalar multiplication: \f$ f = c\cdot g(\mathbf{X}) \f$.
@@ -405,6 +404,24 @@ public:
                  inner_product(visitable.expr_lhs(), visitable.indices_lhs(),
                                db, visitable.indices_rhs());
     }
+  }
+
+  /**
+   * @brief Natural logarithm of a tensor-to-scalar expression.
+   * @details
+   * Let \f$ f(\mathbf{X}) = \ln(g(\mathbf{X})) \f$. Then
+   * \f[
+   * \frac{\partial f}{\partial \mathbf{X}}
+   * = \frac{1}{g(\mathbf{X})}\,\frac{\partial g(\mathbf{X})}{\partial
+   * \mathbf{X}}. \f]
+   */
+  void operator()(
+      [[maybe_unused]] tensor_to_scalar_log<ValueType> const &visitable) {
+    // auto dg = diff(visitable.expr(), m_arg);
+    // if (!dg.is_valid()) {
+    //   return; // zero
+    // }
+    // m_result = std::move(dg) / visitable.expr();
   }
 
   /**
