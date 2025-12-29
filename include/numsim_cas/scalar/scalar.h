@@ -51,6 +51,7 @@ public:
   }
 
   const auto &data() const { return m_data; }
+  auto &data() { return m_data; }
 
 private:
   ValueType m_data;

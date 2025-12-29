@@ -102,6 +102,11 @@ public:
     end(precedence, parent_precedence);
   }
 
+  void operator()(tensor_to_scalar_log<ValueType> const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
+    print_unary("log", visitable);
+  }
+
   void operator()(tensor_to_scalar_add<ValueType> const &visitable,
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Addition};
@@ -118,35 +123,6 @@ public:
       }
       apply(child, precedence);
       first = false;
-    }
-
-    end(precedence, parent_precedence);
-  }
-
-  void operator()(tensor_to_scalar_sub<ValueType> const &visitable,
-                  Precedence parent_precedence) {
-    constexpr auto precedence{Precedence::Addition};
-    begin(precedence, parent_precedence);
-
-    bool first = true;
-    if (visitable.coeff().is_valid()) {
-      apply(visitable.coeff(), precedence);
-      m_out << "*";
-    }
-
-    if (visitable.size() > 1) {
-      m_out << "(";
-    }
-
-    for (auto &child : visitable.hash_map() | std::views::values) {
-      if (!first)
-        m_out << "-";
-      apply(child, precedence);
-      first = false;
-    }
-
-    if (visitable.size() > 1) {
-      m_out << ")";
     }
 
     end(precedence, parent_precedence);

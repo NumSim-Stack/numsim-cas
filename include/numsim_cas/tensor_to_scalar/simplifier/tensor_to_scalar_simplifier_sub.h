@@ -17,11 +17,11 @@ template <typename ExprLHS, typename ExprRHS> struct sub_default {
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   auto get_default() {
-    auto mul_new{make_expression<tensor_to_scalar_sub<value_type>>()};
-    auto &mul{mul_new.template get<tensor_to_scalar_sub<value_type>>()};
-    mul.push_back(m_lhs);
-    mul.push_back(m_rhs);
-    return std::move(mul_new);
+    auto add_expr{make_expression<tensor_to_scalar_add<value_type>>()};
+    auto &add{add_expr.template get<tensor_to_scalar_add<value_type>>()};
+    add.push_back(m_lhs);
+    add.push_back(-m_rhs);
+    return std::move(add_expr);
   }
 
   template <typename Expr> constexpr inline expr_type operator()(Expr const &) {

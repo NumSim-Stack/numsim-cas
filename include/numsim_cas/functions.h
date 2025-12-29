@@ -16,17 +16,10 @@
 namespace numsim::cas {
 
 template <typename ValueType>
-inline auto diff(expression_holder<scalar_expression<ValueType>> &expr,
+inline auto diff(expression_holder<scalar_expression<ValueType>> const &expr,
                  expression_holder<scalar_expression<ValueType>> const &arg) {
   scalar_differentiation<ValueType> visitor(arg);
   return visitor.apply(expr);
-}
-
-template <typename ValueType>
-inline auto diff(expression_holder<scalar_expression<ValueType>> &&expr,
-                 expression_holder<scalar_expression<ValueType>> const &arg) {
-  scalar_differentiation<ValueType> visitor(arg);
-  return visitor.apply(std::move(expr));
 }
 
 template <typename ValueType>
@@ -67,7 +60,7 @@ constexpr inline void merge_add(n_ary_tree<ExprType, Derived> const &lhs,
 
   expr_set<expression_holder<ExprType>> used_expr;
   for (auto &child : lhs.hash_map() | std::views::values) {
-    auto pos{rhs.hash_map().find(child.get().hash_value())};
+    auto pos{rhs.hash_map().find(child)};
     if (pos != rhs.hash_map().end()) {
       used_expr.insert(pos->second);
       result.push_back(child + pos->second);

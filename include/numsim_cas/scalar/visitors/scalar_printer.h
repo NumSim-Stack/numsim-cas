@@ -4,6 +4,7 @@
 #include "../../numsim_cas_type_traits.h"
 #include "../../printer_base.h"
 #include <algorithm>
+#include <ranges>
 #include <variant>
 #include <vector>
 
@@ -349,6 +350,14 @@ public:
   void operator()(scalar_acos<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) noexcept {
     print_unary("acos", visitable);
+  }
+
+  /**
+   * @brief Default overload for safty reasons.
+   */
+  template <class T> void operator()([[maybe_unused]] T const &visitable) {
+    static_assert(sizeof(T) == 0,
+                  "scalar_printer: missing overload for this node type");
   }
 
 private:

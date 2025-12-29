@@ -1,251 +1,335 @@
 #ifndef SCALAR_EVALUATOR_H
 #define SCALAR_EVALUATOR_H
 
-// #include "scalar.h"
-// #include "scalar_add.h"
-// #include "scalar_sub.h"
+#include "../../expression_holder.h" // if not already included by traits
 #include "../../numsim_cas_type_traits.h"
-#include <math.h>
+#include <cmath>
 #include <ranges>
 #include <stdexcept>
 
 namespace numsim::cas {
 
 /**
- * @brief A class to evaluate scalar expressions.
+ * @brief Evaluates scalar CAS expressions to a numeric value.
  *
- * The scalar_evaluator class provides functionality to evaluate mathematical
- * expressions involving scalars, such as addition, multiplication, negation,
- * and division. This evaluation is achieved through recursive application on
- * expression trees.
+ * This visitor evaluates an expression \f$e\f$ to a value of type @p ValueType
+ * by recursively evaluating child expressions and applying the corresponding
+ * mathematical operation.
  *
- * @tparam ValueType The type of the values in the expressions.
+ * Supported operations include:
+ * \f[
+ *   +,\; -,\; \cdot,\; /,\; \sin,\; \cos,\; \tan,\; \arcsin,\; \arccos,\;
+ * \arctan,\; \sqrt{\cdot},\; \log(\cdot),\; \exp(\cdot),\;
+ * \operatorname{pow}(\cdot,\cdot),\;
+ *   |\cdot|,\; \operatorname{sgn}(\cdot).
+ * \f]
+ *
+ * @tparam ValueType The numeric type produced by evaluation (e.g. double).
  */
 template <typename ValueType> class scalar_evaluator {
 public:
-  /**
-   * @brief Default constructor for scalar_evaluator.
-   */
+  /// @brief Default constructor.
   scalar_evaluator() = default;
 
-  /// Delete the copy constructor.
   scalar_evaluator(scalar_evaluator const &) = delete;
-
-  /// Delete the move constructor.
   scalar_evaluator(scalar_evaluator &&) = delete;
-
-  /// Delete the copy assignment operator.
   scalar_evaluator &operator=(scalar_evaluator const &) = delete;
 
   /**
-   * @brief Evaluates a given scalar expression.
+   * @brief Evaluate an expression.
    *
-   * This method recursively evaluates the provided expression and returns the
-   * computed result. The expression can be of various types, including scalar
-   * constants, scalar addition, scalar multiplication, and others.
+   * If @p expr is invalid, this implementation returns \f$0\f$.
    *
-   * @param expr The expression to evaluate.
-   * @return ValueType The evaluated result of the expression.
+   * @param expr Expression to evaluate.
+   * @return Evaluated numeric value \f$e\f$.
    */
-  ValueType apply(expression_holder<scalar_expression<ValueType>> &expr) {
-    return std::visit([this](auto &arg) { return (*this)(arg); }, *expr);
+  ValueType
+  apply(expression_holder<scalar_expression<ValueType>> const &expr) const {
+    if (!expr.is_valid()) {
+      return static_cast<ValueType>(0);
+    }
+    return std::visit([this](auto const &arg) { return (*this)(arg); }, *expr);
   }
 
   /**
-   * @brief Evaluates a given scalar expression.
+   * @brief Evaluate an rvalue expression handle.
    *
-   * This method recursively evaluates the provided expression and returns the
-   * computed result. The expression can be of various types, including scalar
-   * constants, scalar addition, scalar multiplication, and others.
-   *
-   * @param expr The expression to evaluate.
-   * @return ValueType The evaluated result of the expression.
+   * @param expr Expression to evaluate.
+   * @return Evaluated numeric value.
    */
-  ValueType apply(expression_holder<scalar_expression<ValueType>> &&expr) {
-    return std::visit([this](auto &arg) { return (*this)(arg); }, *expr);
+  ValueType
+  apply(expression_holder<scalar_expression<ValueType>> &&expr) const {
+    return apply(
+        static_cast<expression_holder<scalar_expression<ValueType>> const &>(
+            expr));
   }
 
   /**
-   * @brief Evaluates a scalar variable or a sub-expression within a scalar.
+   * @brief Evaluate a scalar variable.
    *
-   * If the scalar contains an inner expression, it recursively evaluates the
-   * expression. Otherwise, it returns the scalar’s data value.
+   * Returns the stored value \f$x\f$.
    *
-   * @param visitable The scalar variable.
-   * @return ValueType The evaluated result of the scalar or its expression.
+   * @param visitable Scalar variable node.
+   * @return \f$x\f$.
    */
-  ValueType operator()(scalar<ValueType> &visitable) {
+  ValueType operator()(scalar<ValueType> const &visitable) const {
     return visitable.data();
   }
 
-  ValueType
-  operator()([[maybe_unused]] scalar_function<ValueType> const &visitable) {
+  /**
+   * @brief Evaluate a scalar function node.
+   *
+   * Evaluates the function body expression \f$f(x)\f$.
+   *
+   * @param visitable Function node.
+   * @return \f$f(x)\f$ evaluated.
+   */
+  ValueType operator()(scalar_function<ValueType> const &visitable) const {
     return apply(visitable.expr());
   }
 
   /**
-   * @brief Evaluates a scalar multiplication expression.
+   * @brief Evaluate multiplication.
    *
-   * Multiplies the evaluated results of each child expression within the scalar
-   * multiplication expression.
+   * For \f$e = c \cdot \prod_i a_i\f$, returns:
+   * \f[
+   *   c \cdot \prod_i a_i.
+   * \f]
    *
-   * @param visitable The scalar multiplication expression to evaluate.
-   * @return ValueType The product of all evaluated child expressions.
+   * @param visitable Multiplication node.
+   * @return Product value.
    */
-  ValueType operator()(scalar_mul<ValueType> &visitable) {
-    ValueType result{1};
+  ValueType operator()(scalar_mul<ValueType> const &visitable) const {
+    ValueType result{static_cast<ValueType>(1)};
     if (visitable.coeff().is_valid()) {
       result = apply(visitable.coeff());
     }
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    for (auto const &child : visitable.hash_map() | std::views::values) {
       result *= apply(child);
     }
     return result;
   }
 
   /**
-   * @brief Evaluates a scalar addition expression.
+   * @brief Evaluate addition.
    *
-   * Adds the evaluated results of each child expression within the scalar
-   * addition expression.
+   * For \f$e = c + \sum_i a_i\f$, returns:
+   * \f[
+   *   c + \sum_i a_i.
+   * \f]
    *
-   * @param visitable The scalar addition expression to evaluate.
-   * @return ValueType The sum of all evaluated child expressions.
+   * @param visitable Addition node.
+   * @return Sum value.
    */
-  ValueType operator()(scalar_add<ValueType> &visitable) {
-    ValueType result{0};
+  ValueType operator()(scalar_add<ValueType> const &visitable) const {
+    ValueType result{static_cast<ValueType>(0)};
     if (visitable.coeff().is_valid()) {
       result += apply(visitable.coeff());
     }
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    for (auto const &child : visitable.hash_map() | std::views::values) {
       result += apply(child);
     }
     return result;
   }
 
-  //  /**
-  //   * @brief Evaluates a scalar subtraction expression.
-  //   *
-  //   * Subtracts the evaluated results of each child expression within the
-  //   scalar
-  //   * subtraction expression.
-  //   *
-  //   * @param visitable The scalar subtraction expression to evaluate.
-  //   * @return ValueType The sum of all evaluated child expressions.
-  //   */
-  //  ValueType operator()(scalar_sub<ValueType> &visitable) {
-  //    ValueType result{0};
-  //    if (visitable.coeff().is_valid()) {
-  //      result -= apply(visitable.coeff());
-  //    }
-  //    for (auto &child : visitable.hash_map() | std::views::values) {
-  //      result -= apply(child);
-  //    }
-  //    return result;
-  //  }
-
   /**
-   * @brief Evaluates a scalar negation expression.
+   * @brief Evaluate negation.
    *
-   * Negates the result of the evaluated inner expression.
+   * For \f$e = -u\f$, returns \f$-u\f$.
    *
-   * @param visitable The scalar negation expression to evaluate.
-   * @return ValueType The negated result of the inner expression.
+   * @param visitable Negation node.
+   * @return \f$-u\f$.
    */
-  ValueType operator()(scalar_negative<ValueType> &visitable) {
+  ValueType operator()(scalar_negative<ValueType> const &visitable) const {
     return -apply(visitable.expr());
   }
 
   /**
-   * @brief Evaluates a scalar division expression.
+   * @brief Evaluate division.
    *
-   * Divides the evaluated left-hand expression by the right-hand expression.
-   * Throws an exception if the right-hand expression evaluates to zero.
+   * For \f$e = \frac{g}{h}\f$, returns \f$g/h\f$.
    *
-   * @param visitable The scalar division expression to evaluate.
-   * @return ValueType The result of the division.
-   * @throws std::runtime_error If division by zero is encountered.
+   * @throws std::runtime_error if \f$h=0\f$.
+   *
+   * @param visitable Division node.
+   * @return \f$g/h\f$.
    */
-  ValueType operator()(scalar_div<ValueType> &visitable) {
+  ValueType operator()(scalar_div<ValueType> const &visitable) const {
     const ValueType lhs{apply(visitable.expr_lhs())};
     const ValueType rhs{apply(visitable.expr_rhs())};
-    if (rhs == 0) {
+    if (rhs == static_cast<ValueType>(0)) {
       throw std::runtime_error("Division by zero in scalar_div evaluation.");
     }
     return lhs / rhs;
   }
 
   /**
-   * @brief Evaluates a scalar constant expression.
+   * @brief Evaluate a constant.
    *
-   * Simply returns the constant value of the scalar.
-   *
-   * @param visitable The scalar constant expression to evaluate.
-   * @return ValueType The constant value of the scalar.
+   * @param visitable Constant node.
+   * @return \f$c\f$.
    */
-  ValueType operator()(scalar_constant<ValueType> &visitable) {
+  ValueType operator()(scalar_constant<ValueType> const &visitable) const {
     return visitable();
   }
 
-  ValueType operator()([[maybe_unused]] scalar_one<ValueType> &visitable) {
+  /**
+   * @brief Evaluate one.
+   * @return \f$1\f$.
+   */
+  ValueType operator()(scalar_one<ValueType> const &) const {
     return static_cast<ValueType>(1);
   }
 
-  ValueType operator()([[maybe_unused]] scalar_zero<ValueType> &visitable) {
+  /**
+   * @brief Evaluate zero.
+   * @return \f$0\f$.
+   */
+  ValueType operator()(scalar_zero<ValueType> const &) const {
     return static_cast<ValueType>(0);
   }
 
-  ValueType operator()(scalar_tan<ValueType> &visitable) {
+  /**
+   * @brief Evaluate \f$\tan(u)\f$.
+   * @return \f$\tan(u)\f$.
+   */
+  ValueType operator()(scalar_tan<ValueType> const &visitable) const {
     return std::tan(apply(visitable.expr()));
   }
 
-  ValueType operator()(scalar_sin<ValueType> &visitable) {
+  /**
+   * @brief Evaluate \f$\sin(u)\f$.
+   * @return \f$\sin(u)\f$.
+   */
+  ValueType operator()(scalar_sin<ValueType> const &visitable) const {
     return std::sin(apply(visitable.expr()));
   }
 
-  ValueType operator()(scalar_cos<ValueType> &visitable) {
+  /**
+   * @brief Evaluate \f$\cos(u)\f$.
+   * @return \f$\cos(u)\f$.
+   */
+  ValueType operator()(scalar_cos<ValueType> const &visitable) const {
     return std::cos(apply(visitable.expr()));
   }
 
-  ValueType operator()(scalar_atan<ValueType> const &visitable) {
+  /**
+   * @brief Evaluate \f$\arctan(u)\f$.
+   * @return \f$\arctan(u)\f$.
+   */
+  ValueType operator()(scalar_atan<ValueType> const &visitable) const {
     return std::atan(apply(visitable.expr()));
   }
 
-  ValueType operator()(scalar_asin<ValueType> const &visitable) {
+  /**
+   * @brief Evaluate \f$\arcsin(u)\f$.
+   * @return \f$\arcsin(u)\f$.
+   */
+  ValueType operator()(scalar_asin<ValueType> const &visitable) const {
     return std::asin(apply(visitable.expr()));
   }
 
-  ValueType operator()(scalar_acos<ValueType> const &visitable) {
+  /**
+   * @brief Evaluate \f$\arccos(u)\f$.
+   * @return \f$\arccos(u)\f$.
+   */
+  ValueType operator()(scalar_acos<ValueType> const &visitable) const {
     return std::acos(apply(visitable.expr()));
   }
 
-  ValueType operator()(scalar_sqrt<ValueType> const &visitable) {
-    const ValueType temp{apply(visitable.expr())};
-    if (temp < 0) {
-      throw std::runtime_error("");
+  /**
+   * @brief Evaluate \f$\sqrt{u}\f$.
+   *
+   * @throws std::runtime_error if \f$u < 0\f$ (real-valued evaluation).
+   *
+   * @param visitable Square-root node.
+   * @return \f$\sqrt{u}\f$.
+   */
+  ValueType operator()(scalar_sqrt<ValueType> const &visitable) const {
+    const ValueType u{apply(visitable.expr())};
+    if (u < static_cast<ValueType>(0)) {
+      throw std::runtime_error(
+          "sqrt: negative argument in real-valued evaluation.");
     }
-    return std::sqrt(temp);
+    return std::sqrt(u);
   }
 
-  void operator()(scalar_log<ValueType> const &visitable) {
-    return std::log(apply(visitable.expr()));
+  /**
+   * @brief Evaluate natural logarithm \f$\log(u)\f$.
+   *
+   * Interprets \f$\log\f$ as the natural logarithm.
+   *
+   * @throws std::runtime_error if \f$u \le 0\f$ (real-valued evaluation).
+   *
+   * @param visitable Log node.
+   * @return \f$\log(u)\f$.
+   */
+  ValueType operator()(scalar_log<ValueType> const &visitable) const {
+    const ValueType u{apply(visitable.expr())};
+    if (u <= static_cast<ValueType>(0)) {
+      throw std::runtime_error(
+          "log: non-positive argument in real-valued evaluation.");
+    }
+    return std::log(u);
   }
 
-  ValueType operator()(scalar_exp<ValueType> const &visitable) {
+  /**
+   * @brief Evaluate \f$\exp(u)\f$.
+   * @return \f$e^{u}\f$.
+   */
+  ValueType operator()(scalar_exp<ValueType> const &visitable) const {
     return std::exp(apply(visitable.expr()));
   }
 
-  ValueType operator()(scalar_pow<ValueType> const &visitable) {
+  /**
+   * @brief Evaluate power \f$\operatorname{pow}(g,h)\f$.
+   * @return \f$g^{h}\f$.
+   */
+  ValueType operator()(scalar_pow<ValueType> const &visitable) const {
     return std::pow(apply(visitable.expr_lhs()), apply(visitable.expr_rhs()));
   }
 
-  ValueType operator()(scalar_sign<ValueType> const &visitable) {
-    const ValueType temp{apply(visitable.expr())};
-    return temp < 0 ? -1 : 1;
+  /**
+   * @brief Evaluate sign function \f$\operatorname{sgn}(u)\f$.
+   *
+   * \f[
+   * \operatorname{sgn}(u)=
+   * \begin{cases}
+   * -1 & u<0 \\
+   * 0  & u=0 \\
+   * 1  & u>0
+   * \end{cases}
+   * \f]
+   *
+   * @return \f$\operatorname{sgn}(u)\f$.
+   */
+  ValueType operator()(scalar_sign<ValueType> const &visitable) const {
+    const ValueType u{apply(visitable.expr())};
+    if (u > static_cast<ValueType>(0))
+      return static_cast<ValueType>(1);
+    if (u < static_cast<ValueType>(0))
+      return static_cast<ValueType>(-1);
+    return static_cast<ValueType>(0);
   }
 
-  ValueType operator()(scalar_abs<ValueType> const &visitable) {
+  /**
+   * @brief Evaluate absolute value \f$|u|\f$.
+   * @return \f$|u|\f$.
+   */
+  ValueType operator()(scalar_abs<ValueType> const &visitable) const {
     return std::abs(apply(visitable.expr()));
+  }
+
+  /**
+   * @brief Catch-all to make missing overloads a compile-time error.
+   *
+   * If a new node type is added to the variant and no overload exists here,
+   * compilation fails with a clear message.
+   */
+  template <class T> ValueType operator()(T const &) const {
+    static_assert(sizeof(T) == 0,
+                  "scalar_evaluator: missing overload for this node type");
+    return static_cast<ValueType>(0);
   }
 };
 

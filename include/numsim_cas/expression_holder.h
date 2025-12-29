@@ -41,10 +41,10 @@ public:
     return *this;
   }
 
-  expression_holder &operator=(std::shared_ptr<ExprBase> &&data) {
-    m_expr = std::move(data);
-    return *this;
-  }
+  // expression_holder &operator=(std::shared_ptr<node_type> &&data) {
+  //   m_expr = std::move(data);
+  //   return *this;
+  // }
 
   expression_holder &operator*=(expression_holder &data) {
     if (is_valid()) {
@@ -144,14 +144,6 @@ public:
 
   constexpr inline auto free() { return m_expr.reset(); }
 
-  bool operator!=(expression_holder const &data) const {
-    return !(*this == data);
-  }
-
-  bool operator==(expression_holder const &data) const {
-    return data.m_expr.get() == m_expr.get();
-  }
-
   template <typename _ExprBase>
   friend std::ostream &operator<<(std::ostream &os,
                                   expression_holder<_ExprBase> const &expr);
@@ -181,7 +173,7 @@ bool operator<(expression_holder<_ExprBase> const &lhs,
 template <typename _ExprBase>
 bool operator>(expression_holder<_ExprBase> const &lhs,
                expression_holder<_ExprBase> const &rhs) {
-  return !(lhs < rhs);
+  return rhs < lhs;
 }
 
 template <typename _ExprBase>

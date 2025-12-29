@@ -69,7 +69,7 @@ protected:
 template <typename _BaseExpr, typename _Derived>
 bool operator<(symbol_base<_BaseExpr, _Derived> const &lhs,
                symbol_base<_BaseExpr, _Derived> const &rhs) {
-  return lhs.m_hash_value < rhs.m_hash_value;
+  return lhs.hash_value() < rhs.hash_value();
 }
 
 template <typename _BaseExpr, typename _Derived>
@@ -81,7 +81,7 @@ bool operator>(symbol_base<_BaseExpr, _Derived> const &lhs,
 template <typename _BaseExpr, typename _Derived>
 bool operator==(symbol_base<_BaseExpr, _Derived> const &lhs,
                 symbol_base<_BaseExpr, _Derived> const &rhs) {
-  return lhs.m_hash_value == rhs.m_hash_value;
+  return lhs.hash_value() == rhs.hash_value();
 }
 
 template <typename _BaseExpr, typename _Derived>

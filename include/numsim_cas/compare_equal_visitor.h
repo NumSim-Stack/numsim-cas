@@ -16,8 +16,9 @@ public:
   }
 
   template <typename LHS, typename RHS>
-  constexpr inline auto operator()(LHS const &lhs, RHS const &rhs) {
-    return lhs.hash_value() == rhs.hash_value();
+  constexpr inline auto operator()([[maybe_unused]] LHS const &lhs,
+                                   [[maybe_unused]] RHS const &rhs) {
+    return false;
   }
 
   template <typename Type>

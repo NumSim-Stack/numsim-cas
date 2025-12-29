@@ -5,6 +5,7 @@
 #include "../numsim_cas_forward.h"
 #include "../numsim_cas_type_traits.h"
 #include "scalar_expression.h"
+#include "scalar_one.h"
 #include "visitors/scalar_printer.h"
 #include <sstream>
 
@@ -45,9 +46,25 @@ template <
             typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type>,
         bool> = true>
 auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
+  using value_type_rhs =
+      typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type::value_type;
   using value_type = std::common_type_t<
       typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
-      typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type::value_type>;
+      value_type_rhs>;
+
+  assert(expr_rhs.is_valid());
+  assert(expr_lhs.is_valid());
+
+  if (numsim::cas::is_same<numsim::cas::scalar_one<value_type_rhs>>(expr_rhs)) {
+    return std::forward<ExprLHS>(expr_lhs);
+  }
+
+  if (numsim::cas::is_same<numsim::cas::scalar_constant<value_type_rhs>>(
+          expr_rhs) &&
+      expr_rhs.template get<numsim::cas::scalar_constant<value_type_rhs>>()() ==
+          static_cast<value_type_rhs>(1)) {
+    return std::forward<ExprLHS>(expr_lhs);
+  }
 
   return numsim::cas::make_expression<numsim::cas::scalar_pow<value_type>>(
       std::forward<ExprLHS>(expr_lhs), std::forward<ExprRHS>(expr_rhs));
@@ -66,6 +83,13 @@ auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
   using value_type = std::common_type_t<
       typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
       ExprRHS>;
+
+  assert(expr_lhs.is_valid());
+
+  if (expr_rhs == static_cast<value_type>(1)) {
+    return std::forward<ExprLHS>(expr_lhs);
+  }
+
   auto constant{
       numsim::cas::make_expression<numsim::cas::scalar_constant<value_type>>(
           expr_rhs)};
@@ -86,6 +110,13 @@ auto pow(ExprLHS const &expr_lhs, ExprRHS &&expr_rhs) {
   using value_type = std::common_type_t<
       typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
       ExprRHS>;
+
+  assert(expr_lhs.is_valid());
+
+  if (expr_rhs == static_cast<value_type>(1)) {
+    return expr_lhs;
+  }
+
   auto constant{
       numsim::cas::make_expression<numsim::cas::scalar_constant<value_type>>(
           expr_rhs)};

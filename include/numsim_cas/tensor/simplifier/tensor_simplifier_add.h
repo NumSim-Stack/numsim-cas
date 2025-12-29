@@ -156,14 +156,15 @@ public:
   //    return add_expr;
   //  }
 
-  template <typename Expr> [[nodiscard]] auto operator()(Expr const &rhs) {
+  template <typename Expr>
+  [[nodiscard]] auto operator()([[maybe_unused]] Expr const &rhs) {
     /// do a deep copy of data
     auto expr_add{make_expression<tensor_add<value_type>>(lhs)};
     auto &add{expr_add.template get<tensor_add<value_type>>()};
     /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
-    auto pos{lhs.hash_map().find(rhs.hash_value())};
+    auto pos{lhs.hash_map().find(m_rhs)};
     if (pos != lhs.hash_map().end()) {
-      add.hash_map().erase(rhs.hash_value());
+      add.hash_map().erase(m_rhs);
       add.push_back(pos->second + m_rhs);
       return expr_add;
     }
@@ -181,12 +182,12 @@ public:
   }
 
   [[nodiscard]] auto operator()(tensor_negative<value_type> const &rhs) {
-    const auto &hash_rhs{rhs.expr().get().hash_value()};
-    const auto pos{lhs.hash_map().find(hash_rhs)};
+    const auto &expr_rhs{rhs.expr()};
+    const auto pos{lhs.hash_map().find(expr_rhs)};
     if (pos != lhs.hash_map().end()) {
       auto expr{make_expression<tensor_add<value_type>>(lhs)};
       auto &add{expr.template get<tensor_add<value_type>>()};
-      add.hash_map().erase(hash_rhs);
+      add.hash_map().erase(expr_rhs);
       return expr;
     }
     return get_default();

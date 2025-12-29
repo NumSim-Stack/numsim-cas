@@ -149,10 +149,10 @@ public:
     auto expr_mul{make_expression<scalar_mul<value_type>>(lhs)};
     auto &mul{expr_mul.template get<scalar_mul<value_type>>()};
     /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
-    auto pos{lhs.hash_map().find(rhs.hash_value())};
+    auto pos{lhs.hash_map().find(m_rhs)};
     if (pos != lhs.hash_map().end()) {
       auto expr{binary_scalar_mul_simplify(pos->second, m_rhs)};
-      mul.hash_map().erase(rhs.hash_value());
+      mul.hash_map().erase(m_rhs);
       mul.push_back(expr);
       return expr_mul;
     }
@@ -163,10 +163,10 @@ public:
 
   auto operator()([[maybe_unused]] scalar_pow<value_type> const &rhs) {
     const auto &hash_map{lhs.hash_map()};
-    if (hash_map.contains(rhs.expr_lhs().get().hash_value())) {
+    if (hash_map.contains(rhs.expr_lhs())) {
       auto expr_mul{make_expression<scalar_mul<value_type>>(lhs)};
       auto &mul{expr_mul.template get<scalar_mul<value_type>>()};
-      mul.hash_map().erase(rhs.expr_lhs().get().hash_value());
+      mul.hash_map().erase(rhs.expr_lhs());
       mul.push_back(std::pow(rhs.expr_lhs(),
                              rhs.expr_rhs() + get_scalar_one<value_type>()));
       return expr_mul;

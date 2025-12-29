@@ -66,11 +66,11 @@ public:
 
 protected:
   virtual void update_hash_value() const = 0;
+  numeric_assumption_manager m_assumption{};
   /**
    * @brief Stores the hash value of the expression.
    */
   mutable hash_type m_hash_value{0};
-  numeric_assumption_manager m_assumption{};
 };
 
 } // namespace numsim::cas

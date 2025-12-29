@@ -127,6 +127,7 @@
 #include "tensor_to_scalar/tensor_norm.h"
 #include "tensor_to_scalar/tensor_to_scalar_expression.h"
 #include "tensor_to_scalar/tensor_to_scalar_functions.h"
+#include "tensor_to_scalar/tensor_to_scalar_log.h"
 #include "tensor_to_scalar/tensor_to_scalar_negative.h"
 #include "tensor_to_scalar/tensor_to_scalar_one.h"
 #include "tensor_to_scalar/tensor_to_scalar_operators.h"

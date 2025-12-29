@@ -118,6 +118,19 @@ auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
       std::forward<ExprLHS>(expr_lhs), std::forward<ExprRHS>(expr_rhs));
 }
 
+template <typename Expr,
+          std::enable_if_t<
+              std::is_same_v<typename std::decay_t<Expr>::expr_type,
+                             numsim::cas::tensor_to_scalar_expression<
+                                 typename std::decay_t<Expr>::value_type>>,
+              bool> = true>
+auto log(Expr &&expr) {
+  using value_type =
+      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
+  return numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_log<value_type>>(std::forward<Expr>(expr));
+}
+
 } // namespace std
 
 #endif // TENSOR_TO_SCALAR_STD_H

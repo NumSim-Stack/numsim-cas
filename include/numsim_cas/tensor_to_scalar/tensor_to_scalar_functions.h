@@ -49,7 +49,7 @@ template <typename ValueType, typename StreamType>
 constexpr inline void
 print(StreamType &out,
       expression_holder<tensor_to_scalar_expression<ValueType>> const &expr,
-      Precedence precedence) {
+      Precedence precedence = Precedence::None) {
   tensor_to_scalar_printer<ValueType, StreamType> eval(out);
   eval.apply(expr, precedence);
 }

@@ -1,11 +1,11 @@
-#ifndef TENSOR_TO_SCALAR_SCALAR_SUB_H
-#define TENSOR_TO_SCALAR_SCALAR_SUB_H
+// #ifndef TENSOR_TO_SCALAR_SCALAR_SUB_H
+// #define TENSOR_TO_SCALAR_SCALAR_SUB_H
 
-#include "../../../binary_op.h"
-#include "../../../numsim_cas_type_traits.h"
-#include "../../../operators.h"
-#include "../../../scalar/scalar_expression.h"
-#include "../../tensor_to_scalar_expression.h"
+// #include "../../../binary_op.h"
+// #include "../../../numsim_cas_type_traits.h"
+// #include "../../../operators.h"
+// #include "../../../scalar/scalar_expression.h"
+// #include "../../tensor_to_scalar_expression.h"
 
 // namespace numsim::cas {
 
@@ -31,8 +31,8 @@
 //      : base(std::forward<base>(data)) {}
 //  const tensor_to_scalar_with_scalar_sub &
 //  operator=(tensor_to_scalar_with_scalar_sub &&) = delete;
-//};
+// };
 
-//} // namespace numsim::cas
+// } // namespace numsim::cas
 
-#endif // TENSOR_TO_SCALAR_SCALAR_SUB_H
+// #endif // TENSOR_TO_SCALAR_SCALAR_SUB_H

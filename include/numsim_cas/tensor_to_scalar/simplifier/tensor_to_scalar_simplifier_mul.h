@@ -113,7 +113,7 @@ template <typename ExprLHS, typename ExprRHS> struct mul_base {
     auto new_mul{copy_expression<tensor_to_scalar_mul<value_type>>(
         std::forward<ExprLHS>(m_lhs))};
     auto &mul{new_mul.template get<tensor_to_scalar_mul<value_type>>()};
-    auto pos{mul.hash_map().find(m_rhs.get().hash_value())};
+    auto pos{mul.hash_map().find(m_rhs)};
     if (pos != mul.hash_map().end()) {
       auto expr{pos->second * m_rhs};
       mul.hash_map().erase(pos);

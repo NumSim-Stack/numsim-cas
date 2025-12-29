@@ -7,6 +7,10 @@
 
 namespace numsim::cas {
 
+template <typename ValueType>
+inline auto diff(expression_holder<scalar_expression<ValueType>> const &expr,
+                 expression_holder<scalar_expression<ValueType>> const &arg);
+
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 constexpr inline result_expression_t<ExprTypeLHS, ExprTypeRHS>
 binary_scalar_add_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs);

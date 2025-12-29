@@ -42,6 +42,8 @@ public:
     this->m_hash_value = data.m_hash_value;
   }
 
+  virtual ~n_ary_tree() = default;
+
   inline void push_back(expression_holder<expr_type> const &expr) noexcept {
     insert_hash(expr);
   }
@@ -151,8 +153,8 @@ private:
   }
 
   template <typename T> void insert_hash(T const &expr) noexcept {
-    assert(m_symbol_map.find(get_hash_value(expr)) == m_symbol_map.end());
-    m_symbol_map[get_hash_value(expr)] = expr;
+    assert(m_symbol_map.find(expr) == m_symbol_map.end());
+    m_symbol_map[expr] = expr;
     update_hash_value();
   }
 };

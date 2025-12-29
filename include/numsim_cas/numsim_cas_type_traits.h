@@ -1,6 +1,7 @@
 #ifndef NUMSIM_CAS_TRAITS_H
 #define NUMSIM_CAS_TRAITS_H
 
+#include "compare_less_visitor.h"
 #include "numsim_cas_forward.h"
 #include "tensor/data/tensor_data.h"
 #include "tensor/data/tensor_data_eval.h"
@@ -48,10 +49,11 @@ using std::holds_alternative;
 using std::visit;
 
 template <typename ExprType>
-using expr_set = std::set<ExprType, detail::expression_comparator>;
+using expr_set = std::set<ExprType>; //, detail::expression_comparator>;
 
 template <typename ExprType>
-using expr_map = std::map<ExprType, ExprType, detail::expression_comparator>;
+using expr_map =
+    std::map<ExprType, ExprType>; //, detail::expression_comparator>;
 
 template <typename T>
 using tensor_data_ptr = std::unique_ptr<tensor_data_base<T>>;
@@ -92,7 +94,7 @@ template <typename Derived, typename Base> class expression_crtp;
 //  VariantType m_data;
 //};
 
-template <typename ExprType> using umap = std::map<std::size_t, ExprType>;
+template <typename ExprType> using umap = std::map<ExprType, ExprType>;
 template <typename ExprType> using expr_vector = std::vector<ExprType>;
 
 // template<typename _Visitor, typename... _Variants>
@@ -254,7 +256,6 @@ using scalar_node = std::variant<
     // scalar_basic_operators := {+,-,*,/,negative}
     scalar_div<ValueType>, scalar_add<ValueType>, scalar_mul<ValueType>,
     scalar_negative<ValueType>, scalar_function<ValueType>,
-
     // scalar_trigonometric_functions := {cos, sin, tan, asin, acos, atan}
     scalar_sin<ValueType>, scalar_cos<ValueType>, scalar_tan<ValueType>,
     scalar_asin<ValueType>, scalar_acos<ValueType>, scalar_atan<ValueType>,
@@ -272,7 +273,6 @@ template <typename ValueType> class tensor_norm;
 template <typename ValueType> class tensor_to_scalar_negative;
 template <typename ValueType> class tensor_to_scalar_add;
 template <typename ValueType> class tensor_to_scalar_mul;
-template <typename ValueType> class tensor_to_scalar_sub;
 template <typename ValueType> class tensor_to_scalar_div;
 template <typename ValueType> class tensor_to_scalar_with_scalar_add;
 template <typename ValueType> class tensor_to_scalar_with_scalar_mul;
@@ -284,6 +284,7 @@ template <typename ValueType> class tensor_to_scalar_pow_with_scalar_exponent;
 template <typename ValueType> class tensor_inner_product_to_scalar;
 template <typename ValueType> class tensor_to_scalar_zero;
 template <typename ValueType> class tensor_to_scalar_one;
+template <typename ValueType> class tensor_to_scalar_log;
 
 // var
 template <typename ValueType>
@@ -291,13 +292,12 @@ using tensor_to_scalar_node = std::variant<
     tensor_trace<ValueType>, tensor_det<ValueType>, tensor_dot<ValueType>,
     tensor_norm<ValueType>, tensor_to_scalar_negative<ValueType>,
     tensor_to_scalar_add<ValueType>, tensor_to_scalar_mul<ValueType>,
-    tensor_to_scalar_sub<ValueType>, tensor_to_scalar_div<ValueType>,
+    tensor_to_scalar_div<ValueType>,
     tensor_to_scalar_with_scalar_add<ValueType>,
     tensor_to_scalar_with_scalar_mul<ValueType>,
-    // tensor_to_scalar_with_scalar_sub<ValueType>,
     tensor_to_scalar_with_scalar_div<ValueType>,
     scalar_with_tensor_to_scalar_div<ValueType>,
-    tensor_to_scalar_pow<ValueType>,
+    tensor_to_scalar_pow<ValueType>, tensor_to_scalar_log<ValueType>,
     tensor_to_scalar_pow_with_scalar_exponent<ValueType>,
     tensor_inner_product_to_scalar<ValueType>, tensor_to_scalar_zero<ValueType>,
     tensor_to_scalar_one<ValueType>>;

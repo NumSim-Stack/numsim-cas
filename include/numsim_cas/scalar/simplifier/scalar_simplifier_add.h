@@ -159,10 +159,10 @@ public:
     auto expr_add{make_expression<scalar_add<value_type>>(lhs)};
     auto &add{expr_add.template get<scalar_add<value_type>>()};
     /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
-    auto pos{lhs.hash_map().find(rhs.hash_value())};
+    auto pos{lhs.hash_map().find(m_rhs)};
     if (pos != lhs.hash_map().end()) {
       auto expr{binary_scalar_add_simplify(pos->second, m_rhs)};
-      add.hash_map().erase(rhs.hash_value());
+      add.hash_map().erase(m_rhs);
       add.push_back(expr);
       return expr_add;
     }
@@ -180,12 +180,11 @@ public:
   }
 
   auto operator()(scalar_negative<value_type> const &rhs) {
-    const auto &hash_rhs{rhs.expr().get().hash_value()};
-    const auto pos{lhs.hash_map().find(hash_rhs)};
+    const auto pos{lhs.hash_map().find(rhs.expr())};
     if (pos != lhs.hash_map().end()) {
       auto expr{make_expression<scalar_add<value_type>>(lhs)};
       auto &add{expr.template get<scalar_add<value_type>>()};
-      add.hash_map().erase(hash_rhs);
+      add.hash_map().erase(rhs.expr());
       return expr;
     }
     return get_default();
@@ -213,10 +212,9 @@ public:
         lhs{base::m_lhs.template get<scalar_mul<value_type>>()} {}
 
   // constant*expr + expr --> (constant+1)*expr
-  auto operator()(scalar<value_type> const &rhs) {
-    const auto &hash_rhs{rhs.hash_value()};
+  auto operator()([[maybe_unused]] scalar<value_type> const &rhs) {
     // const auto &hash_lhs{lhs.hash_value()};
-    const auto pos{lhs.hash_map().find(hash_rhs)};
+    const auto pos{lhs.hash_map().find(m_rhs)};
     if (pos != lhs.hash_map().end() && lhs.hash_map().size() == 1) {
       auto expr{make_expression<scalar_mul<value_type>>(lhs)};
       auto &mul{expr.template get<scalar_mul<value_type>>()};
@@ -278,8 +276,7 @@ public:
 
   constexpr inline expr_type operator()(scalar_mul<value_type> const &rhs) {
     // const auto &hash_rhs{rhs.hash_value()};
-    const auto &hash_lhs{lhs.hash_value()};
-    const auto pos{rhs.hash_map().find(hash_lhs)};
+    const auto pos{rhs.hash_map().find(m_lhs)};
     if (pos != rhs.hash_map().end() && rhs.hash_map().size() == 1) {
       auto expr{make_expression<scalar_mul<value_type>>(rhs)};
       auto &mul{expr.template get<scalar_mul<value_type>>()};
