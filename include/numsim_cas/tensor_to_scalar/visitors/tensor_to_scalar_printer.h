@@ -41,20 +41,6 @@ public:
     }
   }
 
-  //  auto apply(expression_holder<tensor_expression<ValueType>> const &expr,
-  //             [[maybe_unused]] Precedence parent_precedence =
-  //             Precedence::None) {
-  //    tensor_printer<ValueType, StreamType> printer(m_out);
-  //    printer.apply(expr, parent_precedence);
-  //  }
-
-  //  auto apply(expression_holder<scalar_expression<ValueType>> const &expr,
-  //             [[maybe_unused]] Precedence parent_precedence =
-  //             Precedence::None) {
-  //    scalar_printer<ValueType, StreamType> printer(m_out);
-  //    printer.apply(expr, parent_precedence);
-  //  }
-
   void operator()(tensor_trace<ValueType> const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     print_unary("tr", visitable);
@@ -235,11 +221,14 @@ public:
     }
   }
 
-  template <typename Expr>
-  void operator()([[maybe_unused]] Expr const &visitable,
+  /**
+   * @brief Default overload for safty reasons.
+   */
+  template <class T>
+  void operator()([[maybe_unused]] T const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
-    std::cout << "Error: type not defined" << std::endl;
-    assert(0);
+    static_assert(sizeof(T) == 0, "tensor_to_scalar_printer: missing "
+                                  "overload for this node type");
   }
 
 private:

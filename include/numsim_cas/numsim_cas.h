@@ -50,6 +50,45 @@
 /// --> void
 /// Tensor expression
 /// * simple_outer_product as an n_ary_tree, e.g. ((a otimes b) otimes c)
+///
+///
+/// Enable constants in both cases only add one addtional node in variant
+/// -- using a registry
+/// using symbol_id = uint32_t;
+/// struct constant_entry {
+///   std::string name;               // for printing
+///   long double approx_ld;          // optional numeric value for evaluation
+///   // optional: units metadata, uncertainty, etc.
+/// };
+/// class constant_registry {
+/// public:
+///   symbol_id intern(std::string_view name, long double approx = 0.0L);
+///   std::string_view name_of(symbol_id id) const { return entries[id].name; }
+///   long double value_ld(symbol_id id) const { return entries[id].approx_ld; }
+/// private:
+///   std::vector<constant_entry> entries;                 // dense,
+///   cache-friendly std::unordered_map<std::string, symbol_id> index;    //
+///   only used by intern()
+/// };
+/// struct scalar_named_constant {
+///   symbol_id id;   // stored in AST
+/// };
+///
+/// -- using type-erasure and virtual functions
+/// struct constant_concept {
+/// virtual ~constant_concept() = default;
+/// virtual std::string_view name() const = 0;
+/// // For canonical ordering / hashing:
+/// virtual uint64_t stable_key() const = 0;     // or compare(other)
+/// virtual bool equals(const constant_concept&) const = 0;
+/// // For numeric evaluation:
+/// virtual long double value_ld() const = 0;    // or templated via visitor
+/// };
+/// struct scalar_constant_erased {
+///   std::shared_ptr<const constant_concept> c;
+/// };
+///
+///
 
 // generall
 #include "expression.h"
