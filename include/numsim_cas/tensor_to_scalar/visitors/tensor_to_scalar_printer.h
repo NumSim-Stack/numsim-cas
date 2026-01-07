@@ -62,12 +62,12 @@ public:
   }
 
   void operator()(tensor_to_scalar_negative<ValueType> const &visitable,
-                  Precedence parent_precedence) {
+                  [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Unary};
     m_out << "-";
-    begin(precedence, parent_precedence);
+    // begin(precedence, parent_precedence);
     apply(visitable.expr(), precedence);
-    end(precedence, parent_precedence);
+    // end(precedence, parent_precedence);
   }
 
   void operator()(tensor_to_scalar_mul<ValueType> const &visitable,
@@ -219,6 +219,39 @@ public:
       m_out << "]";
       m_out << ")";
     }
+  }
+
+  /**
+   * @brief Tensor to scalar one
+   *
+   * @note Will be set to zero in apply function
+   */
+  void
+  operator()([[maybe_unused]] tensor_to_scalar_one<ValueType> const &visitable,
+             [[maybe_unused]] Precedence parent_precedence) {
+    m_out << "1";
+  }
+
+  /**
+   * @brief Tensor to scalar zero
+   *
+   * @note Will be set to zero in apply function
+   */
+  void
+  operator()([[maybe_unused]] tensor_to_scalar_zero<ValueType> const &visitable,
+             [[maybe_unused]] Precedence parent_precedence) {
+    m_out << "0";
+  }
+
+  /**
+   * @brief Scalar expression converted to tensor_to_scalar
+   *
+   */
+  void
+  operator()([[maybe_unused]] tensor_to_scalar_scalar_wrapper<ValueType> const
+                 &visitable,
+             [[maybe_unused]] Precedence parent_precedence) {
+    print(m_out, visitable.expr(), parent_precedence);
   }
 
   /**

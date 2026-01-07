@@ -320,7 +320,8 @@ public:
       return; // zero
     }
     const auto &one{get_scalar_one<ValueType>()};
-    m_result = std::pow(visitable.expr_rhs(), visitable.expr_rhs() - one) * dg;
+    m_result = visitable.expr_rhs() *
+               std::pow(visitable.expr_lhs(), visitable.expr_rhs() - one) * dg;
   }
 
   /**
@@ -403,14 +404,18 @@ public:
                  &visitable) {
     auto da{diff(visitable.expr_lhs(), m_arg)};
     auto db{diff(visitable.expr_rhs(), m_arg)};
+    sequence sequence_lhs{visitable.indices_lhs()};
+    sequence sequence_rhs{visitable.indices_rhs()};
+    std::ranges::for_each(sequence_lhs, [](auto &i) { i += 1; });
+    std::ranges::for_each(sequence_rhs, [](auto &i) { i += 1; });
     if (da.is_valid()) {
-      m_result = inner_product(da, visitable.indices_lhs(),
-                               visitable.expr_rhs(), visitable.indices_rhs());
+      m_result =
+          inner_product(da, sequence_lhs, visitable.expr_rhs(), sequence_rhs);
     }
     if (db.is_valid()) {
-      m_result = std::move(m_result) +
-                 inner_product(visitable.expr_lhs(), visitable.indices_lhs(),
-                               db, visitable.indices_rhs());
+      m_result =
+          std::move(m_result) +
+          inner_product(visitable.expr_lhs(), sequence_lhs, db, sequence_rhs);
     }
   }
 
@@ -449,6 +454,16 @@ public:
    */
   void operator()(
       [[maybe_unused]] tensor_to_scalar_zero<ValueType> const &visitable) {
+    // set zero in apply function
+  }
+  /**
+   * @brief Scalar expression converted into a tensor_to_scalar expressiong
+   *
+   * @note Will be set to zero in apply function
+   */
+  void
+  operator()([[maybe_unused]] tensor_to_scalar_scalar_wrapper<ValueType> const
+                 &visitable) {
     // set zero in apply function
   }
 

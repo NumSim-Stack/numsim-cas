@@ -34,13 +34,10 @@ operator+([[maybe_unused]] ExprLHS &&lhs, [[maybe_unused]] ExprRHS &&rhs) {
   using value_type = typename std::decay_t<ExprRHS>::expr_type::value_type;
   auto scalar{numsim::cas::make_scalar_constant<value_type>(
       std::forward<ExprLHS>(lhs))};
-  if (rhs.is_valid()) {
-    return numsim::cas::operator_overload<
-        decltype(scalar), std::decay_t<ExprRHS>>::add(std::move(scalar),
-                                                      std::forward<ExprRHS>(
-                                                          rhs));
-  }
-  return scalar;
+  assert(rhs.is_valid());
+  return numsim::cas::operator_overload<
+      decltype(scalar), std::decay_t<ExprRHS>>::add(std::move(scalar),
+                                                    std::forward<ExprRHS>(rhs));
 }
 
 template <typename ExprLHS, typename ExprRHS,
@@ -54,12 +51,10 @@ operator+([[maybe_unused]] ExprLHS &&lhs, [[maybe_unused]] ExprRHS &&rhs) {
   using value_type = typename std::decay_t<ExprLHS>::expr_type::value_type;
   auto scalar{numsim::cas::make_scalar_constant<value_type>(
       std::forward<ExprRHS>(rhs))};
-  if (lhs.is_valid()) {
-    return numsim::cas::
-        operator_overload<std::decay_t<ExprLHS>, decltype(scalar)>::add(
-            std::forward<ExprLHS>(lhs), std::move(scalar));
-  }
-  return scalar;
+  assert(lhs.is_valid());
+  return numsim::cas::operator_overload<
+      std::decay_t<ExprLHS>, decltype(scalar)>::add(std::forward<ExprLHS>(lhs),
+                                                    std::move(scalar));
 }
 
 template <typename ExprLHS, typename ExprRHS,
@@ -91,13 +86,10 @@ operator-([[maybe_unused]] ExprLHS &&lhs, [[maybe_unused]] ExprRHS &&rhs) {
   using value_type = typename std::decay_t<ExprRHS>::expr_type::value_type;
   auto scalar{numsim::cas::make_scalar_constant<value_type>(
       std::forward<ExprLHS>(lhs))};
-  if (rhs.is_valid()) {
-    return numsim::cas::operator_overload<
-        decltype(scalar), std::decay_t<ExprRHS>>::sub(std::move(scalar),
-                                                      std::forward<ExprRHS>(
-                                                          rhs));
-  }
-  return scalar;
+  assert(rhs.is_valid());
+  return numsim::cas::operator_overload<
+      decltype(scalar), std::decay_t<ExprRHS>>::sub(std::move(scalar),
+                                                    std::forward<ExprRHS>(rhs));
 }
 
 template <typename ExprLHS, typename ExprRHS,
@@ -111,12 +103,10 @@ operator-([[maybe_unused]] ExprLHS &&lhs, [[maybe_unused]] ExprRHS &&rhs) {
   using value_type = typename std::decay_t<ExprLHS>::expr_type::value_type;
   auto scalar{numsim::cas::make_scalar_constant<value_type>(
       std::forward<ExprRHS>(rhs))};
-  if (lhs.is_valid()) {
-    return numsim::cas::
-        operator_overload<std::decay_t<ExprLHS>, decltype(scalar)>::sub(
-            std::forward<ExprLHS>(lhs), std::move(scalar));
-  }
-  return scalar;
+  assert(lhs.is_valid());
+  return numsim::cas::operator_overload<
+      std::decay_t<ExprLHS>, decltype(scalar)>::sub(std::forward<ExprLHS>(lhs),
+                                                    std::move(scalar));
 }
 
 template <typename ExprLHS, typename ExprRHS,

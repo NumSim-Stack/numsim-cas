@@ -284,6 +284,7 @@ template <typename ValueType> class tensor_inner_product_to_scalar;
 template <typename ValueType> class tensor_to_scalar_zero;
 template <typename ValueType> class tensor_to_scalar_one;
 template <typename ValueType> class tensor_to_scalar_log;
+template <typename ValueType> class tensor_to_scalar_scalar_wrapper;
 
 // var
 template <typename ValueType>
@@ -299,7 +300,8 @@ using tensor_to_scalar_node = std::variant<
     tensor_to_scalar_pow<ValueType>, tensor_to_scalar_log<ValueType>,
     tensor_to_scalar_pow_with_scalar_exponent<ValueType>,
     tensor_inner_product_to_scalar<ValueType>, tensor_to_scalar_zero<ValueType>,
-    tensor_to_scalar_one<ValueType>>;
+    tensor_to_scalar_one<ValueType>,
+    tensor_to_scalar_scalar_wrapper<ValueType>>;
 
 ////poly
 // template <typename Type, typename ValueType>

@@ -48,7 +48,7 @@ target_sources(numsim_cas_test
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(${PROJECT_NAME} PRIVATE  -Wall -Wpedantic -Werror -Wextra -pedantic -Wno-error=comment)
+    target_compile_options(${PROJECT_NAME} PRIVATE  -ftime-report -Wall -Wpedantic -Werror -Wextra -pedantic -Wno-error=comment)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_options(${PROJECT_NAME} PRIVATE /WX)
 endif()

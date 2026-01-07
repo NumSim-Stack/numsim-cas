@@ -171,6 +171,7 @@
 #include "tensor_to_scalar/tensor_to_scalar_one.h"
 #include "tensor_to_scalar/tensor_to_scalar_operators.h"
 #include "tensor_to_scalar/tensor_to_scalar_pow.h"
+#include "tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h"
 #include "tensor_to_scalar/tensor_to_scalar_std.h"
 #include "tensor_to_scalar/tensor_to_scalar_zero.h"
 #include "tensor_to_scalar/tensor_trace.h"

@@ -23,7 +23,7 @@ template <std::size_t N> std::array<int, N> get_random_array() {
   return item;
 }
 
-auto random_data{get_random_array<500>()};
+auto random_data{get_random_array<1000>()};
 
 using id_type = unsigned int;
 
@@ -749,8 +749,8 @@ static void double_dispatch_table_vcall(benchmark::State &state) {
     double sum = 0.0;
 
     for (auto &a : poly::data) {
-      const auto ia = static_cast<std::size_t>(a->get_ID()); // virtual
       for (auto &b : poly::data) {
+        const auto ia = static_cast<std::size_t>(a->get_ID()); // virtual
         const auto ib = static_cast<std::size_t>(b->get_ID()); // virtual
         sum += table[ia][ib]();
       }
@@ -766,9 +766,9 @@ static void double_dispatch_table_direct_id_vcall(benchmark::State &state) {
     double sum = 0.0;
 
     for (auto &a : poly::data) {
-      const auto ia =
-          static_cast<std::size_t>(a->get_ID_direct()); // non-virtual
       for (auto &b : poly::data) {
+        const auto ia =
+            static_cast<std::size_t>(a->get_ID_direct()); // non-virtual
         const auto ib =
             static_cast<std::size_t>(b->get_ID_direct()); // non-virtual
         sum += table[ia][ib]();

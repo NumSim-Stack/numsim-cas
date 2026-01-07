@@ -19,7 +19,7 @@ template <typename ExprLHS, typename ExprRHS> struct mul_default {
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   [[nodiscard]] constexpr inline expr_type get_default() {
-    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
+    if (m_lhs == m_rhs) {
       return get_default_same();
     }
     return get_default_imp();
@@ -58,11 +58,6 @@ protected:
   ExprRHS &&m_rhs;
 };
 
-// tensor_scalar_with_scalar_add + tensor_to_scalar -->
-// tensor_to_scalar_with_scalar_add tensor_to_scalar +
-// tensor_to_scalar_with_scalar_add --> tensor_to_scalar_with_scalar_add
-// tensor_scalar_with_scalar_add + tensor_scalar_with_scalar_add -->
-// tensor_to_scalar_with_scalar_add
 template <typename ExprLHS, typename ExprRHS>
 class wrapper_tensor_to_scalar_mul_mul final
     : public mul_default<ExprLHS, ExprRHS> {

@@ -202,6 +202,7 @@ set(PUBLIC_HEADER_FILES
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_zero.h
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_log.h
     include/numsim_cas/tensor_to_scalar/tensor_to_scalar_compare_less_visitor.h
+    include/numsim_cas/tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h
 )
 
 add_library(${PROJECT_NAME} INTERFACE

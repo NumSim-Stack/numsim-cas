@@ -134,7 +134,7 @@ TYPED_TEST(TF, TensorToScalar_Division_ChainsAndSimplify) {
 TYPED_TEST(TF, TensorToScalar_MixedProductsAndPowers) {
   auto &X = this->X;
   auto &x = this->x;
-  auto &_2 = this->_2;
+  // auto &_2 = this->_2;
 
   using numsim::cas::trace;
 

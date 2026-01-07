@@ -39,7 +39,7 @@ public:
 
 protected:
   expr_type get_default() {
-    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
+    if (m_lhs == m_rhs) {
       return std::pow(m_lhs, 2);
     }
     const auto lhs_constant{is_same<scalar_constant<value_type>>(m_lhs)};

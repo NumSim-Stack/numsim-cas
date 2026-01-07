@@ -82,13 +82,20 @@ public:
         sequence{1} == m_seq_rhs) {
       return std::forward<ExprLHS>(m_lhs);
     }
-    // Identity{rank} * expr{rank}
-    const std::size_t half{rhs.rank() / 2};
-    sequence ilhs(half), irhs(half);
-    const auto start{m_lhs.get().rank() - half + 1};
+    // expr{rank_lhs} * Identity{rank_rhs}
+    const std::size_t rank_lhs{m_lhs.get().rank()};
+    sequence ilhs(rank_lhs), irhs(rank_lhs);
+    const auto start{m_rhs.get().rank() - rank_lhs + 1};
     std::iota(ilhs.begin(), ilhs.end(), start);
     std::iota(irhs.begin(), irhs.end(), 1);
-    if (ilhs == m_seq_lhs && irhs == m_seq_rhs) {
+
+    // expr_kl * I_ijkl --> expr_ij
+    if (irhs == m_seq_lhs && ilhs == m_seq_rhs) {
+      return std::forward<ExprLHS>(m_lhs);
+    }
+
+    // expr_ij * I_ijkl --> expr_kl
+    if (irhs == m_seq_lhs && irhs == m_seq_rhs) {
       return std::forward<ExprLHS>(m_lhs);
     }
     return get_default();
@@ -99,6 +106,13 @@ public:
     return rhs.expr_lhs() * inner_product(std::forward<ExprLHS>(m_lhs),
                                           std::move(m_seq_lhs), rhs.expr_rhs(),
                                           std::move(m_seq_rhs));
+  }
+
+  constexpr inline auto operator()(tensor_zero<value_type> const &visitable) {
+    const auto &rhs{m_rhs.get()};
+    const auto rank{visitable.rank() - m_seq_lhs.size() + rhs.rank() -
+                    m_seq_rhs.size()};
+    return make_expression<tensor_zero<value_type>>(visitable.dim(), rank);
   }
 
   template <typename T> constexpr inline auto operator()(T const &) {
@@ -185,14 +199,27 @@ public:
         sequence{1} == m_seq_rhs) {
       return std::forward<ExprRHS>(m_rhs);
     }
-    // Identity{rank} * expr{rank}
-    const std::size_t half{rhs.rank() / 2};
-    sequence ilhs(half), irhs(half);
-    std::iota(ilhs.begin(), ilhs.end(), half + 1);
+    // Identity{rank_lhs} * expr{rank_rhs}
+
+    sequence ilhs(rhs.rank()), irhs(rhs.rank());
+    const auto start{m_lhs.get().rank() - rhs.rank() + 1};
+    std::iota(ilhs.begin(), ilhs.end(), start);
     std::iota(irhs.begin(), irhs.end(), 1);
+
+    // I_ijkl * expr_kl --> expr_ij
+    if (ilhs == m_seq_lhs && irhs == m_seq_rhs) {
+      return std::forward<ExprRHS>(m_rhs);
+    }
+
+    // I_ijkl * expr_ij --> expr_kl
+    if (irhs == m_seq_lhs && irhs == m_seq_rhs) {
+      return std::forward<ExprRHS>(m_rhs);
+    }
     return get_default();
   }
 
+  // A_ij A_kl e_i e_j e_k e_l
+  //
   using base::m_lhs;
   using base::m_rhs;
   using base::m_seq_lhs;
@@ -316,6 +343,13 @@ public:
         std::forward<ExprLHS>(m_lhs), std::move(m_seq_lhs),
         std::forward<ExprRHS>(m_rhs), std::move(m_seq_rhs));
     return std::visit(visitor, rhs);
+  }
+
+  constexpr inline auto operator()(tensor_zero<value_type> const &visitable) {
+    const auto &rhs{m_rhs.get()};
+    const auto rank{visitable.rank() - m_seq_lhs.size() + rhs.rank() -
+                    m_seq_rhs.size()};
+    return make_expression<tensor_zero<value_type>>(visitable.dim(), rank);
   }
 
   // 0.5*(otimeso(I,I) + otimesl(I,I)) [*] expr --> tensor_with_scalar_mul
