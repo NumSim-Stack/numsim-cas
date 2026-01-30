@@ -5,14 +5,13 @@
 #include "tensor_to_scalar_expression.h"
 
 namespace numsim::cas {
-template <typename ValueType>
-class tensor_dot final : public unary_op<tensor_dot<ValueType>,
-                                         tensor_to_scalar_expression<ValueType>,
-                                         tensor_expression<ValueType>> {
+
+class tensor_dot final
+    : public unary_op<tensor_dot, tensor_to_scalar_expression,
+                      tensor_expression> {
 public:
   using base =
-      unary_op<tensor_dot<ValueType>, tensor_to_scalar_expression<ValueType>,
-               tensor_expression<ValueType>>;
+      unary_op<tensor_dot, tensor_to_scalar_expression, tensor_expression>;
 
   using base::base;
   tensor_dot(tensor_dot const &expr) : base(static_cast<base const &>(expr)) {}

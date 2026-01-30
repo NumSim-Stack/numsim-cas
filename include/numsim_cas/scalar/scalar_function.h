@@ -1,21 +1,17 @@
 #ifndef SCALAR_FUNCTION_H
 #define SCALAR_FUNCTION_H
 
-#include "../expression_holder.h"
-#include "../unary_op.h"
-#include "scalar_expression.h"
+#include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class scalar_function final : public unary_op<scalar_function<ValueType>,
-                                              scalar_expression<ValueType>> {
+class scalar_function final
+    : public unary_op<scalar_node_base_t<scalar_function>> {
 public:
-  using value_type = ValueType;
-  using base =
-      unary_op<scalar_function<ValueType>, scalar_expression<ValueType>>;
+  using base = unary_op<scalar_node_base_t<scalar_function>>;
   using base::base;
-  using expression = expression_holder<typename base::expr_type>;
+  using expression = expression_holder<typename base::expr_t>;
 
   scalar_function() : base(), m_name() {}
   scalar_function(std::string const &name, expression &&expr)

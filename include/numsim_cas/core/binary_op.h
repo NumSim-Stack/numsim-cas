@@ -1,11 +1,11 @@
 #ifndef BINARY_OP_H
 #define BINARY_OP_H
 
-#include "expression_crtp.h"
-#include "expression_holder.h"
-#include "numsim_cas_type_traits.h"
-#include "update_hash.h"
-#include "utility_func.h"
+#include <numsim_cas/core/core_fwd.h>
+#include <numsim_cas/core/hash_functions.h>
+#include <numsim_cas/numsim_cas_type_traits.h>
+#include <numsim_cas/update_hash.h>
+#include <numsim_cas/utility_func.h>
 
 namespace numsim::cas {
 
@@ -17,23 +17,20 @@ namespace numsim::cas {
  * expression_crtp. It provides functionality for handling left-hand side and
  * right-hand side expressions.
  *
- * @tparam Derived The derived class that implements the binary operation.
+ * @tparam ThisBase The base class that implements the binary operation.
  * @tparam BaseLHS The base type of the left-hand side expression.
  * @tparam BaseRHS The base type of the right-hand side expression (defaults to
  * BaseLHS).
  */
-template <typename Derived, typename Base, typename BaseLHS,
+template <typename ThisBase, typename BaseLHS = typename ThisBase::expr_t,
           typename BaseRHS = BaseLHS>
-class binary_op
-    : public expression_crtp<binary_op<Derived, Base, BaseLHS, BaseRHS>, Base> {
+class binary_op : public ThisBase {
 public:
-  using derived_type = Derived;
   /**
    * @brief Type aliases for base types.
    */
-  using base =
-      expression_crtp<binary_op<Derived, Base, BaseLHS, BaseRHS>, Base>;
-  using base_expr = Base;
+  using base = ThisBase;
+  using base_expr = ThisBase;
 
   /**
    * @brief Constructor for binary operation expressions.
@@ -110,31 +107,23 @@ public:
    */
   [[nodiscard]] inline auto &expr_rhs() noexcept { return m_rhs; }
 
-  template <typename _Derived, typename _Base, typename _BaseLHS,
-            typename _BaseRHS>
-  friend bool
-  operator<(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
-            binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs);
-  template <typename _Derived, typename _Base, typename _BaseLHS,
-            typename _BaseRHS>
-  friend bool
-  operator>(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
-            binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs);
-  template <typename _Derived, typename _Base, typename _BaseLHS,
-            typename _BaseRHS>
-  friend bool
-  operator==(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
-             binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs);
-  template <typename _Derived, typename _Base, typename _BaseLHS,
-            typename _BaseRHS>
-  friend bool
-  operator!=(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
-             binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs);
+  template <typename _Base, typename _BaseLHS, typename _BaseRHS>
+  friend bool operator<(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
+                        binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs);
+  template <typename _Base, typename _BaseLHS, typename _BaseRHS>
+  friend bool operator>(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
+                        binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs);
+  template <typename _Base, typename _BaseLHS, typename _BaseRHS>
+  friend bool operator==(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
+                         binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs);
+  template <typename _Base, typename _BaseLHS, typename _BaseRHS>
+  friend bool operator!=(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
+                         binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs);
 
 protected:
-  virtual void update_hash_value() const {
+  virtual void update_hash_value() const noexcept override {
     base::m_hash_value =
-        update_hash<binary_op<Derived, Base, BaseLHS, BaseRHS>>()(*this);
+        update_hash<binary_op<ThisBase, BaseLHS, BaseRHS>>()(*this);
   }
   /**
    * @brief Holds the left-hand side expression.
@@ -147,32 +136,28 @@ protected:
   expression_holder<BaseRHS> m_rhs;
 };
 
-template <typename _Derived, typename _Base, typename _BaseLHS,
-          typename _BaseRHS>
-bool operator<(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
-               binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs) {
+template <typename _Base, typename _BaseLHS, typename _BaseRHS>
+bool operator<(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
+               binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs) {
   return lhs.hash_value() < rhs.hash_value();
   // lhs.m_lhs < rhs.m_lhs || lhs.m_rhs < rhs.m_rhs;
 }
 
-template <typename _Derived, typename _Base, typename _BaseLHS,
-          typename _BaseRHS>
-bool operator>(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
-               binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs) {
+template <typename _Base, typename _BaseLHS, typename _BaseRHS>
+bool operator>(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
+               binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs) {
   return !(lhs < rhs);
 }
 
-template <typename _Derived, typename _Base, typename _BaseLHS,
-          typename _BaseRHS>
-bool operator==(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
-                binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs) {
+template <typename _Base, typename _BaseLHS, typename _BaseRHS>
+bool operator==(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
+                binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs) {
   return lhs.m_lhs == rhs.m_lhs && lhs.m_rhs == rhs.m_rhs;
 }
 
-template <typename _Derived, typename _Base, typename _BaseLHS,
-          typename _BaseRHS>
-bool operator!=(binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &lhs,
-                binary_op<_Derived, _Base, _BaseLHS, _BaseRHS> const &rhs) {
+template <typename _Base, typename _BaseLHS, typename _BaseRHS>
+bool operator!=(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
+                binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs) {
   return !(lhs == rhs);
 }
 

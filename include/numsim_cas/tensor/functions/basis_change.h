@@ -17,12 +17,10 @@ namespace numsim::cas {
  *
  * @tparam ValueType The type of the tensor expression.
  */
-template <typename ValueType>
-class basis_change_imp final : public unary_op<basis_change_imp<ValueType>,
-                                               tensor_expression<ValueType>> {
+class basis_change_imp final
+    : public unary_op<basis_change_imp, tensor_expression> {
 public:
-  using base =
-      unary_op<basis_change_imp<ValueType>, tensor_expression<ValueType>>;
+  using base = unary_op<basis_change_imp, tensor_expression>;
 
   /**
    * @brief Constructs a basis_change_imp object.

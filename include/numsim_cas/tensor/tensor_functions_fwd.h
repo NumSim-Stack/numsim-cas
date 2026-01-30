@@ -39,18 +39,17 @@ template <typename ExprTypeLHS, typename ExprTypeRHS>
 binary_div_tensor_simplify(ExprTypeLHS &&lhs, ExprTypeRHS &&rhs);
 
 template <typename ValueType, typename StreamType>
-constexpr inline void
-print(StreamType &out,
-      expression_holder<tensor_expression<ValueType>> const &expr,
-      Precedence precedence = Precedence::None);
+constexpr inline void print(StreamType &out,
+                            expression_holder<tensor_expression> const &expr,
+                            Precedence precedence = Precedence::None);
 
 template <typename ValueType>
-constexpr inline expression_holder<tensor_expression<ValueType>>
-diff(expression_holder<tensor_expression<ValueType>> const &expr,
-     expression_holder<tensor_expression<ValueType>> const &arg);
+constexpr inline expression_holder<tensor_expression>
+diff(expression_holder<tensor_expression> const &expr,
+     expression_holder<tensor_expression> const &arg);
 
 template <typename ValueType>
-inline auto eval(expression_holder<tensor_expression<ValueType>> expr);
+inline auto eval(expression_holder<tensor_expression> expr);
 
 } // namespace numsim::cas
 

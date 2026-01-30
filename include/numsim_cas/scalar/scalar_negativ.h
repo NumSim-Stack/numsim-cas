@@ -1,16 +1,15 @@
 #ifndef SCALAR_NEGATIV_H
 #define SCALAR_NEGATIV_H
 
-#include "../unary_op.h"
+#include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class scalar_negative final : public unary_op<scalar_negative<ValueType>,
-                                              scalar_expression<ValueType>> {
+class scalar_negative final
+    : public unary_op<scalar_node_base_t<scalar_negative>> {
 public:
-  using base =
-      unary_op<scalar_negative<ValueType>, scalar_expression<ValueType>>;
+  using base = unary_op<scalar_node_base_t<scalar_negative>>;
 
   using base::base;
   scalar_negative(scalar_negative &&data)

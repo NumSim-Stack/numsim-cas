@@ -6,12 +6,11 @@
 namespace numsim::cas {
 namespace detail {
 
-template <typename ValueType>
-class compare_types_imp<tensor_expression<ValueType>> final
-    : public compare_types_base_imp<tensor_expression<ValueType>> {
+class compare_types_imp<tensor_expression> final
+    : public compare_types_base_imp<tensor_expression> {
 public:
-  using expr_t = tensor_expression<ValueType>;
-  using base_t = compare_types_base_imp<tensor_expression<ValueType>>;
+  using expr_t = tensor_expression;
+  using base_t = compare_types_base_imp<tensor_expression>;
   compare_types_imp(expression_holder<expr_t> const &lhs,
                     expression_holder<expr_t> const &rhs)
       : base_t(lhs, rhs) {}
@@ -19,15 +18,13 @@ public:
   using base_t::operator();
   using base_t::compare;
 
-  template <typename Base>
-  constexpr inline auto operator()(tensor_add<Base> const &lhs,
-                                   tensor<Base> const &rhs) const {
+  constexpr inline auto operator()(tensor_add const &lhs,
+                                   tensor const &rhs) const {
     return compare(lhs, rhs);
   }
 
-  template <typename Base>
-  constexpr inline auto operator()(tensor<Base> const &lhs,
-                                   tensor_add<Base> const &rhs) const {
+  constexpr inline auto operator()(tensor const &lhs,
+                                   tensor_add const &rhs) const {
     return compare(lhs, rhs);
   }
 
@@ -43,16 +40,13 @@ public:
   //    return compare(lhs, rhs);
   //  }
 
-  template <typename Base>
-  constexpr inline auto
-  operator()(tensor_pow<Base> const &lhs,
-             [[maybe_unused]] tensor<Base> const &rhs) const {
+  constexpr inline auto operator()(tensor_pow const &lhs,
+                                   [[maybe_unused]] tensor const &rhs) const {
     return lhs.expr_lhs() < m_rhs;
   }
 
-  template <typename Base>
-  constexpr inline auto operator()([[maybe_unused]] tensor<Base> const &lhs,
-                                   tensor_pow<Base> const &rhs) const {
+  constexpr inline auto operator()([[maybe_unused]] tensor const &lhs,
+                                   tensor_pow const &rhs) const {
     return m_lhs < rhs.expr_lhs();
   }
 

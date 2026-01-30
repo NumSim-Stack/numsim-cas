@@ -6,13 +6,10 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class simple_outer_product final
-    : public n_ary_vector<tensor_expression<ValueType>,
-                          simple_outer_product<ValueType>> {
+    : public n_ary_vector<tensor_expression, simple_outer_product> {
 public:
-  using base = n_ary_vector<tensor_expression<ValueType>,
-                            simple_outer_product<ValueType>>;
+  using base = n_ary_vector<tensor_expression, simple_outer_product>;
 
   simple_outer_product(std::size_t dim, std::size_t rank) : base(dim, rank) {}
   simple_outer_product(simple_outer_product const &add)

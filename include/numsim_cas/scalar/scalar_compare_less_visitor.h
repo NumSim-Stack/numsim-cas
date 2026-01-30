@@ -1,65 +1,73 @@
-#ifndef SCALAR_COMPARE_LESS_VISITOR_H
-#define SCALAR_COMPARE_LESS_VISITOR_H
+// #ifndef SCALAR_COMPARE_LESS_VISITOR_H
+// #define SCALAR_COMPARE_LESS_VISITOR_H
 
-#include "../compare_less_visitor.h"
+// #include <numsim_cas/compare_less_visitor.h>
+// #include <numsim_cas/expression_holder.h>
+// #include <numsim_cas/scalar/scalar_expression.h>
 
-namespace numsim::cas {
-namespace detail {
+// namespace numsim::cas {
 
-template <typename ValueType>
-class compare_types_imp<scalar_expression<ValueType>> final
-    : public compare_types_base_imp<scalar_expression<ValueType>> {
-public:
-  using expr_t = scalar_expression<ValueType>;
-  using base_t = compare_types_base_imp<scalar_expression<ValueType>>;
-  compare_types_imp(expression_holder<expr_t> const &lhs,
-                    expression_holder<expr_t> const &rhs)
-      : base_t(lhs, rhs) {}
+// template <typename LHS>
+// struct compare_less_pretty_print_rhs final : public scalar_visitor_const_t,
+//                                              public
+//                                              compare_less_pretty_print_base
+// {
+//   using compare_less_pretty_print_base::dispatch;
 
-  using base_t::operator();
-  using base_t::compare;
+//   compare_less_pretty_print_rhs(LHS const& lhs)
+//       : m_lhs(lhs) {}
 
-  template <typename Base>
-  constexpr inline auto operator()(scalar_add<Base> const &lhs,
-                                   scalar<Base> const &rhs) const {
-    return compare(lhs, rhs);
-  }
+// #define NUMSIM_ADD_OVR_FIRST(T)                                                \
+//   void operator()(T const &lhs) const noexcept override { return dispatch(lhs); }
+// #define NUMSIM_ADD_OVR_NEXTT)                                                 \
+//   void operator()(T const &lhs) const noexcept override { return dispatch(lhs); }
+//   NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
+// #undef NUMSIM_ADD_OVR_FIRST
+// #undef NUMSIM_ADD_OVR_NEXT
 
-  template <typename Base>
-  constexpr inline auto operator()(scalar<Base> const &lhs,
-                                   scalar_add<Base> const &rhs) const {
-    return compare(lhs, rhs);
-  }
+//   template<typename RHS>
+//   constexpr inline auto dispatch(RHS const& rhs)const{
+//     m_result = dispatch(m_lhs, rhs);
+//   }
 
-  template <typename Base>
-  constexpr inline auto operator()(scalar_mul<Base> const &lhs,
-                                   scalar<Base> const &rhs) const {
-    return compare(lhs, rhs);
-  }
+//   mutable bool m_result{false};
+// private:
+//   LHS const& m_lhs;
+// };
 
-  template <typename Base>
-  constexpr inline auto operator()(scalar<Base> const &lhs,
-                                   scalar_mul<Base> const &rhs) const {
-    return compare(lhs, rhs);
-  }
+// struct compare_less_pretty_print final : public scalar_visitor_const_t
+// {
+//   using expr_holder_t = expression_holder<scalar_expression>;
 
-  template <typename Base>
-  constexpr inline auto
-  operator()(scalar_pow<Base> const &lhs,
-             [[maybe_unused]] scalar<Base> const &rhs) const {
-    return lhs.expr_lhs() < m_rhs;
-  }
+//   compare_less_pretty_print(){}
 
-  template <typename Base>
-  constexpr inline auto operator()([[maybe_unused]] scalar<Base> const &lhs,
-                                   scalar_pow<Base> const &rhs) const {
-    return m_lhs < rhs.expr_lhs();
-  }
+// #define NUMSIM_ADD_OVR_FIRST(T)                                                \
+//   void operator()(T const &lhs) const noexcept override { return dispatch(lhs); }
+// #define NUMSIM_ADD_OVR_NEXT(T)                                                 \
+//   void operator()(T const &lhs) const noexcept override { return dispatch(lhs); }
+//   NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
+// #undef NUMSIM_ADD_OVR_FIRST
+// #undef NUMSIM_ADD_OVR_NEXT
 
-  using base_t::m_lhs;
-  using base_t::m_rhs;
-};
+//   template<typename LHSType>
+//   inline void dispatch(LHSType const& lhs)const noexcept{
+//     compare_less_pretty_print_rhs<LHSType> visitor(lhs);
+//     m_rhs->get<scalar_visitable_t>().accept(visitor);
+//     m_result = visitor.m_result;
+//   }
 
-} // namespace detail
-} // namespace numsim::cas
-#endif // SCALAR_COMPARE_LESS_VISITOR_H
+//   inline auto operator()(expr_holder_t const& lhs, expr_holder_t const&
+//   rhs)const{
+//     m_rhs = &rhs;
+//     lhs.get<scalar_visitable_t>().accept(*this);
+//     return m_result;
+//   }
+
+//   mutable bool m_result{false};
+// private:
+//   mutable expr_holder_t  const *m_rhs;
+// };
+
+// } // namespace numsim::cas
+
+// #endif // SCALAR_COMPARE_LESS_VISITOR_H

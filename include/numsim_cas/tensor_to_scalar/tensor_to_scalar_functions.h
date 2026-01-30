@@ -1,71 +1,74 @@
-#ifndef TENSOR_TO_SCALAR_FUNCTIONS_H
-#define TENSOR_TO_SCALAR_FUNCTIONS_H
+// #ifndef TENSOR_TO_SCALAR_FUNCTIONS_H
+// #define TENSOR_TO_SCALAR_FUNCTIONS_H
 
-#include "tensor_to_scalar_expression.h"
-#include "visitors/tensor_to_scalar_differentiation.h"
-#include "visitors/tensor_to_scalar_printer.h"
+// #include "tensor_to_scalar_expression.h"
+// #include "visitors/tensor_to_scalar_differentiation.h"
+// #include "visitors/tensor_to_scalar_printer.h"
 
-namespace numsim::cas {
+// namespace numsim::cas {
 
-template <typename ExprLHS, typename ExprRHS>
-constexpr inline auto dot_product(ExprLHS &&lhs, sequence &&lhs_indices,
-                                  ExprRHS &&rhs, sequence &&rhs_indices) {
-  using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
-  assert(call_tensor::rank(lhs) == lhs_indices.size() ||
-         call_tensor::rank(rhs) == rhs_indices.size());
-  // tensor_to_scalar_expression
-  if (is_same<tensor_zero<typename remove_cvref_t<ExprLHS>::value_type>>(lhs) ||
-      is_same<tensor_zero<typename remove_cvref_t<ExprRHS>::value_type>>(rhs)) {
-    return make_expression<tensor_to_scalar_zero<ValueType>>();
-  }
+// template <typename ExprLHS, typename ExprRHS>
+// constexpr inline auto dot_product(ExprLHS &&lhs, sequence &&lhs_indices,
+//                                   ExprRHS &&rhs, sequence &&rhs_indices) {
+//   using ValueType = typename remove_cvref_t<ExprLHS>::value_type;
+//   assert(call_tensor::rank(lhs) == lhs_indices.size() ||
+//          call_tensor::rank(rhs) == rhs_indices.size());
+//   // tensor_to_scalar_expression
+//   if (is_same<tensor_zero<typename remove_cvref_t<ExprLHS>::value_type>>(lhs)
+//   ||
+//       is_same<tensor_zero<typename
+//       remove_cvref_t<ExprRHS>::value_type>>(rhs)) {
+//     return make_expression<tensor_to_scalar_zero>();
+//   }
 
-  return make_expression<tensor_inner_product_to_scalar<ValueType>>(
-      std::forward<ExprLHS>(lhs), std::move(lhs_indices),
-      std::forward<ExprRHS>(rhs), std::move(rhs_indices));
-}
+//   return make_expression<tensor_inner_product_to_scalar>(
+//       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
+//       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
+// }
 
-template <typename Expr> [[nodiscard]] constexpr inline auto dot(Expr &&expr) {
-  using ValueType = typename remove_cvref_t<Expr>::value_type;
-  return make_expression<tensor_dot<ValueType>>(std::forward<Expr>(expr));
-}
+// template <typename Expr> [[nodiscard]] constexpr inline auto dot(Expr &&expr)
+// {
+//   using ValueType = typename remove_cvref_t<Expr>::value_type;
+//   return make_expression<tensor_dot>(std::forward<Expr>(expr));
+// }
 
-template <typename T>
-[[nodiscard]] constexpr inline auto
-trace(expression_holder<tensor_expression<T>> const &expr) {
-  assert(expr.get().rank() == 2);
-  return make_expression<tensor_trace<T>>(expr);
-}
+// template <typename T>
+// [[nodiscard]] constexpr inline auto
+// trace(expression_holder<tensor_expression<T>> const &expr) {
+//   assert(expr.get().rank() == 2);
+//   return make_expression<tensor_trace<T>>(expr);
+// }
 
-template <typename T>
-[[nodiscard]] constexpr inline auto
-norm(expression_holder<tensor_expression<T>> const &expr) {
-  assert(expr.get().rank() == 2);
-  return make_expression<tensor_norm<T>>(expr);
-}
+// template <typename T>
+// [[nodiscard]] constexpr inline auto
+// norm(expression_holder<tensor_expression<T>> const &expr) {
+//   assert(expr.get().rank() == 2);
+//   return make_expression<tensor_norm<T>>(expr);
+// }
 
-template <typename T>
-[[nodiscard]] constexpr inline auto
-det(expression_holder<tensor_expression<T>> const &expr) {
-  assert(expr.get().rank() == 2);
-  return make_expression<tensor_det<T>>(expr);
-}
+// template <typename T>
+// [[nodiscard]] constexpr inline auto
+// det(expression_holder<tensor_expression<T>> const &expr) {
+//   assert(expr.get().rank() == 2);
+//   return make_expression<tensor_det<T>>(expr);
+// }
 
-template <typename ValueType, typename StreamType>
-constexpr inline void
-print(StreamType &out,
-      expression_holder<tensor_to_scalar_expression<ValueType>> const &expr,
-      Precedence precedence = Precedence::None) {
-  tensor_to_scalar_printer<ValueType, StreamType> eval(out);
-  eval.apply(expr, precedence);
-}
+// template <typename ValueType, typename StreamType>
+// constexpr inline void
+// print(StreamType &out,
+//       expression_holder<tensor_to_scalar_expression> const &expr,
+//       Precedence precedence = Precedence::None) {
+//   tensor_to_scalar_printer<ValueType, StreamType> eval(out);
+//   eval.apply(expr, precedence);
+// }
 
-template <typename ValueType>
-inline auto
-diff(expression_holder<tensor_to_scalar_expression<ValueType>> const &expr,
-     expression_holder<tensor_expression<ValueType>> const &arg) {
-  tensor_to_scalar_differentiation<ValueType> visitor(arg);
-  return visitor.apply(expr);
-}
-} // namespace numsim::cas
+// template <typename ValueType>
+// inline auto
+// diff(expression_holder<tensor_to_scalar_expression> const &expr,
+//      expression_holder<tensor_expression> const &arg) {
+//   tensor_to_scalar_differentiation visitor(arg);
+//   return visitor.apply(expr);
+// }
+// } // namespace numsim::cas
 
-#endif // TENSOR_TO_SCALAR_FUNCTIONS_H
+// #endif // TENSOR_TO_SCALAR_FUNCTIONS_H

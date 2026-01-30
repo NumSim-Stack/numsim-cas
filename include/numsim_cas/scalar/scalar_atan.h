@@ -1,13 +1,14 @@
 #ifndef SCALAR_ATAN_H
 #define SCALAR_ATAN_H
 
-#include "../unary_op.h"
+#include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/scalar/scalar_expression.h>
+
 namespace numsim::cas {
-template <typename ValueType>
-class scalar_atan final
-    : public unary_op<scalar_atan<ValueType>, scalar_expression<ValueType>> {
+
+class scalar_atan final : public unary_op<scalar_node_base_t<scalar_atan>> {
 public:
-  using base = unary_op<scalar_atan<ValueType>, scalar_expression<ValueType>>;
+  using base = unary_op<scalar_node_base_t<scalar_atan>>;
 
   using base::base;
   scalar_atan(scalar_atan const &expr)

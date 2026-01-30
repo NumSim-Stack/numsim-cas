@@ -4,13 +4,11 @@
 #include "../unary_op.h"
 
 namespace numsim::cas {
-template <typename ValueType>
+
 class tensor_to_scalar_log final
-    : public unary_op<tensor_to_scalar_log<ValueType>,
-                      tensor_to_scalar_expression<ValueType>> {
+    : public unary_op<tensor_to_scalar_log, tensor_to_scalar_expression> {
 public:
-  using base = unary_op<tensor_to_scalar_log<ValueType>,
-                        tensor_to_scalar_expression<ValueType>>;
+  using base = unary_op<tensor_to_scalar_log, tensor_to_scalar_expression>;
 
   using base::base;
   tensor_to_scalar_log(tensor_to_scalar_log const &expr)

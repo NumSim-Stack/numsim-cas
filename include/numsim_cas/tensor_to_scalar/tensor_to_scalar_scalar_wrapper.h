@@ -6,15 +6,14 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_to_scalar_scalar_wrapper final
-    : public expression_crtp<tensor_to_scalar_scalar_wrapper<ValueType>,
-                             tensor_to_scalar_expression<ValueType>> {
+    : public expression_crtp<tensor_to_scalar_scalar_wrapper,
+                             tensor_to_scalar_expression> {
 public:
-  using base = expression_crtp<tensor_to_scalar_scalar_wrapper<ValueType>,
-                               tensor_to_scalar_expression<ValueType>>;
+  using base = expression_crtp<tensor_to_scalar_scalar_wrapper,
+                               tensor_to_scalar_expression>;
 
-  tensor_to_scalar_scalar_wrapper(scalar_expression<ValueType> &&expr)
+  tensor_to_scalar_scalar_wrapper(scalar_expression &&expr)
       : m_expr(std::move(expr)) {}
   tensor_to_scalar_scalar_wrapper(tensor_to_scalar_scalar_wrapper &&data)
       : base(static_cast<base &&>(data)) {}
@@ -24,20 +23,14 @@ public:
   const tensor_to_scalar_scalar_wrapper &
   operator=(tensor_to_scalar_scalar_wrapper &&) = delete;
 
-  template <typename _ValueType>
-  friend bool operator<(tensor_to_scalar_scalar_wrapper<_ValueType> const &lhs,
-                        tensor_to_scalar_scalar_wrapper<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator>(tensor_to_scalar_scalar_wrapper<_ValueType> const &lhs,
-                        tensor_to_scalar_scalar_wrapper<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool
-  operator==(tensor_to_scalar_scalar_wrapper<_ValueType> const &lhs,
-             tensor_to_scalar_scalar_wrapper<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool
-  operator!=(tensor_to_scalar_scalar_wrapper<_ValueType> const &lhs,
-             tensor_to_scalar_scalar_wrapper<_ValueType> const &rhs);
+  friend bool operator<(tensor_to_scalar_scalar_wrapper const &lhs,
+                        tensor_to_scalar_scalar_wrapper const &rhs);
+  friend bool operator>(tensor_to_scalar_scalar_wrapper const &lhs,
+                        tensor_to_scalar_scalar_wrapper const &rhs);
+  friend bool operator==(tensor_to_scalar_scalar_wrapper const &lhs,
+                         tensor_to_scalar_scalar_wrapper const &rhs);
+  friend bool operator!=(tensor_to_scalar_scalar_wrapper const &lhs,
+                         tensor_to_scalar_scalar_wrapper const &rhs);
 
   virtual void update_hash_value() const override {
     hash_combine(base::m_hash_value, base::get_id());
@@ -48,30 +41,26 @@ public:
   auto &expr() { return m_expr; }
 
 private:
-  expression_holder<scalar_expression<ValueType>> m_expr;
+  expression_holder<scalar_expression> m_expr;
 };
 
-template <typename ValueType>
-bool operator<(tensor_to_scalar_scalar_wrapper<ValueType> const &lhs,
-               tensor_to_scalar_scalar_wrapper<ValueType> const &rhs) {
+bool operator<(tensor_to_scalar_scalar_wrapper const &lhs,
+               tensor_to_scalar_scalar_wrapper const &rhs) {
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename ValueType>
-bool operator>(tensor_to_scalar_scalar_wrapper<ValueType> const &lhs,
-               tensor_to_scalar_scalar_wrapper<ValueType> const &rhs) {
-  return !(lhs < rhs);
+bool operator>(tensor_to_scalar_scalar_wrapper const &lhs,
+               tensor_to_scalar_scalar_wrapper const &rhs) {
+  return rhs < lhs;
 }
 
-template <typename ValueType>
-bool operator==(tensor_to_scalar_scalar_wrapper<ValueType> const &lhs,
-                tensor_to_scalar_scalar_wrapper<ValueType> const &rhs) {
+bool operator==(tensor_to_scalar_scalar_wrapper const &lhs,
+                tensor_to_scalar_scalar_wrapper const &rhs) {
   return lhs.hash_value() == rhs.hash_value();
 }
 
-template <typename ValueType>
-bool operator!=(tensor_to_scalar_scalar_wrapper<ValueType> const &lhs,
-                tensor_to_scalar_scalar_wrapper<ValueType> const &rhs) {
+bool operator!=(tensor_to_scalar_scalar_wrapper const &lhs,
+                tensor_to_scalar_scalar_wrapper const &rhs) {
   return !(lhs == rhs);
 }
 

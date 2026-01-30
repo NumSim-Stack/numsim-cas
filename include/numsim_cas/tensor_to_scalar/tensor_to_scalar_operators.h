@@ -76,28 +76,26 @@ template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto
 binary_mul_tensor_to_scalar_with_scalar_simplify(ExprTypeLHS &&lhs,
                                                  ExprTypeRHS &&rhs) {
-  return visit(
-      tensor_to_scalar_with_scalar_detail::simplifier::mul_base<ExprTypeLHS,
-                                                                ExprTypeRHS>(
-          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
-      *lhs);
+  return nullptr; /*visit(
+       tensor_to_scalar_with_scalar_detail::simplifier::mul_base<ExprTypeLHS,
+                                                                 ExprTypeRHS>(
+           std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+       *lhs);*/
 }
 
 template <typename ExprTypeLHS, typename ExprTypeRHS>
 [[nodiscard]] constexpr inline auto
 binary_div_tensor_to_scalar_with_scalar_simplify(ExprTypeLHS &&lhs,
                                                  ExprTypeRHS &&rhs) {
-  return visit(
-      tensor_to_scalar_with_scalar_detail::simplifier::div_base<ExprTypeLHS,
-                                                                ExprTypeRHS>(
-          std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
-      *lhs);
+  return nullptr; /*visit(
+       tensor_to_scalar_with_scalar_detail::simplifier::div_base<ExprTypeLHS,
+                                                                 ExprTypeRHS>(
+           std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs)),
+       *lhs);*/
 }
 
-template <typename ValueType>
-struct operator_overload<
-    expression_holder<tensor_to_scalar_expression<ValueType>>,
-    expression_holder<tensor_to_scalar_expression<ValueType>>> {
+struct operator_overload<expression_holder<tensor_to_scalar_expression>,
+                         expression_holder<tensor_to_scalar_expression>> {
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto add(ExprTypeLHS &&lhs,
@@ -129,15 +127,14 @@ struct operator_overload<
 };
 
 template <typename ValueType>
-struct operator_overload<
-    expression_holder<scalar_expression<ValueType>>,
-    expression_holder<tensor_to_scalar_expression<ValueType>>> {
+struct operator_overload<expression_holder<scalar_expression>,
+                         expression_holder<tensor_to_scalar_expression>> {
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto
   add([[maybe_unused]] ExprTypeLHS &&lhs, [[maybe_unused]] ExprTypeRHS &&rhs) {
     // return
-    // binary_add_tensor_to_scalar_with_scalar_simplify<tensor_to_scalar_expression<ValueType>>();
+    // binary_add_tensor_to_scalar_with_scalar_simplify<tensor_to_scalar_expression>();
     return binary_add_tensor_to_scalar_with_scalar_simplify(
         std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
   }
@@ -152,7 +149,7 @@ struct operator_overload<
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto
   sub([[maybe_unused]] ExprTypeLHS &&lhs, [[maybe_unused]] ExprTypeRHS &&rhs) {
-    return expression_holder<tensor_to_scalar_expression<ValueType>>();
+    return expression_holder<tensor_to_scalar_expression>();
     // return binary_sub_tensor_simplify(std::forward<ExprTypeLHS>(lhs),
     // std::forward<ExprTypeRHS>(rhs));
   }
@@ -165,10 +162,8 @@ struct operator_overload<
   }
 };
 
-template <typename ValueType>
-struct operator_overload<
-    expression_holder<tensor_to_scalar_expression<ValueType>>,
-    expression_holder<scalar_expression<ValueType>>> {
+struct operator_overload<expression_holder<tensor_to_scalar_expression>,
+                         expression_holder<scalar_expression>> {
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto
@@ -187,7 +182,7 @@ struct operator_overload<
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto
   sub([[maybe_unused]] ExprTypeLHS &&lhs, [[maybe_unused]] ExprTypeRHS &&rhs) {
-    return expression_holder<tensor_to_scalar_expression<ValueType>>();
+    return expression_holder<tensor_to_scalar_expression>();
     // return binary_sub_tensor_simplify(std::forward<ExprTypeLHS>(lhs),
     // std::forward<ExprTypeRHS>(rhs));
   }
@@ -201,8 +196,8 @@ struct operator_overload<
 };
 
 // template<typename ValueType>
-// struct operator_overload<expression_holder<tensor_expression<ValueType>>,
-//                          expression_holder<tensor_to_scalar_expression<ValueType>>>{
+// struct operator_overload<expression_holder<tensor_expression>,
+//                          expression_holder<tensor_to_scalar_expression>>{
 
 //  template<typename ExprTypeLHS, typename ExprTypeRHS>
 //  [[nodiscard]] static constexpr inline auto add(ExprTypeLHS && lhs,
@@ -226,8 +221,8 @@ struct operator_overload<
 
 // template<typename ValueType>
 // struct
-// operator_overload<expression_holder<tensor_to_scalar_expression<ValueType>>,
-//                          expression_holder<tensor_expression<ValueType>>>{
+// operator_overload<expression_holder<tensor_to_scalar_expression>,
+//                          expression_holder<tensor_expression>>{
 
 //  template<typename ExprTypeLHS, typename ExprTypeRHS>
 //  [[nodiscard]] static constexpr inline auto add(ExprTypeLHS && lhs,

@@ -1,16 +1,14 @@
 #ifndef SCALAR_POWER_H
 #define SCALAR_POWER_H
 
-#include "../binary_op.h"
+#include <numsim_cas/core/binary_op.h>
+#include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
-template <typename ValueType>
-class scalar_pow final
-    : public binary_op<scalar_pow<ValueType>, scalar_expression<ValueType>,
-                       scalar_expression<ValueType>> {
+
+class scalar_pow final : public binary_op<scalar_node_base_t<scalar_pow>> {
 public:
-  using base = binary_op<scalar_pow<ValueType>, scalar_expression<ValueType>,
-                         scalar_expression<ValueType>>;
+  using base = binary_op<scalar_node_base_t<scalar_pow>>;
 
   using base::base;
   scalar_pow(scalar_pow const &expr) : base(static_cast<base const &>(expr)) {}

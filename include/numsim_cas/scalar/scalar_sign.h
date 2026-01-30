@@ -1,14 +1,14 @@
 #ifndef SCALAR_SIGN_H
 #define SCALAR_SIGN_H
 
-#include "../unary_op.h"
+#include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
-template <typename ValueType>
-class scalar_sign final
-    : public unary_op<scalar_sign<ValueType>, scalar_expression<ValueType>> {
+
+class scalar_sign final : public unary_op<scalar_node_base_t<scalar_sign>> {
 public:
-  using base = unary_op<scalar_sign<ValueType>, scalar_expression<ValueType>>;
+  using base = unary_op<scalar_node_base_t<scalar_sign>>;
 
   using base::base;
   scalar_sign(scalar_sign const &expr)

@@ -11,15 +11,12 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_inner_product_to_scalar final
-    : public binary_op<tensor_inner_product_to_scalar<ValueType>,
-                       tensor_to_scalar_expression<ValueType>,
-                       tensor_expression<ValueType>> {
+    : public binary_op<tensor_inner_product_to_scalar,
+                       tensor_to_scalar_expression, tensor_expression> {
 public:
-  using base = binary_op<tensor_inner_product_to_scalar<ValueType>,
-                         tensor_to_scalar_expression<ValueType>,
-                         tensor_expression<ValueType>>;
+  using base = binary_op<tensor_inner_product_to_scalar,
+                         tensor_to_scalar_expression, tensor_expression>;
 
   template <typename LHS, typename RHS, typename SeqLHS, typename SeqRHS>
   tensor_inner_product_to_scalar(LHS &&_lhs, SeqLHS &&_lhs_indices, RHS &&_rhs,

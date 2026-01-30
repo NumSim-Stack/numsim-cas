@@ -1,19 +1,26 @@
 #ifndef SCALAR_DIFFERENTIATION_H
 #define SCALAR_DIFFERENTIATION_H
 
-#include "../../basic_functions.h"
-#include "../../expression_holder.h"
-#include "../../numsim_cas_type_traits.h"
-#include "../../operators.h"
-
-#include "../scalar_add.h"
-#include "../scalar_globals.h"
-#include "../scalar_mul.h"
-#include "../scalar_one.h"
-#include "../scalar_std.h"
-#include "../scalar_zero.h"
-
+#include <algorithm>
+#include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/diff.h>
+#include <numsim_cas/core/operators.h>
+#include <numsim_cas/printer_base.h>
+#include <numsim_cas/scalar/scalar_all.h>
+#include <numsim_cas/scalar/scalar_operators.h>
+#include <numsim_cas/scalar/scalar_std.h>
 #include <ranges>
+
+namespace numsim::cas {
+// Forward declare the customization used by numsim::cas::diff for
+// scalar/scalar.
+expression_holder<scalar_expression>
+tag_invoke(detail::diff_fn, std::type_identity<scalar_expression>,
+           std::type_identity<scalar_expression>,
+           expression_holder<scalar_expression> const &,
+           expression_holder<scalar_expression> const &);
+
+} // namespace numsim::cas
 
 namespace numsim::cas {
 
@@ -26,18 +33,18 @@ namespace numsim::cas {
  * The implementation applies standard differentiation rules plus the chain
  * rule: \f[ \frac{d}{da} F(u(a)) = F'(u(a)) \cdot \frac{du}{da}. \f]
  *
- * @tparam ValueType Scalar numeric type used by constants.
  */
-template <typename ValueType> class scalar_differentiation {
+class scalar_differentiation final : public scalar_visitor_const_t {
 public:
-  using expr_t = expression_holder<scalar_expression<ValueType>>;
+  using expr_holder_t = expression_holder<scalar_expression>;
 
   /**
    * @brief Construct a differentiator w.r.t. a specific scalar variable.
    *
-   * @param arg The variable with respect to which differentiation is performed.
+   * @param arg The variable with respect to which differentiation is
+   performed.
    */
-  scalar_differentiation(expr_t const &arg) : m_arg(arg) {}
+  scalar_differentiation(expr_holder_t const &arg) : m_arg(arg) {}
 
   scalar_differentiation(scalar_differentiation const &) = delete;
   scalar_differentiation(scalar_differentiation &&) = delete;
@@ -49,7 +56,7 @@ public:
    * @param expr Expression to differentiate.
    * @return The symbolic derivative d(expr)/d(m_arg).
    */
-  auto apply(expr_t const &expr) { return apply_imp(expr); }
+  auto apply(expr_holder_t const &expr) noexcept { return apply_imp(expr); }
 
   /**
    * @brief Derivative of a scalar variable.
@@ -58,11 +65,11 @@ public:
    *
    * @param visitable Scalar variable node.
    */
-  void operator()(scalar<ValueType> const &visitable) {
+  void operator()(scalar const &visitable) noexcept {
     if (visitable.hash_value() == m_arg.get().hash_value()) {
-      m_result = get_scalar_one<ValueType>();
+      m_result = get_scalar_one();
     } else {
-      m_result = get_scalar_zero<ValueType>();
+      m_result = get_scalar_zero();
     }
   }
 
@@ -74,12 +81,12 @@ public:
    *
    * @param visitable Function node.
    */
-  void operator()(scalar_function<ValueType> const &visitable) {
-    scalar_differentiation<ValueType> diff(m_arg);
-    auto result{diff.apply(visitable.expr())};
+  void operator()(scalar_function const &visitable) noexcept {
+    scalar_differentiation diff(m_arg);
+    expr_holder_t result{diff.apply(visitable.expr())};
     if (result.is_valid()) {
-      m_result = make_expression<scalar_function<ValueType>>(
-          "d" + visitable.name(), result);
+      m_result =
+          make_expression<scalar_function>("d" + visitable.name(), result);
     }
   }
 
@@ -92,13 +99,13 @@ public:
    * @param visitable Multiplication node.
    * TODO: just copy the vector and manipulate the current entry
    */
-  void operator()(scalar_mul<ValueType> const &visitable) {
-    expr_t expr_result;
+  void operator()(scalar_mul const &visitable) noexcept {
+    expr_holder_t expr_result;
     for (auto &expr_out : visitable.hash_map() | std::views::values) {
-      expr_t expr_result_in;
+      expr_holder_t expr_result_in;
       for (auto &expr_in : visitable.hash_map() | std::views::values) {
         if (expr_out == expr_in) {
-          scalar_differentiation<ValueType> diff(m_arg);
+          scalar_differentiation diff(m_arg);
           expr_result_in *= diff.apply(expr_in);
         } else {
           expr_result_in *= expr_in;
@@ -123,8 +130,8 @@ public:
    * \f]
    *    * @param visitable Addition node.
    */
-  void operator()([[maybe_unused]] scalar_add<ValueType> const &visitable) {
-    expr_t expr_result;
+  void operator()([[maybe_unused]] scalar_add const &visitable) noexcept {
+    expr_holder_t expr_result;
     for (auto &child : visitable.hash_map() | std::views::values) {
       scalar_differentiation diff(m_arg);
       expr_result += diff.apply(child);
@@ -140,38 +147,37 @@ public:
    * \f]
    *    * @param visitable Negation node.
    */
-  void operator()(scalar_negative<ValueType> const &visitable) {
+  void operator()(scalar_negative const &visitable) noexcept {
     scalar_differentiation diff(m_arg);
     auto diff_expr{diff.apply(visitable.expr())};
-    if (diff_expr.is_valid() || !is_same<scalar_zero<ValueType>>(diff_expr)) {
+    if (diff_expr.is_valid() || !is_same<scalar_zero>(diff_expr)) {
       m_result = -diff_expr;
     }
   }
 
-  /**
-   * @brief Quotient rule.
-   *    * For \f$f(a)=\frac{g(a)}{h(a)}\f$:
-   * \f[
-   *   f'(a)=\frac{g'(a)h(a)-g(a)h'(a)}{h(a)^2}.
-   * \f]
-   *    * @param visitable Division node.
-   */
-  void operator()(scalar_div<ValueType> const &visitable) {
-    auto g{visitable.expr_lhs()};
-    auto h{visitable.expr_rhs()};
-    scalar_differentiation<ValueType> diff(m_arg);
-    auto dg{diff.apply(g)};
-    auto dh{diff.apply(h)};
-    m_result = (dg * h - g * dh) / (h * h);
-  }
+  // /**
+  //  * @brief Quotient rule.
+  //  *    * For \f$f(a)=\frac{g(a)}{h(a)}\f$:
+  //  * \f[
+  //  *   f'(a)=\frac{g'(a)h(a)-g(a)h'(a)}{h(a)^2}.
+  //  * \f]
+  //  *    * @param visitable Division node.
+  //  */
+  // void operator()(scalar_div const &visitable) noexcept{
+  //   auto g{visitable.expr_lhs()};
+  //   auto h{visitable.expr_rhs()};
+  //   scalar_differentiation diff(m_arg);
+  //   auto dg{diff.apply(g)};
+  //   auto dh{diff.apply(h)};
+  //   m_result = (dg * h - g * dh) / (h * h);
+  // }
 
   /**
    * @brief Derivative of a constant.
    * @param visitable Constant node.
    */
-  void
-  operator()([[maybe_unused]] scalar_constant<ValueType> const &visitable) {
-    m_result = get_scalar_zero<ValueType>();
+  void operator()([[maybe_unused]] scalar_constant const &visitable) noexcept {
+    m_result = get_scalar_zero();
   }
 
   /**
@@ -181,10 +187,9 @@ public:
    * \sec^2(u(a))\,u'(a)=\frac{1}{\cos^2(u(a))}\,u'(a). \f]
    *    * @param visitable Tangent node.
    */
-  void operator()([[maybe_unused]] scalar_tan<ValueType> const &visitable) {
-    const auto &one{get_scalar_one<ValueType>()};
-    m_result =
-        std::pow(one / std::cos(visitable.expr()), static_cast<ValueType>(2));
+  void operator()([[maybe_unused]] scalar_tan const &visitable) noexcept {
+    const auto &one{get_scalar_one()};
+    m_result = pow(one / cos(visitable.expr()), 2);
     apply_inner_unary(visitable);
   }
 
@@ -195,8 +200,8 @@ public:
    * \f]
    *    * @param visitable Sine node.
    */
-  void operator()([[maybe_unused]] scalar_sin<ValueType> const &visitable) {
-    m_result = std::cos(visitable.expr());
+  void operator()([[maybe_unused]] scalar_sin const &visitable) noexcept {
+    m_result = cos(visitable.expr());
     apply_inner_unary(visitable);
   }
 
@@ -207,8 +212,8 @@ public:
    * \f]
    *    * @param visitable Cosine node.
    */
-  void operator()([[maybe_unused]] scalar_cos<ValueType> const &visitable) {
-    m_result = -std::sin(visitable.expr());
+  void operator()([[maybe_unused]] scalar_cos const &visitable) noexcept {
+    m_result = -sin(visitable.expr());
     apply_inner_unary(visitable);
   }
 
@@ -216,16 +221,16 @@ public:
    * @brief Derivative of one is zero.
    * @param visitable One node.
    */
-  void operator()([[maybe_unused]] scalar_one<ValueType> const &visitable) {
-    m_result = get_scalar_zero<ValueType>();
+  void operator()([[maybe_unused]] scalar_one const &visitable) noexcept {
+    m_result = get_scalar_zero();
   }
 
   /**
    * @brief Derivative of zero is zero.
    * @param visitable Zero node.
    */
-  void operator()([[maybe_unused]] scalar_zero<ValueType> const &visitable) {
-    m_result = get_scalar_zero<ValueType>();
+  void operator()([[maybe_unused]] scalar_zero const &visitable) noexcept {
+    m_result = get_scalar_zero();
   }
 
   /**
@@ -235,10 +240,9 @@ public:
    * \f]
    *    * @param visitable Arctangent node.
    */
-  void operator()([[maybe_unused]] scalar_atan<ValueType> const &visitable) {
-    auto &one{get_scalar_one<ValueType>()};
-    m_result =
-        (one / (one + std::pow(visitable.expr(), static_cast<ValueType>(2))));
+  void operator()([[maybe_unused]] scalar_atan const &visitable) noexcept {
+    auto &one{get_scalar_one()};
+    m_result = (one / (one + pow(visitable.expr(), 2)));
     apply_inner_unary(visitable);
   }
 
@@ -249,10 +253,9 @@ public:
    * \f]
    *    * @param visitable Arcsine node.
    */
-  void operator()([[maybe_unused]] scalar_asin<ValueType> const &visitable) {
-    auto &one{get_scalar_one<ValueType>()};
-    m_result = (one / (std::sqrt(one - std::pow(visitable.expr(),
-                                                static_cast<ValueType>(2)))));
+  void operator()([[maybe_unused]] scalar_asin const &visitable) noexcept {
+    auto &one{get_scalar_one()};
+    m_result = (one / (sqrt(one - pow(visitable.expr(), 2))));
     apply_inner_unary(visitable);
   }
 
@@ -263,10 +266,9 @@ public:
    * \f]
    *    * @param visitable Arccosine node.
    */
-  void operator()([[maybe_unused]] scalar_acos<ValueType> const &visitable) {
-    auto &one{get_scalar_one<ValueType>()};
-    m_result = -(one / (std::sqrt(one - std::pow(visitable.expr(),
-                                                 static_cast<ValueType>(2)))));
+  void operator()([[maybe_unused]] scalar_acos const &visitable) noexcept {
+    auto &one{get_scalar_one()};
+    m_result = -(one / (sqrt(one - pow(visitable.expr(), 2))));
     apply_inner_unary(visitable);
   }
 
@@ -277,9 +279,9 @@ public:
    * \f]
    *    * @param visitable Square-root node.
    */
-  void operator()([[maybe_unused]] scalar_sqrt<ValueType> const &visitable) {
-    auto &one{get_scalar_one<ValueType>()};
-    m_result = one / (static_cast<ValueType>(2) * m_expr);
+  void operator()([[maybe_unused]] scalar_sqrt const &visitable) noexcept {
+    auto &one{get_scalar_one()};
+    m_result = one / (2 * m_expr);
     apply_inner_unary(visitable);
   }
 
@@ -290,7 +292,7 @@ public:
    * \f]
    *    * @param visitable Exponential node.
    */
-  void operator()([[maybe_unused]] scalar_exp<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] scalar_exp const &visitable) noexcept {
     m_result = m_expr;
     apply_inner_unary(visitable);
   }
@@ -309,21 +311,21 @@ public:
    * \f]
    *    * @param visitable Power node.
    */
-  void operator()([[maybe_unused]] scalar_pow<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] scalar_pow const &visitable) noexcept {
     const auto &g{visitable.expr_lhs()};
     const auto &h{visitable.expr_rhs()};
 
-    const auto &one{get_scalar_one<ValueType>()};
+    const auto &one{get_scalar_one()};
 
     auto dg{diff(g, m_arg)};
     auto dh{diff(h, m_arg)};
 
-    if (is_same<scalar_zero<ValueType>>(dh)) {
+    if (is_same<scalar_zero>(dh)) {
       // h is constant (w.r.t. m_arg)
-      m_result = h * std::pow(g, h - one) * dg;
+      m_result = h * pow(g, h - one) * dg;
     } else {
       // general case
-      m_result = std::pow(g, h - one) * (h * dg + dh * std::log(g) * g);
+      m_result = pow(g, h - one) * (h * dg + dh * log(g) * g);
     }
   }
 
@@ -331,8 +333,8 @@ public:
    * @brief sign(u)' is treated as zero (non-differentiable at 0).
    * @param visitable Sign node.
    */
-  void operator()([[maybe_unused]] scalar_sign<ValueType> const &visitable) {
-    m_result = get_scalar_zero<ValueType>();
+  void operator()([[maybe_unused]] scalar_sign const &visitable) noexcept {
+    m_result = get_scalar_zero();
   }
 
   /**
@@ -343,7 +345,7 @@ public:
    * undefined at \f$u(a)=0\f$ (the CAS keeps the symbolic form).
    *    * @param visitable Absolute-value node.
    */
-  void operator()([[maybe_unused]] scalar_abs<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] scalar_abs const &visitable) noexcept {
     m_result = visitable.expr() / m_expr;
     apply_inner_unary(visitable);
   }
@@ -355,16 +357,21 @@ public:
    * \f]
    *    * @param visitable Logarithm node.
    */
-  void operator()([[maybe_unused]] scalar_log<ValueType> const &visitable) {
-    auto &one{get_scalar_one<ValueType>()};
+  void operator()([[maybe_unused]] scalar_log const &visitable) noexcept {
+    auto &one{get_scalar_one()};
     m_result = one / visitable.expr();
     apply_inner_unary(visitable);
+  }
+
+  void operator()([[maybe_unused]] scalar_rational const &visitable) noexcept {
+    m_result = get_scalar_zero();
   }
 
   /**
    * @brief Default overload for safty reasons.
    */
-  template <class T> void operator()([[maybe_unused]] T const &visitable) {
+  template <class T>
+  void operator()([[maybe_unused]] T const &visitable) noexcept {
     static_assert(
         sizeof(T) == 0,
         "scalar_differentiation: missing overload for this node type");
@@ -378,8 +385,8 @@ private:
    *    * @tparam T Unary node type exposing expr().
    * @param unary Unary node.
    */
-  template <typename T> void apply_inner_unary(T const &unary) {
-    scalar_differentiation<ValueType> diff(m_arg);
+  template <typename T> void apply_inner_unary(T const &unary) noexcept {
+    scalar_differentiation diff(m_arg);
     auto inner{diff.apply(unary.expr())};
     if (inner.is_valid()) {
       m_result *= std::move(inner);
@@ -391,22 +398,22 @@ private:
    * @param expr Expression to differentiate.
    * @return Derivative expression.
    */
-  auto apply_imp(expr_t const &expr) {
+  expr_holder_t apply_imp(expr_holder_t const &expr) noexcept {
     if (expr.is_valid()) {
       m_expr = expr;
-      std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
+      expr.get<scalar_visitable_t>().accept(*this);
       return m_result;
     } else {
-      return get_scalar_zero<ValueType>();
+      return get_scalar_zero();
     }
   }
 
   ///< Differentiation variable.
-  expr_t const &m_arg;
+  expr_holder_t const &m_arg;
   ///< Currently visited expression node.
-  expr_t m_expr;
+  expr_holder_t m_expr;
   ///< Accumulated result for current visit.
-  expr_t m_result;
+  expr_holder_t m_result;
 };
 
 } // namespace numsim::cas

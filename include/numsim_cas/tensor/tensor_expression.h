@@ -8,11 +8,10 @@
 
 namespace numsim::cas {
 
-template <typename ValueType> class tensor_expression : public expression {
+class tensor_expression : public expression {
 public:
   using expr_type = tensor_expression;
-  using value_type = ValueType;
-  using node_type = tensor_node<value_type>;
+  // using node_type = tensor_node<value_type>;
 
   tensor_expression(std::size_t dim, std::size_t rank)
       : m_dim(dim), m_rank(rank) {}
@@ -38,8 +37,7 @@ public:
 
   constexpr inline auto operator-() const {
     // TODO check if this is already negative
-    return make_expression<tensor_expression<ValueType>,
-                           tensor_negative<ValueType>>(this);
+    return make_expression<tensor_expression, tensor_negative>(this);
   }
 
   // tensor_space_manager m_space{};
@@ -49,22 +47,16 @@ protected:
   std::size_t m_rank;
 };
 
-template <typename ValueType>
-std::ostream &
-operator<<(std::ostream &os,
-           expression_holder<tensor_expression<ValueType>> const &expr) {
-  tensor_printer<ValueType, std::ostream> printer(os);
+std::ostream &operator<<(std::ostream &os,
+                         expression_holder<tensor_expression> const &expr) {
+  tensor_printer<std::ostream> printer(os);
   printer.apply(expr);
   return os;
 }
 
-template <typename ValueType>
-struct expression_details<tensor_expression<ValueType>> {
-  using variant = tensor_node<ValueType>;
-
+struct expression_details<tensor_expression> {
   template <typename Expr> static inline auto negative(Expr &&expr) {
-    return make_expression<tensor_negative<ValueType>>(
-        std::forward<Expr>(expr));
+    return make_expression<tensor_negative>(std::forward<Expr>(expr));
   }
 };
 

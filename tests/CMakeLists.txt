@@ -45,6 +45,7 @@ target_sources(numsim_cas_test
     cas_test_helpers.h
     ScalarEvaluatorTest.h
     TensorToScalarDifferentiationTest.h
+    ScalarDifferentiationTest.h
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

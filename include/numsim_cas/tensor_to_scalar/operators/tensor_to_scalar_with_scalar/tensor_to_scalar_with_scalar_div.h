@@ -9,17 +9,14 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_to_scalar_with_scalar_div final
-    : public binary_op<tensor_to_scalar_with_scalar_div<ValueType>,
-                       tensor_to_scalar_expression<ValueType>,
-                       tensor_to_scalar_expression<ValueType>,
-                       scalar_expression<ValueType>> {
+    : public binary_op<tensor_to_scalar_with_scalar_div,
+                       tensor_to_scalar_expression, tensor_to_scalar_expression,
+                       scalar_expression> {
 public:
-  using base = binary_op<tensor_to_scalar_with_scalar_div<ValueType>,
-                         tensor_to_scalar_expression<ValueType>,
-                         tensor_to_scalar_expression<ValueType>,
-                         scalar_expression<ValueType>>;
+  using base =
+      binary_op<tensor_to_scalar_with_scalar_div, tensor_to_scalar_expression,
+                tensor_to_scalar_expression, scalar_expression>;
   using base::base;
 
   tensor_to_scalar_with_scalar_div() : base() {}
@@ -32,17 +29,14 @@ public:
   operator=(tensor_to_scalar_with_scalar_div &&) = delete;
 };
 
-template <typename ValueType>
 class scalar_with_tensor_to_scalar_div final
-    : public binary_op<scalar_with_tensor_to_scalar_div<ValueType>,
-                       tensor_to_scalar_expression<ValueType>,
-                       scalar_expression<ValueType>,
-                       tensor_to_scalar_expression<ValueType>> {
+    : public binary_op<scalar_with_tensor_to_scalar_div,
+                       tensor_to_scalar_expression, scalar_expression,
+                       tensor_to_scalar_expression> {
 public:
-  using base = binary_op<scalar_with_tensor_to_scalar_div<ValueType>,
-                         tensor_to_scalar_expression<ValueType>,
-                         scalar_expression<ValueType>,
-                         tensor_to_scalar_expression<ValueType>>;
+  using base =
+      binary_op<scalar_with_tensor_to_scalar_div, tensor_to_scalar_expression,
+                scalar_expression, tensor_to_scalar_expression>;
   using base::base;
 
   scalar_with_tensor_to_scalar_div() : base() {}

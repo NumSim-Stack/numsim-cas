@@ -9,16 +9,14 @@ namespace tensor_to_scalar_detail {
 namespace simplifier {
 
 template <typename ExprLHS, typename ExprRHS> struct sub_default {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
+  using expr_type = expression_holder<tensor_to_scalar_expression>;
 
   sub_default(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
 
   auto get_default() {
-    auto add_expr{make_expression<tensor_to_scalar_add<value_type>>()};
-    auto &add{add_expr.template get<tensor_to_scalar_add<value_type>>()};
+    auto add_expr{make_expression<tensor_to_scalar_add>()};
+    auto &add{add_expr.template get<tensor_to_scalar_add>()};
     add.push_back(m_lhs);
     add.push_back(-m_rhs);
     return std::move(add_expr);
@@ -33,9 +31,7 @@ template <typename ExprLHS, typename ExprRHS> struct sub_default {
 };
 
 template <typename ExprLHS, typename ExprRHS> struct sub_base {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
+  using expr_type = expression_holder<tensor_to_scalar_expression>;
 
   sub_base(ExprLHS &&lhs, ExprRHS &&rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}

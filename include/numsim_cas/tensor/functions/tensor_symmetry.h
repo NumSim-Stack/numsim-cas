@@ -6,12 +6,10 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class tensor_symmetry final : public unary_op<tensor_symmetry<ValueType>,
-                                              tensor_expression<ValueType>> {
+class tensor_symmetry final
+    : public unary_op<tensor_symmetry, tensor_expression> {
 public:
-  using base =
-      unary_op<tensor_symmetry<ValueType>, tensor_expression<ValueType>>;
+  using base = unary_op<tensor_symmetry, tensor_expression>;
 
   template <typename Expr>
   explicit tensor_symmetry(Expr &&_expr)

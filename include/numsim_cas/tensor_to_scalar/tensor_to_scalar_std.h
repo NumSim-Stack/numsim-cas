@@ -1,6 +1,7 @@
 #ifndef TENSOR_TO_SCALAR_STD_H
 #define TENSOR_TO_SCALAR_STD_H
 
+#include "../basic_functions.h"
 #include "../expression_holder.h"
 #include "../numsim_cas_type_traits.h"
 #include "visitors/tensor_to_scalar_printer.h"
@@ -8,127 +9,92 @@
 
 namespace std {
 
-template <typename ValueType>
-auto to_string(numsim::cas::expression_holder<
-               numsim::cas::tensor_to_scalar_expression<ValueType>> &&expr) {
+auto to_string(
+    numsim::cas::expression_holder<numsim::cas::tensor_to_scalar_expression>
+        &&expr) {
   std::stringstream ss;
-  numsim::cas::tensor_to_scalar_printer<ValueType, std::stringstream> printer(
-      ss);
+  numsim::cas::tensor_to_scalar_printer<std::stringstream> printer(ss);
   printer.apply(expr);
   return ss.str();
 }
 
-template <typename ValueType>
 auto to_string(const numsim::cas::expression_holder<
-               numsim::cas::tensor_to_scalar_expression<ValueType>> &expr) {
+               numsim::cas::tensor_to_scalar_expression> &expr) {
   std::stringstream ss;
-  numsim::cas::tensor_to_scalar_printer<ValueType, std::stringstream> printer(
-      ss);
+  numsim::cas::tensor_to_scalar_printer<std::stringstream> printer(ss);
   printer.apply(expr);
   return ss.str();
 }
 
 template <
     typename ExprLHS, typename ExprRHS,
-    std::enable_if_t<
-        std::is_base_of_v<
-            numsim::cas::tensor_to_scalar_expression<
-                typename numsim::cas::remove_cvref_t<ExprLHS>::value_type>,
-            typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type>,
-        bool> = true,
-    std::enable_if_t<
-        std::is_base_of_v<
-            numsim::cas::tensor_to_scalar_expression<
-                typename numsim::cas::remove_cvref_t<ExprRHS>::value_type>,
-            typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type>,
-        bool> = true>
+    std::enable_if_t<std::is_base_of_v<numsim::cas::tensor_to_scalar_expression,
+                                       typename numsim::cas::remove_cvref_t<
+                                           ExprLHS>::expr_type>,
+                     bool> = true,
+    std::enable_if_t<std::is_base_of_v<numsim::cas::tensor_to_scalar_expression,
+                                       typename numsim::cas::remove_cvref_t<
+                                           ExprRHS>::expr_type>,
+                     bool> = true>
 auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
-  using value_type = std::common_type_t<
-      typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
-      typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type::value_type>;
-
-  return numsim::cas::make_expression<
-      numsim::cas::tensor_to_scalar_pow<value_type>>(
+  return numsim::cas::make_expression<numsim::cas::tensor_to_scalar_pow>(
       std::forward<ExprLHS>(expr_lhs), std::forward<ExprRHS>(expr_rhs));
 }
 
 template <
     typename ExprLHS, typename ExprRHS,
-    std::enable_if_t<
-        std::is_base_of_v<
-            numsim::cas::tensor_to_scalar_expression<
-                typename numsim::cas::remove_cvref_t<ExprLHS>::value_type>,
-            typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type>,
-        bool> = true,
+    std::enable_if_t<std::is_base_of_v<numsim::cas::tensor_to_scalar_expression,
+                                       typename numsim::cas::remove_cvref_t<
+                                           ExprLHS>::expr_type>,
+                     bool> = true,
     std::enable_if_t<std::is_arithmetic_v<ExprRHS>, bool> = true>
 auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
-  using value_type = std::common_type_t<
-      typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
-      ExprRHS>;
   auto constant{
-      numsim::cas::make_expression<numsim::cas::scalar_constant<value_type>>(
-          expr_rhs)};
+      numsim::cas::make_expression<numsim::cas::scalar_constant>(expr_rhs)};
   return numsim::cas::make_expression<
-      numsim::cas::tensor_to_scalar_pow_with_scalar_exponent<value_type>>(
+      numsim::cas::tensor_to_scalar_pow_with_scalar_exponent>(
       std::forward<ExprLHS>(expr_lhs), std::move(constant));
 }
 
 template <
     typename ExprLHS, typename ExprRHS,
-    std::enable_if_t<
-        std::is_base_of_v<
-            numsim::cas::tensor_to_scalar_expression<
-                typename numsim::cas::remove_cvref_t<ExprLHS>::value_type>,
-            typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type>,
-        bool> = true,
+    std::enable_if_t<std::is_base_of_v<numsim::cas::tensor_to_scalar_expression,
+                                       typename numsim::cas::remove_cvref_t<
+                                           ExprLHS>::expr_type>,
+                     bool> = true,
     std::enable_if_t<std::is_fundamental_v<ExprRHS>, bool> = true>
 auto pow(ExprLHS const &expr_lhs, ExprRHS &&expr_rhs) {
-  using value_type = std::common_type_t<
-      typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
-      ExprRHS>;
   auto constant{
-      numsim::cas::make_expression<numsim::cas::scalar_constant<value_type>>(
-          expr_rhs)};
+      numsim::cas::make_expression<numsim::cas::scalar_constant>(expr_rhs)};
   return numsim::cas::make_expression<
-      numsim::cas::tensor_to_scalar_pow_with_scalar_exponent<value_type>>(
+      numsim::cas::tensor_to_scalar_pow_with_scalar_exponent>(
       expr_lhs, std::move(constant));
 }
 
 template <
     typename ExprLHS, typename ExprRHS,
-    std::enable_if_t<
-        std::is_base_of_v<
-            numsim::cas::tensor_to_scalar_expression<
-                typename numsim::cas::remove_cvref_t<ExprLHS>::value_type>,
-            typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type>,
-        bool> = true,
-    std::enable_if_t<
-        std::is_base_of_v<
-            numsim::cas::scalar_expression<
-                typename numsim::cas::remove_cvref_t<ExprRHS>::value_type>,
-            typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type>,
-        bool> = true>
+    std::enable_if_t<std::is_base_of_v<numsim::cas::tensor_to_scalar_expression,
+                                       typename numsim::cas::remove_cvref_t<
+                                           ExprLHS>::expr_type>,
+                     bool> = true,
+    std::enable_if_t<std::is_base_of_v<numsim::cas::scalar_expression,
+                                       typename numsim::cas::remove_cvref_t<
+                                           ExprRHS>::expr_type>,
+                     bool> = true>
 auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
-  using value_type = std::common_type_t<
-      typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
-      typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type::value_type>;
-
   return numsim::cas::make_expression<
-      numsim::cas::tensor_to_scalar_pow_with_scalar_exponent<value_type>>(
+      numsim::cas::tensor_to_scalar_pow_with_scalar_exponent>(
       std::forward<ExprLHS>(expr_lhs), std::forward<ExprRHS>(expr_rhs));
 }
 
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::tensor_to_scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
+template <
+    typename Expr,
+    std::enable_if_t<std::is_same_v<typename std::decay_t<Expr>::expr_type,
+                                    numsim::cas::tensor_to_scalar_expression>,
+                     bool> = true>
 auto log(Expr &&expr) {
-  using value_type =
-      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
-  return numsim::cas::make_expression<
-      numsim::cas::tensor_to_scalar_log<value_type>>(std::forward<Expr>(expr));
+  return numsim::cas::make_expression<numsim::cas::tensor_to_scalar_log>(
+      std::forward<Expr>(expr));
 }
 
 } // namespace std

@@ -6,13 +6,12 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_to_scalar_zero final
-    : public expression_crtp<tensor_to_scalar_zero<ValueType>,
-                             tensor_to_scalar_expression<ValueType>> {
+    : public expression_crtp<tensor_to_scalar_zero,
+                             tensor_to_scalar_expression> {
 public:
-  using base = expression_crtp<tensor_to_scalar_zero<ValueType>,
-                               tensor_to_scalar_expression<ValueType>>;
+  using base =
+      expression_crtp<tensor_to_scalar_zero, tensor_to_scalar_expression>;
 
   tensor_to_scalar_zero() = default;
   tensor_to_scalar_zero(tensor_to_scalar_zero &&data)
@@ -22,45 +21,37 @@ public:
   ~tensor_to_scalar_zero() = default;
   const tensor_to_scalar_zero &operator=(tensor_to_scalar_zero &&) = delete;
 
-  template <typename _ValueType>
-  friend bool operator<(tensor_to_scalar_zero<_ValueType> const &lhs,
-                        tensor_to_scalar_zero<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator>(tensor_to_scalar_zero<_ValueType> const &lhs,
-                        tensor_to_scalar_zero<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator==(tensor_to_scalar_zero<_ValueType> const &lhs,
-                         tensor_to_scalar_zero<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator!=(tensor_to_scalar_zero<_ValueType> const &lhs,
-                         tensor_to_scalar_zero<_ValueType> const &rhs);
+  friend bool operator<(tensor_to_scalar_zero const &lhs,
+                        tensor_to_scalar_zero const &rhs);
+  friend bool operator>(tensor_to_scalar_zero const &lhs,
+                        tensor_to_scalar_zero const &rhs);
+  friend bool operator==(tensor_to_scalar_zero const &lhs,
+                         tensor_to_scalar_zero const &rhs);
+  friend bool operator!=(tensor_to_scalar_zero const &lhs,
+                         tensor_to_scalar_zero const &rhs);
 
   virtual void update_hash_value() const override {
     hash_combine(base::m_hash_value, base::get_id());
   }
 };
 
-template <typename ValueType>
-bool operator<(tensor_to_scalar_zero<ValueType> const &lhs,
-               tensor_to_scalar_zero<ValueType> const &rhs) {
+bool operator<(tensor_to_scalar_zero const &lhs,
+               tensor_to_scalar_zero const &rhs) {
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename ValueType>
-bool operator>(tensor_to_scalar_zero<ValueType> const &lhs,
-               tensor_to_scalar_zero<ValueType> const &rhs) {
-  return !(lhs < rhs);
+bool operator>(tensor_to_scalar_zero const &lhs,
+               tensor_to_scalar_zero const &rhs) {
+  return rhs < lhs;
 }
 
-template <typename ValueType>
-bool operator==(tensor_to_scalar_zero<ValueType> const &lhs,
-                tensor_to_scalar_zero<ValueType> const &rhs) {
+bool operator==(tensor_to_scalar_zero const &lhs,
+                tensor_to_scalar_zero const &rhs) {
   return lhs.hash_value() == rhs.hash_value();
 }
 
-template <typename ValueType>
-bool operator!=(tensor_to_scalar_zero<ValueType> const &lhs,
-                tensor_to_scalar_zero<ValueType> const &rhs) {
+bool operator!=(tensor_to_scalar_zero const &lhs,
+                tensor_to_scalar_zero const &rhs) {
   return !(lhs == rhs);
 }
 

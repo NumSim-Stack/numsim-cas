@@ -6,10 +6,9 @@
 #include "tensor_functions.h"
 
 namespace numsim::cas {
-
-template <typename ValueType>
-struct operator_overload<expression_holder<tensor_expression<ValueType>>,
-                         expression_holder<tensor_expression<ValueType>>> {
+template <>
+struct operator_overload<expression_holder<tensor_expression>,
+                         expression_holder<tensor_expression>> {
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto add(ExprTypeLHS &&lhs,
@@ -33,9 +32,9 @@ struct operator_overload<expression_holder<tensor_expression<ValueType>>,
   }
 };
 
-template <typename ValueType>
-struct operator_overload<expression_holder<scalar_expression<ValueType>>,
-                         expression_holder<tensor_expression<ValueType>>> {
+template <>
+struct operator_overload<expression_holder<scalar_expression>,
+                         expression_holder<tensor_expression>> {
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto mul(ExprTypeLHS &&lhs,
@@ -45,9 +44,9 @@ struct operator_overload<expression_holder<scalar_expression<ValueType>>,
   }
 };
 
-template <typename ValueType>
-struct operator_overload<expression_holder<tensor_expression<ValueType>>,
-                         expression_holder<scalar_expression<ValueType>>> {
+template <>
+struct operator_overload<expression_holder<tensor_expression>,
+                         expression_holder<scalar_expression>> {
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto div(ExprTypeLHS &&lhs,
@@ -64,35 +63,33 @@ struct operator_overload<expression_holder<tensor_expression<ValueType>>,
   }
 };
 
-template <typename ValueType>
-struct operator_overload<
-    expression_holder<tensor_to_scalar_expression<ValueType>>,
-    expression_holder<tensor_expression<ValueType>>> {
+template <>
+struct operator_overload<expression_holder<tensor_to_scalar_expression>,
+                         expression_holder<tensor_expression>> {
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto mul(ExprTypeLHS &&lhs,
                                                  ExprTypeRHS &&rhs) {
-    return make_expression<tensor_to_scalar_with_tensor_mul<ValueType>>(
+    return make_expression<tensor_to_scalar_with_tensor_mul>(
         std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
   }
 };
 
-template <typename ValueType>
-struct operator_overload<
-    expression_holder<tensor_expression<ValueType>>,
-    expression_holder<tensor_to_scalar_expression<ValueType>>> {
+template <>
+struct operator_overload<expression_holder<tensor_expression>,
+                         expression_holder<tensor_to_scalar_expression>> {
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto div(ExprTypeLHS &&lhs,
                                                  ExprTypeRHS &&rhs) {
-    return make_expression<tensor_to_scalar_with_tensor_div<ValueType>>(
+    return make_expression<tensor_to_scalar_with_tensor_div>(
         std::forward<ExprTypeLHS>(lhs), std::forward<ExprTypeRHS>(rhs));
   }
 
   template <typename ExprTypeLHS, typename ExprTypeRHS>
   [[nodiscard]] static constexpr inline auto mul(ExprTypeLHS &&lhs,
                                                  ExprTypeRHS &&rhs) {
-    return make_expression<tensor_to_scalar_with_tensor_mul<ValueType>>(
+    return make_expression<tensor_to_scalar_with_tensor_mul>(
         std::forward<ExprTypeRHS>(rhs), std::forward<ExprTypeLHS>(lhs));
   }
 };

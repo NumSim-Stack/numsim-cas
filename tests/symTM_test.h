@@ -22,17 +22,17 @@
 //   &>(tensor);
 // }
 
-//#define call_test(test_name, ValueType, Dim)                                   \
+// #define call_test(test_name, ValueType, Dim)                                   \
 //  test_name(ValueType, Dim, 1) test_name(ValueType, Dim, 2)                    \
 //      test_name(ValueType, Dim, 3) test_name(ValueType, Dim, 4)                \
 //          test_name(ValueType, Dim, 5) test_name(ValueType, Dim, 6)            \
 //              test_name(ValueType, Dim, 7) test_name(ValueType, Dim, 8)
 
-//// adding tensors
+// // adding tensors
 // #d ef ine add_tensors(ValueType, Dim, Rank) \
 //  TEST(gtest, add_tensors_##ValueType##_##Dim##_##Rank) { \
 //    auto
-//[asym, bsym, csym] {
+// [asym, bsym, csym] {
 //   numsim::cas::make_tensor_variable<ValueType>(
 //       numsim::cas::tuple("a", Dim, Rank), numsim::cas::tuple("b", Dim, Rank),
 //       numsim::cas::tuple("c", Dim, Rank))
@@ -50,11 +50,11 @@
 //                     a + b + c, 5e-7));
 // }
 
-//// subtracting tensors
+// // subtracting tensors
 // #d ef ine sub_tensors(ValueType, Dim, Rank) \
 //  TEST(gtest, sub_tensors_##ValueType##_##Dim##_##Rank) { \
 //    auto
-//[asym, bsym, csym] {
+// [asym, bsym, csym] {
 //   numsim::cas::make_tensor_variable<ValueType>(
 //       numsim::cas::tuple("a", Dim, Rank), numsim::cas::tuple("b", Dim, Rank),
 //       numsim::cas::tuple("c", Dim, Rank))
@@ -72,7 +72,7 @@
 //                     a - b - c, 5e-7));
 // }
 
-//#define negative_tensor(ValueType, Dim, Rank)                                  \
+// #define negative_tensor(ValueType, Dim, Rank)                                  \
 //  TEST(gtest, negative_tensor_##ValueType##_##Dim##_##Rank) {                  \
 //    auto [asym]{numsim::cas::make_tensor_variable<ValueType>(                  \
 //        numsim::cas::tuple("a", Dim, Rank))};                                  \
@@ -85,7 +85,7 @@
 //                        -a, 5e-7));                                            \
 //  }
 
-//#define negative_sub_tensors(ValueType, Dim, Rank)                             \
+// #define negative_sub_tensors(ValueType, Dim, Rank)                             \
 //  TEST(gtest, negative_sub_tensors_##ValueType##_##Dim##_##Rank) {             \
 //    auto [asym, bsym, csym]{numsim::cas::make_tensor_variable<ValueType>(      \
 //        numsim::cas::tuple("a", Dim, Rank),                                    \
@@ -104,7 +104,7 @@
 //                        -a - b - c, 5e-7));                                    \
 //  }
 
-//#define negative_add_tensors(ValueType, Dim, Rank)                             \
+// #define negative_add_tensors(ValueType, Dim, Rank)                             \
 //  TEST(gtest, negative_add_tensors_##ValueType##_##Dim##_##Rank) {             \
 //    auto [asym, bsym, csym]{numsim::cas::make_tensor_variable<ValueType>(      \
 //        numsim::cas::tuple("a", Dim, Rank),                                    \
@@ -123,7 +123,7 @@
 //                        -a + b + c, 5e-7));                                    \
 //  }
 
-//#define inner_product_34_12(ValueType, Dim, RankLHS, RankRHS)                  \
+// #define inner_product_34_12(ValueType, Dim, RankLHS, RankRHS)                  \
 //  TEST(gtest,                                                                  \
 //       inner_product_34_12_##ValueType##_##Dim##_##RankLHS##_##RankRHS) {      \
 //    using Seq = std::vector<std::size_t>;                                      \
@@ -149,7 +149,7 @@
 //            result_t, 5e-7));                                                  \
 //  }
 
-//#define inner_product_12_34(ValueType, Dim, RankLHS, RankRHS)                  \
+// #define inner_product_12_34(ValueType, Dim, RankLHS, RankRHS)                  \
 //  TEST(gtest,                                                                  \
 //       inner_product_12_34_##ValueType##_##Dim##_##RankLHS##_##RankRHS) {      \
 //    using Seq = std::vector<std::size_t>;                                      \
@@ -175,7 +175,7 @@
 //            result_t, 5e-7));                                                  \
 //  }
 
-//#define basis_change_(ValueType, Dim, Rank, Line, ...)                         \
+// #define basis_change_(ValueType, Dim, Rank, Line, ...)                         \
 //  TEST(gtest, basis_change_##ValueType##_##Dim##_##Rank##_##Line) {            \
 //    using Seq = std::vector<std::size_t>;                                      \
 //    auto [asym]{numsim::cas::make_tensor_variable<ValueType>(                  \
@@ -191,7 +191,7 @@
 //                        result_t, 5e-7));                                      \
 //  }
 
-//#define basis_change_expr(ValueType, Dim, Rank, Line, ...)                     \
+// #define basis_change_expr(ValueType, Dim, Rank, Line, ...)                     \
 //  TEST(gtest, basis_change_expr_##ValueType##_##Dim##_##Rank##_##Line) {       \
 //    using Seq = std::vector<std::size_t>;                                      \
 //    auto [asym, bsym]{numsim::cas::make_tensor_variable<ValueType>(            \
@@ -210,7 +210,7 @@
 //                        result_t, 5e-7));                                      \
 //  }
 
-//#define inner_product_34_12_expr(ValueType, Dim, RankLHS, RankRHS)             \
+// #define inner_product_34_12_expr(ValueType, Dim, RankLHS, RankRHS)             \
 //  TEST(gtest,                                                                  \
 //       inner_product_34_12_expr_##ValueType##_##Dim##_##RankLHS##_##RankRHS) { \
 //    using Seq = std::vector<std::size_t>;                                      \
@@ -236,7 +236,7 @@
 //            result_t, 5e-7));                                                  \
 //  }
 
-//#define inner_product_12_34_expr(ValueType, Dim, RankLHS, RankRHS)             \
+// #define inner_product_12_34_expr(ValueType, Dim, RankLHS, RankRHS)             \
 //  TEST(gtest,                                                                  \
 //       inner_product_12_34_expr_##ValueType##_##Dim##_##RankLHS##_##RankRHS) { \
 //    using Seq = std::vector<std::size_t>;                                      \
@@ -273,9 +273,9 @@
 //  y.get<numsim::cas::scalar<double>>() = _y;
 //  z.get<numsim::cas::scalar<double>>() = _z;
 //  EXPECT_EQ(_x + _y + _z, numsim::cas::evaluate(x + y + z));
-//}
+// }
 
-//#define scalar_add(ValueType)                                                  \
+// #define scalar_add(ValueType)                                                  \
 //  TEST(gtest, scalar_add_##ValueType) {                                        \
 //    auto [x, y,                                                                \
 //          z]{numsim::cas::make_scalar_variable<ValueType>("x", "y", "z")};     \
@@ -286,7 +286,7 @@
 //    EXPECT_EQ(_x + _y + _z, numsim::cas::evaluate(x + y + z));                 \
 //  }
 
-//#define scalar_sub(ValueType)                                                  \
+// #define scalar_sub(ValueType)                                                  \
 //  TEST(gtest, scalar_sub_##ValueType) {                                        \
 //    auto [x, y,                                                                \
 //          z]{numsim::cas::make_scalar_variable<ValueType>("x", "y", "z")};     \
@@ -297,7 +297,7 @@
 //    EXPECT_EQ(-_x - _y - _z, numsim::cas::evaluate(-x - y - z));               \
 //  }
 
-//#define scalar_complex_expr(ValueType)                                         \
+// #define scalar_complex_expr(ValueType)                                         \
 //  TEST(gtest, scalar_complex_expr_##ValueType) {                               \
 //    auto [x, y,                                                                \
 //          z]{numsim::cas::make_scalar_variable<ValueType>("x", "y", "z")};     \
@@ -308,29 +308,29 @@
 //    EXPECT_EQ(_x - _y + _z, numsim::cas::evaluate(x - y + z));                 \
 //  }
 
-///// TODO
-///// - outer_product
-///// - sym
+// /// TODO
+// /// - outer_product
+// /// - sym
 
-//// call_test(add_tensors, double, 1);
-//// call_test(add_tensors, double, 2);
-//// call_test(add_tensors, double, 3);
+// // call_test(add_tensors, double, 1);
+// // call_test(add_tensors, double, 2);
+// // call_test(add_tensors, double, 3);
 
-//// call_test(sub_tensors, double, 1);
-//// call_test(sub_tensors, double, 2);
-//// call_test(sub_tensors, double, 3);
+// // call_test(sub_tensors, double, 1);
+// // call_test(sub_tensors, double, 2);
+// // call_test(sub_tensors, double, 3);
 
-//// call_test(negative_tensor, double, 1);
-//// call_test(negative_tensor, double, 2);
-//// call_test(negative_tensor, double, 3);
+// // call_test(negative_tensor, double, 1);
+// // call_test(negative_tensor, double, 2);
+// // call_test(negative_tensor, double, 3);
 
-//// call_test(negative_add_tensors, double, 1);
-//// call_test(negative_add_tensors, double, 2);
-//// call_test(negative_add_tensors, double, 3);
+// // call_test(negative_add_tensors, double, 1);
+// // call_test(negative_add_tensors, double, 2);
+// // call_test(negative_add_tensors, double, 3);
 
-//// call_test(negative_sub_tensors, double, 1);
-//// call_test(negative_sub_tensors, double, 2);
-//// call_test(negative_sub_tensors, double, 3);
+// // call_test(negative_sub_tensors, double, 1);
+// // call_test(negative_sub_tensors, double, 2);
+// // call_test(negative_sub_tensors, double, 3);
 
 // inner_product_34_12(double, 1, 4, 2);
 // inner_product_34_12(double, 2, 4, 2);
@@ -360,7 +360,7 @@
 // basis_change_(double, 2, 4, 7, 3, 4, 1, 2);
 // basis_change_(double, 3, 4, 8, 3, 4, 1, 2);
 
-///// expression variation
+// /// expression variation
 // basis_change_expr(double, 1, 2, 0, 2, 1);
 // basis_change_expr(double, 2, 2, 1, 2, 1);
 // basis_change_expr(double, 3, 2, 2, 2, 1);
@@ -389,7 +389,7 @@
 // inner_product_12_34_expr(double, 2, 4, 4);
 // inner_product_12_34_expr(double, 3, 4, 4);
 
-/////
+// ///
 // call_test(add_tensors, float, 1);
 // call_test(add_tensors, float, 2);
 // call_test(add_tensors, float, 3);
@@ -438,7 +438,7 @@
 // basis_change_(float, 2, 4, 7, 3, 4, 1, 2);
 // basis_change_(float, 3, 4, 8, 3, 4, 1, 2);
 
-///// expression variation
+// /// expression variation
 // basis_change_expr(float, 1, 2, 0, 2, 1);
 // basis_change_expr(float, 2, 2, 1, 2, 1);
 // basis_change_expr(float, 3, 2, 2, 2, 1);
@@ -467,7 +467,7 @@
 // inner_product_12_34_expr(float, 2, 4, 4);
 // inner_product_12_34_expr(float, 3, 4, 4);
 
-//// scalar
+// // scalar
 // scalar_add(double);
 // scalar_sub(double);
 // scalar_complex_expr(double);

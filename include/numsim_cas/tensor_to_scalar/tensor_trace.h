@@ -5,15 +5,13 @@
 #include "tensor_to_scalar_expression.h"
 
 namespace numsim::cas {
-template <typename ValueType>
+
 class tensor_trace final
-    : public unary_op<tensor_trace<ValueType>,
-                      tensor_to_scalar_expression<ValueType>,
-                      tensor_expression<ValueType>> {
+    : public unary_op<tensor_trace, tensor_to_scalar_expression,
+                      tensor_expression> {
 public:
   using base =
-      unary_op<tensor_trace<ValueType>, tensor_to_scalar_expression<ValueType>,
-               tensor_expression<ValueType>>;
+      unary_op<tensor_trace, tensor_to_scalar_expression, tensor_expression>;
 
   using base::base;
   tensor_trace(tensor_trace const &expr)

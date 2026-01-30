@@ -1,54 +1,52 @@
 #ifndef N_ARY_TREE_H
 #define N_ARY_TREE_H
 
-#include "expression_crtp.h"
-#include "get_hash_scalar.h"
-#include "is_symbol.h"
-#include "numsim_cas_forward.h"
-#include "numsim_cas_type_traits.h"
-#include <memory>
+#include <numsim_cas/core/expression_holder.h>
+#include <numsim_cas/core/hash_functions.h>
+#include <numsim_cas/expression_crtp.h>
+#include <numsim_cas/is_symbol.h>
+#include <numsim_cas/numsim_cas_forward.h>
+#include <numsim_cas/numsim_cas_type_traits.h>
+#include <ranges>
 #include <vector>
 
 namespace numsim::cas {
 
-template <typename Base, typename Derived>
-class n_ary_tree : public expression_crtp<Derived, Base> {
+template <typename Base> class n_ary_tree : public Base {
 public:
-  using derived_type = Derived;
-  using base = expression_crtp<Derived, Base>;
-  using expr_type = typename Base::expr_type;
-  using hash_type = typename expr_type::hash_type;
-  using expr_holder = expression_holder<expr_type>;
-  using value_type = typename expr_type::value_type;
-  using iterator = typename umap<expr_type>::iterator;
-  using const_iterator = typename umap<expr_holder>::const_iterator;
+  using base_t = Base;
+  using expr_t = typename Base::expr_t;
+  using hash_t = typename expr_t::hash_type;
+  using expr_holder_t = expression_holder<expr_t>;
+  using iterator = typename umap<expr_t>::iterator;
+  using const_iterator = typename umap<expr_holder_t>::const_iterator;
 
   n_ary_tree() noexcept { this->reserve(2); }
 
   template <typename... Args>
-  n_ary_tree(Args &&...args) noexcept : base(std::forward<Args>(args)...) {}
+  n_ary_tree(Args &&...args) noexcept : base_t(std::forward<Args>(args)...) {}
 
   template <typename... Args>
   n_ary_tree(n_ary_tree &&data, Args &&...args) noexcept
-      : base(std::forward<Args>(args)...), m_coeff(std::move(data.m_coeff)),
+      : base_t(std::forward<Args>(args)...), m_coeff(std::move(data.m_coeff)),
         m_symbol_map(std::move(data.m_symbol_map)) {
     this->m_hash_value = data.m_hash_value;
   }
 
   template <typename... Args>
   n_ary_tree(n_ary_tree const &data, Args &&...args) noexcept
-      : base(std::forward<Args>(args)...), m_coeff(data.m_coeff),
+      : base_t(std::forward<Args>(args)...), m_coeff(data.m_coeff),
         m_symbol_map(data.m_symbol_map) {
     this->m_hash_value = data.m_hash_value;
   }
 
   virtual ~n_ary_tree() = default;
 
-  inline void push_back(expression_holder<expr_type> const &expr) noexcept {
+  inline void push_back(expression_holder<expr_t> const &expr) noexcept {
     insert_hash(expr);
   }
 
-  inline void push_back(expression_holder<expr_type> &&expr) noexcept {
+  inline void push_back(expression_holder<expr_t> &&expr) noexcept {
     insert_hash(expr);
   }
 
@@ -72,7 +70,7 @@ public:
     return m_symbol_map | std::views::values;
   }
 
-  inline auto set_coeff(expr_holder const &expr) noexcept { m_coeff = expr; }
+  inline auto set_coeff(expr_holder_t const &expr) noexcept { m_coeff = expr; }
 
   [[nodiscard]] inline auto &coeff() const noexcept { return m_coeff; }
   [[nodiscard]] inline auto &coeff() noexcept { return m_coeff; }
@@ -80,39 +78,36 @@ public:
   //  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
   //  friend bool operator<(n_ary_tree<_Base, _DerivedLHS> const &lhs,
   //                        n_ary_tree<_Base, _DerivedRHS> const &rhs);
-  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
-  friend bool operator<(n_ary_tree<_Base, _DerivedRHS> const &lhs,
-                        symbol_base<_Base, _DerivedLHS> const &rhs);
-  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
-  friend bool operator<(symbol_base<_Base, _DerivedLHS> const &lhs,
-                        n_ary_tree<_Base, _DerivedRHS> const &rhs);
-  template <typename _Base, typename _Derived>
-  friend bool operator<(n_ary_tree<_Base, _Derived> const &lhs,
-                        n_ary_tree<_Base, _Derived> const &rhs);
-  template <typename _Derived, typename _Base, typename _BaseLHS,
-            typename _BaseRHS>
-  friend bool operator>(n_ary_tree<_Base, _Derived> const &lhs,
-                        n_ary_tree<_Base, _Derived> const &rhs);
-  template <typename _Derived, typename _Base, typename _BaseLHS,
-            typename _BaseRHS>
-  friend bool operator==(n_ary_tree<_Base, _Derived> const &lhs,
-                         n_ary_tree<_Base, _Derived> const &rhs);
-  template <typename _Derived, typename _Base, typename _BaseLHS,
-            typename _BaseRHS>
-  friend bool operator!=(n_ary_tree<_Base, _Derived> const &lhs,
-                         n_ary_tree<_Base, _Derived> const &rhs);
+  template <typename _BaseLHS, typename _BaseRHS>
+  friend bool operator<(n_ary_tree<_BaseLHS> const &lhs,
+                        symbol_base<_BaseRHS> const &rhs);
+  template <typename _BaseLHS, typename _BaseRHS>
+  friend bool operator<(symbol_base<_BaseLHS> const &lhs,
+                        n_ary_tree<_BaseRHS> const &rhs);
+  template <typename _BaseLHS, typename _BaseRHS>
+  friend bool operator<(n_ary_tree<_BaseLHS> const &lhs,
+                        n_ary_tree<_BaseRHS> const &rhs);
+  template <typename _BaseLHS, typename _BaseRHS>
+  friend bool operator>(n_ary_tree<_BaseLHS> const &lhs,
+                        n_ary_tree<_BaseRHS> const &rhs);
+  template <typename _BaseLHS, typename _BaseRHS>
+  friend bool operator==(n_ary_tree<_BaseLHS> const &lhs,
+                         n_ary_tree<_BaseRHS> const &rhs);
+  template <typename _BaseLHS, typename _BaseRHS>
+  friend bool operator!=(n_ary_tree<_BaseLHS> const &lhs,
+                         n_ary_tree<_BaseRHS> const &rhs);
 
 protected:
-  virtual void update_hash_value() const override {
+  virtual void update_hash_value() const noexcept override {
     std::vector<std::size_t> child_hashes;
     child_hashes.reserve(m_symbol_map.size());
     this->m_hash_value = 0;
 
     // otherwise we can not provide the order of the symbols
-    hash_combine(this->m_hash_value, base::get_id());
+    hash_combine(this->m_hash_value, base_t::get_id());
 
     for (const auto &child : m_symbol_map | std::views::values) {
-      child_hashes.push_back(get_hash_value(child));
+      child_hashes.push_back(child->hash_value());
     }
 
     //    // for a single entry return this
@@ -130,7 +125,7 @@ protected:
     }
   }
 
-  expr_holder m_coeff;
+  expr_holder_t m_coeff;
   // Derived const &m_derived;
 
 private:
@@ -139,7 +134,7 @@ private:
   //-> {hash_value(y), y}
   //-> {hash_value(z), 4z}
   //-> {hash_value(x*y), 4*x*y}
-  umap<expr_holder> m_symbol_map;
+  umap<expr_holder_t> m_symbol_map;
 
 private:
   template <typename T, typename... Args>
@@ -159,48 +154,48 @@ private:
   }
 };
 
-template <typename _Base, typename _DerivedSymbol, typename _DerivedTree>
-bool operator<(symbol_base<_Base, _DerivedSymbol> const &lhs,
-               n_ary_tree<_Base, _DerivedTree> const &rhs) {
+template <typename _BaseSymbol, typename _BaseTree>
+bool operator<(symbol_base<_BaseSymbol> const &lhs,
+               n_ary_tree<_BaseTree> const &rhs) {
   if (rhs.size() == 1) {
     return lhs.hash_value() < rhs.hash_map().begin()->second.get().hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename _Base, typename _DerivedSymbol, typename _DerivedTree>
-bool operator<(n_ary_tree<_Base, _DerivedTree> const &lhs,
-               symbol_base<_Base, _DerivedSymbol> const &rhs) {
+template <typename _BaseSymbol, typename _BaseTree>
+bool operator<(n_ary_tree<_BaseTree> const &lhs,
+               symbol_base<_BaseSymbol> const &rhs) {
   if (lhs.size() == 1) {
     return lhs.hash_map().begin()->second.get().hash_value() < rhs.hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename _Base, typename _Derived>
-bool operator<(n_ary_tree<_Base, _Derived> const &lhs,
-               n_ary_tree<_Base, _Derived> const &rhs) {
+template <typename _BaseLHS, typename _BaseRHS>
+bool operator<(n_ary_tree<_BaseLHS> const &lhs,
+               n_ary_tree<_BaseRHS> const &rhs) {
   if (lhs.size() == 1 && rhs.size() == 1) {
     return lhs.hash_map().begin()->second < rhs.hash_map().begin()->second;
   }
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename _Base, typename _Derived>
-bool operator>(n_ary_tree<_Base, _Derived> const &lhs,
-               n_ary_tree<_Base, _Derived> const &rhs) {
+template <typename _BaseLHS, typename _BaseRHS>
+bool operator>(n_ary_tree<_BaseLHS> const &lhs,
+               n_ary_tree<_BaseRHS> const &rhs) {
   return !(lhs < rhs);
 }
 
-template <typename _Base, typename _Derived>
-bool operator==(n_ary_tree<_Base, _Derived> const &lhs,
-                n_ary_tree<_Base, _Derived> const &rhs) {
+template <typename _BaseLHS, typename _BaseRHS>
+bool operator==(n_ary_tree<_BaseLHS> const &lhs,
+                n_ary_tree<_BaseRHS> const &rhs) {
   return lhs.hash_value() == rhs.hash_value();
 }
 
-template <typename _Base, typename _Derived>
-bool operator!=(n_ary_tree<_Base, _Derived> const &lhs,
-                n_ary_tree<_Base, _Derived> const &rhs) {
+template <typename _BaseLHS, typename _BaseRHS>
+bool operator!=(n_ary_tree<_BaseLHS> const &lhs,
+                n_ary_tree<_BaseRHS> const &rhs) {
   if (lhs.size() == 1 && rhs.size() == 1) {
     return lhs.hash_map().begin()->second == rhs.hash_map().begin()->second;
   }

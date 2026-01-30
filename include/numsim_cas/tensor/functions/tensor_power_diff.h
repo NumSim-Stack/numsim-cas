@@ -5,15 +5,12 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_power_diff final
-    : public binary_op<tensor_power_diff<ValueType>,
-                       tensor_expression<ValueType>,
-                       tensor_expression<ValueType>, scalar_expression<int>> {
+    : public binary_op<tensor_power_diff, tensor_expression, tensor_expression,
+                       scalar_expression<int>> {
 public:
-  using base =
-      binary_op<tensor_power_diff<ValueType>, tensor_expression<ValueType>,
-                tensor_expression<ValueType>, scalar_expression<int>>;
+  using base = binary_op<tensor_power_diff, tensor_expression,
+                         tensor_expression, scalar_expression<int>>;
 
   template <typename ExprTensor, typename ExprScalar>
   tensor_power_diff(ExprTensor &&tensor, ExprScalar &&scalar)

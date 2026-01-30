@@ -1,13 +1,14 @@
 #ifndef SCALAR_SQRT_H
 #define SCALAR_SQRT_H
 
-#include "../unary_op.h"
+#include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/scalar/scalar_expression.h>
+
 namespace numsim::cas {
-template <typename ValueType>
-class scalar_sqrt final
-    : public unary_op<scalar_sqrt<ValueType>, scalar_expression<ValueType>> {
+
+class scalar_sqrt final : public unary_op<scalar_node_base_t<scalar_sqrt>> {
 public:
-  using base = unary_op<scalar_sqrt<ValueType>, scalar_expression<ValueType>>;
+  using base = unary_op<scalar_node_base_t<scalar_sqrt>>;
 
   using base::base;
   scalar_sqrt(scalar_sqrt const &expr)

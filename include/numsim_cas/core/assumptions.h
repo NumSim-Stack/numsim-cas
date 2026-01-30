@@ -1,8 +1,8 @@
 #ifndef ASSUMPTIONS_H
 #define ASSUMPTIONS_H
 
-#include "expression_holder.h"
-#include "numsim_cas_type_traits.h"
+#include <numsim_cas/core/core_fwd.h>
+#include <numsim_cas/numsim_cas_type_traits.h>
 #include <set>
 #include <variant>
 #include <vector>

@@ -6,12 +6,9 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class tensor_mul final
-    : public n_ary_vector<tensor_expression<ValueType>, tensor_mul<ValueType>> {
+class tensor_mul final : public n_ary_vector<tensor_expression, tensor_mul> {
 public:
-  using base =
-      n_ary_vector<tensor_expression<ValueType>, tensor_mul<ValueType>>;
+  using base = n_ary_vector<tensor_expression, tensor_mul>;
   tensor_mul(std::size_t dim, std::size_t rank) : base(dim, rank) {}
   tensor_mul(tensor_mul const &add)
       : base(static_cast<const base &>(add), add.dim(), add.rank()) {}

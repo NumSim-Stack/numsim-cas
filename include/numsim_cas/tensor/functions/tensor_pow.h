@@ -4,13 +4,13 @@
 #include "../../binary_op.h"
 
 namespace numsim::cas {
-template <typename ValueType>
+
 class tensor_pow final
-    : public binary_op<tensor_pow<ValueType>, tensor_expression<ValueType>,
-                       tensor_expression<ValueType>, scalar_expression<int>> {
+    : public binary_op<tensor_pow, tensor_expression, tensor_expression,
+                       scalar_expression<int>> {
 public:
-  using base = binary_op<tensor_pow<ValueType>, tensor_expression<ValueType>,
-                         tensor_expression<ValueType>, scalar_expression<int>>;
+  using base = binary_op<tensor_pow, tensor_expression, tensor_expression,
+                         scalar_expression<int>>;
 
   template <typename ExprTensor, typename ExprScalar>
   tensor_pow(ExprTensor &&tensor, ExprScalar &&scalar)
@@ -29,7 +29,7 @@ public:
 
   inline void update_hash() {
     //    base::m_hash_value = 0;
-    //    if(!is_same<scalar_constant<ValueType>>(this->m_rhs)){
+    //    if(!is_same<scalar_constant>(this->m_rhs)){
     //      hash_combine(base::m_hash_value, this->m_lhs.get().hash_value());
     //      hash_combine(base::m_hash_value, this->m_rhs.get().hash_value());
     //    }else{

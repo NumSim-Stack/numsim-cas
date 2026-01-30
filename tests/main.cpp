@@ -1,3 +1,4 @@
+#include "ScalarDifferentiationTest.h"
 #include "ScalarEvaluatorTest.h"
 #include "ScalarExpressionTest.h"
 #include "TensorExpressionTest.h"

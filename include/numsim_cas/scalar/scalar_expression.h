@@ -1,19 +1,17 @@
 #ifndef SCALAR_EXPRESSION_H
 #define SCALAR_EXPRESSION_H
 
-#include "../expression.h"
-#include "../expression_holder.h"
-#include "../numsim_cas_type_traits.h"
-#include "simplifier/scalar_simplifier_negative.h"
-#include "visitors/scalar_printer.h"
+#include <numsim_cas/core/expression.h>
+#include <numsim_cas/core/expression_holder.h>
+#include <numsim_cas/scalar/scalar_visitor_typedef.h>
 
 namespace numsim::cas {
 
-template <typename ValueType> class scalar_expression : public expression {
+class scalar_expression : public expression {
 public:
-  using expr_type = scalar_expression;
-  using value_type = ValueType;
-  using node_type = scalar_node<value_type>;
+  using expr_t = scalar_expression;
+  using visitor_t = scalar_visitor_t;
+  using visitor_const_t = scalar_visitor_const_t;
 
   template <typename... Args>
   scalar_expression(Args &&...args) : expression(std::forward<Args>(args)...) {}
@@ -23,33 +21,11 @@ public:
       : expression(std::move(static_cast<expression &&>(data))) {}
   virtual ~scalar_expression() = default;
   const scalar_expression &operator=(scalar_expression const &) = delete;
-
-  constexpr inline auto operator-() {
-    // TODO check if this is already negative
-    return make_expression<scalar_expression<ValueType>,
-                           scalar_negative<ValueType>>(*this);
-  }
 };
 
-template <typename ValueType>
-std::ostream &
-operator<<(std::ostream &os,
-           expression_holder<scalar_expression<ValueType>> const &expr) {
-  scalar_printer<ValueType, std::ostream> printer(os);
-  printer.apply(expr);
-  return os;
-}
-
-template <typename ValueType>
-struct expression_details<scalar_expression<ValueType>> {
-  using variant = scalar_node<ValueType>;
-
-  template <typename Expr> static inline auto negative(Expr &&expr) {
-    simplifier::scalar_simplifier_negative<Expr> visitor(
-        std::forward<Expr>(expr));
-    return std::visit(visitor, *expr);
-  }
-};
+expression_holder<scalar_expression>
+tag_invoke(detail::neg_fn, std::type_identity<scalar_expression>,
+           expression_holder<scalar_expression> const &e);
 
 } // namespace numsim::cas
 

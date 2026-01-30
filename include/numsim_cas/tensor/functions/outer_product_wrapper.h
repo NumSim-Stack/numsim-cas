@@ -9,15 +9,12 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class outer_product_wrapper final
-    : public binary_op<outer_product_wrapper<ValueType>,
-                       tensor_expression<ValueType>,
-                       tensor_expression<ValueType>> {
+    : public binary_op<outer_product_wrapper, tensor_expression,
+                       tensor_expression> {
 public:
   using base =
-      binary_op<outer_product_wrapper<ValueType>, tensor_expression<ValueType>,
-                tensor_expression<ValueType>>;
+      binary_op<outer_product_wrapper, tensor_expression, tensor_expression>;
 
   template <typename LHS, typename RHS>
   outer_product_wrapper(LHS &&_lhs, sequence &&_lhs_indices, RHS &&_rhs,
@@ -49,8 +46,8 @@ protected:
                   [](std::size_t &index) { index -= 1; });
     std::for_each(m_rhs_indices.begin(), m_rhs_indices.end(),
                   [](std::size_t &index) { index -= 1; });
-    // tensor_expression<ValueType> &lhs{*this->m_lhs};
-    // tensor_expression<ValueType> &rhs{*this->m_rhs};
+    // tensor_expression &lhs{*this->m_lhs};
+    // tensor_expression &rhs{*this->m_rhs};
   }
 
   sequence m_lhs_indices;

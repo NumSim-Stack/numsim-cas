@@ -93,6 +93,23 @@ template <typename Derived, typename Base> class expression_crtp;
 //  VariantType m_data;
 //};
 
+struct scalar_expr_less {
+  template <typename Expr>
+  bool operator()(expression_holder<Expr> const &a,
+                  expression_holder<Expr> const &b) const noexcept {
+    auto const &ea = a.get();
+    auto const &eb = b.get();
+
+    if (ea.hash_value() != eb.hash_value())
+      return ea.hash_value() < eb.hash_value();
+
+    if (ea.id() != eb.id())
+      return ea.id() < eb.id();
+
+    return std::addressof(ea) < std::addressof(eb);
+  }
+};
+
 template <typename ExprType> using umap = std::map<ExprType, ExprType>;
 template <typename ExprType> using expr_vector = std::vector<ExprType>;
 
@@ -116,14 +133,13 @@ using type_id = unsigned int;
 template <typename ExprTypeLHS, typename ExprTypeRHS> struct operator_overload;
 
 template <typename Expr> class expression_holder;
-template <typename T> class tensor_expression;
 
 template <typename Derived, typename ValueType, std::size_t, std::size_t,
           std::size_t>
 class tensor_data_eval;
 
 template <typename T> struct get_type {
-  using type = T; // std::remove_pointer_t<std::remove_reference_t<T>>;
+  using type = T; // std::remove_pointer_t<std::remove_reference_t>;
 };
 
 template <typename Derived, typename ValueType>
@@ -136,37 +152,12 @@ using tensor_data_eval_up_binary =
 // template <typename T, typename Expr> [[nodiscard]] auto make_expression(Expr
 // &&expr) {
 //   using ExprType = typename get_type_t<Expr>::expr_type;
-//   return expression_holder<ExprType>(std::make_unique<T>(std::move(expr)));
+//   return expression_holder<ExprType>(std::make_unique(std::move(expr)));
 // }
-
-struct call_tensor {
-  template <typename Tensor>
-  static constexpr inline auto dim(Tensor const &tensor) {
-    return tensor.dim();
-  }
-
-  template <typename Tensor>
-  static constexpr inline auto rank(Tensor const &tensor) {
-    return tensor.rank();
-  }
-
-  template <typename ValueType>
-  static constexpr inline auto
-  dim(expression_holder<tensor_expression<ValueType>> const &tensor) {
-    return tensor.get().dim();
-  }
-
-  template <typename ValueType>
-  static constexpr inline auto
-  rank(expression_holder<tensor_expression<ValueType>> const &tensor) {
-    return tensor.get().rank();
-  }
-};
 
 // expression base
 class expression;
-template <typename Derived, typename Base> class expression_crtp;
-template <typename ExprType, typename Derived> class n_ary_tree;
+template <typename ExprType> class n_ary_tree;
 
 // tensor
 // tensor_fundamentals := {symbol, 0, 1, constant}
@@ -174,134 +165,137 @@ template <typename ExprType, typename Derived> class n_ary_tree;
 // multiplication --> inner product of most right and most left index
 // only devision by scalar
 // tensor_product_functions := {inner, outer, simple_outer}
-template <typename T> class tensor;
-template <typename ValueType> class tensor_expression;
-template <typename ValueType> class tensor_add;
-template <typename ValueType> class tensor_mul;
-template <typename ValueType> class tensor_pow;
-template <typename ValueType> class tensor_power_diff;
-template <typename ValueType> class tensor_negative;
-template <typename ValueType> class inner_product_wrapper;
-template <typename ValueType> class basis_change_imp;
-template <typename ValueType> class outer_product_wrapper;
-template <typename ValueType> class kronecker_delta;
-template <typename ValueType> class simple_outer_product;
-template <typename ValueType> class tensor_symmetry;
-template <typename ValueType> class tensor_deviatoric;
-template <typename ValueType> class tensor_volumetric;
-template <typename ValueType> class tensor_inv;
-template <typename ValueType> class tensor_zero;
-template <typename ValueType> class identity_tensor;
-template <typename ValueType> class tensor_projector;
-template <typename ValueType> class tensor_scalar_mul;
-template <typename ValueType> class tensor_scalar_div;
-template <typename ValueType> class tensor_to_scalar_with_tensor_mul;
-template <typename ValueType> class tensor_to_scalar_with_tensor_div;
+class tensor;
+class tensor_expression;
+class tensor_add;
+class tensor_mul;
+class tensor_pow;
+class tensor_power_diff;
+class tensor_negative;
+class inner_product_wrapper;
+class basis_change_imp;
+class outer_product_wrapper;
+class kronecker_delta;
+class simple_outer_product;
+class tensor_symmetry;
+class tensor_deviatoric;
+class tensor_volumetric;
+class tensor_inv;
+class tensor_zero;
+class identity_tensor;
+class tensor_projector;
+class tensor_scalar_mul;
+class tensor_scalar_div;
+class tensor_to_scalar_with_tensor_mul;
+class tensor_to_scalar_with_tensor_div;
 // det, adj, skew, vol, dev,
-template <typename ValueType>
-using tensor_node =
-    std::variant<tensor<ValueType>, tensor_negative<ValueType>,
-                 inner_product_wrapper<ValueType>, basis_change_imp<ValueType>,
-                 outer_product_wrapper<ValueType>, kronecker_delta<ValueType>,
-                 simple_outer_product<ValueType>, tensor_add<ValueType>,
-                 tensor_mul<ValueType>, tensor_symmetry<ValueType>,
-                 tensor_inv<ValueType>, tensor_deviatoric<ValueType>,
-                 tensor_volumetric<ValueType>, tensor_zero<ValueType>,
-                 tensor_pow<ValueType>, identity_tensor<ValueType>,
-                 tensor_projector<ValueType>, tensor_scalar_mul<ValueType>,
-                 tensor_power_diff<ValueType>, tensor_scalar_div<ValueType>,
-                 tensor_to_scalar_with_tensor_mul<ValueType>,
-                 tensor_to_scalar_with_tensor_div<ValueType>>;
+//
+// using tensor_node =
+//     std::variant<tensor<ValueType>, tensor_negative<ValueType>,
+//                  inner_product_wrapper<ValueType>,
+//                  basis_change_imp<ValueType>,
+//                  outer_product_wrapper<ValueType>,
+//                  kronecker_delta<ValueType>, simple_outer_product<ValueType>,
+//                  tensor_add<ValueType>, tensor_mul<ValueType>,
+//                  tensor_symmetry<ValueType>, tensor_inv<ValueType>,
+//                  tensor_deviatoric<ValueType>, tensor_volumetric<ValueType>,
+//                  tensor_zero<ValueType>, tensor_pow<ValueType>,
+//                  identity_tensor<ValueType>, tensor_projector<ValueType>,
+//                  tensor_scalar_mul<ValueType>, tensor_power_diff<ValueType>,
+//                  tensor_scalar_div<ValueType>,
+//                  tensor_to_scalar_with_tensor_mul<ValueType>,
+//                  tensor_to_scalar_with_tensor_div<ValueType>>;
 
 // scalar
-template <typename ValueType> class scalar_expression;
+class scalar_expression;
 
 // scalar_fundamentals := {symbol, 0, 1, constant}
-template <typename ValueType> class scalar;
-template <typename ValueType> class scalar_zero;
-template <typename ValueType> class scalar_one;
-template <typename ValueType> class scalar_constant;
+class scalar;
+class scalar_zero;
+class scalar_one;
+class scalar_constant;
 
 // scalar_basic_operators := {+,-,*,/,negative}
-template <typename ValueType> class scalar_div;
-template <typename ValueType> class scalar_add;
-template <typename ValueType> class scalar_sub;
-template <typename ValueType> class scalar_mul;
-template <typename ValueType> class scalar_negative;
+// class scalar_div;
+class scalar_add;
+class scalar_sub;
+class scalar_mul;
+class scalar_negative;
 
 // scalar_trigonometric_functions := {cos, sin, tan, asin, acos, atan}
-template <typename ValueType> class scalar_sin;
-template <typename ValueType> class scalar_cos;
-template <typename ValueType> class scalar_tan;
-template <typename ValueType> class scalar_asin;
-template <typename ValueType> class scalar_acos;
-template <typename ValueType> class scalar_atan;
+class scalar_sin;
+class scalar_cos;
+class scalar_tan;
+class scalar_asin;
+class scalar_acos;
+class scalar_atan;
 
 // scalar_special_math_functions := {pow, sqrt, log, ln, e^expr, sign, abs}
-template <typename ValueType> class scalar_pow;
-template <typename ValueType> class scalar_sqrt;
-template <typename ValueType> class scalar_log;
-template <typename ValueType> class scalar_ln;
-template <typename ValueType> class scalar_exp;
-template <typename ValueType> class scalar_sign;
-template <typename ValueType> class scalar_abs;
+class scalar_pow;
+class scalar_sqrt;
+class scalar_log;
+class scalar_ln;
+class scalar_exp;
+class scalar_sign;
+class scalar_abs;
 
-template <typename ValueType> class scalar_function;
+class scalar_function;
 
-template <typename ValueType>
-using scalar_node = std::variant<
-    scalar<ValueType>, scalar_zero<ValueType>, scalar_one<ValueType>,
-    scalar_constant<ValueType>,
-    // scalar_basic_operators := {+,-,*,/,negative}
-    scalar_div<ValueType>, scalar_add<ValueType>, scalar_mul<ValueType>,
-    scalar_negative<ValueType>, scalar_function<ValueType>,
-    // scalar_trigonometric_functions := {cos, sin, tan, asin, acos, atan}
-    scalar_sin<ValueType>, scalar_cos<ValueType>, scalar_tan<ValueType>,
-    scalar_asin<ValueType>, scalar_acos<ValueType>, scalar_atan<ValueType>,
-    // scalar_special_math_functions := {pow, sqrt, log, ln, e^expr, sign, abs}
-    scalar_pow<ValueType>, scalar_sqrt<ValueType>, scalar_log<ValueType>,
-    // scalar_ln<ValueType>,
-    scalar_exp<ValueType>, scalar_sign<ValueType>, scalar_abs<ValueType>>;
+//
+// using scalar_node = std::variant<
+//     scalar<ValueType>, scalar_zero<ValueType>, scalar_one<ValueType>,
+//     scalar_constant<ValueType>,
+//     // scalar_basic_operators := {+,-,*,/,negative}
+//     scalar_div<ValueType>, scalar_add<ValueType>, scalar_mul<ValueType>,
+//     scalar_negative<ValueType>, scalar_function<ValueType>,
+//     // scalar_trigonometric_functions := {cos, sin, tan, asin, acos, atan}
+//     scalar_sin<ValueType>, scalar_cos<ValueType>, scalar_tan<ValueType>,
+//     scalar_asin<ValueType>, scalar_acos<ValueType>, scalar_atan<ValueType>,
+//     // scalar_special_math_functions := {pow, sqrt, log, ln, e^expr, sign,
+//     abs} scalar_pow<ValueType>, scalar_sqrt<ValueType>,
+//     scalar_log<ValueType>,
+//     // scalar_ln<ValueType>,
+//     scalar_exp<ValueType>, scalar_sign<ValueType>, scalar_abs<ValueType>>;
 
 // tensor valued scalar functions
-template <typename ValueType> class tensor_to_scalar_expression;
-template <typename ValueType> class tensor_trace;
-template <typename ValueType> class tensor_dot;
-template <typename ValueType> class tensor_det;
-template <typename ValueType> class tensor_norm;
-template <typename ValueType> class tensor_to_scalar_negative;
-template <typename ValueType> class tensor_to_scalar_add;
-template <typename ValueType> class tensor_to_scalar_mul;
-template <typename ValueType> class tensor_to_scalar_div;
-template <typename ValueType> class tensor_to_scalar_with_scalar_add;
-template <typename ValueType> class tensor_to_scalar_with_scalar_mul;
-// template <typename ValueType> class tensor_to_scalar_with_scalar_sub;
-template <typename ValueType> class tensor_to_scalar_with_scalar_div;
-template <typename ValueType> class scalar_with_tensor_to_scalar_div;
-template <typename ValueType> class tensor_to_scalar_pow;
-template <typename ValueType> class tensor_to_scalar_pow_with_scalar_exponent;
-template <typename ValueType> class tensor_inner_product_to_scalar;
-template <typename ValueType> class tensor_to_scalar_zero;
-template <typename ValueType> class tensor_to_scalar_one;
-template <typename ValueType> class tensor_to_scalar_log;
-template <typename ValueType> class tensor_to_scalar_scalar_wrapper;
+class tensor_to_scalar_expression;
+class tensor_trace;
+class tensor_dot;
+class tensor_det;
+class tensor_norm;
+class tensor_to_scalar_negative;
+class tensor_to_scalar_add;
+class tensor_to_scalar_mul;
+class tensor_to_scalar_div;
+class tensor_to_scalar_with_scalar_add;
+class tensor_to_scalar_with_scalar_mul;
+//  class tensor_to_scalar_with_scalar_sub;
+class tensor_to_scalar_with_scalar_div;
+class scalar_with_tensor_to_scalar_div;
+class tensor_to_scalar_pow;
+class tensor_to_scalar_pow_with_scalar_exponent;
+class tensor_inner_product_to_scalar;
+class tensor_to_scalar_zero;
+class tensor_to_scalar_one;
+class tensor_to_scalar_log;
+class tensor_to_scalar_scalar_wrapper;
 
 // var
-template <typename ValueType>
-using tensor_to_scalar_node = std::variant<
-    tensor_trace<ValueType>, tensor_det<ValueType>, tensor_dot<ValueType>,
-    tensor_norm<ValueType>, tensor_to_scalar_negative<ValueType>,
-    tensor_to_scalar_add<ValueType>, tensor_to_scalar_mul<ValueType>,
-    tensor_to_scalar_div<ValueType>,
-    tensor_to_scalar_with_scalar_add<ValueType>,
-    tensor_to_scalar_with_scalar_mul<ValueType>,
-    tensor_to_scalar_with_scalar_div<ValueType>,
-    scalar_with_tensor_to_scalar_div<ValueType>,
-    tensor_to_scalar_pow<ValueType>, tensor_to_scalar_log<ValueType>,
-    tensor_to_scalar_pow_with_scalar_exponent<ValueType>,
-    tensor_inner_product_to_scalar<ValueType>, tensor_to_scalar_zero<ValueType>,
-    tensor_to_scalar_one<ValueType>,
-    tensor_to_scalar_scalar_wrapper<ValueType>>;
+//
+// using tensor_to_scalar_node = std::variant<
+//     tensor_trace<ValueType>, tensor_det<ValueType>, tensor_dot<ValueType>,
+//     tensor_norm<ValueType>, tensor_to_scalar_negative<ValueType>,
+//     tensor_to_scalar_add<ValueType>, tensor_to_scalar_mul<ValueType>,
+//     tensor_to_scalar_div<ValueType>,
+//     tensor_to_scalar_with_scalar_add<ValueType>,
+//     tensor_to_scalar_with_scalar_mul<ValueType>,
+//     tensor_to_scalar_with_scalar_div<ValueType>,
+//     scalar_with_tensor_to_scalar_div<ValueType>,
+//     tensor_to_scalar_pow<ValueType>, tensor_to_scalar_log<ValueType>,
+//     tensor_to_scalar_pow_with_scalar_exponent<ValueType>,
+//     tensor_inner_product_to_scalar<ValueType>,
+//     tensor_to_scalar_zero<ValueType>, tensor_to_scalar_one<ValueType>,
+//     tensor_to_scalar_scalar_wrapper<ValueType>>;
 
 ////poly
 // template <typename Type, typename ValueType>
@@ -310,11 +304,11 @@ using tensor_to_scalar_node = std::variant<
 //     Type,
 //                   trace_wrapper<ValueType>>;
 
-// template <typename ValueType>
+//
 // using VisitableTensorScalar_t =
 //     Visitable<tensor_scalar_expression<ValueType>, trace_wrapper<ValueType>>;
 
-// template <typename ValueType>
+//
 // using VisitorTensorScalar_t = Visitor<trace_wrapper<ValueType>>;
 
 // #if defined(SYMTM_USE_POLY)
@@ -325,25 +319,28 @@ template <typename ExprBase, typename T> struct expression_holder_data_type {
 // #elif defined(SYMTM_USE_VARIANT)
 template <typename ExprBase, typename T> struct expression_holder_data_type;
 
-template <typename ValueType, typename T>
-struct expression_holder_data_type<tensor_expression<ValueType>, T> {
-  using data_type = tensor_node<ValueType>;
-};
+// template <typename ValueType, typename T>
+// struct expression_holder_data_type<tensor_expression<ValueType>, T> {
+//   using data_type = tensor_node<ValueType>;
+// };
 
-template <typename ValueType, typename T>
-struct expression_holder_data_type<scalar_expression<ValueType>, T> {
-  using data_type = scalar_node<ValueType>;
-};
-// template <typename ValueType>
+// template <typename ValueType, typename T>
+// struct expression_holder_data_type<scalar_expression<ValueType>, T> {
+//   using data_type = scalar_node<ValueType>;
+// };
+
+//
 // struct expression_holder_data_type<scalar_expression<ValueType>,
 // scalar_sin<ValueType>> {
 //   using data_type = scalar_special_node<ValueType>;
 // };
 
-template <typename ValueType, typename T>
-struct expression_holder_data_type<tensor_to_scalar_expression<ValueType>, T> {
-  using data_type = tensor_to_scalar_node<ValueType>;
-};
+// template <typename ValueType, typename T>
+// struct expression_holder_data_type<tensor_to_scalar_expression<ValueType>, T>
+// {
+//   using data_type = tensor_to_scalar_node<ValueType>;
+// };
+
 // #endif
 
 // template<typename T>
@@ -359,13 +356,13 @@ template <typename T> struct get_type<std::shared_ptr<T>> {
 template <typename T> struct get_type<expression_holder<T>> {
   using type = T;
 };
-// template <typename T> struct get_type<variant_wrapper<scalar_special_node<T>,
-// scalar_expression<T>>> { using type = scalar_expression<T>; }; template
-// <typename T> struct get_type<scalar_special_node<T>> { using type =
-// scalar_expression<T>; };
+// template <typename T> struct get_type<variant_wrapper<scalar_special_node,
+// scalar_expression>> { using type = scalar_expression; }; template
+// <typename T> struct get_type<scalar_special_node> { using type =
+// scalar_expression; };
 
 template <typename T>
-using get_type_t = typename get_type<remove_cvref_t<T>>::type;
+using get_type_t = typename get_type<std::remove_cvref_t<T>>::type;
 
 ///
 template <typename T>
@@ -480,7 +477,7 @@ struct variant_index<Index, T, std::variant<T, Args...>>
 
 // template <typename T, typename... Args>
 //[[nodiscard]] auto make_expression(Args &&...args) {
-//   using ExprType = typename get_type_t<T>::expr_type;
+//   using ExprType = typename get_type_t::expr_type;
 //   using variant = typename expression_holder_data_type<ExprType,
 //   T>::data_type; return
 //   expression_holder<ExprType>(std::make_shared<variant>(
@@ -505,37 +502,37 @@ struct variant_index<Index, T, std::variant<T, Args...>>
 //   using type = EXPR;
 // };
 
-// template <typename ValueType>
+//
 // struct base_expression<scalar_expression<ValueType>,
 //                        tensor_expression<ValueType>> {
 //   using type = tensor_expression<ValueType>;
 // };
 
-// template <typename ValueType>
+//
 // struct base_expression<tensor_expression<ValueType>,
 //                        scalar_expression<ValueType>> {
 //   using type = tensor_expression<ValueType>;
 // };
 
-// template <typename ValueType>
+//
 // struct base_expression<scalar_expression<ValueType>,
 //                        tensor_to_scalar_expression<ValueType>> {
 //   using type = tensor_to_scalar_expression<ValueType>;
 // };
 
-// template <typename ValueType>
+//
 // struct base_expression<tensor_to_scalar_expression<ValueType>,
 //                        scalar_expression<ValueType>> {
 //   using type = tensor_to_scalar_expression<ValueType>;
 // };
 
-// template <typename ValueType>
+//
 // struct base_expression<tensor_expression<ValueType>,
 //                        tensor_to_scalar_expression<ValueType>> {
 //   using type = tensor_expression<ValueType>;
 // };
 
-// template <typename ValueType>
+//
 // struct base_expression<tensor_to_scalar_expression<ValueType>,
 //                        tensor_expression<ValueType>> {
 //   using type = tensor_expression<ValueType>;
@@ -573,156 +570,85 @@ template <typename Type, typename... Arguments>
 using has_update_hash = decltype(std::declval<Type>().update_hash());
 
 template <class T>
-concept isScalarOne =
-    std::is_same_v<std::remove_cvref_t<T>, scalar_one<typename T::value_type>>;
+concept isScalarOne = std::is_same_v<std::remove_cvref_t<T>, scalar_one>;
 template <class T>
-concept isScalarZero =
-    std::is_same_v<std::remove_cvref_t<T>, scalar_zero<typename T::value_type>>;
+concept isScalarZero = std::is_same_v<std::remove_cvref_t<T>, scalar_zero>;
 template <class T>
 concept isScalarConstant =
-    std::is_same_v<std::remove_cvref_t<T>,
-                   scalar_constant<typename T::value_type>>;
+    std::is_same_v<std::remove_cvref_t<T>, scalar_constant>;
 
 } // NAMESPACE numsim::cas
 
 namespace numsim::cas {
+namespace detail {
 
-template <class LHS, class RHS> struct result_expression;
+template <class LBase, class RBase> struct promote_expr_base;
 
-template <class T> struct result_expression<T, T> {
-  using type = T;
+template <> struct promote_expr_base<scalar_expression, scalar_expression> {
+  using type = scalar_expression;
+};
+template <>
+struct promote_expr_base<tensor_to_scalar_expression,
+                         tensor_to_scalar_expression> {
+  using type = tensor_to_scalar_expression;
+};
+template <> struct promote_expr_base<tensor_expression, tensor_expression> {
+  using type = tensor_expression;
 };
 
-template <class T>
-struct result_expression<expression_holder<scalar_expression<T>>, int> {
-  using type = expression_holder<scalar_expression<T>>;
+template <>
+struct promote_expr_base<tensor_to_scalar_expression, tensor_expression> {
+  using type = tensor_expression;
+};
+template <>
+struct promote_expr_base<tensor_expression, tensor_to_scalar_expression> {
+  using type = tensor_expression;
 };
 
-template <class T>
-struct result_expression<expression_holder<scalar_expression<T>>, double> {
-  using type = expression_holder<scalar_expression<T>>;
+template <>
+struct promote_expr_base<tensor_to_scalar_expression, scalar_expression> {
+  using type = tensor_to_scalar_expression;
+};
+template <>
+struct promote_expr_base<scalar_expression, tensor_to_scalar_expression> {
+  using type = tensor_to_scalar_expression;
 };
 
-template <class T>
-struct result_expression<expression_holder<scalar_expression<T>>, float> {
-  using type = expression_holder<scalar_expression<T>>;
+template <> struct promote_expr_base<tensor_expression, scalar_expression> {
+  using type = tensor_expression;
+};
+template <> struct promote_expr_base<scalar_expression, tensor_expression> {
+  using type = tensor_expression;
 };
 
-template <class T>
-struct result_expression<int, expression_holder<scalar_expression<T>>> {
-  using type = expression_holder<scalar_expression<T>>;
-};
+template <class LBase, class RBase>
+using promote_expr_base_t = typename promote_expr_base<LBase, RBase>::type;
 
 template <class T>
-struct result_expression<double, expression_holder<scalar_expression<T>>> {
-  using type = expression_holder<scalar_expression<T>>;
+inline constexpr bool is_number_v = std::is_arithmetic_v<std::decay_t<T>>;
+
+} // namespace detail
+
+template <class LHS, class RHS> struct result_expression; // primary
+
+// expr_holder<B> ⊗ number => expr_holder<B>
+template <class B, class N>
+requires detail::is_number_v<N>
+struct result_expression<expression_holder<B>, N> {
+  using type = expression_holder<B>;
 };
 
-template <class T>
-struct result_expression<float, expression_holder<scalar_expression<T>>> {
-  using type = expression_holder<scalar_expression<T>>;
+// number ⊗ expr_holder<B> => expr_holder<B>
+template <class N, class B>
+requires detail::is_number_v<N>
+struct result_expression<N, expression_holder<B>> {
+  using type = expression_holder<B>;
 };
 
-template <class T>
-struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
-                         int> {
-  using type = expression_holder<tensor_to_scalar_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
-                         double> {
-  using type = expression_holder<tensor_to_scalar_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
-                         float> {
-  using type = expression_holder<tensor_to_scalar_expression<T>>;
-};
-
-template <class T>
-struct result_expression<int,
-                         expression_holder<tensor_to_scalar_expression<T>>> {
-  using type = expression_holder<tensor_to_scalar_expression<T>>;
-};
-
-template <class T>
-struct result_expression<double,
-                         expression_holder<tensor_to_scalar_expression<T>>> {
-  using type = expression_holder<tensor_to_scalar_expression<T>>;
-};
-
-template <class T>
-struct result_expression<float,
-                         expression_holder<tensor_to_scalar_expression<T>>> {
-  using type = expression_holder<tensor_to_scalar_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
-                         expression_holder<tensor_expression<T>>> {
-  using type = expression_holder<tensor_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<tensor_expression<T>>,
-                         expression_holder<tensor_to_scalar_expression<T>>> {
-  using type = expression_holder<tensor_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<tensor_to_scalar_expression<T>>,
-                         expression_holder<scalar_expression<T>>> {
-  using type = expression_holder<tensor_to_scalar_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<scalar_expression<T>>,
-                         expression_holder<tensor_to_scalar_expression<T>>> {
-  using type = expression_holder<tensor_to_scalar_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<tensor_expression<T>>,
-                         expression_holder<scalar_expression<T>>> {
-  using type = expression_holder<tensor_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<scalar_expression<T>>,
-                         expression_holder<tensor_expression<T>>> {
-  using type = expression_holder<tensor_expression<T>>;
-};
-
-template <class T>
-struct result_expression<int, expression_holder<tensor_expression<T>>> {
-  using type = expression_holder<tensor_expression<T>>;
-};
-
-template <class T>
-struct result_expression<double, expression_holder<tensor_expression<T>>> {
-  using type = expression_holder<tensor_expression<T>>;
-};
-
-template <class T>
-struct result_expression<float, expression_holder<tensor_expression<T>>> {
-  using type = expression_holder<tensor_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<tensor_expression<T>>, int> {
-  using type = expression_holder<tensor_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<tensor_expression<T>>, double> {
-  using type = expression_holder<tensor_expression<T>>;
-};
-
-template <class T>
-struct result_expression<expression_holder<tensor_expression<T>>, float> {
-  using type = expression_holder<tensor_expression<T>>;
+// expr_holder<L> ⊗ expr_holder<R> => expr_holder<promoted>
+template <class LBase, class RBase>
+struct result_expression<expression_holder<LBase>, expression_holder<RBase>> {
+  using type = expression_holder<detail::promote_expr_base_t<LBase, RBase>>;
 };
 
 template <class LHS, class RHS>

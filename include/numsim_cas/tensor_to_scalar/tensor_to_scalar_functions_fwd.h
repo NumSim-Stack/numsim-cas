@@ -14,13 +14,12 @@ template <typename Expr> constexpr inline auto dot(Expr &&expr);
 template <typename ValueType, typename StreamType>
 constexpr inline void
 print(StreamType &out,
-      expression_holder<tensor_to_scalar_expression<ValueType>> const &expr,
+      expression_holder<tensor_to_scalar_expression> const &expr,
       Precedence precedence = Precedence::None);
 
 template <typename ValueType>
-inline auto
-diff(expression_holder<tensor_to_scalar_expression<ValueType>> const &expr,
-     expression_holder<tensor_expression<ValueType>> const &arg);
+inline auto diff(expression_holder<tensor_to_scalar_expression> const &expr,
+                 expression_holder<tensor_expression> const &arg);
 
 } // namespace numsim::cas
 

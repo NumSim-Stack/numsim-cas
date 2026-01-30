@@ -6,12 +6,10 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class tensor_deviatoric final : public unary_op<tensor_deviatoric<ValueType>,
-                                                tensor_expression<ValueType>> {
+class tensor_deviatoric final
+    : public unary_op<tensor_deviatoric, tensor_expression> {
 public:
-  using base =
-      unary_op<tensor_deviatoric<ValueType>, tensor_expression<ValueType>>;
+  using base = unary_op<tensor_deviatoric, tensor_expression>;
 
   template <typename Expr>
   explicit tensor_deviatoric(Expr &&_expr)

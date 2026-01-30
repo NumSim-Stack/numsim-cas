@@ -6,12 +6,11 @@
 namespace numsim::cas {
 namespace detail {
 
-template <typename ValueType>
-class compare_types_imp<tensor_to_scalar_expression<ValueType>> final
-    : public compare_types_base_imp<tensor_to_scalar_expression<ValueType>> {
+class compare_types_imp<tensor_to_scalar_expression> final
+    : public compare_types_base_imp<tensor_to_scalar_expression> {
 public:
-  using expr_t = tensor_to_scalar_expression<ValueType>;
-  using base_t = compare_types_base_imp<tensor_to_scalar_expression<ValueType>>;
+  using expr_t = tensor_to_scalar_expression;
+  using base_t = compare_types_base_imp<tensor_to_scalar_expression>;
   compare_types_imp(expression_holder<expr_t> const &lhs,
                     expression_holder<expr_t> const &rhs)
       : base_t(lhs, rhs) {}

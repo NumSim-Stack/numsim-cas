@@ -7,17 +7,12 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_to_scalar_with_tensor_div final
-    : public binary_op<tensor_to_scalar_with_tensor_div<ValueType>,
-                       tensor_expression<ValueType>,
-                       tensor_expression<ValueType>,
-                       tensor_to_scalar_expression<ValueType>> {
+    : public binary_op<tensor_to_scalar_with_tensor_div, tensor_expression,
+                       tensor_expression, tensor_to_scalar_expression> {
 public:
-  using base =
-      binary_op<tensor_to_scalar_with_tensor_div<ValueType>,
-                tensor_expression<ValueType>, tensor_expression<ValueType>,
-                tensor_to_scalar_expression<ValueType>>;
+  using base = binary_op<tensor_to_scalar_with_tensor_div, tensor_expression,
+                         tensor_expression, tensor_to_scalar_expression>;
   using base::base;
 
   tensor_to_scalar_with_tensor_div() : base() {}

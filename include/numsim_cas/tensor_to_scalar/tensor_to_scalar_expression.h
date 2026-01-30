@@ -9,12 +9,9 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_to_scalar_expression : public expression {
 public:
   using expr_type = tensor_to_scalar_expression;
-  using value_type = ValueType;
-  using node_type = tensor_to_scalar_node<value_type>;
 
   tensor_to_scalar_expression() = default;
   tensor_to_scalar_expression(tensor_to_scalar_expression const &data)
@@ -28,27 +25,22 @@ public:
 
   constexpr inline auto operator-() {
     // TODO check if this is already negative
-    return make_expression<tensor_to_scalar_expression<ValueType>,
-                           tensor_negative<ValueType>>(this);
+    return make_expression<tensor_to_scalar_expression, tensor_negative>(this);
   }
 };
 
-template <typename ValueType>
-std::ostream &operator<<(
-    std::ostream &os,
-    expression_holder<tensor_to_scalar_expression<ValueType>> const &expr) {
-  tensor_to_scalar_printer<ValueType, std::ostream> printer(os);
+std::ostream &
+operator<<(std::ostream &os,
+           expression_holder<tensor_to_scalar_expression> const &expr) {
+  tensor_to_scalar_printer<std::ostream> printer(os);
   printer.apply(expr);
   return os;
 }
 
 template <typename ValueType>
-struct expression_details<tensor_to_scalar_expression<ValueType>> {
-  using variant = tensor_to_scalar_node<ValueType>;
-
+struct expression_details<tensor_to_scalar_expression> {
   template <typename Expr> static inline auto negative(Expr &&expr) {
-    return make_expression<tensor_to_scalar_negative<ValueType>>(
-        std::forward<Expr>(expr));
+    return make_expression<tensor_to_scalar_negative>(std::forward<Expr>(expr));
   }
 };
 

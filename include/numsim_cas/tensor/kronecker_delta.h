@@ -5,14 +5,10 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class kronecker_delta final
-    : public expression_crtp<kronecker_delta<ValueType>,
-                             tensor_expression<ValueType>> {
+    : public expression_crtp<kronecker_delta, tensor_expression> {
 public:
-  using base =
-      expression_crtp<kronecker_delta<ValueType>, tensor_expression<ValueType>>;
-  using value_type = ValueType;
+  using base = expression_crtp<kronecker_delta, tensor_expression>;
   kronecker_delta(std::size_t dim) : base(dim, 2) {}
   kronecker_delta(kronecker_delta const &data) : base(data.m_dim, 2) {}
 
@@ -20,41 +16,27 @@ public:
     hash_combine(base::m_hash_value, base::get_id());
   }
 
-  template <typename _ValueType>
-  friend bool operator<(kronecker_delta<_ValueType> const &lhs,
-                        kronecker_delta<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator>(kronecker_delta<_ValueType> const &lhs,
-                        kronecker_delta<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator==(kronecker_delta<_ValueType> const &lhs,
-                         kronecker_delta<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator!=(kronecker_delta<_ValueType> const &lhs,
-                         kronecker_delta<_ValueType> const &rhs);
+  friend bool operator<(kronecker_delta const &lhs, kronecker_delta const &rhs);
+  friend bool operator>(kronecker_delta const &lhs, kronecker_delta const &rhs);
+  friend bool operator==(kronecker_delta const &lhs,
+                         kronecker_delta const &rhs);
+  friend bool operator!=(kronecker_delta const &lhs,
+                         kronecker_delta const &rhs);
 };
 
-template <typename ValueType>
-bool operator<(kronecker_delta<ValueType> const &lhs,
-               kronecker_delta<ValueType> const &rhs) {
+bool operator<(kronecker_delta const &lhs, kronecker_delta const &rhs) {
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename ValueType>
-bool operator>(kronecker_delta<ValueType> const &lhs,
-               kronecker_delta<ValueType> const &rhs) {
-  return !(lhs < rhs);
+bool operator>(kronecker_delta const &lhs, kronecker_delta const &rhs) {
+  return rhs < lhs;
 }
 
-template <typename ValueType>
-bool operator==(kronecker_delta<ValueType> const &lhs,
-                kronecker_delta<ValueType> const &rhs) {
+bool operator==(kronecker_delta const &lhs, kronecker_delta const &rhs) {
   return lhs.hash_value() == rhs.hash_value();
 }
 
-template <typename ValueType>
-bool operator!=(kronecker_delta<ValueType> const &lhs,
-                kronecker_delta<ValueType> const &rhs) {
+bool operator!=(kronecker_delta const &lhs, kronecker_delta const &rhs) {
   return !(lhs == rhs);
 }
 

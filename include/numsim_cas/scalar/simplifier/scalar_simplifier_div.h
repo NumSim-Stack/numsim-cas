@@ -1,222 +1,275 @@
-#ifndef SCALAR_SIMPLIFIER_DIV_H
-#define SCALAR_SIMPLIFIER_DIV_H
+// #ifndef SCALAR_SIMPLIFIER_DIV_H
+// #define SCALAR_SIMPLIFIER_DIV_H
 
-#include "../../operators.h"
-#include "../scalar_div.h"
-#include "../scalar_expression.h"
-#include "../scalar_std.h"
-#include <type_traits>
+// #include <numsim_cas/scalar/scalar_definitions.h>
+// #include <numsim_cas/scalar/scalar_expression.h>
+// #include <numsim_cas/core/operators.h>
+// #include <numsim_cas/scalar/scalar_operators.h>
+// namespace numsim::cas {
 
-namespace numsim::cas {
-namespace scalar_detail {
-namespace simplifier {
+// namespace detail{
+// template<typename T>
+// struct scalar_number_type_visitor
+// {
+//   template<typename Type>
+//   constexpr inline auto operator()([[maybe_unused]]Type const& val)const
+//   noexcept{
+//     if constexpr (std::is_same_v<T, Type>){
+//       return true;
+//     }else{
+//       return false;
+//     }
+//   }
+// };
+// }
 
-template <typename ExprLHS, typename ExprRHS> struct div_default {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<scalar_expression<value_type>>;
+// template<typename T>
+// constexpr inline auto is_same(scalar_number const& v){
+//   return std::visit(detail::scalar_number_type_visitor<T>{}, v.raw());
+// }
 
-  div_default(ExprLHS &&lhs, ExprRHS &&rhs)
-      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
+// namespace scalar_detail {
+// namespace simplifier {
 
-  template <typename Expr> constexpr inline expr_type operator()(Expr const &) {
-    return get_default();
-  }
+// template <typename ExprLHS, typename ExprRHS>
+// struct div_default : public scalar_visitor_return_expr_t {
+//   using expr_holder_t = expression_holder<scalar_expression>;
 
-  // expr / 1 --> expr
-  constexpr inline expr_type operator()(scalar_one<value_type> const &) {
-    return std::forward<ExprLHS>(m_lhs);
-  }
+//   div_default(ExprLHS &&lhs, ExprRHS &&rhs)
+//       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs))
+//       {}
 
-  constexpr inline expr_type operator()(scalar_pow<value_type> const &rhs) {
-    if (m_lhs.get().hash_value() == rhs.expr_lhs().get().hash_value()) {
-      return make_expression<scalar_pow<value_type>>(
-          rhs.expr_lhs(), get_scalar_one<value_type>() - rhs.expr_rhs());
-    }
-    return get_default();
-  }
+// #define NUMSIM_ADD_OVR_FIRST(T)                                                \
+//   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+// #define NUMSIM_ADD_OVR_NEXT(T)                                                 \
+//   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+//   NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
+// #undef NUMSIM_ADD_OVR_FIRST
+// #undef NUMSIM_ADD_OVR_NEXT
 
-protected:
-  auto get_default() {
-    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
-      return get_scalar_one<value_type>();
-    }
-    return make_expression<scalar_div<value_type>>(m_lhs, m_rhs);
-  }
+//   template <typename Expr>
+//   inline expr_holder_t dispatch(Expr const &) {
+//     return get_default();
+//   }
 
-  ExprLHS &&m_lhs;
-  ExprRHS &&m_rhs;
-};
+//   // expr / 1 --> expr
+//   inline expr_holder_t dispatch(scalar_one const &) {
+//     return std::forward<ExprLHS>(m_lhs);
+//   }
 
-template <typename ExprLHS, typename ExprRHS>
-struct scalar_div_simplifier final : public div_default<ExprLHS, ExprRHS> {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<scalar_expression<value_type>>;
-  using base = div_default<ExprLHS, ExprRHS>;
-  using base::operator();
+//   inline expr_holder_t dispatch(scalar_pow const &rhs) {
+//     if (m_lhs.get().hash_value() == rhs.expr_lhs().get().hash_value()) {
+//       return pow(rhs.expr_lhs(), get_scalar_one() - rhs.expr_rhs());
+//     }
+//     return get_default();
+//   }
 
-  scalar_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        m_expr(m_lhs.template get<scalar_div<value_type>>()) {}
+// protected:
+//   auto get_default() {
+//     if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
+//       return get_scalar_one();
+//     }
+//     return make_expression<scalar_div>(m_lhs, m_rhs);
+//   }
 
-  // (a/b)/(c/d) --> a*d/(b*c)
-  constexpr inline expr_type operator()(scalar_div<value_type> const &rhs) {
-    return make_expression<scalar_div<value_type>>(
-        m_expr.expr_lhs() * rhs.expr_rhs(), m_expr.expr_rhs() * rhs.expr_lhs());
-  }
+//   expr_holder_t m_lhs;
+//   expr_holder_t m_rhs;
+// };
 
-  // a/b/c --> a/(b*c)
-  template <typename Expr> constexpr inline expr_type operator()(Expr const &) {
-    return make_expression<scalar_div<value_type>>(m_expr.expr_lhs(),
-                                                   m_expr.expr_rhs() * m_rhs);
-  }
+// template <typename ExprLHS, typename ExprRHS>
+// struct scalar_div_simplifier final : public div_default<ExprLHS, ExprRHS> {
+//   using expr_holder_t = expression_holder<scalar_expression>;
+//   using base = div_default<ExprLHS, ExprRHS>;
+//   using base::dispatch;
 
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  scalar_div<value_type> const &m_expr;
-};
+//   scalar_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs)
+//       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
+//         m_expr(m_lhs.template get<scalar_div>()) {}
 
-template <typename ExprLHS, typename ExprRHS>
-struct constant_div_simplifier final : public div_default<ExprLHS, ExprRHS> {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<scalar_expression<value_type>>;
-  using base = div_default<ExprLHS, ExprRHS>;
-  using base::operator();
-  using base::get_default;
+// #define NUMSIM_ADD_OVR_FIRST(T)                                                \
+//   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+// #define NUMSIM_ADD_OVR_NEXT(T)                                                 \
+//   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+//   NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
+// #undef NUMSIM_ADD_OVR_FIRST
+// #undef NUMSIM_ADD_OVR_NEXT
 
-  constant_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        m_expr(m_lhs.template get<scalar_constant<value_type>>()) {}
+//   // (a/b)/(c/d) --> a*d/(b*c)
+//   inline expr_holder_t dispatch(scalar_div const &rhs) {
+//     return make_expression<scalar_div>(m_expr.expr_lhs() * rhs.expr_rhs(),
+//                                        m_expr.expr_rhs() * rhs.expr_lhs());
+//   }
 
-  constexpr inline expr_type
-  operator()(scalar_constant<value_type> const &rhs) {
-    if constexpr (std::is_floating_point_v<value_type>) {
-      return make_expression<scalar_constant<value_type>>(m_expr() / rhs());
-    } else {
-      if (rhs() == value_type{1}) {
-        return m_lhs;
-      }
-    }
-    return get_default();
-  }
+//   // a/b/c --> a/(b*c)
+//   template <typename Expr>
+//   inline expr_holder_t dispatch(Expr const &) {
+//     return make_expression<scalar_div>(m_expr.expr_lhs(),
+//                                        m_expr.expr_rhs() * m_rhs);
+//   }
 
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  scalar_constant<value_type> const &m_expr;
-};
+// private:
+//   using base::m_lhs;
+//   using base::m_rhs;
+//   scalar_div const &m_expr;
+// };
 
-template <typename ExprLHS, typename ExprRHS>
-struct pow_div_simplifier final : public div_default<ExprLHS, ExprRHS> {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<scalar_expression<value_type>>;
-  using base = div_default<ExprLHS, ExprRHS>;
-  using base::operator();
+// template <typename ExprLHS, typename ExprRHS>
+// struct constant_div_simplifier final : public div_default<ExprLHS, ExprRHS> {
+//   using expr_holder_t = expression_holder<scalar_expression>;
+//   using base = div_default<ExprLHS, ExprRHS>;
+//   using base::dispatch;
+//   using base::get_default;
 
-  pow_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        m_expr(m_lhs.template get<scalar_pow<value_type>>()) {}
+//   constant_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs)
+//       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
+//         m_expr(m_lhs.template get<scalar_constant>()) {}
 
-  constexpr inline expr_type operator()(scalar<value_type> const &rhs) {
-    if (rhs.hash_value() == m_expr.expr_lhs().get().hash_value()) {
-      const auto expo{m_expr.expr_rhs() - get_scalar_one<value_type>()};
-      if (is_same<scalar_constant<value_type>>(expo)) {
-        if (expo.template get<scalar_constant<value_type>>()() == 1) {
-          return m_rhs;
-        }
-      }
-      return make_expression<scalar_pow<value_type>>(m_expr.expr_lhs(), expo);
-    }
-    return base::get_default();
-  }
+// #define NUMSIM_ADD_OVR_FIRST(T)                                                \
+//   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+// #define NUMSIM_ADD_OVR_NEXT(T)                                                 \
+//   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+//   NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
+// #undef NUMSIM_ADD_OVR_FIRST
+// #undef NUMSIM_ADD_OVR_NEXT
 
-  // pow(lhs, expo_lhs) / pow(rhs, expo_rhs)
-  // lhs == rhs --> pow(expr, expo_lhs - expo_rhs)
-  constexpr inline expr_type operator()(scalar_pow<value_type> const &rhs) {
-    if (m_expr.expr_lhs().get().hash_value() ==
-        rhs.expr_lhs().get().hash_value()) {
-      const auto expo{m_expr.expr_rhs() - rhs.expr_rhs()};
-      if (is_same<scalar_constant<value_type>>(expo)) {
-        if (expo.template get<scalar_constant<value_type>>()() ==
-            value_type{1}) {
-          return rhs.expr_lhs();
-        }
-      }
-      return make_expression<scalar_pow<value_type>>(m_expr.expr_lhs(), expo);
-    }
-    return base::get_default();
-  }
+//   inline expr_holder_t dispatch(scalar_constant const &rhs) {
+//     // TODO check if both constants.value() == int --> rational
+//     if (rhs.value() == 1) {
+//       return m_lhs;
+//     }
 
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  scalar_pow<value_type> const &m_expr;
-};
+//     if(is_same<std::int64_t>(m_expr.value()) &&
+//     is_same<std::int64_t>(rhs.value())){
+//       return make_expression<scalar_rational>(m_lhs, m_rhs);
+//     }
 
-template <typename ExprLHS, typename ExprRHS> struct div_base {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<scalar_expression<value_type>>;
+//     return make_expression<scalar_constant>(m_expr.value() / rhs.value());
+//     // return get_default();
+//   }
 
-  div_base(ExprLHS &&lhs, ExprRHS &&rhs)
-      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
+// private:
+//   using base::m_lhs;
+//   using base::m_rhs;
+//   scalar_constant const &m_expr;
+// };
 
-  template <typename Type> constexpr inline expr_type operator()(Type const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(div_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                               std::forward<ExprRHS>(m_rhs)),
-                 expr_rhs);
-  }
+// template <typename ExprLHS, typename ExprRHS>
+// struct pow_div_simplifier final : public div_default<ExprLHS, ExprRHS> {
+//   using expr_holder_t = expression_holder<scalar_expression>;
+//   using base = div_default<ExprLHS, ExprRHS>;
+//   using base::dispatch;
 
-  // (-rhs) / lhs -->
-  constexpr inline expr_type
-  operator()(scalar_negative<value_type> const &lhs) {
-    return -(lhs.expr() / m_rhs);
-  }
+//   pow_div_simplifier(ExprLHS &&lhs, ExprRHS &&rhs)
+//       : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
+//         m_expr(m_lhs.template get<scalar_pow>()) {}
 
-  // 0 / expr
-  constexpr inline expr_type operator()(scalar_zero<value_type> const &) {
-    return get_scalar_zero<value_type>();
-  }
+// #define NUMSIM_ADD_OVR_FIRST(T)                                                \
+//   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+// #define NUMSIM_ADD_OVR_NEXT(T)                                                 \
+//   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+//   NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
+// #undef NUMSIM_ADD_OVR_FIRST
+// #undef NUMSIM_ADD_OVR_NEXT
 
-  constexpr inline expr_type operator()(scalar_div<value_type> const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(
-        scalar_div_simplifier<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                                std::forward<ExprRHS>(m_rhs)),
-        expr_rhs);
-  }
+//   inline expr_holder_t dispatch(scalar const &rhs) {
+//     if (rhs.hash_value() == m_expr.expr_lhs().get().hash_value()) {
+//       const auto expo{m_expr.expr_rhs() - get_scalar_one()};
+//       if (is_same<scalar_constant>(expo)) {
+//         if (expo.template get<scalar_constant>().value() == 1) {
+//           return m_rhs;
+//         }
+//       }
+//       return make_expression<scalar_pow>(m_expr.expr_lhs(), expo);
+//     }
+//     return base::get_default();
+//   }
 
-  constexpr inline expr_type operator()(scalar_pow<value_type> const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(
-        pow_div_simplifier<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                             std::forward<ExprRHS>(m_rhs)),
-        expr_rhs);
-  }
+//   // pow(lhs, expo_lhs) / pow(rhs, expo_rhs)
+//   // lhs == rhs --> pow(expr, expo_lhs - expo_rhs)
+//   inline expr_holder_t dispatch(scalar_pow const &rhs) {
+//     if (m_expr.expr_lhs().get().hash_value() ==
+//         rhs.expr_lhs().get().hash_value()) {
+//       const auto expo{m_expr.expr_rhs() - rhs.expr_rhs()};
+//       if (is_same<scalar_constant>(expo)) {
+//         if (expo.template get<scalar_constant>().value() == 1) {
+//           return rhs.expr_lhs();
+//         }
+//       }
+//       return make_expression<scalar_pow>(m_expr.expr_lhs(), expo);
+//     }
+//     return base::get_default();
+//   }
 
-  // template <typename ValueType = value_type,
-  //           std::enable_if_t<std::is_floating_point_v<ValueType>, bool> =
-  //           true>
-  constexpr inline expr_type operator()(scalar_constant<value_type> const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(
-        constant_div_simplifier<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                                  std::forward<ExprRHS>(m_rhs)),
-        expr_rhs);
-  }
+// private:
+//   using base::m_lhs;
+//   using base::m_rhs;
+//   scalar_pow const &m_expr;
+// };
 
-private:
-  ExprLHS &&m_lhs;
-  ExprRHS &&m_rhs;
-};
+// template <typename ExprLHS, typename ExprRHS>
+// class div_base final : public scalar_visitor_return_expr_t {
+// public:
+//   using expr_holder_t = expression_holder<scalar_expression>;
 
-} // namespace simplifier
-} // namespace scalar_detail
-} // namespace numsim::cas
+//   div_base(ExprLHS &&lhs, ExprRHS &&rhs)
+//       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs))
+//       {}
 
-#endif // SCALAR_SIMPLIFIER_DIV_H
+// #define NUMSIM_ADD_OVR_FIRST(T)                                                \
+//   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+// #define NUMSIM_ADD_OVR_NEXT(T)                                                 \
+//   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+//   NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
+// #undef NUMSIM_ADD_OVR_FIRST
+// #undef NUMSIM_ADD_OVR_NEXT
+
+//   template <typename Type>
+//   inline expr_holder_t dispatch(Type const &) {
+//     auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
+//     div_default<ExprLHS, ExprRHS> visitor(std::forward<ExprLHS>(m_lhs),
+//                                           std::forward<ExprRHS>(m_rhs));
+//     return _rhs.accept(visitor);
+//   }
+
+//   // (-rhs) / lhs -->
+//   inline expr_holder_t dispatch(scalar_negative const &lhs) {
+//     return -(lhs.expr() / m_rhs);
+//   }
+
+//   // 0 / expr
+//   inline expr_holder_t dispatch(scalar_zero const &) {
+//     return get_scalar_zero();
+//   }
+
+//   inline expr_holder_t dispatch(scalar_div const &) {
+//     auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
+//     scalar_div_simplifier<ExprLHS, ExprRHS> visitor(
+//         std::forward<ExprLHS>(m_lhs), std::forward<ExprRHS>(m_rhs));
+//     return _rhs.accept(visitor);
+//   }
+
+//   inline expr_holder_t dispatch(scalar_pow const &) {
+//     auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
+//     pow_div_simplifier<ExprLHS, ExprRHS>
+//     visitor(std::forward<ExprLHS>(m_lhs),
+//                                                  std::forward<ExprRHS>(m_rhs));
+//     return _rhs.accept(visitor);
+//   }
+
+//   inline expr_holder_t dispatch(scalar_constant const &) {
+//     auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
+//     constant_div_simplifier<ExprLHS, ExprRHS> visitor(
+//         std::forward<ExprLHS>(m_lhs), std::forward<ExprRHS>(m_rhs));
+//     return _rhs.accept(visitor);
+//   }
+
+// private:
+//   expr_holder_t m_lhs;
+//   expr_holder_t m_rhs;
+// };
+
+// } // namespace simplifier
+// } // namespace scalar_detail
+// } // namespace numsim::cas
+
+// #endif // SCALAR_SIMPLIFIER_DIV_H

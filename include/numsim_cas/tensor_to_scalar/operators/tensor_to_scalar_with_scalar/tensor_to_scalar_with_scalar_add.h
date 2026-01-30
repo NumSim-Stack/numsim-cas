@@ -8,17 +8,14 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_to_scalar_with_scalar_add final
-    : public binary_op<tensor_to_scalar_with_scalar_add<ValueType>,
-                       tensor_to_scalar_expression<ValueType>,
-                       scalar_expression<ValueType>,
-                       tensor_to_scalar_expression<ValueType>> {
+    : public binary_op<tensor_to_scalar_with_scalar_add,
+                       tensor_to_scalar_expression, scalar_expression,
+                       tensor_to_scalar_expression> {
 public:
-  using base = binary_op<tensor_to_scalar_with_scalar_add<ValueType>,
-                         tensor_to_scalar_expression<ValueType>,
-                         scalar_expression<ValueType>,
-                         tensor_to_scalar_expression<ValueType>>;
+  using base =
+      binary_op<tensor_to_scalar_with_scalar_add, tensor_to_scalar_expression,
+                scalar_expression, tensor_to_scalar_expression>;
   using base::base;
 
   tensor_to_scalar_with_scalar_add() : base() {}

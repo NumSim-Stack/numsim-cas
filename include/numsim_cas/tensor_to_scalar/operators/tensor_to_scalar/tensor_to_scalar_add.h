@@ -7,15 +7,12 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_to_scalar_add final
-    : public n_ary_tree<tensor_to_scalar_expression<ValueType>,
-                        tensor_to_scalar_add<ValueType>> {
+    : public n_ary_tree<tensor_to_scalar_expression, tensor_to_scalar_add> {
 public:
-  using base = n_ary_tree<tensor_to_scalar_expression<ValueType>,
-                          tensor_to_scalar_add<ValueType>>;
-  using base_expr = expression_crtp<tensor_to_scalar_add<ValueType>,
-                                    tensor_to_scalar_expression<ValueType>>;
+  using base = n_ary_tree<tensor_to_scalar_expression, tensor_to_scalar_add>;
+  using base_expr =
+      expression_crtp<tensor_to_scalar_add, tensor_to_scalar_expression>;
   using base::base;
 
   tensor_to_scalar_add() : base() {}

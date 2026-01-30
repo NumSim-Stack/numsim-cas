@@ -6,15 +6,13 @@
 #include "tensor_to_scalar_expression.h"
 
 namespace numsim::cas {
-template <typename ValueType>
+
 class tensor_to_scalar_pow final
-    : public binary_op<tensor_to_scalar_pow<ValueType>,
-                       tensor_to_scalar_expression<ValueType>,
-                       tensor_to_scalar_expression<ValueType>> {
+    : public binary_op<tensor_to_scalar_pow, tensor_to_scalar_expression,
+                       tensor_to_scalar_expression> {
 public:
-  using base = binary_op<tensor_to_scalar_pow<ValueType>,
-                         tensor_to_scalar_expression<ValueType>,
-                         tensor_to_scalar_expression<ValueType>>;
+  using base = binary_op<tensor_to_scalar_pow, tensor_to_scalar_expression,
+                         tensor_to_scalar_expression>;
 
   using base::base;
   tensor_to_scalar_pow(tensor_to_scalar_pow const &expr)
@@ -26,17 +24,14 @@ public:
   const tensor_to_scalar_pow &operator=(tensor_to_scalar_pow &&) = delete;
 };
 
-template <typename ValueType>
 class tensor_to_scalar_pow_with_scalar_exponent final
-    : public binary_op<tensor_to_scalar_pow_with_scalar_exponent<ValueType>,
-                       tensor_to_scalar_expression<ValueType>,
-                       tensor_to_scalar_expression<ValueType>,
-                       scalar_expression<ValueType>> {
+    : public binary_op<tensor_to_scalar_pow_with_scalar_exponent,
+                       tensor_to_scalar_expression, tensor_to_scalar_expression,
+                       scalar_expression> {
 public:
-  using base = binary_op<tensor_to_scalar_pow_with_scalar_exponent<ValueType>,
-                         tensor_to_scalar_expression<ValueType>,
-                         tensor_to_scalar_expression<ValueType>,
-                         scalar_expression<ValueType>>;
+  using base = binary_op<tensor_to_scalar_pow_with_scalar_exponent,
+                         tensor_to_scalar_expression,
+                         tensor_to_scalar_expression, scalar_expression>;
 
   using base::base;
   tensor_to_scalar_pow_with_scalar_exponent(

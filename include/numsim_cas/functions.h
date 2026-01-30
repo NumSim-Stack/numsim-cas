@@ -1,52 +1,49 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
-// #include "scalar_functions.h"
-// #include "tensor_functions.h"
-#include "numsim_cas_type_traits.h"
-#include "scalar/visitors/scalar_differentiation.h"
-#include "scalar/visitors/scalar_evaluator.h"
-#include "tensor/visitors/tensor_differentiation.h"
-#include "tensor/visitors/tensor_evaluator.h"
-#include "tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h"
+// // #include "scalar_functions.h"
+// // #include "tensor_functions.h"
+// #include "numsim_cas_type_traits.h"
+// #include "scalar/visitors/scalar_differentiation.h"
+// #include "scalar/visitors/scalar_evaluator.h"
+// #include "tensor/visitors/tensor_differentiation.h"
+// #include "tensor/visitors/tensor_evaluator.h"
+// #include "tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h"
 
-#include "tensor/tensor_functions.h"
-#include "tensor_to_scalar/tensor_to_scalar_functions.h"
+// #include "tensor/tensor_functions.h"
+// #include "tensor_to_scalar/tensor_to_scalar_functions.h"
+#include <numsim_cas/core/n_ary_tree.h>
+#include <numsim_cas/core/operators.h>
 
 namespace numsim::cas {
 
-template <typename ValueType>
-inline auto diff(expression_holder<scalar_expression<ValueType>> const &expr,
-                 expression_holder<scalar_expression<ValueType>> const &arg) {
-  scalar_differentiation<ValueType> visitor(arg);
-  return visitor.apply(expr);
-}
+// template <typename ValueType>
+// inline auto eval(scalar_expression<ValueType> &expr) {
+//   scalar_evaluator<ValueType> eval;
+//   return eval.apply(expr);
+// }
 
-template <typename ValueType>
-inline auto eval(scalar_expression<ValueType> &expr) {
-  scalar_evaluator<ValueType> eval;
-  return eval.apply(expr);
-}
+// template <typename ValueType>
+// inline auto eval(expression_holder<scalar_expression<ValueType>> &&expr) {
+//   scalar_evaluator<ValueType> eval;
+//   return eval.apply(expr);
+// }
 
-template <typename ValueType>
-inline auto eval(expression_holder<scalar_expression<ValueType>> &&expr) {
-  scalar_evaluator<ValueType> eval;
-  return eval.apply(expr);
-}
-
-template <typename T, std::size_t Dim, std::size_t Rank>
-inline auto get_tensor(std::unique_ptr<tensor_data_base<T>> const &data) {
-  return static_cast<tensor_data<T, Dim, Rank> &>(*data.get()).data();
-}
+// template <typename T, std::size_t Dim, std::size_t Rank>
+// inline auto get_tensor(std::unique_ptr<tensor_data_base<T>> const &data) {
+//   return static_cast<tensor_data<T, Dim, Rank> &>(*data.get()).data();
+// }
 
 /// merge two n_ary_trees
 ///   --> use std::function for special handling?
 ///   --> add (x+y+z) + (x+a) --> 2*x+y+z+a --> mul
 ///   --> mul (x*y*z) * (x*a) --> pow(x,2)*y*z*a --> pow
-template <typename Derived, typename ExprType>
-constexpr inline void merge_add(n_ary_tree<ExprType, Derived> const &lhs,
-                                n_ary_tree<ExprType, Derived> const &rhs,
-                                n_ary_tree<ExprType, Derived> &result) {
+template <typename Derived>
+constexpr inline void merge_add(n_ary_tree<Derived> const &lhs,
+                                n_ary_tree<Derived> const &rhs,
+                                n_ary_tree<Derived> &result) {
+  using expr_t = typename Derived::expr_t;
+
   if (lhs.coeff().is_valid() && rhs.coeff().is_valid()) {
     result.set_coeff(lhs.coeff() + rhs.coeff());
   } else {
@@ -58,7 +55,7 @@ constexpr inline void merge_add(n_ary_tree<ExprType, Derived> const &lhs,
     }
   }
 
-  expr_set<expression_holder<ExprType>> used_expr;
+  expr_set<expression_holder<expr_t>> used_expr;
   for (auto &child : lhs.hash_map() | std::views::values) {
     auto pos{rhs.hash_map().find(child)};
     if (pos != rhs.hash_map().end()) {

@@ -12,35 +12,30 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class tensor final
-    : public symbol_base<tensor_expression<ValueType>, tensor<ValueType>> {
+class tensor final : public symbol_base<tensor> {
 public:
-  using base = symbol_base<tensor_expression<ValueType>, tensor<ValueType>>;
+  using base = symbol_base<tensor>;
   using base::operator=;
 
   tensor() = delete;
   tensor(std::string const &name, std::size_t dim, std::size_t rank)
-      : base(name, dim, rank), m_data(make_tensor_data<ValueType>(dim, rank)) {}
+      : base(name, dim, rank), m_data(make_tensor_data(dim, rank)) {}
 
   tensor(tensor &&data)
       : base(data.m_name, data.m_dim, data.m_rank),
         m_data(std::move(data.m_data)) {}
 
-  const tensor &
-  operator=(expression_holder<tensor_expression<ValueType>> &&data) {
+  const tensor &operator=(expression_holder<tensor_expression> &&data) {
     this->m_expr = std::move(data);
     return *this;
   }
 
-  const tensor &
-  operator+=(expression_holder<tensor_expression<ValueType>> &&data) {
+  const tensor &operator+=(expression_holder<tensor_expression> &&data) {
     *this = std::move(data) + *this;
     return *this;
   }
 
-  const tensor &
-  operator-=(expression_holder<tensor_expression<ValueType>> &&data) {
+  const tensor &operator-=(expression_holder<tensor_expression> &&data) {
     *this = std::move(data) - *this;
     return *this;
   }
@@ -51,31 +46,49 @@ public:
     constexpr auto Rank{Dervied::rank()};
     assert(this->m_dim == Dim);
     assert(this->m_rank == Rank);
-    static_cast<tensor_data<ValueType, Dim, Rank> &>(*m_data.get()).data() =
-        data.convert();
+    // static_cast<tensor_data<ValueType, Dim, Rank> &>(*m_data.get()).data() =
+    //     data.convert();
     return *this;
   }
 
   inline auto operator-() {
-    return make_expression<tensor_expression<ValueType>,
-                           tensor_negative<ValueType>>(this);
+    return make_expression<tensor_expression, tensor_negative>(this);
   }
 
-  template <typename T>
-  friend std::ostream &operator<<(std::ostream &os, const tensor<T> &dt);
+  friend std::ostream &operator<<(std::ostream &os, const tensor &dt);
 
-  inline tensor_data_base<ValueType> &data() { return *m_data.get(); }
+  // inline tensor_data_base &data() { return *m_data.get(); }
 
 private:
-  std::unique_ptr<tensor_data_base<ValueType>> m_data;
+  // std::unique_ptr<tensor_data_base> m_data;
 };
 
-template <typename ValueType>
-std::ostream &operator<<(std::ostream &os,
-                         [[maybe_unused]] const tensor<ValueType> &t) {
+std::ostream &operator<<(std::ostream &os, [[maybe_unused]] const tensor &t) {
   os << "tensor";
   return os;
 }
+
+struct call_tensor {
+  template <typename Tensor>
+  static constexpr inline auto dim(Tensor const &tensor) {
+    return tensor.dim();
+  }
+
+  template <typename Tensor>
+  static constexpr inline auto rank(Tensor const &tensor) {
+    return tensor.rank();
+  }
+
+  static constexpr inline auto
+  dim(expression_holder<tensor_expression> const &tensor) {
+    return tensor.get().dim();
+  }
+
+  static constexpr inline auto
+  rank(expression_holder<tensor_expression> const &tensor) {
+    return tensor.get().rank();
+  }
+};
 
 // ast::unique_ptr<expression> operator+(tensor &lhs, tensor &rhs);
 

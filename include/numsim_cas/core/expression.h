@@ -60,12 +60,38 @@ public:
     return m_hash_value;
   }
 
+  [[nodiscard]] virtual type_id id() const noexcept = 0;
+
   inline auto &assumptions() noexcept { return m_assumption; }
 
   inline auto const &assumptions() const noexcept { return m_assumption; }
 
+  bool operator==(expression const &rhs) const noexcept {
+    if (this == &rhs)
+      return true;
+
+    // different dynamic node type => not equal
+    if (id() != rhs.id())
+      return false;
+
+    // fast reject
+    if (hash_value() != rhs.hash_value())
+      return false;
+
+    // same type => do the real compare
+    return equals_same_type(rhs);
+  }
+
+  bool operator!=(expression const &rhs) const noexcept {
+    return !(*this == rhs);
+  }
+
 protected:
+  // each concrete node compares against same dynamic type here
+  virtual bool equals_same_type(expression const &rhs) const noexcept = 0;
+
   virtual void update_hash_value() const = 0;
+
   numeric_assumption_manager m_assumption{};
   /**
    * @brief Stores the hash value of the expression.

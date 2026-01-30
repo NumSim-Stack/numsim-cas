@@ -14,13 +14,11 @@
 
 namespace numsim::cas {
 
-template <typename ValueType, typename StreamType>
+template <typename StreamType>
 class tensor_to_scalar_printer final
-    : public printer_base<tensor_to_scalar_printer<ValueType, StreamType>,
-                          StreamType> {
+    : public printer_base<tensor_to_scalar_printer<StreamType>, StreamType> {
 public:
-  using base =
-      printer_base<tensor_to_scalar_printer<ValueType, StreamType>, StreamType>;
+  using base = printer_base<tensor_to_scalar_printer<StreamType>, StreamType>;
   using base::begin;
   using base::end;
   using base::print_unary;
@@ -31,37 +29,36 @@ public:
   const tensor_to_scalar_printer &
   operator=(tensor_to_scalar_printer const &) = delete;
 
-  auto
-  apply(expression_holder<tensor_to_scalar_expression<ValueType>> const &expr,
-        Precedence parent_precedence = Precedence::None) {
+  auto apply(expression_holder<tensor_to_scalar_expression> const &expr,
+             [[maybe_unused]] Precedence parent_precedence = Precedence::None) {
     if (expr.is_valid()) {
-      std::visit([this, parent_precedence](
-                     auto &&arg) { (*this)(arg, parent_precedence); },
-                 *expr);
+      // std::visit([this, parent_precedence](
+      //                auto &&arg) { (*this)(arg, parent_precedence); },
+      //            *expr);
     }
   }
 
-  void operator()(tensor_trace<ValueType> const &visitable,
+  void operator()(tensor_trace const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     print_unary("tr", visitable);
   }
 
-  void operator()(tensor_dot<ValueType> const &visitable,
+  void operator()(tensor_dot const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     print_unary("dot", visitable);
   }
 
-  void operator()(tensor_norm<ValueType> const &visitable,
+  void operator()(tensor_norm const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     print_unary("norm", visitable);
   }
 
-  void operator()(tensor_det<ValueType> const &visitable,
+  void operator()(tensor_det const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     print_unary("det", visitable);
   }
 
-  void operator()(tensor_to_scalar_negative<ValueType> const &visitable,
+  void operator()(tensor_to_scalar_negative const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Unary};
     m_out << "-";
@@ -70,7 +67,7 @@ public:
     // end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_to_scalar_mul<ValueType> const &visitable,
+  void operator()(tensor_to_scalar_mul const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
@@ -88,12 +85,12 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_to_scalar_log<ValueType> const &visitable,
+  void operator()(tensor_to_scalar_log const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     print_unary("log", visitable);
   }
 
-  void operator()(tensor_to_scalar_add<ValueType> const &visitable,
+  void operator()(tensor_to_scalar_add const &visitable,
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Addition};
     begin(precedence, parent_precedence);
@@ -104,7 +101,7 @@ public:
       m_out << "+";
     }
     for (auto &child : visitable.hash_map() | std::views::values) {
-      if (!first && !is_same<tensor_to_scalar_negative<ValueType>>(child)) {
+      if (!first && !is_same<tensor_to_scalar_negative>(child)) {
         m_out << "+";
       }
       apply(child, precedence);
@@ -114,7 +111,7 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_to_scalar_div<ValueType> const &visitable,
+  void operator()(tensor_to_scalar_div const &visitable,
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
@@ -124,7 +121,7 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_to_scalar_pow<ValueType> const &visitable,
+  void operator()(tensor_to_scalar_pow const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     m_out << "pow(";
     m_out << visitable.expr_lhs();
@@ -133,9 +130,8 @@ public:
     m_out << ")";
   }
 
-  void operator()(
-      tensor_to_scalar_pow_with_scalar_exponent<ValueType> const &visitable,
-      [[maybe_unused]] Precedence parent_precedence) {
+  void operator()(tensor_to_scalar_pow_with_scalar_exponent const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
     m_out << "pow(";
     m_out << visitable.expr_lhs();
     m_out << ",";
@@ -143,7 +139,7 @@ public:
     m_out << ")";
   }
 
-  void operator()(tensor_to_scalar_with_scalar_mul<ValueType> const &visitable,
+  void operator()(tensor_to_scalar_with_scalar_mul const &visitable,
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
@@ -153,7 +149,7 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_to_scalar_with_scalar_add<ValueType> const &visitable,
+  void operator()(tensor_to_scalar_with_scalar_add const &visitable,
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Addition};
     begin(precedence, parent_precedence);
@@ -163,7 +159,7 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_to_scalar_with_scalar_div<ValueType> const &visitable,
+  void operator()(tensor_to_scalar_with_scalar_div const &visitable,
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
@@ -173,7 +169,7 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(scalar_with_tensor_to_scalar_div<ValueType> const &visitable,
+  void operator()(scalar_with_tensor_to_scalar_div const &visitable,
                   Precedence parent_precedence) {
     constexpr auto precedence{Precedence::Multiplication};
     begin(precedence, parent_precedence);
@@ -183,7 +179,7 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_inner_product_to_scalar<ValueType> const &visitable,
+  void operator()(tensor_inner_product_to_scalar const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
     auto indices_temp_lhs{visitable.indices_lhs()};
     std::for_each(std::begin(indices_temp_lhs), std::end(indices_temp_lhs),
@@ -226,9 +222,8 @@ public:
    *
    * @note Will be set to zero in apply function
    */
-  void
-  operator()([[maybe_unused]] tensor_to_scalar_one<ValueType> const &visitable,
-             [[maybe_unused]] Precedence parent_precedence) {
+  void operator()([[maybe_unused]] tensor_to_scalar_one const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
     m_out << "1";
   }
 
@@ -237,9 +232,8 @@ public:
    *
    * @note Will be set to zero in apply function
    */
-  void
-  operator()([[maybe_unused]] tensor_to_scalar_zero<ValueType> const &visitable,
-             [[maybe_unused]] Precedence parent_precedence) {
+  void operator()([[maybe_unused]] tensor_to_scalar_zero const &visitable,
+                  [[maybe_unused]] Precedence parent_precedence) {
     m_out << "0";
   }
 
@@ -248,8 +242,7 @@ public:
    *
    */
   void
-  operator()([[maybe_unused]] tensor_to_scalar_scalar_wrapper<ValueType> const
-                 &visitable,
+  operator()([[maybe_unused]] tensor_to_scalar_scalar_wrapper const &visitable,
              [[maybe_unused]] Precedence parent_precedence) {
     print(m_out, visitable.expr(), parent_precedence);
   }

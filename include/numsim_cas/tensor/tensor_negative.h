@@ -6,15 +6,14 @@
 namespace numsim::cas {
 
 template <typename ValueType>
-class tensor_negative final : public unary_op<tensor_negative<ValueType>,
-                                              tensor_expression<ValueType>> {
+class tensor_negative final
+    : public unary_op<tensor_negative, tensor_expression> {
 public:
-  using base =
-      unary_op<tensor_negative<ValueType>, tensor_expression<ValueType>>;
+  using base = unary_op<tensor_negative, tensor_expression>;
 
   template <typename Expr,
             std::enable_if_t<
-                std::is_base_of_v<tensor_expression<ValueType>,
+                std::is_base_of_v<tensor_expression,
                                   std::remove_pointer_t<get_type_t<Expr>>>,
                 bool> = true>
   tensor_negative(Expr &&_expr)

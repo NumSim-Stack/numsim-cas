@@ -1,10 +1,9 @@
 #ifndef EXPRESSION_HOLDER_H
 #define EXPRESSION_HOLDER_H
 
-#include "compare_equal_visitor.h"
-#include "compare_less_visitor.h"
-#include "numsim_cas_type_traits.h"
-#include "operators.h"
+#include <numsim_cas/core/make_negative.h>
+#include <numsim_cas/numsim_cas_forward.h>
+#include <numsim_cas/numsim_cas_type_traits.h>
 #include <type_traits>
 
 namespace numsim::cas {
@@ -14,10 +13,7 @@ template <typename ExpressionBase> struct expression_details;
 template <typename ExprBase> class expression_holder {
 public:
   using expr_type = ExprBase;
-  using value_type = typename ExprBase::value_type;
-  using node_type =
-      typename expr_type::node_type; // typename
-                                     // expression_details<ExprBase>::variant;
+  using node_type = ExprBase;
   using node_pointer = typename std::shared_ptr<node_type>;
   using hash_type = typename expr_type::hash_type;
 
@@ -110,36 +106,26 @@ public:
 
   template <typename T = ExprBase> constexpr inline auto &get() {
     if constexpr (std::is_same_v<T, ExprBase>) {
-      return std::visit(
-          [](auto &type) -> ExprBase & {
-            return static_cast<ExprBase &>(type);
-          },
-          *m_expr.get());
+      return *m_expr.get();
     } else {
-      return std::get<T>(*m_expr.get());
+      return static_cast<T &>(*m_expr.get());
     }
   }
 
   template <typename T = ExprBase> constexpr inline const auto &get() const {
     if constexpr (std::is_same_v<T, ExprBase>) {
-      return std::visit(
-          [](auto &type) -> ExprBase const & {
-            return static_cast<ExprBase const &>(type);
-          },
-          *m_expr.get());
+      return *m_expr.get();
     } else {
-      return std::get<T>(*m_expr.get());
+      return static_cast<const T &>(*m_expr.get());
     }
   }
 
   constexpr inline bool is_valid() const { return static_cast<bool>(m_expr); }
 
-  constexpr inline expression_holder operator-() {
-    return expression_details<ExprBase>::negative(*this);
-  }
+  constexpr inline expression_holder operator-() { return detail::neg(*this); }
 
   constexpr inline expression_holder operator-() const {
-    return expression_details<ExprBase>::negative(*this);
+    return detail::neg(*this);
   }
 
   constexpr inline auto free() { return m_expr.reset(); }
@@ -167,7 +153,11 @@ private:
 template <typename _ExprBase>
 bool operator<(expression_holder<_ExprBase> const &lhs,
                expression_holder<_ExprBase> const &rhs) {
-  return compare_less_visitor().template operator()<_ExprBase>(lhs, rhs);
+  if (lhs.get().hash_value() != rhs.get().hash_value())
+    return lhs.get().hash_value() < rhs.get().hash_value();
+
+  return static_cast<const void *>(std::addressof(lhs.get())) <
+         static_cast<const void *>(std::addressof(rhs.get()));
 }
 
 template <typename _ExprBase>
@@ -179,7 +169,7 @@ bool operator>(expression_holder<_ExprBase> const &lhs,
 template <typename _ExprBase>
 bool operator==(expression_holder<_ExprBase> const &lhs,
                 expression_holder<_ExprBase> const &rhs) {
-  return std::visit(compare_equal_visitor(), *lhs, *rhs);
+  return *lhs == *rhs;
 }
 
 template <typename _ExprBase>

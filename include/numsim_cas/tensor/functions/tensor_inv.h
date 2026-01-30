@@ -5,11 +5,9 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class tensor_inv final
-    : public unary_op<tensor_inv<ValueType>, tensor_expression<ValueType>> {
+class tensor_inv final : public unary_op<tensor_inv, tensor_expression> {
 public:
-  using base = unary_op<tensor_inv<ValueType>, tensor_expression<ValueType>>;
+  using base = unary_op<tensor_inv, tensor_expression>;
 
   template <typename Expr>
   explicit tensor_inv(Expr &&_expr)

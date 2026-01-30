@@ -1,9 +1,6 @@
 #ifndef CAS_TEST_HELPERS_H
 #define CAS_TEST_HELPERS_H
 
-// cas_test_helpers.h
-#pragma once
-
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
 
@@ -40,64 +37,67 @@ template <class E> inline std::string S(const E &e) {
   EXPECT_EQ(::testcas::S((lhs)), ::testcas::S((rhs)))
 #endif
 
-// ---------- Scalar fixture --------------------------------------------------
-template <typename T> struct ScalarFixture : ::testing::Test {
-  using value_type = T;
-  using scalar_expr =
-      numsim::cas::expression_holder<numsim::cas::scalar_expression<T>>;
+// ---------- Scalar fixture--------------------------------------------------
+// template <typename T>
+// struct ScalarFixture : ::testing::Test {
+//   using value_type = T;
+//   using scalar_expr =
+//       numsim::cas::expression_holder<numsim::cas::scalar_expression<T>>;
 
-  scalar_expr x, y, z;
-  scalar_expr a, b, c, d;
-  scalar_expr _1, _2, _3;
-  scalar_expr _zero{numsim::cas::get_scalar_zero<T>()};
-  scalar_expr _one{numsim::cas::get_scalar_one<T>()};
+//   scalar_expr x, y, z;
+//   scalar_expr a, b, c, d;
+//   scalar_expr _1, _2, _3;
+//   scalar_expr _zero{numsim::cas::get_scalar_zero<T>()};
+//   scalar_expr _one{numsim::cas::get_scalar_one<T>()};
 
-  ScalarFixture() {
-    std::tie(x, y, z) = numsim::cas::make_scalar_variable<T>("x", "y", "z");
-    std::tie(a, b, c, d) =
-        numsim::cas::make_scalar_variable<T>("a", "b", "c", "d");
-    std::tie(_1, _2, _3) = numsim::cas::make_scalar_constant<T>(1, 2, 3);
-  }
-};
+//   ScalarFixture() {
+//     std::tie(x, y, z) = numsim::cas::make_scalar_variable<T>("x", "y", "z");
+//     std::tie(a, b, c, d) =
+//         numsim::cas::make_scalar_variable<T>("a", "b", "c", "d");
+//     std::tie(_1, _2, _3) = numsim::cas::make_scalar_constant<T>(1, 2, 3);
+//   }
+// };
 
-// ---------- Tensor fixture --------------------------------------------------
-// Provides: 2nd-order X,Y,Z; 4th-order A,B,C; scalars x,y,z,a,b,c,_1,_2,_3;
-// identity I (rank-2), and Zero2 (rank-2 zero) for given Dim.
-template <typename T, std::size_t Dim> struct TensorFixture : ::testing::Test {
-  using value_type = T;
-  using tensor_expr =
-      numsim::cas::expression_holder<numsim::cas::tensor_expression<T>>;
-  using scalar_expr =
-      numsim::cas::expression_holder<numsim::cas::scalar_expression<T>>;
+// // ---------- Tensor fixture
+// --------------------------------------------------
+// // Provides: 2nd-order X,Y,Z; 4th-order A,B,C; scalars x,y,z,a,b,c,_1,_2,_3;
+// // identity I (rank-2), and Zero2 (rank-2 zero) for given Dim.
+// template <typename T, std::size_t Dim> struct TensorFixture : ::testing::Test
+// {
+//   using value_type = T;
+//   using tensor_expr =
+//       numsim::cas::expression_holder<numsim::cas::tensor_expression<T>>;
+//   using scalar_expr =
+//       numsim::cas::expression_holder<numsim::cas::scalar_expression<T>>;
 
-  // 2nd order tensors
-  tensor_expr X, Y, Z;
-  // 4th order tensors
-  tensor_expr A, B, C;
+//   // 2nd order tensors
+//   tensor_expr X, Y, Z;
+//   // 4th order tensors
+//   tensor_expr A, B, C;
 
-  // scalars
-  scalar_expr x, y, z, a, b, c, _1, _2, _3;
-  scalar_expr _zero{numsim::cas::get_scalar_zero<T>()};
-  scalar_expr _one{numsim::cas::get_scalar_one<T>()};
+//   // scalars
+//   scalar_expr x, y, z, a, b, c, _1, _2, _3;
+//   scalar_expr _zero{numsim::cas::get_scalar_zero<T>()};
+//   scalar_expr _one{numsim::cas::get_scalar_one<T>()};
 
-  // canonical identities
-  tensor_expr I{
-      numsim::cas::make_expression<numsim::cas::kronecker_delta<T>>(Dim)};
-  tensor_expr Zero2{
-      numsim::cas::make_expression<numsim::cas::tensor_zero<T>>(Dim, 2)};
+//   // canonical identities
+//   tensor_expr I{
+//       numsim::cas::make_expression<numsim::cas::kronecker_delta<T>>(Dim)};
+//   tensor_expr Zero2{
+//       numsim::cas::make_expression<numsim::cas::tensor_zero<T>>(Dim, 2)};
 
-  TensorFixture() {
-    std::tie(X, Y, Z) = numsim::cas::make_tensor_variable<T>(
-        std::tuple{"X", Dim, 2}, std::tuple{"Y", Dim, 2},
-        std::tuple{"Z", Dim, 2});
-    std::tie(A, B, C) = numsim::cas::make_tensor_variable<T>(
-        std::tuple{"A", Dim, 4}, std::tuple{"B", Dim, 4},
-        std::tuple{"C", Dim, 4});
-    std::tie(x, y, z) = numsim::cas::make_scalar_variable<T>("x", "y", "z");
-    std::tie(a, b, c) = numsim::cas::make_scalar_variable<T>("a", "b", "c");
-    std::tie(_1, _2, _3) = numsim::cas::make_scalar_constant<T>(1, 2, 3);
-  }
-};
+//   TensorFixture() {
+//     std::tie(X, Y, Z) = numsim::cas::make_tensor_variable<T>(
+//         std::tuple{"X", Dim, 2}, std::tuple{"Y", Dim, 2},
+//         std::tuple{"Z", Dim, 2});
+//     std::tie(A, B, C) = numsim::cas::make_tensor_variable<T>(
+//         std::tuple{"A", Dim, 4}, std::tuple{"B", Dim, 4},
+//         std::tuple{"C", Dim, 4});
+//     std::tie(x, y, z) = numsim::cas::make_scalar_variable<T>("x", "y", "z");
+//     std::tie(a, b, c) = numsim::cas::make_scalar_variable<T>("a", "b", "c");
+//     std::tie(_1, _2, _3) = numsim::cas::make_scalar_constant<T>(1, 2, 3);
+//   }
+// };
 
 } // namespace testcas
 

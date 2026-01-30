@@ -13,13 +13,12 @@
 
 namespace numsim::cas {
 
-template <typename ValueType> class tensor_differentiation {
+class tensor_differentiation {
 public:
-  using value_type = ValueType;
-  using expr_type = expression_holder<tensor_expression<value_type>>;
+  using expr_type = expression_holder<tensor_expression>;
 
   tensor_differentiation(expr_type const &arg) : m_arg(arg) {
-    I = make_expression<kronecker_delta<value_type>>(m_arg.get().dim());
+    I = make_expression<kronecker_delta>(m_arg.get().dim());
   }
   tensor_differentiation(tensor_differentiation const &) = delete;
   tensor_differentiation(tensor_differentiation &&) = delete;
@@ -32,45 +31,42 @@ public:
       m_dim = expr.get().dim();
       m_rank_result = expr.get().rank() + m_arg.get().rank();
       m_rank_arg = m_arg.get().rank();
-      std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
+      // std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
     }
     if (!m_result.is_valid()) {
-      return make_expression<tensor_zero<value_type>>(m_dim, m_rank_result);
+      return make_expression<tensor_zero>(m_dim, m_rank_result);
     }
     return m_result;
   }
 
-  void operator()([[maybe_unused]] tensor<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] tensor const &visitable) {
     if (&visitable == &m_arg.get()) {
       if (m_rank_result == 2) {
-        m_result = make_expression<kronecker_delta<ValueType>>(m_dim);
+        m_result = make_expression<kronecker_delta>(m_dim);
         return;
       }
 
       // \frac{\partial A_{ijkl...}}{\partial A_{mnop...}} = I_{im} I_{jn}
       // I_{ko} I_{lp} ...
-      m_result =
-          make_expression<identity_tensor<ValueType>>(m_dim, m_rank_result);
+      m_result = make_expression<identity_tensor>(m_dim, m_rank_result);
     }
   }
 
-  void operator()([[maybe_unused]] identity_tensor<ValueType> const &visitable,
+  void operator()([[maybe_unused]] identity_tensor const &visitable,
                   [[maybe_unused]] Precedence parent_precedence) {
-    m_result = make_expression<tensor_zero<ValueType>>(m_dim, m_rank_result);
+    m_result = make_expression<tensor_zero>(m_dim, m_rank_result);
   }
 
-  void operator()([[maybe_unused]] tensor_add<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] tensor_add const &visitable) {
     loop(visitable.hash_map() | std::views::values,
          [&](auto dexpr) { m_result += dexpr; });
   }
 
-  void
-  operator()([[maybe_unused]] tensor_negative<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] tensor_negative const &visitable) {
     m_result = -diff(visitable.expr(), m_arg);
   }
 
-  void operator()(
-      [[maybe_unused]] inner_product_wrapper<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] inner_product_wrapper const &visitable) {
     //    auto& expr_lhs{visitable.expr_lhs()};
     //    auto& expr_rhs{visitable.expr_rhs()};
     //    auto seq_lhs{visitable.sequence_lhs()};
@@ -126,11 +122,11 @@ public:
     //        rhs = std::move(inner_rhs);
     //      }
 
-    //      auto result{make_expression<tensor_add<ValueType>>(m_dim,
+    //      auto result{make_expression<tensor_add>(m_dim,
     //      rank_new)}; result.template
-    //      get<tensor_add<ValueType>>().add_child(std::move(lhs));
+    //      get<tensor_add>().add_child(std::move(lhs));
     //      result.template
-    //      get<tensor_add<ValueType>>().add_child(std::move(rhs)); m_data =
+    //      get<tensor_add>().add_child(std::move(rhs)); m_data =
     //      std::move(result); return;
     //    }
 
@@ -164,8 +160,7 @@ public:
     //    }
   }
 
-  void
-  operator()([[maybe_unused]] basis_change_imp<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] basis_change_imp const &visitable) {
     //    auto expr{visitable.expr()};
     //    const auto &seq{visitable.indices()};
     //    // get derivative
@@ -182,8 +177,7 @@ public:
     //    }
   }
 
-  void operator()(
-      [[maybe_unused]] outer_product_wrapper<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] outer_product_wrapper const &visitable) {
     //    auto expr_lhs{visitable.expr_lhs()};
     //    auto expr_rhs{visitable.expr_rhs()};
     //    auto seq_lhs{visitable.sequence_lhs()};
@@ -216,11 +210,11 @@ public:
     //      auto outer_rhs{outer_product(expr_lhs, indices_lhs,
     //      std::move(diff_rhs),
     //                                   indices_rhs)};
-    //      auto result{make_expression<tensor_add<ValueType>>(m_dim,
+    //      auto result{make_expression<tensor_add>(m_dim,
     //      new_rank)}; result.template
-    //      get<tensor_add<ValueType>>().add_child(std::move(outer_lhs));
+    //      get<tensor_add>().add_child(std::move(outer_lhs));
     //      result.template
-    //      get<tensor_add<ValueType>>().add_child(std::move(outer_rhs)); m_data
+    //      get<tensor_add>().add_child(std::move(outer_rhs)); m_data
     //      = std::move(result); return;
     //    }
 
@@ -255,35 +249,32 @@ public:
     //    }
   }
 
-  void
-  operator()([[maybe_unused]] kronecker_delta<ValueType> const &visitable) {
-    m_result = make_expression<tensor_zero<ValueType>>(m_dim, m_rank_result);
+  void operator()([[maybe_unused]] kronecker_delta const &visitable) {
+    m_result = make_expression<tensor_zero>(m_dim, m_rank_result);
   }
 
-  // void operator()(simple_outer_product<ValueType> &visitable) {}
+  // void operator()(simple_outer_product &visitable) {}
 
   // (scalar*tensor)' = scalar*tensor'
-  void operator()(tensor_scalar_mul<ValueType> const &visitable) {
+  void operator()(tensor_scalar_mul const &visitable) {
     m_result = visitable.expr_lhs() * diff(visitable.expr_rhs(), m_arg);
   }
 
   // (tensor/scalar)' = tensor'/scalar
-  void operator()(tensor_scalar_div<ValueType> const &visitable) {
+  void operator()(tensor_scalar_div const &visitable) {
     m_result = diff(visitable.expr_lhs(), m_arg) / visitable.expr_rhs();
   }
 
   // (tensor_to_scalar*tensor)' = tensor_to_scalar*tensor' +
   // otimes(tensor,tensor_to_scalar')
-  void
-  operator()(tensor_to_scalar_with_tensor_mul<ValueType> const &visitable) {
+  void operator()(tensor_to_scalar_with_tensor_mul const &visitable) {
     m_result = visitable.expr_lhs() * diff(visitable.expr_rhs(), m_arg) +
                otimes(visitable.expr_rhs(), diff(visitable.expr_lhs(), m_arg));
   }
 
   // (tensor/tensor_to_scalar)' = tensor'/tensor_to_scalar -
   // otimes(tensor,tensor_to_scalar') / pow(tensor_to_scalar,2)
-  void
-  operator()(tensor_to_scalar_with_tensor_div<ValueType> const &visitable) {
+  void operator()(tensor_to_scalar_with_tensor_div const &visitable) {
     m_result = diff(visitable.expr_lhs(), m_arg) / visitable.expr_rhs() +
                otimes(visitable.expr_lhs(), diff(visitable.expr_rhs(), m_arg)) /
                    std::pow(visitable.expr_rhs(), 2);
@@ -292,16 +283,15 @@ public:
   // dev(A[X])' = (A[X] - vol(A[X]))'
   //            = (A[X] - trace(A[X])/dim(A)*I)'
   //            =  dAdX - otimes(I,I):dAdX/dim(A)
-  void
-  operator()([[maybe_unused]] tensor_deviatoric<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] tensor_deviatoric const &visitable) {
     auto result{diff(visitable.expr(), m_arg)};
     m_result = result - inner_product(otimes(I, I), sequence{3, 4}, result,
                                       sequence{1, 2}) /
-                            static_cast<value_type>(m_dim);
+                            static_cast(m_dim);
   }
 
   // (vol(A[X]))' = (trace(A[X])*I/dim(A))' = otimes(I,I):dAdX/dim(A)
-  void operator()(tensor_volumetric<ValueType> const &visitable) {
+  void operator()(tensor_volumetric const &visitable) {
     auto result{diff(visitable.expr(), m_arg)};
     // 0.5 * I_ij * I_kl * (I_km * I_ln + I_kn * I_lm)
     // 0.5 * I_ij * (I_lm * I_ln + I_ln * I_lm)
@@ -313,31 +303,30 @@ public:
 
   // rank() == 2
   // rank() == 4
-  void operator()(tensor_inv<ValueType> const &) {}
+  void operator()(tensor_inv const &) {}
 
-  void operator()(tensor_symmetry<ValueType> const &visitable) {
+  void operator()(tensor_symmetry const &visitable) {
     auto result{diff(visitable.expr(), m_arg)};
     if (result.is_valid()) {
       // ijkl    --> ikjl    + iljk
       // 1,2,3,4 --> 1,3,2,4 + 1,4,2,3
-      m_result = static_cast<ValueType>(0.5) *
-                 (result + permute_indices(result, sequence{1, 4, 3, 2}));
+      m_result = 0.5 * (result + permute_indices(result, sequence{1, 4, 3, 2}));
     }
     //    auto
-    //    divisor{make_expression<scalar_constant<ValueType>>(visitable.symmetries().size()+1)};
-    //    auto add{make_expression<tensor_add<ValueType>>(visitable.dim(),
-    //    visitable.rank())}; tensor_differentiation<ValueType> diff(m_arg);
+    //    divisor{make_expression<scalar_constant>(visitable.symmetries().size()+1)};
+    //    auto add{make_expression<tensor_add>(visitable.dim(),
+    //    visitable.rank())}; tensor_differentiation diff(m_arg);
     //    add.template
-    //    get<tensor_add<ValueType>>().add_child(diff.apply(visitable.expr()));
+    //    get<tensor_add>().add_child(diff.apply(visitable.expr()));
     //    for(const auto& sym : visitable.symmetries()){
-    //      tensor_differentiation<ValueType> diff(m_arg);
+    //      tensor_differentiation diff(m_arg);
     //      auto
-    //      basis{make_expression<basis_change_imp<ValueType>>(visitable.expr(),
+    //      basis{make_expression<basis_change_imp>(visitable.expr(),
     //      sym)}; add.template
-    //      get<tensor_add<ValueType>>().add_child(diff.apply(basis));
+    //      get<tensor_add>().add_child(diff.apply(basis));
     //    }
     //    auto
-    //    result{make_expression<tensor_scalar_div<ValueType>>(std::move(divisor),
+    //    result{make_expression<tensor_scalar_div>(std::move(divisor),
     //    std::move(add))}; m_data = std::move(result);
   }
 
@@ -348,15 +337,14 @@ public:
   //                    = I_io * I_mp * A_mj + A_im * I_mo * I_jp
   //                    = I_io * I_pm * A_mj + A_im * I_mo * I_jp
   //                    = I_io * A_pj + A_io * I_jp
-  void operator()([[maybe_unused]] tensor_pow<ValueType> const &visitable) {
-    m_result = make_expression<tensor_power_diff<ValueType>>(
-        visitable.expr_lhs(), visitable.expr_rhs());
+  void operator()([[maybe_unused]] tensor_pow const &visitable) {
+    m_result = make_expression<tensor_power_diff>(visitable.expr_lhs(),
+                                                  visitable.expr_rhs());
   }
 
   // A^n = A*A*A...
   // sum_r^n otimesu(pow(expr, r), pow(expr, (n-1)-r)), n := scalar expr \in N
-  void
-  operator()([[maybe_unused]] tensor_power_diff<ValueType> const &visitable) {
+  void operator()([[maybe_unused]] tensor_power_diff const &visitable) {
     assert(0);
   }
 
@@ -416,7 +404,7 @@ private:
       std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
       return m_result;
     } else {
-      return make_expression<tensor_zero<value_type>>(m_dim, m_rank_result);
+      return make_expression<tensor_zero>(m_dim, m_rank_result);
     }
   }
 

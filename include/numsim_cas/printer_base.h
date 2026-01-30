@@ -1,8 +1,8 @@
 #ifndef PRINTER_BASE_H
 #define PRINTER_BASE_H
 
-#include "numsim_cas_forward.h"
 #include <algorithm>
+#include <numsim_cas/scalar/scalar_definitions.h>
 #include <string_view>
 
 namespace numsim::cas {
@@ -75,7 +75,7 @@ protected:
   template <typename Visitable>
   void print_unary(std::string_view name, Visitable const &visitable) noexcept {
     m_out << name << "(";
-    print(m_out, visitable.expr());
+    static_cast<Derived &>(*this).apply(visitable.expr());
     m_out << ")";
   }
 

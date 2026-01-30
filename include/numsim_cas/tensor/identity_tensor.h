@@ -5,13 +5,11 @@
 #include "tensor_expression.h"
 
 namespace numsim::cas {
-template <typename ValueType>
+
 class identity_tensor final
-    : public expression_crtp<identity_tensor<ValueType>,
-                             tensor_expression<ValueType>> {
+    : public expression_crtp<identity_tensor, tensor_expression> {
 public:
-  using base =
-      expression_crtp<identity_tensor<ValueType>, tensor_expression<ValueType>>;
+  using base = expression_crtp<identity_tensor, tensor_expression>;
 
   identity_tensor() = delete;
   identity_tensor(std::size_t dim, std::size_t rank) : base(dim, rank) {}
@@ -22,45 +20,31 @@ public:
   ~identity_tensor() = default;
   const identity_tensor &operator=(identity_tensor &&) = delete;
 
-  template <typename _ValueType>
-  friend bool operator<(identity_tensor<_ValueType> const &lhs,
-                        identity_tensor<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator>(identity_tensor<_ValueType> const &lhs,
-                        identity_tensor<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator==(identity_tensor<_ValueType> const &lhs,
-                         identity_tensor<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator!=(identity_tensor<_ValueType> const &lhs,
-                         identity_tensor<_ValueType> const &rhs);
+  friend bool operator<(identity_tensor const &lhs, identity_tensor const &rhs);
+  friend bool operator>(identity_tensor const &lhs, identity_tensor const &rhs);
+  friend bool operator==(identity_tensor const &lhs,
+                         identity_tensor const &rhs);
+  friend bool operator!=(identity_tensor const &lhs,
+                         identity_tensor const &rhs);
 
   virtual void update_hash_value() const override {
     hash_combine(base::m_hash_value, base::get_id());
   }
 };
 
-template <typename ValueType>
-bool operator<(identity_tensor<ValueType> const &lhs,
-               identity_tensor<ValueType> const &rhs) {
+bool operator<(identity_tensor const &lhs, identity_tensor const &rhs) {
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename ValueType>
-bool operator>(identity_tensor<ValueType> const &lhs,
-               identity_tensor<ValueType> const &rhs) {
-  return !(lhs < rhs);
+bool operator>(identity_tensor const &lhs, identity_tensor const &rhs) {
+  return rhs < lhs;
 }
 
-template <typename ValueType>
-bool operator==(identity_tensor<ValueType> const &lhs,
-                identity_tensor<ValueType> const &rhs) {
+bool operator==(identity_tensor const &lhs, identity_tensor const &rhs) {
   return lhs.hash_value() == rhs.hash_value();
 }
 
-template <typename ValueType>
-bool operator!=(identity_tensor<ValueType> const &lhs,
-                identity_tensor<ValueType> const &rhs) {
+bool operator!=(identity_tensor const &lhs, identity_tensor const &rhs) {
   return !(lhs == rhs);
 }
 } // namespace numsim::cas

@@ -1,60 +1,34 @@
 #ifndef SCALAR_H
 #define SCALAR_H
 
-#include "../numsim_cas_type_traits.h"
-#include "../symbol_base.h"
-#include "scalar_expression.h"
+#include <numsim_cas/core/symbol_base.h>
+#include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
 
-// expression
-// expression_crtp<scalar_expr>
-//
-
-template <typename ValueType>
-class scalar final
-    : public symbol_base<scalar_expression<ValueType>, scalar<ValueType>>
-///*scalar<ValueType>, */scalar_expression<ValueType>>, public
-{
+class scalar final : public symbol_base<scalar_node_base_t<scalar>> {
 public:
-  using base_expr =
-      symbol_base<scalar_expression<ValueType>, scalar<ValueType>>;
+  using base_t = symbol_base<scalar_node_base_t<scalar>>;
+  using expr_t = typename base_t::expr_t;
 
-  explicit scalar(std::string const &name) : base_expr(name), m_data() {}
+  explicit scalar(std::string const &name) : base_t(name) {}
 
   explicit scalar(scalar const &data) = delete;
 
   explicit scalar(scalar &&data)
-      : base_expr(std::move(static_cast<base_expr &&>(data))), m_data() {}
+      : base_t(std::move(static_cast<base_t &&>(data))) {}
 
-  using base_expr::operator=;
-  // using symbol_base<scalar, scalar_expression<ValueType>>::operator-;
-  // using symbol_base<scalar, scalar_expression<ValueType>>::operator+=;
-
-  template <typename T,
-            std::enable_if_t<std::is_same_v<ValueType, T>, bool> = true>
-  const scalar &operator=(T const &data) {
-    m_data = data;
-    return *this;
-  }
+  using base_t::operator=;
 
   const scalar &operator=(scalar const &data) {
     this->m_name = data.name();
-    m_data = data;
     return *this;
   }
 
   const scalar &operator=(scalar &&data) {
     this->m_name = data.name();
-    m_data = data;
     return *this;
   }
-
-  const auto &data() const { return m_data; }
-  auto &data() { return m_data; }
-
-private:
-  ValueType m_data;
 };
 
 } // namespace numsim::cas

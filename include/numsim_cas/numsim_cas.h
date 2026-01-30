@@ -90,11 +90,11 @@
 ///
 ///
 
-// generall
-#include "expression.h"
-#include "functions.h"
-#include "numsim_cas_type_traits.h"
-#include "utility_func.h"
+// // generall
+// #include "expression.h"
+// #include "functions.h"
+// #include "numsim_cas_type_traits.h"
+// #include "utility_func.h"
 
 // scalar expression
 #include "scalar/scalar.h"
@@ -103,11 +103,14 @@
 #include "scalar/scalar_add.h"
 #include "scalar/scalar_asin.h"
 #include "scalar/scalar_atan.h"
+#include "scalar/scalar_compare_less_visitor.h"
 #include "scalar/scalar_constant.h"
 #include "scalar/scalar_cos.h"
 #include "scalar/scalar_div.h"
 #include "scalar/scalar_exp.h"
+#include "scalar/scalar_expression.h"
 #include "scalar/scalar_function.h"
+#include "scalar/scalar_functions.h"
 #include "scalar/scalar_globals.h"
 #include "scalar/scalar_log.h"
 #include "scalar/scalar_mul.h"
@@ -117,122 +120,123 @@
 #include "scalar/scalar_sign.h"
 #include "scalar/scalar_sin.h"
 #include "scalar/scalar_sqrt.h"
-#include "scalar/scalar_std.h"
 #include "scalar/scalar_tan.h"
 #include "scalar/scalar_visitor_typedef.h"
 #include "scalar/scalar_zero.h"
 
-#include "scalar/scalar_compare_less_visitor.h"
 #include "scalar/scalar_operators.h"
+#include "scalar/scalar_std.h"
 #include "scalar/visitors/scalar_differentiation.h"
 #include "scalar/visitors/scalar_evaluator.h"
 #include "scalar/visitors/scalar_printer.h"
+#include <numsim_cas/scalar/scalar_binary_simplify_imp.h>
+#include <numsim_cas/scalar/scalar_diff.h>
 
-// tensor expression
-#include "tensor/functions/basis_change.h"
-#include "tensor/functions/inner_product_wrapper.h"
-#include "tensor/functions/outer_product_wrapper.h"
-#include "tensor/functions/simple_outer_product.h"
-#include "tensor/functions/tensor_deviatoric.h"
-#include "tensor/functions/tensor_inv.h"
-#include "tensor/functions/tensor_pow.h"
-#include "tensor/functions/tensor_power_diff.h"
-#include "tensor/functions/tensor_symmetry.h"
-#include "tensor/functions/tensor_volumetric.h"
-#include "tensor/identity_tensor.h"
-#include "tensor/operators/scalar/tensor_scalar_div.h"
-#include "tensor/operators/scalar/tensor_scalar_mul.h"
-#include "tensor/operators/tensor/tensor_add.h"
-#include "tensor/operators/tensor/tensor_mul.h"
-#include "tensor/operators/tensor/tensor_sub.h"
-#include "tensor/operators/tensor_to_scalar/tensor_to_scalar_with_tensor_div.h"
-#include "tensor/operators/tensor_to_scalar/tensor_to_scalar_with_tensor_mul.h"
-#include "tensor/projection_tensor.h"
-#include "tensor/scalar_tensor_op.h"
-#include "tensor/tensor.h"
-#include "tensor/tensor_compare_less_visitor.h"
-#include "tensor/tensor_functions.h"
-#include "tensor/tensor_globals.h"
-#include "tensor/tensor_operators.h"
-#include "tensor/tensor_std.h"
-#include "tensor/tensor_zero.h"
-#include "tensor/visitors/tensor_differentiation.h"
-#include "tensor/visitors/tensor_printer.h"
+// // tensor expression
+// #include "tensor/functions/basis_change.h"
+// #include "tensor/functions/inner_product_wrapper.h"
+// #include "tensor/functions/outer_product_wrapper.h"
+// #include "tensor/functions/simple_outer_product.h"
+// #include "tensor/functions/tensor_deviatoric.h"
+// #include "tensor/functions/tensor_inv.h"
+// #include "tensor/functions/tensor_pow.h"
+// #include "tensor/functions/tensor_power_diff.h"
+// #include "tensor/functions/tensor_symmetry.h"
+// #include "tensor/functions/tensor_volumetric.h"
+// #include "tensor/identity_tensor.h"
+// #include "tensor/operators/scalar/tensor_scalar_div.h"
+// #include "tensor/operators/scalar/tensor_scalar_mul.h"
+// #include "tensor/operators/tensor/tensor_add.h"
+// #include "tensor/operators/tensor/tensor_mul.h"
+// #include "tensor/operators/tensor/tensor_sub.h"
+// #include
+// "tensor/operators/tensor_to_scalar/tensor_to_scalar_with_tensor_div.h"
+// #include
+// "tensor/operators/tensor_to_scalar/tensor_to_scalar_with_tensor_mul.h"
+// #include "tensor/projection_tensor.h"
+// #include "tensor/scalar_tensor_op.h"
+// #include "tensor/tensor.h"
+// #include "tensor/tensor_compare_less_visitor.h"
+// #include "tensor/tensor_functions.h"
+// #include "tensor/tensor_globals.h"
+// #include "tensor/tensor_operators.h"
+// #include "tensor/tensor_std.h"
+// #include "tensor/tensor_zero.h"
+// #include "tensor/visitors/tensor_differentiation.h"
+// #include "tensor/visitors/tensor_printer.h"
 
-// tensor based scalar expression
-#include "tensor_to_scalar/tensor_det.h"
-#include "tensor_to_scalar/tensor_dot.h"
-#include "tensor_to_scalar/tensor_inner_product_to_scalar.h"
-#include "tensor_to_scalar/tensor_norm.h"
-#include "tensor_to_scalar/tensor_to_scalar_expression.h"
-#include "tensor_to_scalar/tensor_to_scalar_functions.h"
-#include "tensor_to_scalar/tensor_to_scalar_log.h"
-#include "tensor_to_scalar/tensor_to_scalar_negative.h"
-#include "tensor_to_scalar/tensor_to_scalar_one.h"
-#include "tensor_to_scalar/tensor_to_scalar_operators.h"
-#include "tensor_to_scalar/tensor_to_scalar_pow.h"
-#include "tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h"
-#include "tensor_to_scalar/tensor_to_scalar_std.h"
-#include "tensor_to_scalar/tensor_to_scalar_zero.h"
-#include "tensor_to_scalar/tensor_trace.h"
-#include "tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h"
+// // tensor based scalar expression
+// #include "tensor_to_scalar/tensor_det.h"
+// #include "tensor_to_scalar/tensor_dot.h"
+// #include "tensor_to_scalar/tensor_inner_product_to_scalar.h"
+// #include "tensor_to_scalar/tensor_norm.h"
+// #include "tensor_to_scalar/tensor_to_scalar_expression.h"
+// #include "tensor_to_scalar/tensor_to_scalar_functions.h"
+// #include "tensor_to_scalar/tensor_to_scalar_log.h"
+// #include "tensor_to_scalar/tensor_to_scalar_negative.h"
+// #include "tensor_to_scalar/tensor_to_scalar_one.h"
+// #include "tensor_to_scalar/tensor_to_scalar_operators.h"
+// #include "tensor_to_scalar/tensor_to_scalar_pow.h"
+// #include "tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h"
+// #include "tensor_to_scalar/tensor_to_scalar_std.h"
+// #include "tensor_to_scalar/tensor_to_scalar_zero.h"
+// #include "tensor_to_scalar/tensor_trace.h"
+// #include "tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h"
 
-// generall headers
-#include "operators.h"
+// // generall headers
+// #include "operators.h"
 
-#include "basic_functions.h"
-#include "functions.h"
-#include "scalar/scalar_operators.h"
-#include "scalar/scalar_std.h"
+// #include "basic_functions.h"
+// #include "functions.h"
+// #include "scalar/scalar_operators.h"
+// #include "scalar/scalar_std.h"
 
-namespace std {
-template <typename... Args>
-struct hash<numsim::cas::expression_holder<Args...>> {
-  using type_t = numsim::cas::expression_holder<Args...>;
-  std::size_t operator()(const type_t &expr) const noexcept {
-    return expr.get().hash_value();
-  }
-};
-} // namespace std
+// namespace std {
+// template <typename... Args>
+// struct hash<numsim::cas::expression_holder<Args...>> {
+//   using type_t = numsim::cas::expression_holder<Args...>;
+//   std::size_t operator()(const type_t &expr) const noexcept {
+//     return expr.get().hash_value();
+//   }
+// };
+// } // namespace std
 
-namespace numsim::cas {
+// namespace numsim::cas {
 
-template <typename ValueType>
-auto diff(expression_holder<tensor_expression<ValueType>> &expr,
-          expression_holder<tensor_expression<ValueType>> &arg) {
-  tensor_differentiation<ValueType> diff(arg);
-  return diff.apply(expr);
-}
-
-// template<typename ValueType>
-// auto diff(expression_holder<scalar_expression<ValueType>> & expr,
-// expression_holder<scalar_expression<ValueType>> & arg){
-//   scalar_differentiation<ValueType> diff(arg);
+// auto diff(expression_holder<tensor_expression> &expr,
+//           expression_holder<tensor_expression> &arg) {
+//   tensor_differentiation diff(arg);
 //   return diff.apply(expr);
 // }
 
-template <typename ValueType>
-std::unordered_map<expression_holder<scalar_expression<ValueType>>,
-                   std::vector<expression_holder<scalar_expression<ValueType>>>>
-group_by_common_factors(scalar_add<ValueType> &expr) {
-  using expr_type =
-      expression_holder<numsim::cas::scalar_expression<ValueType>>;
-  std::unordered_map<expr_type, std::vector<expr_type>> common_factors;
+// // template<typename ValueType>
+// // auto diff(expression_holder<scalar_expression<ValueType>> & expr,
+// // expression_holder<scalar_expression<ValueType>> & arg){
+// //   scalar_differentiation<ValueType> diff(arg);
+// //   return diff.apply(expr);
+// // }
 
-  for (auto &term : expr) {
-    if (is_same<scalar_mul<ValueType>>(term.get())) {
-      // Look for factors inside multiplication terms
-      auto &mul_expr = term.template get<scalar_mul<ValueType>>();
-      for (auto &factor : mul_expr) {
-        // Group by the factor, e.g., if the factor is 'x', store all terms
-        // involving 'x'
-        common_factors[factor].push_back(term);
-      }
-    }
-  }
+// std::unordered_map<expression_holder<scalar_expression>,
+//                    std::vector<expression_holder<scalar_expression>>>
+// group_by_common_factors(scalar_add &expr) {
+//   using expr_type =
+//       expression_holder<numsim::cas::scalar_expression>;
+//   std::unordered_map<expr_type, std::vector<expr_type>> common_factors;
 
-  return common_factors;
-}
+//   for (auto &term : expr) {
+//     if (is_same<scalar_mul>(term.get())) {
+//       // Look for factors inside multiplication terms
+//       auto &mul_expr = term.template get<scalar_mul>();
+//       for (auto &factor : mul_expr) {
+//         // Group by the factor, e.g., if the factor is 'x', store all terms
+//         // involving 'x'
+//         common_factors[factor].push_back(term);
+//       }
+//     }
+//   }
 
-} // Namespace numsim::cas
+//   return common_factors;
+// }
+
+// } // Namespace numsim::cas
 #endif // NUMSIM_CAS_H

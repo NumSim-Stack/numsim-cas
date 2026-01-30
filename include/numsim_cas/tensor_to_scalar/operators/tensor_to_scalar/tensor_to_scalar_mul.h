@@ -7,13 +7,10 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_to_scalar_mul final
-    : public n_ary_tree<tensor_to_scalar_expression<ValueType>,
-                        tensor_to_scalar_mul<ValueType>> {
+    : public n_ary_tree<tensor_to_scalar_expression, tensor_to_scalar_mul> {
 public:
-  using base = n_ary_tree<tensor_to_scalar_expression<ValueType>,
-                          tensor_to_scalar_mul<ValueType>>;
+  using base = n_ary_tree<tensor_to_scalar_expression, tensor_to_scalar_mul>;
   using base::base;
 
   tensor_to_scalar_mul() : base() {}

@@ -5,13 +5,10 @@
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_to_scalar_negative final
-    : public unary_op<tensor_to_scalar_negative<ValueType>,
-                      tensor_to_scalar_expression<ValueType>> {
+    : public unary_op<tensor_to_scalar_negative, tensor_to_scalar_expression> {
 public:
-  using base = unary_op<tensor_to_scalar_negative<ValueType>,
-                        tensor_to_scalar_expression<ValueType>>;
+  using base = unary_op<tensor_to_scalar_negative, tensor_to_scalar_expression>;
 
   using base::base;
   tensor_to_scalar_negative(tensor_to_scalar_negative &&data)
