@@ -31,8 +31,6 @@
 
 namespace numsim::cas {
 
-using sequence = std::vector<std::size_t>;
-
 namespace detail {
 struct expression_comparator {
   template <typename LHS, typename RHS>
@@ -159,36 +157,6 @@ using tensor_data_eval_up_binary =
 class expression;
 template <typename ExprType> class n_ary_tree;
 
-// tensor
-// tensor_fundamentals := {symbol, 0, 1, constant}
-// tensor_basic_operators := {+,-,*,/,negative}
-// multiplication --> inner product of most right and most left index
-// only devision by scalar
-// tensor_product_functions := {inner, outer, simple_outer}
-class tensor;
-class tensor_expression;
-class tensor_add;
-class tensor_mul;
-class tensor_pow;
-class tensor_power_diff;
-class tensor_negative;
-class inner_product_wrapper;
-class basis_change_imp;
-class outer_product_wrapper;
-class kronecker_delta;
-class simple_outer_product;
-class tensor_symmetry;
-class tensor_deviatoric;
-class tensor_volumetric;
-class tensor_inv;
-class tensor_zero;
-class identity_tensor;
-class tensor_projector;
-class tensor_scalar_mul;
-class tensor_scalar_div;
-class tensor_to_scalar_with_tensor_mul;
-class tensor_to_scalar_with_tensor_div;
-// det, adj, skew, vol, dev,
 //
 // using tensor_node =
 //     std::variant<tensor<ValueType>, tensor_negative<ValueType>,
@@ -267,13 +235,13 @@ class tensor_to_scalar_negative;
 class tensor_to_scalar_add;
 class tensor_to_scalar_mul;
 class tensor_to_scalar_div;
-class tensor_to_scalar_with_scalar_add;
-class tensor_to_scalar_with_scalar_mul;
-//  class tensor_to_scalar_with_scalar_sub;
-class tensor_to_scalar_with_scalar_div;
-class scalar_with_tensor_to_scalar_div;
+// class tensor_to_scalar_with_scalar_add;
+// class tensor_to_scalar_with_scalar_mul;
+//   class tensor_to_scalar_with_scalar_sub;
+// class tensor_to_scalar_with_scalar_div;
+// class scalar_with_tensor_to_scalar_div;
 class tensor_to_scalar_pow;
-class tensor_to_scalar_pow_with_scalar_exponent;
+// class tensor_to_scalar_pow_with_scalar_exponent;
 class tensor_inner_product_to_scalar;
 class tensor_to_scalar_zero;
 class tensor_to_scalar_one;

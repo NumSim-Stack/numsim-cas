@@ -1,15 +1,11 @@
 #ifndef N_ARY_VECTOR_H
 #define N_ARY_VECTOR_H
 
-#include "expression_crtp.h"
-#include "get_hash_scalar.h"
-#include "is_symbol.h"
-#include "numsim_cas_forward.h"
-#include "numsim_cas_type_traits.h"
-#include <numsim_cas/expression_holder.h>
-#include <numsim_cas/hash_functions.h>
-
-#include <memory>
+#include <numsim_cas/core/expression_holder.h>
+#include <numsim_cas/core/hash_functions.h>
+#include <numsim_cas/is_symbol.h>
+#include <numsim_cas/numsim_cas_forward.h>
+#include <numsim_cas/numsim_cas_type_traits.h>
 #include <vector>
 
 namespace numsim::cas {
@@ -18,7 +14,6 @@ template <typename Base> class n_ary_vector : public Base {
 public:
   using base_t = Base;
   using expr_t = typename base_t::expr_t;
-  using hash_t = typename expr_t::hash_t;
   using expr_holder_t = expression_holder<expr_t>;
   using iterator = typename umap<expr_holder_t>::iterator;
   using const_iterator = typename umap<expr_holder_t>::const_iterator;
@@ -99,7 +94,7 @@ protected:
     hash_combine(this->m_hash_value, base_t::get_id());
 
     for (const auto &child : m_data) {
-      child_hashes.push_back(get_hash_value(child));
+      child_hashes.push_back(child.get().hash_value());
     }
 
     // Sort for commutative operations like addition

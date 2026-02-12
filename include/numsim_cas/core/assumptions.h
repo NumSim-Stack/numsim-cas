@@ -3,9 +3,13 @@
 
 #include <numsim_cas/core/core_fwd.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
+#include <numsim_cas/tensor/sequence.h>
 #include <set>
 #include <variant>
 #include <vector>
+
+// split assumptions into scalar, tensor and tensor to scalar
+// use object oriented approach to make it more flexible
 
 namespace numsim::cas {
 
@@ -54,9 +58,9 @@ inline int cmp_vecseq(const std::vector<sequence> &A,
                       const std::vector<sequence> &B) {
   const auto n = std::min(A.size(), B.size());
   for (std::size_t i = 0; i < n; ++i) {
-    if (A[i] == B[i])
+    if (A[i].indices() == B[i].indices())
       continue;
-    return A[i] < B[i] ? -1 : 1;
+    return A[i].indices() < B[i].indices() ? -1 : 1;
   }
   if (A.size() == B.size())
     return 0;

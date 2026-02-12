@@ -1,150 +1,157 @@
-// #ifndef TENSORTOSCALAREXPRESSIONTEST_H
-// #define TENSORTOSCALAREXPRESSIONTEST_H
+#ifndef TENSORTOSCALAREXPRESSIONTEST_H
+#define TENSORTOSCALAREXPRESSIONTEST_H
 
-// #include "cas_test_helpers.h"
-// #include "numsim_cas/numsim_cas.h"
-// #include "gtest/gtest.h"
-// #include <cmath>
+#include "cas_test_helpers.h"
+#include "numsim_cas/numsim_cas.h"
+#include "gtest/gtest.h"
 
-// using std::pow;
+namespace {
 
-// // A tiny carrier for scalar type + dimension
-// namespace testcas::types {
-// template <typename T, std::size_t D> struct TD {
-//   using scalar = T;
-//   static constexpr std::size_t dim = D;
-// };
-// } // namespace testcas::types
+using TestDims = ::testing::Types<std::integral_constant<std::size_t, 1>,
+                                  std::integral_constant<std::size_t, 2>,
+                                  std::integral_constant<std::size_t, 3>>;
 
-// // Make the fixture accept exactly one TypeParam
-// template <class P>
-// using TF = testcas::TensorFixture<typename P::scalar, P::dim>;
+} // namespace
 
-// // Build the type list with the carrier
-// using TensorTypes =
-//     ::testing::Types<testcas::types::TD<float, 1>, testcas::types::TD<float,
-//     2>,
-//                      testcas::types::TD<float, 3>, testcas::types::TD<int,
-//                      1>, testcas::types::TD<int, 2>, testcas::types::TD<int,
-//                      3>, testcas::types::TD<double, 1>,
-//                      testcas::types::TD<double, 2>,
-//                      testcas::types::TD<double, 3>>;
+template <typename DimTag>
+class TensorToScalarExpressionTest : public ::testing::Test {
+protected:
+  static constexpr std::size_t Dim = DimTag::value;
 
-// // Register the suite
-// TYPED_TEST_SUITE(TF, TensorTypes);
+  using tensor_t =
+      numsim::cas::expression_holder<numsim::cas::tensor_expression>;
+  using scalar_t =
+      numsim::cas::expression_holder<numsim::cas::scalar_expression>;
 
-// // ---------- Basics: print and simple algebra ----------
-// TYPED_TEST(TF, TensorToScalar_Basics_PrintAndAlgebra) {
-//   auto &X = this->X;
+  TensorToScalarExpressionTest() {
+    std::tie(X, Y, Z) = numsim::cas::make_tensor_variable(
+        std::tuple{"X", Dim, 2}, std::tuple{"Y", Dim, 2},
+        std::tuple{"Z", Dim, 2});
 
-//   // Shorthands
-//   auto X_tr = numsim::cas::trace(X);
-//   auto X_norm = numsim::cas::norm(X);
-//   auto X_det = numsim::cas::det(X);
+    std::tie(A, B, C) = numsim::cas::make_tensor_variable(
+        std::tuple{"A", Dim, 4}, std::tuple{"B", Dim, 4},
+        std::tuple{"C", Dim, 4});
 
-//   // Basic print (adjust "tr"→"trace" locally if your printer uses that
-//   token) EXPECT_PRINT(X_tr, "tr(X)"); EXPECT_PRINT(X_norm, "norm(X)");
-//   EXPECT_PRINT(X_det, "det(X)");
+    std::tie(x, y, z) = numsim::cas::make_scalar_variable("x", "y", "z");
+    std::tie(a, b, c) = numsim::cas::make_scalar_variable("a", "b", "c");
 
-//   // Self algebra
-//   EXPECT_PRINT(X_tr + X_tr, "2*tr(X)");
-//   EXPECT_PRINT(X_tr * X_tr, "pow(tr(X),2)");
-//   EXPECT_PRINT(X_tr / X_tr, "tr(X)/tr(X)");
+    // IMPORTANT: do NOT "using std::pow;" in these tests.
+    // Keep constants built through CAS so operator overloads stay in CAS-land.
+    std::tie(_1, _2, _3) = numsim::cas::make_scalar_constant(1, 2, 3);
 
-//   EXPECT_PRINT(X_norm * X_norm, "pow(norm(X),2)");
-//   EXPECT_PRINT(X_det * X_det, "pow(det(X),2)");
-// }
+    _zero = scalar_t{numsim::cas::get_scalar_zero()};
+    _one = scalar_t{numsim::cas::get_scalar_one()};
 
-// // ---------- Mixing with scalar symbols ----------
-// TYPED_TEST(TF, TensorToScalar_WithScalars_OrderingAndPowers) {
-//   auto &X = this->X;
-//   auto &x = this->x;
+    _Zero = tensor_t{
+        numsim::cas::make_expression<numsim::cas::tensor_zero>(Dim, 2)};
+    _One = tensor_t{
+        numsim::cas::make_expression<numsim::cas::kronecker_delta>(Dim)};
+  }
 
-//   auto X_tr = numsim::cas::trace(X);
+  // tensors
+  tensor_t X, Y, Z;
+  tensor_t A, B, C;
 
-//   // Commutativity/canonicalization without depending on a specific order
-//   EXPECT_SAME_PRINT(x + X_tr, X_tr + x);
-//   EXPECT_SAME_PRINT((x + X_tr) + x, 2 * x + X_tr);
-//   EXPECT_SAME_PRINT(x + (X_tr + x), 2 * x + X_tr);
-//   EXPECT_SAME_PRINT((x + X_tr) + X_tr, x + 2 * X_tr);
-//   EXPECT_SAME_PRINT(X_tr + (X_tr + x), x + 2 * X_tr);
-//   EXPECT_SAME_PRINT((X_tr + x) + (X_tr + x), 2 * x + 2 * X_tr);
+  // scalars
+  scalar_t x, y, z;
+  scalar_t a, b, c;
 
-//   // Products + power bumps
-//   EXPECT_SAME_PRINT(x * X_tr, X_tr * x);
-//   EXPECT_PRINT((x * X_tr) * x, "pow(x,2)*tr(X)");
-//   EXPECT_PRINT(x * (X_tr * x), "pow(x,2)*tr(X)");
+  // scalar constants / special
+  scalar_t _1, _2, _3;
+  scalar_t _zero, _one;
 
-//   // Product squared; compare to constructed pow for robustness
-//   EXPECT_SAME_PRINT((X_tr * x) * (X_tr * x),
-//                     pow(x, this->_2) * pow(X_tr, this->_2));
-// }
+  // tensor special
+  tensor_t _Zero, _One;
+};
 
-// // ---------- Division chains with tensor-to-scalar nodes ----------
-// TYPED_TEST(TF, TensorToScalar_Division_ChainsAndSimplify) {
-//   auto &Y = this->Y; // second tensor for variety
-//   auto &_2 = this->_2;
-//   auto &_3 = this->_3;
+TYPED_TEST_SUITE(TensorToScalarExpressionTest, TestDims);
 
-//   using numsim::cas::norm;
-//   using numsim::cas::trace;
+// ---------- Basics: print and simple algebra ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_Basics_PrintAndAlgebra) {
+  auto &X = this->X;
 
-//   auto trY = trace(Y);
-//   auto nY = norm(Y);
+  auto X_tr = numsim::cas::trace(X);
+  auto X_norm = numsim::cas::norm(X);
+  auto X_det = numsim::cas::det(X);
 
-//   // Helpers closely matching the sample from your snippet
-//   auto scalar_tr = (_3 / trY);  // 3/tr(Y)
-//   auto scalar_norm = (_2 / nY); // 2/norm(Y)
-//   auto tr_scalar = trY / _3;    // tr(Y)/3
-//   auto norm_scalar = nY / _2;   // norm(Y)/2
+  EXPECT_PRINT(X_tr, "tr(X)");
+  EXPECT_PRINT(X_norm, "norm(X)");
+  EXPECT_PRINT(X_det, "det(X)");
+  std::cout << X_tr + X_tr << std::endl;
+  std::cout << X_norm + X_norm << std::endl;
+  std::cout << X_det + X_det << std::endl;
+  std::cout << X_tr + X_norm + X_det << std::endl;
 
-//   EXPECT_PRINT(numsim::cas::diff(trace(Y), Y), "I");
-//   EXPECT_PRINT(numsim::cas::diff(trace(Y * Y), Y), "2*I");
-//   EXPECT_PRINT(numsim::cas::diff(numsim::cas::dot(Y), Y), "2*Y");
+  EXPECT_PRINT(X_tr + X_tr, "2*tr(X)");
+  EXPECT_PRINT(X_tr * X_tr, "pow(tr(X),2)");
+  EXPECT_PRINT(X_tr / X_tr, "tr(X)/tr(X)");
 
-//   // Sanity: string form of 3/tr(Y)
-//   EXPECT_PRINT((_3 / trY), "3/tr(Y)");
+  EXPECT_PRINT(X_norm * X_norm, "pow(norm(X),2)");
+  EXPECT_PRINT(X_det * X_det, "pow(det(X),2)");
+}
 
-//   // (3/tr)/(2/norm)  ==  (3*norm)/(2*tr)
-//   EXPECT_SAME_PRINT((_3 / trY) / (_2 / nY), (_3 * nY) / (_2 * trY));
+// ---------- Mixing with scalar symbols ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_WithScalars_OrderingAndPowers) {
+  auto &X = this->X;
+  auto &x = this->x;
 
-//   // (tr/3)/(norm/2) == (2*tr)/(3*norm)
-//   EXPECT_SAME_PRINT(tr_scalar / norm_scalar, (_2 * trY) / (_3 * nY));
+  auto X_tr = numsim::cas::trace(X);
 
-//   // (3/tr)/(norm/2) == (3*2)/(tr*norm)
-//   EXPECT_SAME_PRINT((_3 / trY) / norm_scalar, (_3 * _2) / (trY * nY));
+  std::cout << (x + X_tr) + x << std::endl;
 
-//   // (norm/2)/(3/tr) == (norm*tr)/6
-//   EXPECT_SAME_PRINT(norm_scalar / (_3 / trY), (nY * trY) / (_3 * _2));
+  EXPECT_SAME_PRINT(x + X_tr, X_tr + x);
+  EXPECT_SAME_PRINT((x + X_tr) + x, 2 * x + X_tr);
+  EXPECT_SAME_PRINT(x + (X_tr + x), 2 * x + X_tr);
+  EXPECT_SAME_PRINT((x + X_tr) + X_tr, x + 2 * X_tr);
+  EXPECT_SAME_PRINT(X_tr + (X_tr + x), x + 2 * X_tr);
+  EXPECT_SAME_PRINT((X_tr + x) + (X_tr + x), 2 * x + 2 * X_tr);
 
-//   // norm/2/3 == norm/6
-//   EXPECT_SAME_PRINT(norm_scalar / _3, nY / (_2 * _3));
+  EXPECT_SAME_PRINT(x * X_tr, X_tr * x);
+  EXPECT_PRINT((x * X_tr) * x, "pow(x,2)*tr(X)");
+  EXPECT_PRINT(x * (X_tr * x), "pow(x,2)*tr(X)");
 
-//   // (norm/2)/tr == norm/(2*tr)
-//   EXPECT_SAME_PRINT(norm_scalar / trY, nY / (_2 * trY));
+  // EXPECT_SAME_PRINT((X_tr * x) * (X_tr * x),
+  //                   numsim::cas::pow(x, this->_2) * numsim::cas::pow(X_tr,
+  //                   this->_2));
+}
 
-//   // (2/norm)/3 == 2/(3*norm)
-//   // EXPECT_SAME_PRINT(scalar_norm / _3, _2 / (_3 * nY));
+// ---------- Division chains with tensor-to-scalar nodes ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_Division_ChainsAndSimplify) {
+  auto &Y = this->Y;
+  auto &_2 = this->_2;
+  auto &_3 = this->_3;
 
-//   // (2/norm)/tr == 2/(norm*tr)
-//   EXPECT_SAME_PRINT(scalar_norm / trY, _2 / (nY * trY));
-// }
+  using numsim::cas::norm;
+  using numsim::cas::trace;
 
-// // ---------- Mixed products: scalar * (tensor_to_scalar)^k ----------
-// TYPED_TEST(TF, TensorToScalar_MixedProductsAndPowers) {
-//   auto &X = this->X;
-//   auto &x = this->x;
-//   // auto &_2 = this->_2;
+  auto trY = trace(Y);
+  auto nY = norm(Y);
 
-//   using numsim::cas::trace;
+  auto scalar_norm = (_2 / nY);
+  auto norm_scalar = nY / _2;
 
-//   auto t = trace(X);
+  // EXPECT_PRINT(numsim::cas::diff(trace(Y), Y), "I");
+  // EXPECT_PRINT(numsim::cas::diff(trace(Y * Y), Y), "2*I");
+  // EXPECT_PRINT(numsim::cas::diff(numsim::cas::dot(Y), Y), "2*Y");
 
-//   EXPECT_PRINT(x * t * t, "x*pow(tr(X),2)");
-//   // EXPECT_SAME_PRINT(pow(t, _2) * x, x * pow(t, _2));
-//   // EXPECT_SAME_PRINT(pow(x * t, _2),
-//   //                   pow(x, _2) *
-//   //                       pow(t, _2));
-// }
+  EXPECT_PRINT((_3 / trY), "3/tr(Y)");
+  EXPECT_SAME_PRINT((_3 / trY) / (_2 / nY), (_3 * nY) / (_2 * trY));
+  EXPECT_SAME_PRINT(norm_scalar / (_3 / trY), (nY * trY) / (_3 * _2));
+  EXPECT_SAME_PRINT(norm_scalar / _3, nY / (_2 * _3));
+  EXPECT_SAME_PRINT(scalar_norm / trY, _2 / (nY * trY));
+}
 
-// #endif // TENSORTOSCALAREXPRESSIONTEST_H
+// ---------- Mixed products ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_MixedProductsAndPowers) {
+  auto &X = this->X;
+  auto &x = this->x;
+
+  auto t = numsim::cas::trace(X);
+  EXPECT_PRINT(x * t * t, "x*pow(tr(X),2)");
+}
+
+#endif // TENSORTOSCALAREXPRESSIONTEST_H

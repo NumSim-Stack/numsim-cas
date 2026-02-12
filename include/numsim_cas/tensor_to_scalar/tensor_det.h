@@ -1,17 +1,18 @@
 #ifndef TENSOR_DET_H
 #define TENSOR_DET_H
 
-#include "../unary_op.h"
-#include "tensor_to_scalar_expression.h"
+#include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
 namespace numsim::cas {
 
 class tensor_det final
-    : public unary_op<tensor_det, tensor_to_scalar_expression,
+    : public unary_op<tensor_to_scalar_node_base_t<tensor_det>,
                       tensor_expression> {
 public:
   using base =
-      unary_op<tensor_det, tensor_to_scalar_expression, tensor_expression>;
+      unary_op<tensor_to_scalar_node_base_t<tensor_det>, tensor_expression>;
 
   using base::base;
   tensor_det(tensor_det const &expr) : base(static_cast<base const &>(expr)) {}

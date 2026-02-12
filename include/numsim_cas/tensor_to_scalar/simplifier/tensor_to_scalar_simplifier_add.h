@@ -1,78 +1,89 @@
 #ifndef TENSOR_TO_SCALAR_SIMPLIFIER_ADD_H
 #define TENSOR_TO_SCALAR_SIMPLIFIER_ADD_H
 
-#include "../../functions.h"
-#include "../operators/tensor_to_scalar/tensor_to_scalar_add.h"
-#include "../operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_mul.h"
-#include "../tensor_to_scalar_expression.h"
+#include <numsim_cas/basic_functions.h>
+#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h>
+#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_mul.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
 namespace numsim::cas {
 namespace tensor_to_scalar_detail {
 namespace simplifier {
-template <typename ExprLHS, typename ExprRHS> struct add_default {
-  using expr_type = expression_holder<tensor_to_scalar_expression>;
 
-  add_default(ExprLHS &&lhs, ExprRHS &&rhs)
-      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
+template <typename Derived>
+class add_default : public tensor_to_scalar_visitor_return_expr_t {
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+
+  add_default(expr_holder_t lhs, expr_holder_t rhs)
+      : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
 
   template <typename Expr>
-  [[nodiscard]] constexpr inline auto operator()(Expr const &) noexcept {
+  [[nodiscard]] expr_holder_t dispatch(Expr const &) noexcept {
     return get_default();
   }
 
-  // tensor_to_scalar + tensor_scalar_with_scalar_add -->
-  // tensor_scalar_with_scalar_add
-  [[nodiscard]] constexpr inline auto
-  operator()(tensor_to_scalar_with_scalar_add const &rhs) noexcept {
-    return make_expression<tensor_to_scalar_with_scalar_add>(
-        rhs.expr_lhs(), rhs.expr_rhs() + m_lhs);
-  }
+  // // tensor_to_scalar + tensor_scalar_with_scalar_add -->
+  // // tensor_scalar_with_scalar_add
+  // [[nodiscard]] expr_holder_t
+  // dispatch(tensor_to_scalar_with_scalar_add const &rhs) noexcept {
+  //   return make_expression<tensor_to_scalar_with_scalar_add>(
+  //       rhs.expr_lhs(), rhs.expr_rhs() + m_lhs);
+  // }
 
 protected:
-  [[nodiscard]] constexpr inline auto get_default() noexcept {
+#define NUMSIM_ADD_OVR(T)                                                      \
+  expr_holder_t operator()(T const &n) override {                              \
+    if constexpr (std::is_void_v<Derived>) {                                   \
+      return dispatch(n);                                                      \
+    } else {                                                                   \
+      return static_cast<Derived *>(this)->dispatch(n);                        \
+    }                                                                          \
+  }
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_ADD_OVR, NUMSIM_ADD_OVR)
+#undef NUMSIM_ADD_OVR
+
+  [[nodiscard]] expr_holder_t get_default() noexcept {
     if (m_rhs == m_lhs) {
       return get_default_same();
     }
     return get_default_imp();
   }
 
-  [[nodiscard]] constexpr inline auto get_default_same() noexcept {
-    auto coef{make_expression<scalar_constant>(2)};
-    return make_expression<tensor_to_scalar_with_scalar_mul>(std::move(coef),
-                                                             m_rhs);
+  [[nodiscard]] expr_holder_t get_default_same() noexcept {
+    auto coef{make_expression<tensor_to_scalar_scalar_wrapper>(
+        make_expression<scalar_constant>(2))};
+    auto expr{make_expression<tensor_to_scalar_mul>()};
+    expr.get<tensor_to_scalar_mul>().push_back(std::move(m_rhs));
+    expr.get<tensor_to_scalar_mul>().set_coeff(coef);
+    return expr;
   }
 
-  [[nodiscard]] constexpr inline auto get_default_imp() noexcept {
+  [[nodiscard]] expr_holder_t get_default_imp() noexcept {
     auto add_new{make_expression<tensor_to_scalar_add>()};
     auto &add{add_new.template get<tensor_to_scalar_add>()};
     add.push_back(m_lhs);
     add.push_back(m_rhs);
-    return std::move(add_new);
+    return add_new;
   }
 
-  ExprLHS &&m_lhs;
-  ExprRHS &&m_rhs;
+  expr_holder_t m_lhs;
+  expr_holder_t m_rhs;
 };
 
-template <typename ExprLHS, typename ExprRHS>
-class n_ary_add final : public add_default<ExprLHS, ExprRHS> {
+class n_ary_add final : public add_default<n_ary_add> {
 public:
-  using expr_type = expression_holder<tensor_to_scalar_expression>;
-  using base = add_default<ExprLHS, ExprRHS>;
-  using base::operator();
-  // using base::get_coefficient;
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using base = add_default<n_ary_add>;
+  using base::dispatch;
 
-  n_ary_add(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs.template get<tensor_to_scalar_add>()} {}
+  n_ary_add(expr_holder_t lhs, expr_holder_t rhs);
 
   // merge two expression
-  auto operator()(tensor_to_scalar_add const &rhs) {
-    auto expr{make_expression<tensor_to_scalar_add>()};
-    auto &add{expr.template get<tensor_to_scalar_add>()};
-    merge_add(lhs, rhs, add);
-    return expr;
-  }
+  expr_holder_t dispatch(tensor_to_scalar_add const &rhs);
+
+  expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &rhs);
 
 private:
   using base::m_lhs;
@@ -80,77 +91,41 @@ private:
   tensor_to_scalar_add const &lhs;
 };
 
-// tensor_scalar_with_scalar_add + tensor_to_scalar -->
-// tensor_to_scalar_with_scalar_add tensor_to_scalar +
-// tensor_to_scalar_with_scalar_add --> tensor_to_scalar_with_scalar_add
-// tensor_scalar_with_scalar_add + tensor_scalar_with_scalar_add -->
-// tensor_to_scalar_with_scalar_add
-template <typename ExprLHS, typename ExprRHS>
-class wrapper_tensor_to_scalar_add_add final
-    : public add_default<ExprLHS, ExprRHS> {
+class add_base final : public tensor_to_scalar_visitor_return_expr_t {
 public:
-  using expr_type = expression_holder<tensor_to_scalar_expression>;
-  using base = add_default<ExprLHS, ExprRHS>;
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
 
-  wrapper_tensor_to_scalar_add_add(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs.template get<tensor_to_scalar_with_scalar_add>()} {}
+  add_base(expr_holder_t lhs, expr_holder_t rhs);
 
-  // tensor_scalar_with_scalar_add + tensor_scalar_with_scalar_add -->
-  // tensor_scalar_with_scalar_add
-  constexpr inline expr_type
-  operator()(tensor_to_scalar_with_scalar_add const &rhs) {
-    return make_expression<tensor_to_scalar_with_scalar_add>(
-        lhs.expr_lhs() + rhs.expr_lhs(), lhs.expr_rhs() + rhs.expr_rhs());
-  }
+protected:
+#define NUMSIM_ADD_OVR_FIRST(T)                                                \
+  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+#define NUMSIM_ADD_OVR_NEXT(T)                                                 \
+  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST,
+                                        NUMSIM_ADD_OVR_NEXT)
+#undef NUMSIM_ADD_OVR_FIRST
+#undef NUMSIM_ADD_OVR_NEXT
 
-  // tensor_scalar_with_scalar_add + tensor_to_scalar -->
-  // tensor_scalar_with_scalar_add
-  template <typename Expr> constexpr inline expr_type operator()(Expr const &) {
-    return make_expression<tensor_to_scalar_with_scalar_add>(
-        lhs.expr_lhs(), m_rhs + lhs.expr_rhs());
-  }
+  template <typename Type> expr_holder_t dispatch(Type const &);
 
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  tensor_to_scalar_with_scalar_add const &lhs;
+  expr_holder_t dispatch(tensor_to_scalar_add const &);
+
+  // // tensor_scalar_with_scalar_add + tensor_scalar -->
+  // // tensor_scalar_with_scalar_add
+  // expr_holder_t
+  // dispatch(tensor_to_scalar_with_scalar_add const &) {
+  //   auto &expr_rhs{*m_rhs};
+  //   return visit(
+  //       wrapper_tensor_to_scalar_add_add(
+  //           std::move(m_lhs), std::move(m_rhs)),
+  //       expr_rhs);
+  // }
+
+  expr_holder_t m_lhs;
+  expr_holder_t m_rhs;
 };
 
-template <typename ExprLHS, typename ExprRHS> struct add_base {
-  using expr_type = expression_holder<tensor_to_scalar_expression>;
-
-  add_base(ExprLHS &&lhs, ExprRHS &&rhs)
-      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
-
-  template <typename Type> constexpr inline expr_type operator()(Type const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(add_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                               std::forward<ExprRHS>(m_rhs)),
-                 expr_rhs);
-  }
-
-  constexpr inline expr_type operator()(tensor_to_scalar_add const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(n_ary_add<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                             std::forward<ExprRHS>(m_rhs)),
-                 expr_rhs);
-  }
-
-  // tensor_scalar_with_scalar_add + tensor_scalar -->
-  // tensor_scalar_with_scalar_add
-  constexpr inline expr_type
-  operator()(tensor_to_scalar_with_scalar_add const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(
-        wrapper_tensor_to_scalar_add_add<ExprLHS, ExprRHS>(
-            std::forward<ExprLHS>(m_lhs), std::forward<ExprRHS>(m_rhs)),
-        expr_rhs);
-  }
-
-  ExprLHS &&m_lhs;
-  ExprRHS &&m_rhs;
-};
 } // namespace simplifier
 } // namespace tensor_to_scalar_detail
 } // namespace numsim::cas

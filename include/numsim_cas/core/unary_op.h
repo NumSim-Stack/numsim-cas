@@ -49,7 +49,7 @@ public:
   }
 
 protected:
-  void update_hash_value() const noexcept override {
+  virtual void update_hash_value() const noexcept override {
     this->m_hash_value = 0;
     hash_combine(this->m_hash_value, this->get_id());
     if (m_expr.is_valid()) {

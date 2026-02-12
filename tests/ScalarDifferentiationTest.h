@@ -55,10 +55,6 @@ TEST(ScalarDifferentiation, AddAndMul) {
   // d/dx (x * x) = x + x (or 2*x, depending on simplification)
   {
     auto d = diff(x * x, x);
-    std::cout << d << std::endl;
-    std::cout << -x - x << std::endl;
-    std::cout << d - x - x << std::endl;
-
     expect_is_zero(d - x - x);
   }
 }

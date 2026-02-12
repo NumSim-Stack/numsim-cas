@@ -65,8 +65,6 @@ protected:
 template <typename _BaseExpr>
 bool operator<(symbol_base<_BaseExpr> const &lhs,
                symbol_base<_BaseExpr> const &rhs) {
-  std::cout << lhs.m_name << " " << rhs.m_name << std::endl;
-  std::cout << lhs.hash_value() << " " << rhs.hash_value() << std::endl;
   return lhs.hash_value() < rhs.hash_value();
 }
 

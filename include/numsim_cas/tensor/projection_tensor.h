@@ -1,7 +1,8 @@
 #ifndef PROJECTION_TENSOR_H
 #define PROJECTION_TENSOR_H
 
-#include "tensor_expression.h"
+#include <numsim_cas/tensor/tensor_expression.h>
+#include <variant>
 
 namespace numsim::cas {
 // Algebraic spaces on rank-2 tensors
@@ -63,10 +64,9 @@ struct tensor_space {
 
 static constexpr inline auto is_tensor_space(tensor_space const &) {}
 
-class tensor_projector final
-    : public expression_crtp<tensor_projector, tensor_expression> {
+class tensor_projector final : public tensor_node_base_t<tensor_projector> {
 public:
-  using base = expression_crtp<tensor_projector, tensor_expression>;
+  using base = tensor_node_base_t<tensor_projector>;
 
   tensor_projector(std::size_t dim, std::size_t acts_on_rank,
                    tensor_space space)
@@ -76,14 +76,34 @@ public:
   std::size_t acts_on_rank() const { return r_; }
   const tensor_space &space() const { return space_; }
 
+  // friend bool operator<(tensor_projector const &lhs,
+  //                       tensor_projector const &rhs);
+  // friend bool operator>(tensor_projector const &lhs,
+  //                       tensor_projector const &rhs);
+  // friend bool operator==(tensor_projector const &lhs,
+  //                        tensor_projector const &rhs);
+  // friend bool operator!=(tensor_projector const &lhs,
+  //                        tensor_projector const &rhs);
+
   friend bool operator<(tensor_projector const &lhs,
-                        tensor_projector const &rhs);
+                        tensor_projector const &rhs) {
+    return lhs.hash_value() < rhs.hash_value();
+  }
+
   friend bool operator>(tensor_projector const &lhs,
-                        tensor_projector const &rhs);
+                        tensor_projector const &rhs) {
+    return rhs < lhs;
+  }
+
   friend bool operator==(tensor_projector const &lhs,
-                         tensor_projector const &rhs);
+                         tensor_projector const &rhs) {
+    return lhs.hash_value() == rhs.hash_value();
+  }
+
   friend bool operator!=(tensor_projector const &lhs,
-                         tensor_projector const &rhs);
+                         tensor_projector const &rhs) {
+    return !(lhs == rhs);
+  }
 
   virtual void update_hash_value() const override {
     hash_combine(base::m_hash_value, base::get_id());
@@ -94,43 +114,27 @@ private:
   tensor_space space_;
 };
 
-bool operator<(tensor_projector const &lhs, tensor_projector const &rhs) {
-  return lhs.hash_value() < rhs.hash_value();
-}
-
-bool operator>(tensor_projector const &lhs, tensor_projector const &rhs) {
-  return rhs < lhs;
-}
-
-bool operator==(tensor_projector const &lhs, tensor_projector const &rhs) {
-  return lhs.hash_value() == rhs.hash_value();
-}
-
-bool operator!=(tensor_projector const &lhs, tensor_projector const &rhs) {
-  return !(lhs == rhs);
-}
-
-auto make_projector(std::size_t dim, std::size_t r,
-                    decltype(tensor_space::perm) perm,
-                    decltype(tensor_space::trace) trace) {
+inline auto make_projector(std::size_t dim, std::size_t r,
+                           decltype(tensor_space::perm) perm,
+                           decltype(tensor_space::trace) trace) {
   return make_expression<tensor_projector>(
       dim, r, tensor_space{std::move(perm), std::move(trace)});
 }
 
 // Common presets for rank-2:
-auto P_sym(std::size_t d) {
+inline auto P_sym(std::size_t d) {
   return make_projector(d, 2, Symmetric{}, AnyTraceTag{});
 }
-auto P_skew(std::size_t d) {
+inline auto P_skew(std::size_t d) {
   return make_projector(d, 2, Skew{}, AnyTraceTag{});
 }
-auto P_vol(std::size_t d) {
+inline auto P_vol(std::size_t d) {
   return make_projector(d, 2, Symmetric{}, VolumetricTag{});
 }
-auto P_devi(std::size_t d) {
+inline auto P_devi(std::size_t d) {
   return make_projector(d, 2, Symmetric{}, DeviatoricTag{});
 }
-auto P_harm(std::size_t d, std::size_t r = 2) {
+inline auto P_harm(std::size_t d, std::size_t r = 2) {
   return make_projector(d, r, Symmetric{}, HarmonicTag{});
 }
 
@@ -138,39 +142,43 @@ class tensor_trace_print_visitor {
 public:
   tensor_trace_print_visitor(tensor_projector const &proj) : m_proj(proj) {}
 
-  constexpr inline auto apply() {
+  constexpr inline std::string apply() {
     return std::visit(*this, m_proj.space().perm, m_proj.space().trace);
   }
 
   template <typename Perm, typename Space>
-  constexpr inline auto operator()(Perm const &, Space const &) {
+  constexpr inline std::string operator()(Perm const &, Space const &) const {
     // static_assert(true, "tensor_projector::printer_visitor::operator() no
     // matching overload");
     return "";
   }
 
   template <typename Perm>
-  constexpr inline auto operator()(Perm const &, Symmetric const &) {
+  constexpr inline std::string operator()(Perm const &,
+                                          Symmetric const &) const {
     return "sym";
   }
 
   template <typename Perm>
-  constexpr inline auto operator()(Perm const &, Skew const &) {
+  constexpr inline std::string operator()(Perm const &, Skew const &) const {
     return "skew";
   }
 
   template <typename Perm>
-  constexpr inline auto operator()(Perm const &, VolumetricTag const &) {
+  constexpr inline std::string operator()(Perm const &,
+                                          VolumetricTag const &) const {
     return "vol";
   }
 
   template <typename Perm>
-  constexpr inline auto operator()(Perm const &, DeviatoricTag const &) {
+  constexpr inline std::string operator()(Perm const &,
+                                          DeviatoricTag const &) const {
     return "dev";
   }
 
   template <typename Perm>
-  constexpr inline auto operator()(Perm const &, HarmonicTag const &) {
+  constexpr inline std::string operator()(Perm const &,
+                                          HarmonicTag const &) const {
     return "harm";
   }
 

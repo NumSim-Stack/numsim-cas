@@ -12,16 +12,13 @@
 
 namespace testcas {
 
-// --- ADL-friendly stringifier ----------------------------------------------
-// Prefers numsim::cas::to_string(e). If not found, falls back to streaming.
 template <class E> inline std::string S(const E &e) {
-  // Try ADL to_string in numsim::cas, otherwise stream.
   using std::to_string;
   if constexpr (requires { to_string(e); }) {
     return to_string(e);
   } else {
     std::ostringstream oss;
-    oss << e; // requires operator<<(std::ostream&, E)
+    oss << e;
     return oss.str();
   }
 }

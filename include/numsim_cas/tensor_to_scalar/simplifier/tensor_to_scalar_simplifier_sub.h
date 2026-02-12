@@ -8,7 +8,8 @@ namespace numsim::cas {
 namespace tensor_to_scalar_detail {
 namespace simplifier {
 
-template <typename ExprLHS, typename ExprRHS> struct sub_default {
+template <typename ExprLHS, typename ExprRHS>
+struct sub_default : public tensor_to_scalar_visitor_return_expr_t {
   using expr_type = expression_holder<tensor_to_scalar_expression>;
 
   sub_default(ExprLHS &&lhs, ExprRHS &&rhs)

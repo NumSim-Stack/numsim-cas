@@ -67,6 +67,8 @@ public:
   using return_type = expression_holder<Base>;
 
   using Base::Base;
+  template <typename... Args>
+  visitable(Args &&...args) : Base(std::forward<Args>(args)...) {}
   visitable() {}
   virtual ~visitable() = default;
 
@@ -84,6 +86,9 @@ public:
   using return_type = typename visitable<Base, Types...>::return_type;
   using expr_holder_t = expression_holder<Base>;
 
+  template <typename... Args>
+  visitable_impl(Args &&...args)
+      : visitable<Base, Types...>(std::forward<Args>(args)...) {}
   visitable_impl() = default;
   using visitable<Base, Types...>::visitable;
   virtual ~visitable_impl() = default;

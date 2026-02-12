@@ -1,7 +1,7 @@
 #ifndef SCALAR_IO_H
 #define SCALAR_IO_H
 
-#include <numsim_cas/scalar/scalar_expression.h>
+#include <ostream>
 
 namespace numsim::cas {
 

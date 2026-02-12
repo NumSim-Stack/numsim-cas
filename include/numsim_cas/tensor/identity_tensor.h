@@ -1,15 +1,13 @@
 #ifndef IDENTITY_TENSOR_H
 #define IDENTITY_TENSOR_H
 
-#include "../expression_crtp.h"
-#include "tensor_expression.h"
+#include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
 
-class identity_tensor final
-    : public expression_crtp<identity_tensor, tensor_expression> {
+class identity_tensor final : public tensor_node_base_t<identity_tensor> {
 public:
-  using base = expression_crtp<identity_tensor, tensor_expression>;
+  using base = tensor_node_base_t<identity_tensor>;
 
   identity_tensor() = delete;
   identity_tensor(std::size_t dim, std::size_t rank) : base(dim, rank) {}
@@ -32,19 +30,19 @@ public:
   }
 };
 
-bool operator<(identity_tensor const &lhs, identity_tensor const &rhs) {
+inline bool operator<(identity_tensor const &lhs, identity_tensor const &rhs) {
   return lhs.hash_value() < rhs.hash_value();
 }
 
-bool operator>(identity_tensor const &lhs, identity_tensor const &rhs) {
+inline bool operator>(identity_tensor const &lhs, identity_tensor const &rhs) {
   return rhs < lhs;
 }
 
-bool operator==(identity_tensor const &lhs, identity_tensor const &rhs) {
+inline bool operator==(identity_tensor const &lhs, identity_tensor const &rhs) {
   return lhs.hash_value() == rhs.hash_value();
 }
 
-bool operator!=(identity_tensor const &lhs, identity_tensor const &rhs) {
+inline bool operator!=(identity_tensor const &lhs, identity_tensor const &rhs) {
   return !(lhs == rhs);
 }
 } // namespace numsim::cas

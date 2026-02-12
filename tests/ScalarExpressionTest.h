@@ -153,6 +153,9 @@ TEST_F(ScalarFixture, PRINT_DivisionFormat) {
        &d = this->d;
   auto &_1 = this->_1, &_2 = this->_2;
 
+  EXPECT_PRINT(z * pow(x * y, -_2), "z/pow(x*y,2)");
+  EXPECT_PRINT(z * pow(x, -_1) * pow(y, -_1), "z/(x*y)");
+  EXPECT_PRINT(z * pow(x, -1) * pow(y, -1), "z/(x*y)");
   EXPECT_PRINT(_1 / _2, "pow(2,-1)");
   EXPECT_PRINT(pow(y, -_zero), "1");
   EXPECT_PRINT(pow(pow(y, -_1), -_1), "y");
@@ -161,8 +164,12 @@ TEST_F(ScalarFixture, PRINT_DivisionFormat) {
   EXPECT_PRINT(x * pow(y, -_2), "x/pow(y,2)");
   EXPECT_PRINT(pow(x, -_1) * pow(y, -_1), "pow(x*y,-1)");
   EXPECT_PRINT(pow(pow(cos(x), -1), 2), "pow(cos(x),-2)");
+  EXPECT_PRINT(x / 1, "x");
+  EXPECT_PRINT(x / (-2), "-x/2");
   EXPECT_PRINT(x / y, "x/y");
   EXPECT_PRINT(a / b / c / d, "a/(b*c*d)");
+  EXPECT_PRINT(a / b + c + d, "c+d+a/b");
+  EXPECT_PRINT(a / (b + c + d), "a/(b+c+d)");
   // a*pow(b,-1) / (c * pow(d, -1)) --> a*pow(b,-1) * pow(c*pow(d,-1),-1)
   EXPECT_PRINT((a / b) / (c / d), "a*d/(b*c)");
   EXPECT_PRINT((a + b) / (c + d), "(a+b)/(c+d)");
@@ -239,39 +246,33 @@ TEST_F(ScalarFixture, PRINT_Functions) {
   // EXPECT_PRINT(make_expression<scalar_div>(x, two), "x/2");
 
   // Powers / exponentials / logs
-  EXPECT_PRINT(make_expression<scalar_pow>(x, two), "pow(x,2)");
-  EXPECT_PRINT(make_expression<scalar_sqrt>(x), "sqrt(x)");
-  EXPECT_PRINT(make_expression<scalar_log>(x), "log(x)");
-  EXPECT_PRINT(make_expression<scalar_exp>(x), "exp(x)");
+  EXPECT_PRINT(pow(z, z) * pow(x, x) * pow(y, y), "pow(x,x)*pow(y,y)*pow(z,z)");
+  EXPECT_PRINT(pow(x, two), "pow(x,2)");
+  EXPECT_PRINT(sqrt(x), "sqrt(x)");
+  EXPECT_PRINT(log(x), "log(x)");
+  EXPECT_PRINT(exp(x), "exp(x)");
 
   // Trig
-  EXPECT_PRINT(make_expression<scalar_sin>(x), "sin(x)");
-  EXPECT_PRINT(make_expression<scalar_cos>(x), "cos(x)");
-  EXPECT_PRINT(make_expression<scalar_tan>(x), "tan(x)");
+  EXPECT_PRINT(sin(x), "sin(x)");
+  EXPECT_PRINT(cos(x), "cos(x)");
+  EXPECT_PRINT(tan(x), "tan(x)");
 
   // Inverse trig
-  EXPECT_PRINT(make_expression<scalar_asin>(x), "asin(x)");
-  EXPECT_PRINT(make_expression<scalar_acos>(x), "acos(x)");
-  EXPECT_PRINT(make_expression<scalar_atan>(x), "atan(x)");
+  EXPECT_PRINT(asin(x), "asin(x)");
+  EXPECT_PRINT(acos(x), "acos(x)");
+  EXPECT_PRINT(atan(x), "atan(x)");
 
   // Function wrapper
   EXPECT_PRINT(make_expression<scalar_function>("func", x * x),
                "func = pow(x,2)");
 
-  std::cout << x * pow(x, x) << std::endl;
-  std::cout << pow(x, x) / x << std::endl;
-  std::cout << pow(x, x) * (two / x) << std::endl;
-  std::cout << x * pow(x, x) * (two / x) << std::endl;
-  std::cout << pow(x, _1) * (x * y * z) << std::endl;
-
-  std::cout << pow(x, _1 + x) / x << std::endl;
-
   auto expr = x * sqrt(x) * log(x) * exp(x) * cos(x) * sin(x) * tan(x) *
               acos(x) * asin(x) * atan(x) * abs(x) * sign(x) * pow(x, x) *
               (two / x);
 
-  EXPECT_PRINT(expr, "2*atan(x)*acos(x)*asin(x)*tan(x)*cos(x)*sin(x)*abs(x)*"
-                     "sign(x)*exp(x)*log(x)*sqrt(x)*pow(x,x)");
+  EXPECT_PRINT(expr,
+               "2*pow(x,x)*atan(x)*acos(x)*asin(x)*tan(x)*cos(x)*sin(x)*abs(x)*"
+               "sign(x)*exp(x)*log(x)*sqrt(x)");
 }
 
 //
@@ -296,6 +297,12 @@ TEST_F(ScalarFixture, PRINT_Division_NoCancel) {
   EXPECT_PRINT(pow(x, numsim::cas::get_scalar_zero()) / x, "pow(x,-1)");
   EXPECT_PRINT(pow(x, this->_1) / x, "1");
   EXPECT_PRINT(pow(x, this->_3) / x, "pow(x,2)");
+  EXPECT_PRINT(x * pow(x, x), "pow(x,1+x)");
+  EXPECT_PRINT(pow(x, x) / x, "pow(x,-1+x)");
+  EXPECT_PRINT(pow(x, x) * (2 / x), "2*pow(x,-1+x)");
+  EXPECT_PRINT(x * pow(x, x) * (2 / x), "2*pow(x,x)");
+  EXPECT_PRINT(pow(x, _1) * (x * y * z), "pow(x,2)*y*z");
+  EXPECT_PRINT(pow(x, _1 + x) / x, "pow(x,x)");
   EXPECT_PRINT((a * b) / a, "b");
   EXPECT_PRINT((x / y) * y, "x");
 }

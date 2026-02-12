@@ -1,72 +1,55 @@
 #ifndef TENSOR_H
 #define TENSOR_H
 
-#include "../functions.h"
-#include "../numsim_cas_type_traits.h"
-#include "../symbol_base.h"
-#include "data/tensor_data.h"
-#include "tensor_expression.h"
-#include "tensor_functions.h"
-#include "tensor_negative.h"
+#include <numsim_cas/core/symbol_base.h>
+#include <numsim_cas/tensor/tensor_expression.h>
 #include <ostream>
 
 namespace numsim::cas {
 
-class tensor final : public symbol_base<tensor> {
+class tensor final : public symbol_base<tensor_node_base_t<tensor>> {
 public:
-  using base = symbol_base<tensor>;
+  using base = symbol_base<tensor_node_base_t<tensor>>;
   using base::operator=;
 
   tensor() = delete;
   tensor(std::string const &name, std::size_t dim, std::size_t rank)
-      : base(name, dim, rank), m_data(make_tensor_data(dim, rank)) {}
+      : base(name, dim, rank) {}
 
-  tensor(tensor &&data)
-      : base(data.m_name, data.m_dim, data.m_rank),
-        m_data(std::move(data.m_data)) {}
+  tensor(tensor &&data) : base(data.m_name, data.m_dim, data.m_rank) {}
 
-  const tensor &operator=(expression_holder<tensor_expression> &&data) {
-    this->m_expr = std::move(data);
-    return *this;
-  }
+  // const tensor &operator=(expression_holder<tensor_expression> &&data) {
+  //   this->m_expr = std::move(data);
+  //   return *this;
+  // }
 
-  const tensor &operator+=(expression_holder<tensor_expression> &&data) {
-    *this = std::move(data) + *this;
-    return *this;
-  }
+  // const tensor &operator+=(expression_holder<tensor_expression> &&data) {
+  //   *this = std::move(data) + *this;
+  //   return *this;
+  // }
 
-  const tensor &operator-=(expression_holder<tensor_expression> &&data) {
-    *this = std::move(data) - *this;
-    return *this;
-  }
+  // const tensor &operator-=(expression_holder<tensor_expression> &&data) {
+  //   *this = std::move(data) - *this;
+  //   return *this;
+  // }
 
-  template <typename Dervied>
-  const tensor &operator=(tmech::tensor_base<Dervied> const &data) {
-    constexpr auto Dim{Dervied::dimension()};
-    constexpr auto Rank{Dervied::rank()};
-    assert(this->m_dim == Dim);
-    assert(this->m_rank == Rank);
-    // static_cast<tensor_data<ValueType, Dim, Rank> &>(*m_data.get()).data() =
-    //     data.convert();
-    return *this;
-  }
+  // template <typename Dervied>
+  // const tensor &operator=(tmech::tensor_base<Dervied> const &data) {
+  //   constexpr auto Dim{Dervied::dimension()};
+  //   constexpr auto Rank{Dervied::rank()};
+  //   assert(this->m_dim == Dim);
+  //   assert(this->m_rank == Rank);
+  //   return *this;
+  // }
 
-  inline auto operator-() {
-    return make_expression<tensor_expression, tensor_negative>(this);
-  }
-
-  friend std::ostream &operator<<(std::ostream &os, const tensor &dt);
-
-  // inline tensor_data_base &data() { return *m_data.get(); }
-
-private:
-  // std::unique_ptr<tensor_data_base> m_data;
+  // friend std::ostream &operator<<(std::ostream &os, const tensor &dt);
 };
 
-std::ostream &operator<<(std::ostream &os, [[maybe_unused]] const tensor &t) {
-  os << "tensor";
-  return os;
-}
+// std::ostream &operator<<(std::ostream &os, [[maybe_unused]] const tensor &t)
+// {
+//   os << "tensor";
+//   return os;
+// }
 
 struct call_tensor {
   template <typename Tensor>

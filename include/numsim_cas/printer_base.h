@@ -2,7 +2,7 @@
 #define PRINTER_BASE_H
 
 #include <algorithm>
-#include <numsim_cas/scalar/scalar_definitions.h>
+#include <numsim_cas/core/expression_holder.h>
 #include <string_view>
 
 namespace numsim::cas {
@@ -19,6 +19,8 @@ enum class Precedence {
 
 template <typename Derived, typename StreamType> class printer_base {
 public:
+  friend Derived;
+
   printer_base(StreamType &out) : m_out(out) {}
 
   template <typename ExprType>

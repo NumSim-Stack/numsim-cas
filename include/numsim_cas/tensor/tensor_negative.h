@@ -1,15 +1,15 @@
 #ifndef TENSOR_NEGATIVE_H
 #define TENSOR_NEGATIVE_H
 
-#include "../unary_op.h"
+#include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_negative final
-    : public unary_op<tensor_negative, tensor_expression> {
+    : public unary_op<tensor_node_base_t<tensor_negative>> {
 public:
-  using base = unary_op<tensor_negative, tensor_expression>;
+  using base = unary_op<tensor_node_base_t<tensor_negative>>;
 
   template <typename Expr,
             std::enable_if_t<
@@ -17,8 +17,8 @@ public:
                                   std::remove_pointer_t<get_type_t<Expr>>>,
                 bool> = true>
   tensor_negative(Expr &&_expr)
-      : base(std::forward<Expr>(_expr), call_tensor::dim(_expr),
-             call_tensor::rank(_expr)) {}
+      : base(std::forward<Expr>(_expr), _expr.get().dim(), _expr.get().rank()) {
+  }
 
   tensor_negative() = delete;
   tensor_negative(tensor_negative const &add) = delete;

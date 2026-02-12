@@ -1,29 +1,27 @@
 #ifndef INNER_PRODUCT_WRAPPER_H
 #define INNER_PRODUCT_WRAPPER_H
 
-#include "../../binary_op.h"
-#include "../../numsim_cas_type_traits.h"
-#include "../tensor_expression.h"
 #include <algorithm>
+#include <numsim_cas/core/binary_op.h>
+#include <numsim_cas/tensor/tensor_expression.h>
 #include <stdexcept>
 #include <vector>
 
 namespace numsim::cas {
 
 class inner_product_wrapper final
-    : public binary_op<inner_product_wrapper, tensor_expression,
+    : public binary_op<tensor_node_base_t<inner_product_wrapper>,
                        tensor_expression> {
 public:
   using base =
-      binary_op<inner_product_wrapper, tensor_expression, tensor_expression>;
+      binary_op<tensor_node_base_t<inner_product_wrapper>, tensor_expression>;
 
   template <typename LHS, typename RHS, typename SeqLHS, typename SeqRHS>
   inner_product_wrapper(LHS &&_lhs, SeqLHS &&_lhs_indices, RHS &&_rhs,
                         SeqRHS &&_rhs_indices)
-      : base(std::forward<LHS>(_lhs), std::forward<RHS>(_rhs),
-             call_tensor::dim(_lhs),
-             call_tensor::rank(_lhs) + call_tensor::rank(_rhs) -
-                 _lhs_indices.size() - _rhs_indices.size()),
+      : base(std::forward<LHS>(_lhs), std::forward<RHS>(_rhs), _lhs.get().dim(),
+             _lhs.get().rank() + _rhs.get().rank() - _lhs_indices.size() -
+                 _rhs_indices.size()),
         m_lhs_indices(std::forward<SeqLHS>(_lhs_indices)),
         m_rhs_indices(std::forward<SeqRHS>(_rhs_indices)) {
     //    tensor_expression &lhs{*this->m_lhs};
@@ -39,14 +37,10 @@ public:
     //      std::runtime_error("inner_product_wrapper::inner_product_wrapper("
     //                               ") lhs.dim() != rhs.dim()");
     //    }
-    std::for_each(m_lhs_indices.begin(), m_lhs_indices.end(),
-                  [](std::size_t &index) { index -= 1; });
-    std::for_each(m_rhs_indices.begin(), m_rhs_indices.end(),
-                  [](std::size_t &index) { index -= 1; });
   }
 
   inner_product_wrapper(inner_product_wrapper &&data)
-      : base(std::move(static_cast<base &&>(data)), data.dim(), data.rank()),
+      : base(std::move(static_cast<base &&>(data))),
         m_lhs_indices(std::move(data.m_lhs_indices)),
         m_rhs_indices(std::move(data.m_rhs_indices)) {}
 
@@ -59,8 +53,8 @@ public:
   }
 
 protected:
-  std::vector<std::size_t> m_lhs_indices;
-  std::vector<std::size_t> m_rhs_indices;
+  sequence m_lhs_indices;
+  sequence m_rhs_indices;
 };
 
 } // namespace numsim::cas

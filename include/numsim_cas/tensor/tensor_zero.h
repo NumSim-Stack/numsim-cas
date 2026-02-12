@@ -1,15 +1,13 @@
 #ifndef TENSOR_ZERO_H
 #define TENSOR_ZERO_H
 
-#include "../expression_crtp.h"
-#include "tensor_expression.h"
+#include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
 
-class tensor_zero final
-    : public expression_crtp<tensor_zero, tensor_expression> {
+class tensor_zero final : public tensor_node_base_t<tensor_zero> {
 public:
-  using base = expression_crtp<tensor_zero, tensor_expression>;
+  using base = tensor_node_base_t<tensor_zero>;
 
   tensor_zero() = delete;
   tensor_zero(std::size_t dim, std::size_t rank) : base(dim, rank) {}
@@ -20,31 +18,32 @@ public:
   ~tensor_zero() = default;
   const tensor_zero &operator=(tensor_zero &&) = delete;
 
-  friend bool operator<(tensor_zero const &lhs, tensor_zero const &rhs);
-  friend bool operator>(tensor_zero const &lhs, tensor_zero const &rhs);
-  friend bool operator==(tensor_zero const &lhs, tensor_zero const &rhs);
-  friend bool operator!=(tensor_zero const &lhs, tensor_zero const &rhs);
+  // friend bool operator<(tensor_zero const &lhs, tensor_zero const &rhs);
+  // friend bool operator>(tensor_zero const &lhs, tensor_zero const &rhs);
+  // friend bool operator==(tensor_zero const &lhs, tensor_zero const &rhs);
+  // friend bool operator!=(tensor_zero const &lhs, tensor_zero const &rhs);
+
+  friend bool operator<(tensor_zero const &lhs, tensor_zero const &rhs) {
+    return lhs.hash_value() < rhs.hash_value();
+  }
+
+  friend bool operator>(tensor_zero const &lhs, tensor_zero const &rhs) {
+    return rhs < lhs;
+  }
+
+  friend bool operator==(tensor_zero const &lhs, tensor_zero const &rhs) {
+    return lhs.hash_value() == rhs.hash_value();
+  }
+
+  friend bool operator!=(tensor_zero const &lhs, tensor_zero const &rhs) {
+    return !(lhs == rhs);
+  }
 
   virtual void update_hash_value() const override {
     hash_combine(base::m_hash_value, base::get_id());
   }
 };
 
-bool operator<(tensor_zero const &lhs, tensor_zero const &rhs) {
-  return lhs.hash_value() < rhs.hash_value();
-}
-
-bool operator>(tensor_zero const &lhs, tensor_zero const &rhs) {
-  return rhs < lhs;
-}
-
-bool operator==(tensor_zero const &lhs, tensor_zero const &rhs) {
-  return lhs.hash_value() == rhs.hash_value();
-}
-
-bool operator!=(tensor_zero const &lhs, tensor_zero const &rhs) {
-  return !(lhs == rhs);
-}
 } // namespace numsim::cas
 
 #endif // TENSOR_ZERO_H

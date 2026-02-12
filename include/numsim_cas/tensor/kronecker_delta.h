@@ -1,14 +1,13 @@
 #ifndef KRONECKER_DELTA_H
 #define KRONECKER_DELTA_H
 
-#include "../numsim_cas_type_traits.h"
+#include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
 
-class kronecker_delta final
-    : public expression_crtp<kronecker_delta, tensor_expression> {
+class kronecker_delta final : public tensor_node_base_t<kronecker_delta> {
 public:
-  using base = expression_crtp<kronecker_delta, tensor_expression>;
+  using base = tensor_node_base_t<kronecker_delta>;
   kronecker_delta(std::size_t dim) : base(dim, 2) {}
   kronecker_delta(kronecker_delta const &data) : base(data.m_dim, 2) {}
 
@@ -24,19 +23,19 @@ public:
                          kronecker_delta const &rhs);
 };
 
-bool operator<(kronecker_delta const &lhs, kronecker_delta const &rhs) {
+inline bool operator<(kronecker_delta const &lhs, kronecker_delta const &rhs) {
   return lhs.hash_value() < rhs.hash_value();
 }
 
-bool operator>(kronecker_delta const &lhs, kronecker_delta const &rhs) {
+inline bool operator>(kronecker_delta const &lhs, kronecker_delta const &rhs) {
   return rhs < lhs;
 }
 
-bool operator==(kronecker_delta const &lhs, kronecker_delta const &rhs) {
+inline bool operator==(kronecker_delta const &lhs, kronecker_delta const &rhs) {
   return lhs.hash_value() == rhs.hash_value();
 }
 
-bool operator!=(kronecker_delta const &lhs, kronecker_delta const &rhs) {
+inline bool operator!=(kronecker_delta const &lhs, kronecker_delta const &rhs) {
   return !(lhs == rhs);
 }
 

@@ -15,8 +15,7 @@ void tag_invoke();
 
 struct make_constant_fn {
   template <class Base, class T>
-  constexpr expression_holder<Base> operator()(std::type_identity<Base>,
-                                               T &&v) const
+  constexpr auto operator()(std::type_identity<Base>, T &&v) const
       noexcept(noexcept(tag_invoke(*this, std::type_identity<Base>{},
                                    std::forward<T>(v)))) {
     return tag_invoke(*this, std::type_identity<Base>{}, std::forward<T>(v));

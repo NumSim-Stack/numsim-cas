@@ -1,68 +1,55 @@
 #ifndef TENSOR_TO_SCALAR_SCALAR_WRAPPER_H
 #define TENSOR_TO_SCALAR_SCALAR_WRAPPER_H
 
-#include "../scalar/scalar_expression.h"
-#include "tensor_to_scalar_expression.h"
+#include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/scalar/scalar_expression.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
 namespace numsim::cas {
 
 class tensor_to_scalar_scalar_wrapper final
-    : public expression_crtp<tensor_to_scalar_scalar_wrapper,
-                             tensor_to_scalar_expression> {
+    : public unary_op<
+          tensor_to_scalar_node_base_t<tensor_to_scalar_scalar_wrapper>,
+          scalar_expression> {
 public:
-  using base = expression_crtp<tensor_to_scalar_scalar_wrapper,
-                               tensor_to_scalar_expression>;
+  using base =
+      unary_op<tensor_to_scalar_node_base_t<tensor_to_scalar_scalar_wrapper>,
+               scalar_expression>;
+  using base::base;
 
-  tensor_to_scalar_scalar_wrapper(scalar_expression &&expr)
-      : m_expr(std::move(expr)) {}
   tensor_to_scalar_scalar_wrapper(tensor_to_scalar_scalar_wrapper &&data)
-      : base(static_cast<base &&>(data)) {}
+      : base(std::move(static_cast<base &&>(data))) {}
   tensor_to_scalar_scalar_wrapper(tensor_to_scalar_scalar_wrapper const &data)
-      : base(static_cast<base const &>(data)) {}
+      : base(data) {}
   ~tensor_to_scalar_scalar_wrapper() = default;
+
   const tensor_to_scalar_scalar_wrapper &
   operator=(tensor_to_scalar_scalar_wrapper &&) = delete;
 
   friend bool operator<(tensor_to_scalar_scalar_wrapper const &lhs,
-                        tensor_to_scalar_scalar_wrapper const &rhs);
-  friend bool operator>(tensor_to_scalar_scalar_wrapper const &lhs,
-                        tensor_to_scalar_scalar_wrapper const &rhs);
-  friend bool operator==(tensor_to_scalar_scalar_wrapper const &lhs,
-                         tensor_to_scalar_scalar_wrapper const &rhs);
-  friend bool operator!=(tensor_to_scalar_scalar_wrapper const &lhs,
-                         tensor_to_scalar_scalar_wrapper const &rhs);
-
-  virtual void update_hash_value() const override {
-    hash_combine(base::m_hash_value, base::get_id());
+                        tensor_to_scalar_scalar_wrapper const &rhs) {
+    return lhs.hash_value() < rhs.hash_value();
   }
 
-  const auto &expr() const { return m_expr; }
+  friend bool operator>(tensor_to_scalar_scalar_wrapper const &lhs,
+                        tensor_to_scalar_scalar_wrapper const &rhs) {
+    return rhs < lhs;
+  }
 
-  auto &expr() { return m_expr; }
+  friend bool operator==(tensor_to_scalar_scalar_wrapper const &lhs,
+                         tensor_to_scalar_scalar_wrapper const &rhs) {
+    return lhs.hash_value() == rhs.hash_value();
+  }
 
-private:
-  expression_holder<scalar_expression> m_expr;
+  friend bool operator!=(tensor_to_scalar_scalar_wrapper const &lhs,
+                         tensor_to_scalar_scalar_wrapper const &rhs) {
+    return !(lhs == rhs);
+  }
+
+  virtual void update_hash_value() const noexcept {
+    hash_combine(base::m_hash_value, base::get_id());
+  }
 };
-
-bool operator<(tensor_to_scalar_scalar_wrapper const &lhs,
-               tensor_to_scalar_scalar_wrapper const &rhs) {
-  return lhs.hash_value() < rhs.hash_value();
-}
-
-bool operator>(tensor_to_scalar_scalar_wrapper const &lhs,
-               tensor_to_scalar_scalar_wrapper const &rhs) {
-  return rhs < lhs;
-}
-
-bool operator==(tensor_to_scalar_scalar_wrapper const &lhs,
-                tensor_to_scalar_scalar_wrapper const &rhs) {
-  return lhs.hash_value() == rhs.hash_value();
-}
-
-bool operator!=(tensor_to_scalar_scalar_wrapper const &lhs,
-                tensor_to_scalar_scalar_wrapper const &rhs) {
-  return !(lhs == rhs);
-}
 
 } // namespace numsim::cas
 

@@ -1,16 +1,15 @@
 #ifndef TENSOR_TO_SCALAR_MUL_H
 #define TENSOR_TO_SCALAR_MUL_H
 
-#include "../../../n_ary_tree.h"
-#include "../../../numsim_cas_type_traits.h"
-#include "../../tensor_to_scalar_expression.h"
+#include <numsim_cas/core/n_ary_tree.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
 namespace numsim::cas {
 
 class tensor_to_scalar_mul final
-    : public n_ary_tree<tensor_to_scalar_expression, tensor_to_scalar_mul> {
+    : public n_ary_tree<tensor_to_scalar_node_base_t<tensor_to_scalar_mul>> {
 public:
-  using base = n_ary_tree<tensor_to_scalar_expression, tensor_to_scalar_mul>;
+  using base = n_ary_tree<tensor_to_scalar_node_base_t<tensor_to_scalar_mul>>;
   using base::base;
 
   tensor_to_scalar_mul() : base() {}

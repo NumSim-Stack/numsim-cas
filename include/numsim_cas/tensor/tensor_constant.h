@@ -1,14 +1,13 @@
 #ifndef TENSOR_CONSTANT_H
 #define TENSOR_CONSTANT_H
 
-#include "numsim_cas_type_traits.h"
+#include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
 
-class tensor_constant final
-    : public expression_crtp<tensor_constant, tensor_expression> {
+class tensor_constant final : public tensor_projector<tensor_constant> {
 public:
-  using base = expression_crtp<tensor_constant, tensor_expression>;
+  using base = tensor_projector<tensor_constant>;
 
   tensor_constant() : m_data() {}
   template <typename TensorData>

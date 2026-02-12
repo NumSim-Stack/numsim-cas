@@ -2,32 +2,22 @@
 #define SCALAR_SIMPLIFIER_ADD_H
 
 #include <numsim_cas/basic_functions.h>
-#include <numsim_cas/core/operators.h>
 #include <numsim_cas/core/scalar_number.h>
 #include <numsim_cas/functions.h>
 #include <numsim_cas/scalar/scalar_definitions.h>
 #include <numsim_cas/scalar/scalar_functions.h>
-#include <numsim_cas/scalar/scalar_operators.h>
 
 namespace numsim::cas {
 namespace simplifier {
 
-template <typename ExprLHS, typename ExprRHS>
+template <typename Derived>
 class add_default : public scalar_visitor_return_expr_t {
 public:
   using expr_t = scalar_expression;
   using expr_holder_t = expression_holder<expr_t>;
 
-  add_default(ExprLHS &&lhs, ExprRHS &&rhs)
-      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
-
-#define NUMSIM_ADD_OVR_FIRST(T)                                                \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-#define NUMSIM_ADD_OVR_NEXT(T)                                                 \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
-#undef NUMSIM_ADD_OVR_FIRST
-#undef NUMSIM_ADD_OVR_NEXT
+  add_default(expr_holder_t lhs, expr_holder_t rhs)
+      : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
 
 protected:
   auto get_default() {
@@ -53,13 +43,13 @@ protected:
     return add_new;
   }
 
-  template <typename Expr> inline expr_holder_t dispatch(Expr const &) {
+  template <typename Expr> expr_holder_t dispatch(Expr const &) {
     return get_default();
   }
 
-  inline expr_holder_t dispatch(scalar_zero const &) { return m_lhs; }
+  expr_holder_t dispatch(scalar_zero const &) { return m_lhs; }
 
-  inline expr_holder_t dispatch(scalar_negative const &expr) {
+  expr_holder_t dispatch(scalar_negative const &expr) {
     if (m_lhs == expr.expr()) {
       return get_scalar_zero();
     }
@@ -92,74 +82,40 @@ protected:
     return value;
   }
 
+#define NUMSIM_ADD_OVR(T)                                                      \
+  expr_holder_t operator()(T const &n) override {                              \
+    if constexpr (std::is_void_v<Derived>) {                                   \
+      return dispatch(n);                                                      \
+    } else {                                                                   \
+      return static_cast<Derived *>(this)->dispatch(n);                        \
+    }                                                                          \
+  }
+  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR, NUMSIM_ADD_OVR)
+#undef NUMSIM_ADD_OVR
+
 protected:
   expr_holder_t m_lhs;
   expr_holder_t m_rhs;
 };
 
-template <typename ExprLHS, typename ExprRHS>
-class constant_add final : public add_default<ExprLHS, ExprRHS> {
+class constant_add final : public add_default<constant_add> {
 public:
-  using expr_type = expression_holder<scalar_expression>;
   using expr_holder_t = expression_holder<scalar_expression>;
-  using base = add_default<ExprLHS, ExprRHS>;
+  using base = add_default<constant_add>;
   using base::operator();
   using base::dispatch;
   using base::get_coefficient;
   using base::get_default;
 
-  constant_add(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs.template get<scalar_constant>()} {}
+  constant_add(expr_holder_t lhs, expr_holder_t rhs);
 
-#define NUMSIM_ADD_OVR_FIRST(T)                                                \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-#define NUMSIM_ADD_OVR_NEXT(T)                                                 \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
-#undef NUMSIM_ADD_OVR_FIRST
-#undef NUMSIM_ADD_OVR_NEXT
+  expr_holder_t dispatch(scalar_constant const &rhs);
 
-  inline expr_type dispatch(scalar_constant const &rhs) {
-    const auto value{lhs.value() + rhs.value()};
-    return make_expression<scalar_constant>(value);
-  }
+  expr_holder_t dispatch([[maybe_unused]] scalar_add const &rhs);
 
-  inline expr_type dispatch([[maybe_unused]] scalar_add const &rhs) {
-    const auto value{get_coefficient(rhs, 0) + lhs.value()};
-    if (value != 0) {
-      auto add_expr{make_expression<scalar_add>(rhs)};
-      auto &add{add_expr.template get<scalar_add>()};
-      auto coeff{make_expression<scalar_constant>(value)};
-      add.set_coeff(std::move(coeff));
-      return add_expr;
-    }
-    return m_rhs;
-  }
+  expr_holder_t dispatch(scalar_one const &);
 
-  inline expr_type dispatch(scalar_one const &) {
-    const auto value{lhs.value() + 1};
-    return make_expression<scalar_constant>(value);
-  }
-
-  inline expr_type dispatch(scalar_negative const &rhs) {
-    if (is_same<scalar_one>(rhs.expr())) {
-      scalar_number value = lhs.value() - 1;
-      if (value == 0) {
-        return get_scalar_zero();
-      }
-      return make_expression<scalar_constant>(value);
-    }
-    if (is_same<scalar_constant>(rhs.expr())) {
-      scalar_number value =
-          lhs.value() - rhs.expr().get<scalar_constant>().value();
-      if (value == 0) {
-        return get_scalar_zero();
-      }
-      return make_expression<scalar_constant>(value);
-    }
-    return get_default();
-  }
+  expr_holder_t dispatch(scalar_negative const &rhs);
 
 private:
   using base::m_lhs;
@@ -167,66 +123,24 @@ private:
   scalar_constant const &lhs;
 };
 
-template <typename ExprLHS, typename ExprRHS>
-class add_scalar_one final : public add_default<ExprLHS, ExprRHS> {
+class add_scalar_one final : public add_default<add_scalar_one> {
 public:
-  using expr_type = expression_holder<scalar_expression>;
   using expr_holder_t = expression_holder<scalar_expression>;
-  using base = add_default<ExprLHS, ExprRHS>;
+  using base = add_default<add_scalar_one>;
   using base::operator();
   using base::dispatch;
   using base::get_coefficient;
   using base::get_default;
 
-  add_scalar_one(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs.template get<scalar_one>()} {}
+  add_scalar_one(expr_holder_t lhs, expr_holder_t rhs);
 
-#define NUMSIM_ADD_OVR_FIRST(T)                                                \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-#define NUMSIM_ADD_OVR_NEXT(T)                                                 \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
-#undef NUMSIM_ADD_OVR_FIRST
-#undef NUMSIM_ADD_OVR_NEXT
+  expr_holder_t dispatch(scalar_constant const &rhs);
 
-  inline expr_type dispatch(scalar_constant const &rhs) {
-    const auto value{1 + rhs.value()};
-    if (value != 0)
-      return make_expression<scalar_constant>(value);
-    return get_scalar_zero();
-  }
+  expr_holder_t dispatch([[maybe_unused]] scalar_add const &rhs);
 
-  inline expr_type dispatch([[maybe_unused]] scalar_add const &rhs) {
-    const auto value{get_coefficient(rhs, 0) + 1};
-    if (value != 0) {
-      auto add_expr{make_expression<scalar_add>(rhs)};
-      auto &add{add_expr.template get<scalar_add>()};
-      auto coeff{make_expression<scalar_constant>(value)};
-      add.set_coeff(std::move(coeff));
-      return add_expr;
-    }
-    return m_rhs;
-  }
+  expr_holder_t dispatch(scalar_one const &);
 
-  inline expr_type dispatch(scalar_one const &) {
-    const auto value{1 + 1};
-    return make_expression<scalar_constant>(value);
-  }
-
-  inline expr_type dispatch(scalar_negative const &rhs) {
-    if (is_same<scalar_one>(rhs.expr())) {
-      return get_scalar_zero();
-    }
-    if (is_same<scalar_constant>(rhs.expr())) {
-      scalar_number value = 1 - rhs.expr().get<scalar_constant>().value();
-      if (value == 0) {
-        return get_scalar_zero();
-      }
-      return make_expression<scalar_constant>(value);
-    }
-    return get_default();
-  }
+  expr_holder_t dispatch(scalar_negative const &rhs);
 
 private:
   using base::m_lhs;
@@ -234,115 +148,27 @@ private:
   scalar_one const &lhs;
 };
 
-template <typename ExprLHS, typename ExprRHS>
-class n_ary_add final : public add_default<ExprLHS, ExprRHS> {
+class n_ary_add final : public add_default<n_ary_add> {
 public:
-  using expr_type = expression_holder<scalar_expression>;
   using expr_holder_t = expression_holder<scalar_expression>;
-  using base = add_default<ExprLHS, ExprRHS>;
+  using base = add_default<n_ary_add>;
   using base::operator();
   using base::dispatch;
   using base::get_coefficient;
   using base::get_default;
 
-  n_ary_add(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs.template get<scalar_add>()} {}
+  n_ary_add(expr_holder_t lhs, expr_holder_t rhs);
 
-#define NUMSIM_ADD_OVR_FIRST(T)                                                \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-#define NUMSIM_ADD_OVR_NEXT(T)                                                 \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
-#undef NUMSIM_ADD_OVR_FIRST
-#undef NUMSIM_ADD_OVR_NEXT
+  expr_holder_t dispatch([[maybe_unused]] scalar_constant const &rhs);
 
-  inline expr_type dispatch([[maybe_unused]] scalar_constant const &rhs) {
-    auto add_expr{make_expression<scalar_add>(lhs)};
-    auto &add{add_expr.template get<scalar_add>()};
-    const auto value{get_coefficient(lhs, 0) + rhs.value()};
-    add.coeff().free();
-    if (value != 0) {
-      auto coeff{make_expression<scalar_constant>(value)};
-      add.set_coeff(std::move(coeff));
-      return add_expr;
-    }
-    return add_expr;
-  }
+  expr_holder_t dispatch([[maybe_unused]] scalar_one const &);
 
-  inline expr_type dispatch([[maybe_unused]] scalar_one const &) {
-    auto add_expr{make_expression<scalar_add>(lhs)};
-    auto &add{add_expr.template get<scalar_add>()};
-    const auto value{get_coefficient(add, 0) + 1};
-    add.coeff().free();
-    if (value != 0) {
-      auto coeff{make_expression<scalar_constant>(value)};
-      add.set_coeff(std::move(coeff));
-    }
-    return add_expr;
-  }
-
-  auto dispatch([[maybe_unused]] scalar const &rhs) {
-    /// do a deep copy of data
-    auto expr_add{make_expression<scalar_add>(lhs)};
-    auto &add{expr_add.template get<scalar_add>()};
-    /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
-    auto pos{add.hash_map().find(m_rhs)};
-    if (pos != add.hash_map().end()) {
-      auto expr{pos->second + m_rhs};
-      add.hash_map().erase(pos);
-      add.push_back(std::move(expr));
-      return expr_add;
-    }
-    /// no equal expr or sub_expr
-    add.push_back(m_rhs);
-    return expr_add;
-  }
+  expr_holder_t dispatch([[maybe_unused]] scalar const &rhs);
 
   // merge two expression
-  auto dispatch(scalar_add const &rhs) {
-    auto expr{make_expression<scalar_add>()};
-    auto &add{expr.template get<scalar_add>()};
-    merge_add(lhs, rhs, add);
-    return expr;
-  }
+  expr_holder_t dispatch(scalar_add const &rhs);
 
-  auto dispatch(scalar_negative const &rhs) {
-    const auto pos{lhs.hash_map().find(rhs.expr())};
-    if (pos != lhs.hash_map().end()) {
-      auto expr{make_expression<scalar_add>(lhs)};
-      auto &add{expr.template get<scalar_add>()};
-      add.hash_map().erase(rhs.expr());
-      return expr;
-    }
-
-    if (is_same<scalar_constant>(rhs.expr())) {
-      auto add_expr{make_expression<scalar_add>(lhs)};
-      auto &add{add_expr.template get<scalar_add>()};
-      const auto value{get_coefficient(lhs, 0) -
-                       rhs.expr().get<scalar_constant>().value()};
-      add.coeff().free();
-      if (value != 0) {
-        auto coeff{make_expression<scalar_constant>(value)};
-        add.set_coeff(std::move(coeff));
-      }
-      return add_expr;
-    }
-
-    if (is_same<scalar_one>(rhs.expr())) {
-      auto add_expr{make_expression<scalar_add>(lhs)};
-      auto &add{add_expr.template get<scalar_add>()};
-      const auto value{get_coefficient(lhs, 0) - 1};
-      add.coeff().free();
-      if (value != 0) {
-        auto coeff{make_expression<scalar_constant>(value)};
-        add.set_coeff(std::move(coeff));
-      }
-      return add_expr;
-    }
-
-    return get_default();
-  }
+  expr_holder_t dispatch(scalar_negative const &rhs);
 
 private:
   using base::m_lhs;
@@ -350,58 +176,23 @@ private:
   scalar_add const &lhs;
 };
 
-template <typename ExprLHS, typename ExprRHS>
-class n_ary_mul_add final : public add_default<ExprLHS, ExprRHS> {
+class n_ary_mul_add final : public add_default<n_ary_mul_add> {
 public:
-  using expr_type = expression_holder<scalar_expression>;
   using expr_holder_t = expression_holder<scalar_expression>;
 
-  using base = add_default<ExprLHS, ExprRHS>;
+  using base = add_default<n_ary_mul_add>;
   using base::operator();
   using base::dispatch;
   using base::get_coefficient;
   using base::get_default;
 
-  n_ary_mul_add(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs.template get<scalar_mul>()} {}
-
-#define NUMSIM_ADD_OVR_FIRST(T)                                                \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-#define NUMSIM_ADD_OVR_NEXT(T)                                                 \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
-#undef NUMSIM_ADD_OVR_FIRST
-#undef NUMSIM_ADD_OVR_NEXT
+  n_ary_mul_add(expr_holder_t lhs, expr_holder_t rhs);
 
   // constant*expr + expr --> (constant+1)*expr
-  auto dispatch([[maybe_unused]] scalar const &rhs) {
-    // const auto &hash_lhs{lhs.hash_value()};
-    const auto pos{lhs.hash_map().find(m_rhs)};
-    if (pos != lhs.hash_map().end() && lhs.hash_map().size() == 1) {
-      auto expr{make_expression<scalar_mul>(lhs)};
-      auto &mul{expr.template get<scalar_mul>()};
-      mul.set_coeff(
-          make_expression<scalar_constant>(get_coefficient(lhs, 1) + 1));
-      return expr;
-    }
-    return get_default();
-  }
+  expr_holder_t dispatch([[maybe_unused]] scalar const &rhs);
 
   /// expr + expr --> 2*expr
-  auto dispatch(scalar_mul const &rhs) {
-    const auto &hash_rhs{rhs.hash_value()};
-    const auto &hash_lhs{lhs.hash_value()};
-    if (hash_rhs == hash_lhs) {
-      const auto fac_lhs{get_coefficient(lhs, 1)};
-      const auto fac_rhs{get_coefficient(rhs, 1)};
-      auto expr{make_expression<scalar_mul>(lhs)};
-      auto &mul{expr.template get<scalar_mul>()};
-      mul.set_coeff(make_expression<scalar_constant>(fac_lhs + fac_rhs));
-      return expr;
-    }
-    return get_default();
-  }
+  expr_holder_t dispatch(scalar_mul const &rhs);
 
 private:
   using base::m_lhs;
@@ -409,54 +200,22 @@ private:
   scalar_mul const &lhs;
 };
 
-template <typename ExprLHS, typename ExprRHS>
-class symbol_add final : public add_default<ExprLHS, ExprRHS> {
+class symbol_add final : public add_default<symbol_add> {
 public:
-  using expr_type = expression_holder<scalar_expression>;
   using expr_holder_t = expression_holder<scalar_expression>;
-  using base = add_default<ExprLHS, ExprRHS>;
+  using base = add_default<symbol_add>;
   using base::operator();
   using base::dispatch;
   using base::get_coefficient;
   using base::get_default;
 
-  symbol_add(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs.template get<scalar>()} {}
-
-#define NUMSIM_ADD_OVR_FIRST(T)                                                \
-  expr_type operator()(T const &lhs) override { return dispatch(lhs); }
-#define NUMSIM_ADD_OVR_NEXT(T)                                                 \
-  expr_type operator()(T const &lhs) override { return dispatch(lhs); }
-  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
-#undef NUMSIM_ADD_OVR_FIRST
-#undef NUMSIM_ADD_OVR_NEXT
+  symbol_add(expr_holder_t lhs, expr_holder_t rhs);
 
   /// x+x --> 2*x
-  inline expr_type dispatch(scalar const &rhs) {
-    if (lhs == rhs) {
-      auto mul{make_expression<scalar_mul>()};
-      mul.template get<scalar_mul>().set_coeff(
-          make_expression<scalar_constant>(2));
-      mul.template get<scalar_mul>().push_back(m_rhs);
-      return mul;
-    }
-    return get_default();
-  }
+  expr_holder_t dispatch(scalar const &rhs);
 
-  inline expr_type dispatch(scalar_mul const &rhs) {
-    // const auto &hash_rhs{rhs.hash_value()};
-    const auto pos{rhs.hash_map().find(m_lhs)};
-    if (pos != rhs.hash_map().end() && rhs.hash_map().size() == 1) {
-      auto expr{make_expression<scalar_mul>(rhs)};
-      auto &mul{expr.template get<scalar_mul>()};
-      mul.set_coeff(
-          make_expression<scalar_constant>(get_coefficient(rhs, 1) + 1));
-      return expr;
-    }
-    return get_default();
-  }
-  //  inline expr_type operator()(scalar_constant
+  expr_holder_t dispatch(scalar_mul const &rhs);
+  //   expr_holder_t operator()(scalar_constant
   //  const&rhs) {
   //  }
 
@@ -466,69 +225,24 @@ private:
   scalar const &lhs;
 };
 
-template <typename ExprLHS, typename ExprRHS>
-class add_negative final : public add_default<ExprLHS, ExprRHS> {
+class add_negative final : public add_default<add_negative> {
 public:
-  using expr_type = expression_holder<scalar_expression>;
   using expr_holder_t = expression_holder<scalar_expression>;
-  using base = add_default<ExprLHS, ExprRHS>;
+  using base = add_default<add_negative>;
   using base::operator();
   using base::dispatch;
   using base::get_coefficient;
   using base::get_default;
 
-  add_negative(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs.template get<scalar_negative>()} {}
-
-#define NUMSIM_ADD_OVR_FIRST(T)                                                \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-#define NUMSIM_ADD_OVR_NEXT(T)                                                 \
-  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
-  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST, NUMSIM_ADD_OVR_NEXT)
-#undef NUMSIM_ADD_OVR_FIRST
-#undef NUMSIM_ADD_OVR_NEXT
+  add_negative(expr_holder_t lhs, expr_holder_t rhs);
 
   // (-lhs) + (-rhs) --> -(lhs+rhs)
-  inline expr_type dispatch(scalar_negative const &rhs) {
-    return -(lhs.expr() + rhs.expr());
-  }
+  expr_holder_t dispatch(scalar_negative const &rhs);
 
-  inline expr_type dispatch([[maybe_unused]] scalar_add const &rhs) {
-    auto add_expr{make_expression<scalar_add>(rhs)};
-    auto &add{add_expr.template get<scalar_add>()};
-    scalar_number c_lhs;
-    if (is_same<scalar_constant>(lhs.expr())) {
-      c_lhs = lhs.expr().get<scalar_constant>().value();
-    }
-    if (is_same<scalar_one>(lhs.expr())) {
-      c_lhs = 1;
-    }
-    if (c_lhs != 0) {
-      const auto value{get_coefficient(rhs, 0) - c_lhs};
-      add.coeff().free();
-      if (value != 0) {
-        auto coeff{make_expression<scalar_constant>(value)};
-        add.set_coeff(std::move(coeff));
-        return add_expr;
-      }
-      return add_expr;
-    }
-    add.push_back(m_lhs);
-    return add_expr;
-  }
+  expr_holder_t dispatch([[maybe_unused]] scalar_add const &rhs);
 
   // -expr + c
-  inline expr_type dispatch(scalar_constant const &rhs) {
-    if (is_same<scalar_constant>(lhs.expr())) {
-      return make_expression<scalar_constant>(
-          -lhs.expr().get<scalar_constant>().value() + rhs.value());
-    }
-    if (is_same<scalar_one>(lhs.expr())) {
-      return make_expression<scalar_constant>(-1 + rhs.value());
-    }
-    return get_default();
-  }
+  expr_holder_t dispatch(scalar_constant const &rhs);
 
 private:
   using base::m_lhs;
@@ -536,13 +250,11 @@ private:
   scalar_negative const &lhs;
 };
 
-template <typename ExprLHS, typename ExprRHS>
 struct add_base final : public scalar_visitor_return_expr_t {
   using expr_t = scalar_expression;
   using expr_holder_t = expression_holder<scalar_expression>;
 
-  add_base(ExprLHS &&lhs, ExprRHS &&rhs)
-      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
+  add_base(expr_holder_t lhs, expr_holder_t rhs);
 
 #define NUMSIM_ADD_OVR_FIRST(T)                                                \
   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
@@ -553,56 +265,23 @@ struct add_base final : public scalar_visitor_return_expr_t {
 #undef NUMSIM_ADD_OVR_NEXT
 
 private:
-  expr_holder_t dispatch(scalar_constant const &) {
-    auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
-    constant_add<ExprLHS, ExprRHS> visitor(std::forward<ExprLHS>(m_lhs),
-                                           std::forward<ExprRHS>(m_rhs));
-    return _rhs.accept(visitor);
-  }
+  expr_holder_t dispatch(scalar_constant const &);
 
-  expr_holder_t dispatch(scalar_one const &) {
-    auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
-    add_scalar_one<ExprLHS, ExprRHS> visitor(std::forward<ExprLHS>(m_lhs),
-                                             std::forward<ExprRHS>(m_rhs));
-    return _rhs.accept(visitor);
-  }
+  expr_holder_t dispatch(scalar_one const &);
 
-  expr_holder_t dispatch(scalar_add const &) {
-    auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
-    n_ary_add<ExprLHS, ExprRHS> visitor(std::forward<ExprLHS>(m_lhs),
-                                        std::forward<ExprRHS>(m_rhs));
-    return _rhs.accept(visitor);
-  }
+  expr_holder_t dispatch(scalar_add const &);
 
-  expr_holder_t dispatch(scalar_mul const &) {
-    auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
-    n_ary_mul_add<ExprLHS, ExprRHS> visitor(std::forward<ExprLHS>(m_lhs),
-                                            std::forward<ExprRHS>(m_rhs));
-    return _rhs.accept(visitor);
-  }
+  expr_holder_t dispatch(scalar_mul const &);
 
-  expr_holder_t dispatch(scalar const &) {
-    auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
-    symbol_add<ExprLHS, ExprRHS> visitor(std::forward<ExprLHS>(m_lhs),
-                                         std::forward<ExprRHS>(m_rhs));
-    return _rhs.accept(visitor);
-  }
+  expr_holder_t dispatch(scalar const &);
 
-  expr_holder_t dispatch(scalar_negative const &) {
-    auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
-    add_negative<ExprLHS, ExprRHS> visitor(std::forward<ExprLHS>(m_lhs),
-                                           std::forward<ExprRHS>(m_rhs));
-    return _rhs.accept(visitor);
-  }
+  expr_holder_t dispatch(scalar_negative const &);
 
-  expr_holder_t dispatch(scalar_zero const &) {
-    return std::forward<ExprRHS>(m_rhs);
-  }
+  expr_holder_t dispatch(scalar_zero const &);
 
   template <typename Type> expr_holder_t dispatch(Type const &) {
     auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
-    add_default<ExprLHS, ExprRHS> visitor(std::forward<ExprLHS>(m_lhs),
-                                          std::forward<ExprRHS>(m_rhs));
+    add_default<void> visitor(std::move(m_lhs), std::move(m_rhs));
     return _rhs.accept(visitor);
   }
 

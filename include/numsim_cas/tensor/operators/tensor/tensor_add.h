@@ -1,14 +1,14 @@
 #ifndef TENSOR_ADD_H
 #define TENSOR_ADD_H
 
-#include "../../../n_ary_tree.h"
-#include "../../../numsim_cas_type_traits.h"
+#include <numsim_cas/core/n_ary_tree.h>
+#include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
 
-class tensor_add final : public n_ary_tree<tensor_expression, tensor_add> {
+class tensor_add final : public n_ary_tree<tensor_node_base_t<tensor_add>> {
 public:
-  using base = n_ary_tree<tensor_expression, tensor_add>;
+  using base = n_ary_tree<tensor_node_base_t<tensor_add>>;
 
   tensor_add(std::size_t dim, std::size_t rank) : base(dim, rank) {}
   tensor_add(tensor_add const &add)
