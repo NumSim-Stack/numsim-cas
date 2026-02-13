@@ -154,4 +154,31 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_PRINT(x * t * t, "x*pow(tr(X),2)");
 }
 
+// ---------- Subtraction ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_Subtraction_BasicRules) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+
+  auto X_tr = numsim::cas::trace(X);
+  auto Y_tr = numsim::cas::trace(Y);
+
+  // tr(X) - tr(X) --> 0
+  EXPECT_PRINT(X_tr - X_tr, "0");
+
+  // tr(X) - 0 --> tr(X)
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+  EXPECT_PRINT(X_tr - t2s_zero, "tr(X)");
+
+  // 0 - tr(X) --> -tr(X)
+  EXPECT_PRINT(t2s_zero - X_tr, "-tr(X)");
+
+  // tr(X) - tr(Y) --> tr(X)-tr(Y)  (default: add with negation)
+  auto diff = X_tr - Y_tr;
+  // Just check it doesn't crash and produces something reasonable
+  auto s = testcas::S(diff);
+  EXPECT_FALSE(s.empty());
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H

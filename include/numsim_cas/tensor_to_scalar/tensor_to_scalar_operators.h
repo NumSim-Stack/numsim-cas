@@ -13,6 +13,7 @@
 
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_add.h>
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_mul.h>
+#include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_sub.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h>
 
 namespace numsim::cas::detail {
@@ -60,7 +61,13 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_to_scalar_expression>>
 inline expression_holder<tensor_to_scalar_expression>
 tag_invoke(sub_fn, [[maybe_unused]] L &&lhs, [[maybe_unused]] R &&rhs) {
-  return expression_holder<tensor_to_scalar_expression>{};
+  if (lhs == rhs) {
+    return make_expression<tensor_to_scalar_zero>();
+  }
+  auto &_lhs{lhs.template get<tensor_to_scalar_visitable_t>()};
+  tensor_to_scalar_detail::simplifier::sub_base visitor(std::forward<L>(lhs),
+                                                        std::forward<R>(rhs));
+  return _lhs.accept(visitor);
 }
 
 template <class L, class R>

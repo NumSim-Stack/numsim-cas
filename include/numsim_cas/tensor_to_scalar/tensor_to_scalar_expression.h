@@ -2,6 +2,7 @@
 #define TENSOR_TO_SCALAR_EXPRESSION_H
 
 #include <numsim_cas/core/expression.h>
+#include <numsim_cas/core/make_negative.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_visitor_typedef.h>
 
 namespace numsim::cas {
@@ -22,6 +23,10 @@ public:
   const tensor_to_scalar_expression &
   operator=(tensor_to_scalar_expression const &) = delete;
 };
+
+expression_holder<tensor_to_scalar_expression>
+tag_invoke(detail::neg_fn, std::type_identity<tensor_to_scalar_expression>,
+           expression_holder<tensor_to_scalar_expression> const &e);
 
 // std::ostream &
 // operator<<(std::ostream &os,
