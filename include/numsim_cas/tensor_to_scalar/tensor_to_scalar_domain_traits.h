@@ -23,6 +23,7 @@ template <> struct domain_traits<tensor_to_scalar_expression> {
   using visitable_t = tensor_to_scalar_visitable_t;
   using visitor_return_expr_t = tensor_to_scalar_visitor_return_expr_t;
   static expr_holder_t zero() { return make_expression<tensor_to_scalar_zero>(); }
+  static expr_holder_t zero(expr_holder_t const &) { return zero(); }
   static expr_holder_t one() { return make_expression<tensor_to_scalar_one>(); }
 
   static std::optional<scalar_number> try_numeric(expr_holder_t const &expr) {

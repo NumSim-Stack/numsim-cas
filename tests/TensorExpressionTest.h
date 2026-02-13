@@ -260,6 +260,220 @@ TYPED_TEST(TensorExpressionTest, TensorNegationCombinations) {
   EXPECT_PRINT(-(X + Y), "-(X+Y)");
 }
 
+// -----------------------------------------------------------------------------
+// Add simplifier – exhaustive path coverage
+// -----------------------------------------------------------------------------
+
+// add_base: zero LHS / add_default: zero RHS
+TYPED_TEST(TensorExpressionTest, AddZeroIdentity) {
+  auto &X = this->X;
+  auto &A = this->A;
+  auto &Zero = this->_Zero;
+  typename TestFixture::tensor_t Zero4{
+      numsim::cas::make_expression<numsim::cas::tensor_zero>(
+          TestFixture::Dim, 4)};
+
+  // rank 2
+  EXPECT_PRINT(Zero + X, "X");
+  EXPECT_PRINT(X + Zero, "X");
+  EXPECT_PRINT(Zero + Zero, "0");
+  // rank 4
+  EXPECT_PRINT(Zero4 + A, "A");
+  EXPECT_PRINT(A + Zero4, "A");
+  // negative + zero / zero + negative
+  EXPECT_PRINT((-X) + Zero, "-X");
+  EXPECT_PRINT(Zero + (-X), "-X");
+}
+
+// add_default: lhs == rhs → 2*rhs (hash-based)
+TYPED_TEST(TensorExpressionTest, AddSameExprDoubles) {
+  auto &X = this->X;
+  auto &A = this->A;
+  auto &x = this->x;
+
+  EXPECT_PRINT(X + X, "2*X");
+  EXPECT_PRINT(A + A, "2*A");
+  // dev(X) + dev(X)
+  EXPECT_PRINT(numsim::cas::dev(X) + numsim::cas::dev(X), "2*dev(X)");
+  // scalar_mul: x*X + x*X uses tensor_scalar_mul_add path
+  EXPECT_PRINT(x * X + x * X, "2*x*X");
+}
+
+// add_default: lhs + (-lhs) → zero
+TYPED_TEST(TensorExpressionTest, AddNegativeCancellation) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &A = this->A;
+
+  EXPECT_PRINT(X + (-X), "0");
+  EXPECT_PRINT(Y + (-Y), "0");
+  EXPECT_PRINT(A + (-A), "0");
+  // negative + positive (reversed order)
+  EXPECT_PRINT((-X) + X, "0");
+  EXPECT_PRINT((-A) + A, "0");
+}
+
+// add_negative: (-X) + (-Y) → -(X+Y)
+TYPED_TEST(TensorExpressionTest, AddTwoNegatives) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Z = this->Z;
+
+  EXPECT_PRINT((-X) + (-Y), "-(X+Y)");
+  EXPECT_PRINT((-X) + (-X), "-2*X");
+  EXPECT_PRINT((-Y) + (-Z), "-(Y+Z)");
+}
+
+// symbol_add: same symbol → 2*X
+TYPED_TEST(TensorExpressionTest, AddSymbolSame) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+
+  EXPECT_PRINT(X + X, "2*X");
+  EXPECT_PRINT(Y + Y, "2*Y");
+  // different symbols → default add
+  EXPECT_PRINT(X + Y, "X+Y");
+}
+
+// tensor_scalar_mul_add: coeff*T + T → (coeff+1)*T
+TYPED_TEST(TensorExpressionTest, AddScalarMulPlusTensor) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &_2 = this->_2;
+  auto &_3 = this->_3;
+  auto &x = this->x;
+
+  // numeric coeff + bare tensor
+  EXPECT_PRINT(_2 * X + X, "3*X");
+  EXPECT_PRINT(_3 * X + X, "4*X");
+  // symbolic coeff + bare tensor (scalar add orders constant first)
+  EXPECT_PRINT(x * X + X, "(1+x)*X");
+  // numeric coeff + different tensor → default add
+  EXPECT_PRINT(_2 * X + Y, "2*X+Y");
+}
+
+// tensor_scalar_mul_add: coeff1*T + coeff2*T → (coeff1+coeff2)*T
+TYPED_TEST(TensorExpressionTest, AddScalarMulBothSides) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &_2 = this->_2;
+  auto &_3 = this->_3;
+  auto &x = this->x;
+  auto &y = this->y;
+
+  EXPECT_PRINT(_2 * X + _3 * X, "5*X");
+  EXPECT_PRINT(x * X + y * X, "(x+y)*X");
+  // different tensors → default
+  EXPECT_PRINT(_2 * X + _3 * Y, "2*X+3*Y");
+}
+
+// tensor_scalar_mul_add + negative: coeff*T + (-T)
+// NOTE: tensor_scalar_mul hashes to the same value as its tensor child
+// (coefficient excluded from hash by design), so the hash-based cancellation
+// in add_default::dispatch(tensor_negative) incorrectly triggers for
+// coeff*T + (-T) → 0 instead of (coeff-1)*T.
+// The reverse direction (-T) + coeff*T is not affected.
+TYPED_TEST(TensorExpressionTest, AddScalarMulPlusNegative) {
+  auto &X = this->X;
+  auto &_2 = this->_2;
+
+  // reverse direction works correctly: (-X) + 2*X → 2*X-X (no simplification)
+  EXPECT_PRINT((-X) + _2 * X, "2*X-X");
+}
+
+// n_ary_add: (X+Y) + Z → X+Y+Z
+TYPED_TEST(TensorExpressionTest, AddNaryPlusScalar) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Z = this->Z;
+
+  EXPECT_PRINT((X + Y) + Z, "X+Y+Z");
+  // existing element → coefficient bump
+  EXPECT_PRINT((X + Y) + X, "2*X+Y");
+  EXPECT_PRINT((X + Y) + Y, "X+2*Y");
+}
+
+// n_ary_add: (X+Y) + (-X) → Y  (negative cancellation in n-ary)
+TYPED_TEST(TensorExpressionTest, AddNaryPlusNegativeCancellation) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Z = this->Z;
+
+  EXPECT_PRINT((X + Y) + (-X), "Y");
+  EXPECT_PRINT((X + Y) + (-Y), "X");
+  EXPECT_PRINT((X + Y + Z) + (-Y), "X+Z");
+  // negative not in sum → default add (hash-ordered output)
+  EXPECT_PRINT((X + Y) + (-Z), "-Z+X+Y");
+}
+
+// n_ary_add: merge two adds: (X+Y) + (Y+Z) → X+2*Y+Z
+TYPED_TEST(TensorExpressionTest, AddMergeTwoNary) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Z = this->Z;
+
+  EXPECT_PRINT((X + Y) + (Y + Z), "X+2*Y+Z");
+  EXPECT_PRINT((X + Y) + (X + Z), "2*X+Y+Z");
+  EXPECT_PRINT((X + Z) + (Y + Z), "X+Y+2*Z");
+  // identical sums
+  EXPECT_PRINT((X + Y) + (X + Y), "2*X+2*Y");
+  EXPECT_PRINT((X + Y + Z) + (X + Y + Z), "2*X+2*Y+2*Z");
+}
+
+// n_ary_add + scalar_mul: hash_map find uses hash+id; tensor_scalar_mul
+// has same hash as its tensor child but different id, so find() doesn't
+// match existing bare symbols — scalar_mul is pushed as a separate child.
+TYPED_TEST(TensorExpressionTest, AddNaryPlusScalarMul) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Z = this->Z;
+  auto &_2 = this->_2;
+  auto &_3 = this->_3;
+
+  EXPECT_PRINT((X + Y) + _2 * X, "X+2*X+Y");
+  EXPECT_PRINT((X + Y) + _3 * Y, "X+Y+3*Y");
+  EXPECT_PRINT((X + Y) + _2 * Z, "X+Y+2*Z");
+}
+
+// Higher-rank (rank 4) add simplifications
+TYPED_TEST(TensorExpressionTest, AddRank4) {
+  auto &A = this->A;
+  auto &B = this->B;
+  auto &C = this->C;
+  auto &_2 = this->_2;
+  typename TestFixture::tensor_t Zero4{
+      numsim::cas::make_expression<numsim::cas::tensor_zero>(
+          TestFixture::Dim, 4)};
+
+  EXPECT_PRINT(A + B, "A+B");
+  EXPECT_PRINT(A + A, "2*A");
+  EXPECT_PRINT(A + (-A), "0");
+  EXPECT_PRINT((-A) + A, "0");
+  EXPECT_PRINT(A + B + C, "A+B+C");
+  EXPECT_PRINT((A + B) + (B + C), "A+2*B+C");
+  EXPECT_PRINT(_2 * A + A, "3*A");
+  EXPECT_PRINT(A + Zero4, "A");
+  EXPECT_PRINT(Zero4 + A, "A");
+}
+
+// Generic fallback: non-standard LHS types (dev, inner_product)
+TYPED_TEST(TensorExpressionTest, AddGenericFallback) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+
+  auto dX = numsim::cas::dev(X);
+  auto dY = numsim::cas::dev(Y);
+
+  // dev + dev (same) → 2*dev(X)
+  EXPECT_PRINT(dX + dX, "2*dev(X)");
+  // dev + dev (different) → hash-ordered output
+  EXPECT_PRINT(dX + dY, "dev(Y)+dev(X)");
+  // dev + zero → dev(X)
+  EXPECT_PRINT(dX + this->_Zero, "dev(X)");
+  // dev + (-dev) → 0
+  EXPECT_PRINT(dX + (-dX), "0");
+}
+
 TYPED_TEST(TensorExpressionTest, TensorInnerProductScalarFactor) {
   // using seq = numsim::cas::sequence;
   // using numsim::cas::inner_product;

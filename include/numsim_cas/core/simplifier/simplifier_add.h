@@ -21,44 +21,49 @@ public:
       : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
 
   expr_holder_t get_default() {
-    using add_type = typename Traits::add_type;
-    using mul_type = typename Traits::mul_type;
+    if constexpr (!std::is_void_v<typename Traits::mul_type>) {
+      using add_type = typename Traits::add_type;
+      using mul_type = typename Traits::mul_type;
 
-    const auto lhs_numeric{is_numeric_expr(m_lhs)};
-    const auto rhs_numeric{is_numeric_expr(m_rhs)};
+      const auto lhs_numeric{is_numeric_expr(m_lhs)};
+      const auto rhs_numeric{is_numeric_expr(m_rhs)};
 
-    // Both numeric: combine directly (must precede same-expression check)
-    if (lhs_numeric && rhs_numeric) {
-      auto lhs_val = Traits::try_numeric(m_lhs);
-      auto rhs_val = Traits::try_numeric(m_rhs);
-      auto sum = *lhs_val + *rhs_val;
-      if (sum == scalar_number{0})
-        return Traits::zero();
-      return Traits::make_constant(sum);
-    }
+      // Both numeric: combine directly (must precede same-expression check)
+      if (lhs_numeric && rhs_numeric) {
+        auto lhs_val = Traits::try_numeric(m_lhs);
+        auto rhs_val = Traits::try_numeric(m_rhs);
+        auto sum = *lhs_val + *rhs_val;
+        if (sum == scalar_number{0})
+          return Traits::zero(m_lhs);
+        return Traits::make_constant(sum);
+      }
 
-    // Same expression: expr + expr → 2*expr
-    if (m_lhs == m_rhs) {
-      auto mul_expr{make_expression<mul_type>()};
-      auto &m{mul_expr.template get<mul_type>()};
-      m.set_coeff(Traits::make_constant(scalar_number(2)));
-      m.push_back(m_rhs);
-      return mul_expr;
-    }
+      // Same expression: expr + expr → 2*expr
+      if (m_lhs == m_rhs) {
+        auto mul_expr{make_expression<mul_type>()};
+        auto &m{mul_expr.template get<mul_type>()};
+        m.set_coeff(Traits::make_constant(scalar_number(2)));
+        m.push_back(m_rhs);
+        return mul_expr;
+      }
 
-    auto add_new{make_expression<add_type>()};
-    auto &add{add_new.template get<add_type>()};
-    if (lhs_numeric) {
-      add.set_coeff(m_lhs);
+      auto add_new{make_expression<add_type>()};
+      auto &add{add_new.template get<add_type>()};
+      if (lhs_numeric) {
+        add.set_coeff(m_lhs);
+      } else {
+        add.push_back(m_lhs);
+      }
+      if (rhs_numeric) {
+        add.set_coeff(m_rhs);
+      } else {
+        add.push_back(m_rhs);
+      }
+      return add_new;
     } else {
-      add.push_back(m_lhs);
+      // Domains without n_ary_tree mul_type (e.g. tensor) override get_default()
+      return m_lhs;
     }
-    if (rhs_numeric) {
-      add.set_coeff(m_rhs);
-    } else {
-      add.push_back(m_rhs);
-    }
-    return add_new;
   }
 
   static bool is_numeric_expr(expr_holder_t const &expr) {
@@ -75,14 +80,18 @@ public:
   // expr + (-expr) --> 0
   expr_holder_t dispatch(typename Traits::negative_type const &neg) {
     if (m_lhs == neg.expr()) {
-      return Traits::zero();
+      return Traits::zero(m_lhs);
     }
     return get_default();
   }
 
   // non-add + add --> swap so add is LHS (triggers n_ary_add_dispatch)
   expr_holder_t dispatch(typename Traits::add_type const &) {
-    return m_rhs + m_lhs;
+    if constexpr (!std::is_void_v<typename Traits::mul_type>) {
+      return m_rhs + m_lhs;
+    } else {
+      return get_default();
+    }
   }
 
   template <typename _Expr, typename _ValueType>

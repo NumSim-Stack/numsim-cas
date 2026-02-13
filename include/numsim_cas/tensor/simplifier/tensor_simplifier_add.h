@@ -3,78 +3,59 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/core/simplifier/simplifier_add.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
+#include <numsim_cas/tensor/tensor_domain_traits.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
+
+using tensor_traits = domain_traits<tensor_expression>;
+
 namespace simplifier {
 namespace tensor_detail {
 
+// Tensor-specific add base: inherits generic add_dispatch for members/zero
+// dispatch, but overrides get_default() and other dispatches that require
+// tensor-specific handling (mul_type is void, add_type needs dim/rank).
 template <typename Derived>
-class add_default : public tensor_visitor_return_expr_t {
+class add_default : public tensor_visitor_return_expr_t,
+                    public detail::add_dispatch<tensor_traits, void> {
+  using algo = detail::add_dispatch<tensor_traits, void>;
+
 public:
   using expr_holder_t = expression_holder<tensor_expression>;
+  using algo::algo;
 
-  add_default(expr_holder_t lhs, expr_holder_t rhs)
-      : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
-
-  [[nodiscard]] auto get_default() {
-    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
+  [[nodiscard]] expr_holder_t get_default() {
+    if (algo::m_lhs.get().hash_value() == algo::m_rhs.get().hash_value()) {
       auto constant{make_expression<scalar_constant>(2)};
       return make_expression<tensor_scalar_mul>(std::move(constant),
-                                                std::move(m_rhs));
+                                                std::move(algo::m_rhs));
     }
-    // const auto lhs_constant{is_same<tensor_constant>(m_lhs)};
-    // const auto rhs_constant{is_same<tensor_constant>(m_rhs)};
-    auto add_new{
-        make_expression<tensor_add>(m_lhs.get().dim(), m_rhs.get().rank())};
+    auto add_new{make_expression<tensor_add>(algo::m_lhs.get().dim(),
+                                             algo::m_rhs.get().rank())};
     auto &add{add_new.template get<tensor_add>()};
-    // if(lhs_constant){
-    //   add.set_coeff(m_lhs);
-    // }else{
-    add.push_back(m_lhs);
-    //}
-
-    // if(rhs_constant){
-    //   add.set_coeff(m_rhs);
-    // }else{
-    add.push_back(m_rhs);
-    //}
-    return std::move(add_new);
+    add.push_back(algo::m_lhs);
+    add.push_back(algo::m_rhs);
+    return add_new;
   }
 
   [[nodiscard]] expr_holder_t dispatch(tensor_negative const &expr) {
-    if (m_lhs.get().hash_value() == expr.expr().get().hash_value()) {
-      return make_expression<tensor_zero>(expr.dim(), expr.rank());
+    if (algo::m_lhs.get().hash_value() == expr.expr().get().hash_value()) {
+      return tensor_traits::zero(algo::m_lhs);
     }
     return get_default();
   }
 
-  template <typename Expr> [[nodiscard]] expr_holder_t dispatch(Expr const &) {
+  template <typename Expr>
+  [[nodiscard]] expr_holder_t dispatch(Expr const &) {
     return get_default();
   }
 
   [[nodiscard]] expr_holder_t dispatch(tensor_zero const &) {
-    return std::move(m_lhs);
+    return algo::m_lhs;
   }
-
-  //  expr_holder_t dispatch(tensor_zero const&){
-  //    return m_lhs;
-  //  }
-
-  //  template <typename _Expr, typename _ValueType>
-  //  auto get_coefficient(_Expr const &expr, _ValueType const &value)
-  //  {
-  //    if (is_detected_v<has_coefficient, _Expr>) {
-  //      auto func{[&](auto const &coeff) {
-  //        return coeff.is_valid() ? coeff.template
-  //        get<tensor_constant>()()
-  //                                : value;
-  //      }};
-  //      return func(expr.coeff());
-  //    }
-  //    return value;
-  //  }
 
 protected:
 #define NUMSIM_ADD_OVR(T)                                                      \
@@ -88,77 +69,23 @@ protected:
   NUMSIM_CAS_TENSOR_NODE_LIST(NUMSIM_ADD_OVR, NUMSIM_ADD_OVR)
 #undef NUMSIM_ADD_OVR
 
-protected:
-  expr_holder_t m_lhs;
-  expr_holder_t m_rhs;
+  using algo::m_lhs;
+  using algo::m_rhs;
 };
 
-// template <typename ExprLHS, typename ExprRHS>
-// class constant_add final : public add_default{
-// public:
-//   using value_type = typename std::remove_reference_t<
-//       std::remove_const_t<ExprLHS>>::value_type;
-//   using expr_holder_t = expression_holder<scalar_expression>;
-//   using base = add_default;
-//   using base::dispatch;
-//   using base::get_coefficient;
-//   constant_add(ExprLHS lhs, ExprRHS
-//   rhs):base(std::move(lhs),std::move(rhs)),
-//                                            lhs(base::m_lhs.template
-//                                            get<tensor_constant>()){}
-
-//  expr_holder_t dispatch(tensor_constant const&
-//  rhs){
-//    const auto value{lhs() + rhs()};
-//    return make_expression<tensor_constant>(value);
-//  }
-
-////  expr_holder_t
-/// dispatch([[maybe_unused]]tensor_add const& rhs){ /    auto
-/// add_expr{make_expression<scalar_add>(rhs)}; /    auto
-///&add{add_expr.template get<scalar_add>()}; /    auto
-/// coeff{add.coeff() + base::m_lhs}; /    add.set_coeff(std::move(coeff)); /
-/// return std::move(add_expr); /  }
-
-// private:
-//   tensor_constant const& lhs;
-// };
-
+// Thin wrapper: LHS is add (n-ary sum)
 class n_ary_add final : public add_default<n_ary_add> {
 public:
   using expr_holder_t = expression_holder<tensor_expression>;
   using base = add_default<n_ary_add>;
   using base::dispatch;
   using base::get_default;
-  // using base::get_coefficient;
 
   n_ary_add(expr_holder_t lhs, expr_holder_t rhs);
-
-  //  expr_holder_t
-  //  dispatch([[maybe_unused]]tensor_constant const& rhs){
-  //    auto add_expr{make_expression<tensor_add>(lhs)};
-  //    auto &add{add_expr.template get<tensor_add>()};
-  //    auto coeff{add.coeff() + m_rhs};
-  //    add.set_coeff(std::move(coeff));
-  //    return std::move(add_expr);
-  //  }
-
-  //  expr_holder_t
-  //  dispatch([[maybe_unused]]tensor_one const& ){
-  //    auto add_expr{make_expression<tensor_add>(lhs)};
-  //    auto &add{add_expr.template get<tensor_add>()};
-  //    auto
-  //    coeff{make_expression<scalar_constant>(get_coefficient(add,
-  //    0.0) + static_cast(1))};
-  //    //auto coeff{add.coeff() + m_rhs};
-  //    add.set_coeff(std::move(coeff));
-  //    return add_expr;
-  //  }
 
   template <typename Expr>
   [[nodiscard]] auto dispatch([[maybe_unused]] Expr const &rhs);
 
-  // merge two expression
   [[nodiscard]] auto dispatch(tensor_add const &rhs);
 
   [[nodiscard]] auto dispatch(tensor_negative const &rhs);
@@ -169,83 +96,17 @@ protected:
   tensor_add const &lhs;
 };
 
-// template<typename T>
-// class n_ary_mul_add final : public add_default<T>{
-// public:
-//   using value_type = T;
-//   using expr_holder_t = expression_holder<scalar_expression>;
-//   using base = add_default<T>;
-//   using base::dispatch;
-//   using base::get_default;
-//   using base::get_coefficient;
-
-//  n_ary_mul_add(expr_holder_t lhs, expr_holder_t
-//  rhs):base(lhs,rhs),lhs{base::m_lhs.template get<scalar_mul>()}
-//  {}
-
-//  auto dispatch(scalar const&rhs) {
-//    const auto &hash_rhs{rhs.hash_value()};
-//    const auto &hash_lhs{lhs.hash_value()};
-//    if (hash_rhs == hash_lhs) {
-//      auto expr{make_expression<scalar_mul>(lhs)};
-//      auto &mul{expr.template get<scalar_mul>()};
-//      mul.set_coeff(make_expression<scalar_constant>(
-//          get_coefficient(lhs, 1.0) + 1.0));
-//      return std::move(expr);
-//    }
-//    return get_default();
-//  }
-
-//         /// expr + expr --> 2*expr
-//  auto dispatch(scalar_mul const&rhs) {
-//    const auto &hash_rhs{rhs.hash_value()};
-//    const auto &hash_lhs{lhs.hash_value()};
-//    if (hash_rhs == hash_lhs) {
-//      const auto fac_lhs{get_coefficient(lhs, 1.0)};
-//      const auto fac_rhs{get_coefficient(rhs, 1.0)};
-//      auto expr{make_expression<scalar_mul>(lhs)};
-//      auto &mul{expr.template get<scalar_mul>()};
-//      mul.set_coeff(
-//          make_expression<scalar_constant>(fac_lhs + fac_rhs));
-//      return std::move(expr);
-//    }
-//    return get_default();
-//  }
-
-// private:
-//   using base::m_lhs;
-//   using base::m_rhs;
-//   scalar_mul const& lhs;
-// };
-
+// Thin wrapper: LHS is symbol
 class symbol_add final : public add_default<symbol_add> {
 public:
   using expr_holder_t = expression_holder<tensor_expression>;
   using base = add_default<symbol_add>;
   using base::dispatch;
   using base::get_default;
-  //  using base::get_coefficient;
 
   symbol_add(expr_holder_t lhs, expr_holder_t rhs);
 
-  /// x+x --> 2*x
   [[nodiscard]] expr_holder_t dispatch(tensor const &rhs);
-
-  //  expr_holder_t  dispatch(scalar_mul const&rhs) {
-  //    const auto &hash_rhs{rhs.hash_value()};
-  //    const auto &hash_lhs{lhs.hash_value()};
-  //    if (hash_rhs == hash_lhs) {
-  //      auto expr{make_expression<scalar_mul>(rhs)};
-  //      auto &mul{expr.template get<scalar_mul>()};
-  //      mul.set_coeff(make_expression<scalar_constant>(
-  //          get_coefficient(rhs, 1.0) + 1.0));
-  //      return std::move(expr);
-  //    }
-  //    return get_default();
-  //  }
-  //  expr_holder_t dispatch(scalar_constant
-  //  const&rhs) {
-  //  }
 
 private:
   using base::m_lhs;
@@ -253,6 +114,7 @@ private:
   tensor const &lhs;
 };
 
+// Thin wrapper: LHS is tensor_scalar_mul (tensor-specific, no generic equiv)
 class tensor_scalar_mul_add final : public add_default<tensor_scalar_mul_add> {
 public:
   using expr_holder_t = expression_holder<tensor_expression>;
@@ -275,17 +137,16 @@ private:
   tensor_scalar_mul const &lhs;
 };
 
+// Thin wrapper: LHS is negative
 class add_negative final : public add_default<add_negative> {
 public:
   using expr_holder_t = expression_holder<tensor_expression>;
   using base = add_default<add_negative>;
   using base::dispatch;
-  // using base::get_coefficient;
   using base::get_default;
 
   add_negative(expr_holder_t lhs, expr_holder_t rhs);
 
-  // (-lhs) + (-rhs) --> -(lhs+rhs)
   [[nodiscard]] expr_holder_t dispatch(tensor_negative const &rhs);
 
 private:
@@ -294,14 +155,13 @@ private:
   tensor_negative const &lhs;
 };
 
+// Dispatcher: analyzes LHS type and creates appropriate specialized visitor
 class add_base final : public tensor_visitor_return_expr_t {
 public:
   using expr_holder_t = expression_holder<tensor_expression>;
 
-  add_base(expr_holder_t lhs, expr_holder_t rhs)
-      : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
+  add_base(expr_holder_t lhs, expr_holder_t rhs);
 
-protected:
 #define NUMSIM_ADD_OVR_FIRST(T)                                                \
   expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
 #define NUMSIM_ADD_OVR_NEXT(T)                                                 \
@@ -321,13 +181,6 @@ protected:
   [[nodiscard]] expr_holder_t dispatch(tensor const &);
 
   template <typename Type> [[nodiscard]] expr_holder_t dispatch(Type const &);
-
-  // template <typename Type>
-  // [[nodiscard]] expr_holder_t dispatch(Type const &) {
-  //   auto &_rhs{m_rhs.template get<tensor_visitable_t>()};
-  //   add_default<void> visitor(std::move(m_lhs), std::move(m_rhs));
-  //   return _rhs.accept(visitor);
-  // }
 
   expr_holder_t m_lhs;
   expr_holder_t m_rhs;
