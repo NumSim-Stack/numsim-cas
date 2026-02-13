@@ -316,6 +316,49 @@ TEST_F(ScalarFixture, PRINT_Division_NoCancel) {
 //
 // ADD_* — targeted add/combine cases
 //
+//
+// POW_Simplification — pow-of-pow flattening, identity/zero exponent,
+//                      negative base extraction, mul-pow extraction
+//
+TEST_F(ScalarFixture, POW_Simplification) {
+  auto &x = this->x, &y = this->y, &z = this->z;
+  auto &_1 = this->_1, &_2 = this->_2, &_3 = this->_3;
+  auto &zero = this->_zero, &one = this->_one;
+
+  // --- Identity / zero exponent ---
+  EXPECT_PRINT(pow(x, zero), "1");
+  EXPECT_PRINT(pow(x, one), "x");
+  EXPECT_PRINT(pow(x, _1), "x");
+  EXPECT_PRINT(pow(one, x), "1");
+  EXPECT_PRINT(pow(one, _3), "1");
+
+  // --- pow of pow: pow(pow(x,a),b) → pow(x,a*b) ---
+  EXPECT_PRINT(pow(pow(x, _2), _3), "pow(x,6)");
+  EXPECT_PRINT(pow(pow(x, _3), _2), "pow(x,6)");
+  EXPECT_PRINT(pow(pow(x, y), z), "pow(x,y*z)");
+  EXPECT_PRINT(pow(pow(x, y), _2), "pow(x,2*y)");
+  EXPECT_PRINT(pow(pow(x, _2), y), "pow(x,2*y)");
+
+  // --- pow of pow with negation ---
+  EXPECT_PRINT(pow(pow(x, -_1), -_1), "x");
+  EXPECT_PRINT(pow(pow(x, -_2), -_2), "pow(x,4)");
+  EXPECT_PRINT(pow(pow(x, -_2), _2), "pow(x,-4)");
+
+  // --- Negative base extraction: pow(-x, p) → -pow(x, p) ---
+  EXPECT_PRINT(pow(-x, _2), "-pow(x,2)");
+  EXPECT_PRINT(pow(-x, y), "-pow(x,y)");
+
+  // --- Division cancellation: pow(x, -x) → 1 ---
+  EXPECT_PRINT(pow(x, -x), "1");
+
+  // --- Mul factor cancel: pow(x*y, -y) → x ---
+  EXPECT_PRINT(pow(x * y, -y), "x");
+
+  // --- Mul-pow extraction: pow(x*pow(y,a), b) → pow(x,b)*pow(y,a*b) ---
+  EXPECT_PRINT(pow(x * pow(y, _2), _3), "pow(y,6)*pow(x,3)");
+  EXPECT_PRINT(pow(x * pow(y, z), _2), "pow(y,2*z)*pow(x,2)");
+}
+
 TEST_F(ScalarFixture, ADD_CombineSameSymbol) {
   auto &x = this->x;
   EXPECT_PRINT(x + x, "2*x");

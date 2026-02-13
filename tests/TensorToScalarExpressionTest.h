@@ -238,4 +238,71 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_PRINT(t2s_one - t2s_one, "0");
 }
 
+// ---------- Pow simplification ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_PowSimplification) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &x = this->x;
+  auto &_2 = this->_2;
+  auto &_3 = this->_3;
+
+  using numsim::cas::trace;
+  using numsim::cas::norm;
+
+  auto trX = trace(X);
+  auto trY = trace(Y);
+  auto nX = norm(X);
+
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+
+  // --- Identity / zero exponent ---
+  EXPECT_PRINT(numsim::cas::pow(trX, 0), "1");
+  EXPECT_PRINT(numsim::cas::pow(trX, 1), "tr(X)");
+  EXPECT_PRINT(numsim::cas::pow(trX, t2s_zero), "1");
+  EXPECT_PRINT(numsim::cas::pow(trX, t2s_one), "tr(X)");
+  EXPECT_PRINT(numsim::cas::pow(t2s_one, trX), "1");
+  EXPECT_PRINT(numsim::cas::pow(t2s_one, 5), "1");
+
+  // numeric 0/1 via scalar_wrapper
+  EXPECT_PRINT(numsim::cas::pow(trX, this->_zero), "1");
+  EXPECT_PRINT(numsim::cas::pow(trX, this->_one), "tr(X)");
+
+  // --- pow of pow: pow(pow(tr(X),a),b) → pow(tr(X),a*b) ---
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, 2), 3), "pow(tr(X),6)");
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, 3), 2), "pow(tr(X),6)");
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, _2), _3),
+               "pow(tr(X),6)");
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, x), _2),
+               "pow(tr(X),2*x)");
+
+  // pow of pow with different base expressions
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(nX, 2), 3),
+               "pow(norm(X),6)");
+
+  // --- Negative base extraction: pow(-expr, p) → -pow(expr, p) ---
+  EXPECT_PRINT(numsim::cas::pow(-trX, 2), "-pow(tr(X),2)");
+  EXPECT_PRINT(numsim::cas::pow(-trX, _3), "-pow(tr(X),3)");
+
+  // --- Division cancellation: pow(expr, -expr) → 1 ---
+  EXPECT_PRINT(numsim::cas::pow(trX, -trX), "1");
+
+  // --- Mul factor cancel: pow(expr*x, -x) → expr ---
+  EXPECT_PRINT(numsim::cas::pow(trX * nX, -nX), "tr(X)");
+
+  // --- Mul-pow extraction: pow(a*pow(b,c), d) → pow(a,d)*pow(b,c*d) ---
+  EXPECT_PRINT(
+      numsim::cas::pow(trX * numsim::cas::pow(nX, 2), 3),
+      "pow(norm(X),6)*pow(tr(X),3)");
+
+  // --- Interplay with existing mul simplifier ---
+  // tr(X)*tr(X) creates pow(tr(X),2), then pow(pow(tr(X),2),3) simplifies
+  auto t_sq = trX * trX;
+  EXPECT_PRINT(t_sq, "pow(tr(X),2)");
+  EXPECT_PRINT(numsim::cas::pow(t_sq, 3), "pow(tr(X),6)");
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H

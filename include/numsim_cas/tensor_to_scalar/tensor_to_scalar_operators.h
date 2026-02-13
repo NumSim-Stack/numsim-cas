@@ -13,6 +13,7 @@
 
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_add.h>
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_mul.h>
+#include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_pow.h>
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_sub.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h>
 
