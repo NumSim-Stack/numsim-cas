@@ -3,6 +3,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/simplifier/simplifier_add.h>
+#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_domain_traits.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
@@ -41,8 +42,24 @@ public:
   using algo::algo;
   using algo::dispatch;
 
-  // domain-specific: extract and combine scalar wrappers
+  // domain-specific: scalar_wrapper dispatch (numeric → base, else find/merge)
   expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &rhs);
+
+  // Generic fallback: find in hash_map, combine or push_back
+  // (symbol_type is void for t2s, so the base symbol dispatch is disabled)
+  template <typename T> expr_holder_t dispatch(T const &) {
+    auto expr_add{make_expression<tensor_to_scalar_add>(this->lhs)};
+    auto &add{expr_add.template get<tensor_to_scalar_add>()};
+    auto pos{add.hash_map().find(this->m_rhs)};
+    if (pos != add.hash_map().end()) {
+      auto combined{pos->second + this->m_rhs};
+      add.hash_map().erase(pos);
+      add.push_back(std::move(combined));
+      return expr_add;
+    }
+    add.push_back(this->m_rhs);
+    return expr_add;
+  }
 
 #define NUMSIM_LOOP_OVER(T)                                                    \
   expr_holder_t operator()(T const &n) override { return this->dispatch(n); }

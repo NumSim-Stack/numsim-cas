@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <numsim_cas/core/print_mul_fractions.h>
+#include <numsim_cas/scalar/scalar_domain_traits.h>
 #include <numsim_cas/scalar/visitors/scalar_printer.h>
 #include <ranges>
 #include <vector>
@@ -56,44 +58,19 @@ void scalar_printer<Stream>::operator()(
 
 template <typename Stream>
 void scalar_printer<Stream>::operator()(scalar_mul const &visitable) noexcept {
+  using traits = domain_traits<scalar_expression>;
   constexpr auto precedence{Precedence::Multiplication};
   const auto parent_precedence{m_parent_precedence};
 
   begin(precedence, parent_precedence);
-  const auto values{visitable.hash_map() | std::views::values};
-  std::vector<expr_t> power;
-  std::vector<expr_t> numerator, denominator;
-  power.reserve(visitable.hash_map().size());
-  numerator.reserve(visitable.hash_map().size());
-  denominator.reserve(visitable.hash_map().size());
+
+  auto [num, denom] =
+      partition_mul_fractions<traits>(visitable.hash_map());
+
   std::map<expr_t, expr_t, detail::scalar_pretty_printer> sorted_map;
-
-  std::for_each(std::begin(values), std::end(values),
-                [&](auto &expr) { sorted_map[expr] = expr; });
-
-  std::for_each(std::begin(values), std::end(values), [&](const auto &expr) {
-    if (auto power_expr{is_same_r<scalar_pow>(expr)}) {
-      const auto &expr_rhs{power_expr->get().expr_rhs()};
-      if (auto expr_neg{is_same_r<scalar_negative>(expr_rhs)}) {
-        if (is_scalar_constant(expr_neg->get().expr())) {
-          power.push_back(expr);
-          numerator.push_back(power_expr->get().expr_lhs());
-          denominator.push_back(expr_neg->get().expr());
-        }
-      }
-      if (auto expr_const{is_same_r<scalar_constant>(expr_rhs)}) {
-        if (expr_const->get().value() < 0) {
-          power.push_back(expr);
-          numerator.push_back(power_expr->get().expr_lhs());
-          denominator.push_back(
-              make_expression<scalar_constant>(-expr_const->get().value()));
-        }
-      }
-    }
-  });
-
-  std::for_each(std::begin(power), std::end(power),
-                [&](const auto &expr) { sorted_map.erase(expr); });
+  for (auto &child : num) {
+    sorted_map[child] = child;
+  }
 
   bool first = true;
   if (visitable.coeff().is_valid()) {
@@ -107,19 +84,17 @@ void scalar_printer<Stream>::operator()(scalar_mul const &visitable) noexcept {
     first = false;
   }
 
-  if (!power.empty()) {
+  if (!denom.empty()) {
     m_out << "/";
-    for (std::size_t i{0}; i < power.size(); ++i) {
-      if (const auto number{get_scalar_number(denominator[i])}) {
-        if ((*number) != 1) {
-          m_out << "pow(";
-          apply(numerator[i]);
-          m_out << ",";
-          apply(denominator[i]);
-          m_out << ")";
-        } else {
-          apply(numerator[i], Precedence::Division_RHS);
-        }
+    for (auto &entry : denom) {
+      if (entry.pos_exponent != scalar_number{1}) {
+        m_out << "pow(";
+        apply(entry.base);
+        m_out << ",";
+        m_out << entry.pos_exponent;
+        m_out << ")";
+      } else {
+        apply(entry.base, Precedence::Division_RHS);
       }
     }
   }

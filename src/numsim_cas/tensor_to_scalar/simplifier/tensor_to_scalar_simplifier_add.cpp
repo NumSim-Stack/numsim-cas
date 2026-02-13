@@ -19,16 +19,18 @@ n_ary_add::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
   if (Traits::try_numeric(m_rhs)) {
     return algo::dispatch(rhs);
   }
-  // Non-numeric: extract and combine scalar wrappers
-  auto expr{make_expression<tensor_to_scalar_add>(lhs)};
-  auto scalar_wrappers{get_all<tensor_to_scalar_scalar_wrapper>(lhs)};
-  expression_holder<scalar_expression> result;
-  for (const auto &scalar : scalar_wrappers) {
-    result += scalar.get<tensor_to_scalar_scalar_wrapper>().expr();
-    expr.get<tensor_to_scalar_add>().hash_map().erase(scalar);
+  // Non-numeric: find matching in hash_map, combine or push_back
+  auto expr_add{make_expression<tensor_to_scalar_add>(lhs)};
+  auto &add{expr_add.get<tensor_to_scalar_add>()};
+  auto pos{add.hash_map().find(m_rhs)};
+  if (pos != add.hash_map().end()) {
+    auto combined{pos->second + m_rhs};
+    add.hash_map().erase(pos);
+    add.push_back(std::move(combined));
+    return expr_add;
   }
-  auto temp = result + rhs.expr();
-  return std::move(expr) * std::move(temp);
+  add.push_back(m_rhs);
+  return expr_add;
 }
 
 // ------------------------------------------------------------

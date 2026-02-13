@@ -80,6 +80,11 @@ public:
     return get_default();
   }
 
+  // non-add + add --> swap so add is LHS (triggers n_ary_add_dispatch)
+  expr_holder_t dispatch(typename Traits::add_type const &) {
+    return m_rhs + m_lhs;
+  }
+
   template <typename _Expr, typename _ValueType>
   scalar_number get_coefficient(_Expr const &expr, _ValueType const &value) {
     if constexpr (is_detected_v<has_coefficient, _Expr>) {

@@ -3,6 +3,8 @@
 
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
+#include <algorithm>
+#include <numsim_cas/core/print_mul_fractions.h>
 #include <numsim_cas/printer_base.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h>
@@ -10,9 +12,38 @@
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_add.h>
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_mul.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_domain_traits.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_io.h>
 
 namespace numsim::cas {
+
+namespace detail {
+inline bool is_scalar_like(
+    expression_holder<tensor_to_scalar_expression> const &expr) {
+  if (!expr.is_valid())
+    return false;
+  if (is_same<tensor_to_scalar_scalar_wrapper>(expr))
+    return true;
+  if (is_same<tensor_to_scalar_one>(expr) ||
+      is_same<tensor_to_scalar_zero>(expr))
+    return true;
+  if (is_same<tensor_to_scalar_mul>(expr)) {
+    auto const &mul = expr.template get<tensor_to_scalar_mul>();
+    for (auto const &[k, v] : mul.hash_map()) {
+      if (!is_scalar_like(v))
+        return false;
+    }
+    return true;
+  }
+  if (is_same<tensor_to_scalar_pow>(expr))
+    return is_scalar_like(
+        expr.template get<tensor_to_scalar_pow>().expr_lhs());
+  if (is_same<tensor_to_scalar_negative>(expr))
+    return is_scalar_like(
+        expr.template get<tensor_to_scalar_negative>().expr());
+  return false;
+}
+} // namespace detail
 
 template <typename StreamType>
 class tensor_to_scalar_printer final
@@ -67,20 +98,55 @@ public:
   }
 
   void operator()(tensor_to_scalar_mul const &visitable) noexcept {
+    using traits = domain_traits<tensor_to_scalar_expression>;
     constexpr auto precedence{Precedence::Multiplication};
-    begin(precedence, m_parent_precedence);
+    const auto parent_precedence{m_parent_precedence};
+    begin(precedence, parent_precedence);
+
+    auto [num, denom] =
+        partition_mul_fractions<traits>(visitable.hash_map());
+
+    // scalar-like children first for consistent ordering
+    std::stable_partition(num.begin(), num.end(),
+                          [](auto const &c) {
+                            return detail::is_scalar_like(c);
+                          });
+
     bool first = true;
     if (visitable.coeff().is_valid()) {
       apply(visitable.coeff(), precedence);
-      m_out << "*";
+      first = false;
     }
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    for (auto &child : num) {
       if (!first)
         m_out << "*";
       apply(child, precedence);
       first = false;
     }
-    end(precedence, m_parent_precedence);
+
+    if (!denom.empty()) {
+      m_out << "/";
+      const bool multi = denom.size() > 1;
+      if (multi)
+        m_out << "(";
+      for (std::size_t i = 0; i < denom.size(); ++i) {
+        if (i > 0)
+          m_out << "*";
+        if (denom[i].pos_exponent == scalar_number{1}) {
+          apply(denom[i].base, Precedence::Division_RHS);
+        } else {
+          m_out << "pow(";
+          apply(denom[i].base);
+          m_out << ",";
+          m_out << denom[i].pos_exponent;
+          m_out << ")";
+        }
+      }
+      if (multi)
+        m_out << ")";
+    }
+
+    end(precedence, parent_precedence);
   }
 
   void operator()(tensor_to_scalar_log const &visitable) noexcept {
@@ -89,14 +155,27 @@ public:
 
   void operator()(tensor_to_scalar_add const &visitable) noexcept {
     constexpr auto precedence{Precedence::Addition};
-    begin(precedence, m_parent_precedence);
+    const auto parent_precedence{m_parent_precedence};
+    begin(precedence, parent_precedence);
+
+    // collect children, scalar_wrapper first for consistent ordering
+    using expr_t = expression_holder<tensor_to_scalar_expression>;
+    std::vector<expr_t> children;
+    children.reserve(visitable.hash_map().size());
+    for (auto &child : visitable.hash_map() | std::views::values) {
+      children.push_back(child);
+    }
+    std::stable_partition(children.begin(), children.end(),
+                          [](auto const &c) {
+                            return detail::is_scalar_like(c);
+                          });
 
     bool first{false};
     if (visitable.coeff().is_valid()) {
       apply(visitable.coeff(), precedence);
       first = true;
     }
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    for (auto &child : children) {
       if (first && !is_same<tensor_to_scalar_negative>(child)) {
         m_out << "+";
       }
@@ -104,7 +183,7 @@ public:
       first = true;
     }
 
-    end(precedence, m_parent_precedence);
+    end(precedence, parent_precedence);
   }
 
   // void operator()(tensor_to_scalar_div const &visitable) {
@@ -172,20 +251,21 @@ public:
   void operator()(tensor_inner_product_to_scalar const &visitable) noexcept {
     const auto &indices_lhs{visitable.indices_lhs()};
     const auto &indices_rhs{visitable.indices_rhs()};
+    const auto parent_precedence{m_parent_precedence};
 
     if (indices_lhs == sequence{1, 2} && indices_rhs == sequence{1, 2}) {
-      begin(Precedence::Multiplication, m_parent_precedence);
+      begin(Precedence::Multiplication, parent_precedence);
       apply(visitable.expr_lhs(), Precedence::Multiplication);
       m_out << ":";
       apply(visitable.expr_rhs(), Precedence::Multiplication);
-      end(Precedence::Multiplication, m_parent_precedence);
+      end(Precedence::Multiplication, parent_precedence);
     } else if (indices_lhs == sequence{1, 2, 3, 4} &&
                indices_rhs == sequence{1, 2, 3, 4}) {
-      begin(Precedence::Multiplication, m_parent_precedence);
+      begin(Precedence::Multiplication, parent_precedence);
       apply(visitable.expr_lhs(), Precedence::Multiplication);
       m_out << "::";
       apply(visitable.expr_rhs(), Precedence::Multiplication);
-      end(Precedence::Multiplication, m_parent_precedence);
+      end(Precedence::Multiplication, parent_precedence);
     } else {
       m_out << "dot(";
       apply(visitable.expr_lhs(), Precedence::None);
