@@ -1,257 +1,131 @@
 #ifndef SCALAR_SIMPLIFIER_ADD_H
 #define SCALAR_SIMPLIFIER_ADD_H
 
-#include <numsim_cas/basic_functions.h>
-#include <numsim_cas/core/scalar_number.h>
-#include <numsim_cas/functions.h>
-#include <numsim_cas/scalar/scalar_definitions.h>
-#include <numsim_cas/scalar/scalar_functions.h>
+#include <numsim_cas/core/simplifier/simplifier_add.h>
+#include <numsim_cas/scalar/scalar_all.h>
+#include <numsim_cas/scalar/scalar_domain_traits.h>
+#include <numsim_cas/scalar/scalar_globals.h>
 
 namespace numsim::cas {
+
+using scalar_traits = domain_traits<scalar_expression>;
+
 namespace simplifier {
 
-template <typename Derived>
-class add_default : public scalar_visitor_return_expr_t {
-public:
-  using expr_t = scalar_expression;
-  using expr_holder_t = expression_holder<expr_t>;
+// Thin wrapper: fallback dispatch (no LHS specialization)
+class add_default_visitor final
+    : public scalar_visitor_return_expr_t,
+      public detail::add_dispatch<scalar_traits, void> {
+  using algo = detail::add_dispatch<scalar_traits, void>;
 
-  add_default(expr_holder_t lhs, expr_holder_t rhs)
-      : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
-
-protected:
-  auto get_default() {
-    const auto lhs_constant{is_constant(m_lhs)};
-    const auto rhs_constant{is_constant(m_rhs)};
-
-    assert(!(lhs_constant && rhs_constant));
-
-    auto add_new{make_expression<scalar_add>()};
-    if (lhs_constant) {
-      auto &add{add_new.template get<scalar_add>()};
-      add.set_coeff(m_lhs);
-    } else {
-      add_new.template get<scalar_add>().push_back(m_lhs);
-    }
-
-    if (rhs_constant) {
-      auto &add{add_new.template get<scalar_add>()};
-      add.set_coeff(m_rhs);
-    } else {
-      add_new.template get<scalar_add>().push_back(m_rhs);
-    }
-    return add_new;
-  }
-
-  template <typename Expr> expr_holder_t dispatch(Expr const &) {
-    return get_default();
-  }
-
-  expr_holder_t dispatch(scalar_zero const &) { return m_lhs; }
-
-  expr_holder_t dispatch(scalar_negative const &expr) {
-    if (m_lhs == expr.expr()) {
-      return get_scalar_zero();
-    }
-    return get_default();
-  }
-
-  template <typename _Expr, typename _ValueType>
-  scalar_number get_coefficient(_Expr const &expr, _ValueType const &value) {
-    if (is_detected_v<has_coefficient, _Expr>) {
-      auto func{[&](auto const &coeff) -> scalar_number {
-        if (coeff.is_valid()) {
-          if (is_same<scalar_negative>(coeff)) {
-            const auto &neg_expr{coeff.template get<scalar_negative>().expr()};
-            if (is_same<scalar_one>(neg_expr))
-              return {-1};
-            if (is_same<scalar_constant>(neg_expr))
-              return -neg_expr.template get<scalar_constant>().value();
-          } else {
-            if (is_same<scalar_one>(coeff))
-              return {1};
-            if (is_same<scalar_constant>(coeff))
-              return coeff.template get<scalar_constant>().value();
-          }
-        }
-
-        return value;
-      }};
-      return func(expr.coeff());
-    }
-    return value;
-  }
-
-#define NUMSIM_ADD_OVR(T)                                                      \
-  expr_holder_t operator()(T const &n) override {                              \
-    if constexpr (std::is_void_v<Derived>) {                                   \
-      return dispatch(n);                                                      \
-    } else {                                                                   \
-      return static_cast<Derived *>(this)->dispatch(n);                        \
-    }                                                                          \
-  }
-  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_ADD_OVR, NUMSIM_ADD_OVR)
-#undef NUMSIM_ADD_OVR
-
-protected:
-  expr_holder_t m_lhs;
-  expr_holder_t m_rhs;
-};
-
-class constant_add final : public add_default<constant_add> {
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
-  using base = add_default<constant_add>;
-  using base::operator();
-  using base::dispatch;
-  using base::get_coefficient;
-  using base::get_default;
+  using algo::algo;
 
-  constant_add(expr_holder_t lhs, expr_holder_t rhs);
-
-  expr_holder_t dispatch(scalar_constant const &rhs);
-
-  expr_holder_t dispatch([[maybe_unused]] scalar_add const &rhs);
-
-  expr_holder_t dispatch(scalar_one const &);
-
-  expr_holder_t dispatch(scalar_negative const &rhs);
-
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  scalar_constant const &lhs;
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
 };
 
-class add_scalar_one final : public add_default<add_scalar_one> {
+// Thin wrapper: LHS is constant
+class constant_add final
+    : public scalar_visitor_return_expr_t,
+      public detail::constant_add_dispatch<scalar_traits> {
+  using algo = detail::constant_add_dispatch<scalar_traits>;
+
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
-  using base = add_default<add_scalar_one>;
-  using base::operator();
-  using base::dispatch;
-  using base::get_coefficient;
-  using base::get_default;
+  using algo::algo;
 
-  add_scalar_one(expr_holder_t lhs, expr_holder_t rhs);
-
-  expr_holder_t dispatch(scalar_constant const &rhs);
-
-  expr_holder_t dispatch([[maybe_unused]] scalar_add const &rhs);
-
-  expr_holder_t dispatch(scalar_one const &);
-
-  expr_holder_t dispatch(scalar_negative const &rhs);
-
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  scalar_one const &lhs;
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
 };
 
-class n_ary_add final : public add_default<n_ary_add> {
+// Thin wrapper: LHS is one
+class add_scalar_one final
+    : public scalar_visitor_return_expr_t,
+      public detail::one_add_dispatch<scalar_traits> {
+  using algo = detail::one_add_dispatch<scalar_traits>;
+
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
-  using base = add_default<n_ary_add>;
-  using base::operator();
-  using base::dispatch;
-  using base::get_coefficient;
-  using base::get_default;
+  using algo::algo;
 
-  n_ary_add(expr_holder_t lhs, expr_holder_t rhs);
-
-  expr_holder_t dispatch([[maybe_unused]] scalar_constant const &rhs);
-
-  expr_holder_t dispatch([[maybe_unused]] scalar_one const &);
-
-  expr_holder_t dispatch([[maybe_unused]] scalar const &rhs);
-
-  // merge two expression
-  expr_holder_t dispatch(scalar_add const &rhs);
-
-  expr_holder_t dispatch(scalar_negative const &rhs);
-
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  scalar_add const &lhs;
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
 };
 
-class n_ary_mul_add final : public add_default<n_ary_mul_add> {
+// Thin wrapper: LHS is add (n-ary sum)
+class n_ary_add final
+    : public scalar_visitor_return_expr_t,
+      public detail::n_ary_add_dispatch<scalar_traits> {
+  using algo = detail::n_ary_add_dispatch<scalar_traits>;
+
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
+  using algo::algo;
 
-  using base = add_default<n_ary_mul_add>;
-  using base::operator();
-  using base::dispatch;
-  using base::get_coefficient;
-  using base::get_default;
-
-  n_ary_mul_add(expr_holder_t lhs, expr_holder_t rhs);
-
-  // constant*expr + expr --> (constant+1)*expr
-  expr_holder_t dispatch([[maybe_unused]] scalar const &rhs);
-
-  /// expr + expr --> 2*expr
-  expr_holder_t dispatch(scalar_mul const &rhs);
-
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  scalar_mul const &lhs;
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
 };
 
-class symbol_add final : public add_default<symbol_add> {
+// Thin wrapper: LHS is mul
+class n_ary_mul_add final
+    : public scalar_visitor_return_expr_t,
+      public detail::n_ary_mul_add_dispatch<scalar_traits> {
+  using algo = detail::n_ary_mul_add_dispatch<scalar_traits>;
+
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
-  using base = add_default<symbol_add>;
-  using base::operator();
-  using base::dispatch;
-  using base::get_coefficient;
-  using base::get_default;
+  using algo::algo;
 
-  symbol_add(expr_holder_t lhs, expr_holder_t rhs);
-
-  /// x+x --> 2*x
-  expr_holder_t dispatch(scalar const &rhs);
-
-  expr_holder_t dispatch(scalar_mul const &rhs);
-  //   expr_holder_t operator()(scalar_constant
-  //  const&rhs) {
-  //  }
-
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  scalar const &lhs;
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
 };
 
-class add_negative final : public add_default<add_negative> {
+// Thin wrapper: LHS is symbol
+class symbol_add final
+    : public scalar_visitor_return_expr_t,
+      public detail::symbol_add_dispatch<scalar_traits> {
+  using algo = detail::symbol_add_dispatch<scalar_traits>;
+
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
-  using base = add_default<add_negative>;
-  using base::operator();
-  using base::dispatch;
-  using base::get_coefficient;
-  using base::get_default;
+  using algo::algo;
 
-  add_negative(expr_holder_t lhs, expr_holder_t rhs);
-
-  // (-lhs) + (-rhs) --> -(lhs+rhs)
-  expr_holder_t dispatch(scalar_negative const &rhs);
-
-  expr_holder_t dispatch([[maybe_unused]] scalar_add const &rhs);
-
-  // -expr + c
-  expr_holder_t dispatch(scalar_constant const &rhs);
-
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  scalar_negative const &lhs;
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
 };
 
+// Thin wrapper: LHS is negative
+class add_negative final
+    : public scalar_visitor_return_expr_t,
+      public detail::negative_add_dispatch<scalar_traits> {
+  using algo = detail::negative_add_dispatch<scalar_traits>;
+
+public:
+  using expr_holder_t = expression_holder<scalar_expression>;
+  using algo::algo;
+
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+};
+
+// Dispatcher: analyzes LHS type and creates appropriate specialized visitor
 struct add_base final : public scalar_visitor_return_expr_t {
-  using expr_t = scalar_expression;
   using expr_holder_t = expression_holder<scalar_expression>;
 
   add_base(expr_holder_t lhs, expr_holder_t rhs);
@@ -281,7 +155,7 @@ private:
 
   template <typename Type> expr_holder_t dispatch(Type const &) {
     auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
-    add_default<void> visitor(std::move(m_lhs), std::move(m_rhs));
+    add_default_visitor visitor(std::move(m_lhs), std::move(m_rhs));
     return _rhs.accept(visitor);
   }
 

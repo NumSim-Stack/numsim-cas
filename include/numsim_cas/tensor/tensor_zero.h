@@ -18,30 +18,12 @@ public:
   ~tensor_zero() = default;
   const tensor_zero &operator=(tensor_zero &&) = delete;
 
-  // friend bool operator<(tensor_zero const &lhs, tensor_zero const &rhs);
-  // friend bool operator>(tensor_zero const &lhs, tensor_zero const &rhs);
-  // friend bool operator==(tensor_zero const &lhs, tensor_zero const &rhs);
-  // friend bool operator!=(tensor_zero const &lhs, tensor_zero const &rhs);
+  friend bool operator<(tensor_zero const &lhs, tensor_zero const &rhs);
+  friend bool operator>(tensor_zero const &lhs, tensor_zero const &rhs);
+  friend bool operator==(tensor_zero const &lhs, tensor_zero const &rhs);
+  friend bool operator!=(tensor_zero const &lhs, tensor_zero const &rhs);
 
-  friend bool operator<(tensor_zero const &lhs, tensor_zero const &rhs) {
-    return lhs.hash_value() < rhs.hash_value();
-  }
-
-  friend bool operator>(tensor_zero const &lhs, tensor_zero const &rhs) {
-    return rhs < lhs;
-  }
-
-  friend bool operator==(tensor_zero const &lhs, tensor_zero const &rhs) {
-    return lhs.hash_value() == rhs.hash_value();
-  }
-
-  friend bool operator!=(tensor_zero const &lhs, tensor_zero const &rhs) {
-    return !(lhs == rhs);
-  }
-
-  virtual void update_hash_value() const override {
-    hash_combine(base::m_hash_value, base::get_id());
-  }
+  void update_hash_value() const override;
 };
 
 } // namespace numsim::cas

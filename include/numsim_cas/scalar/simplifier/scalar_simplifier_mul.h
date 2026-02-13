@@ -111,6 +111,7 @@ class constant_mul final : public mul_default<constant_mul> {
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
   using base = mul_default<constant_mul>;
+  using base::operator();
   using base::dispatch;
   using base::get_coefficient;
   using base::m_rhs;
@@ -137,6 +138,7 @@ class n_ary_mul final : public mul_default<n_ary_mul> {
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
   using base = mul_default<n_ary_mul>;
+  using base::operator();
   using base::dispatch;
   using base::get_coefficient;
   using base::get_default;
@@ -171,6 +173,7 @@ class scalar_pow_mul final : public mul_default<scalar_pow_mul> {
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
   using base = mul_default<scalar_pow_mul>;
+  using base::operator();
   using base::dispatch;
   using base::get_coefficient;
   using base::get_default;
@@ -197,6 +200,7 @@ class symbol_mul final : public mul_default<symbol_mul> {
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
   using base = mul_default<symbol_mul>;
+  using base::operator();
   using base::dispatch;
   using base::get_coefficient;
   using base::get_default;

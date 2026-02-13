@@ -15,11 +15,7 @@ pow_pow::expr_holder_t pow_pow::dispatch(Expr const &) {
   return pow(lhs.expr_lhs(), lhs.expr_rhs() * m_rhs);
 }
 
-pow_pow::expr_holder_t pow_pow::dispatch(scalar_negative const &rhs) {
-  if (lhs.expr_lhs() == rhs.expr() &&
-      is_same<scalar_constant>(lhs.expr_rhs())) {
-    return pow(lhs.expr_lhs(), lhs.expr_rhs() - 1);
-  }
+pow_pow::expr_holder_t pow_pow::dispatch(scalar_negative const &) {
   return pow(lhs.expr_lhs(), lhs.expr_rhs() * m_rhs);
 }
 

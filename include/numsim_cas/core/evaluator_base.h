@@ -15,6 +15,8 @@ template <typename ValueType> class evaluator_base {
 public:
   using value_type = ValueType;
 
+  virtual ~evaluator_base() = default;
+
   template <typename ExprBase>
   void set(expression_holder<ExprBase> const &symbol, value_type val) {
     m_symbols_to_value[to_base_holder(symbol)] = val;

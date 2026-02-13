@@ -158,7 +158,7 @@ bool operator<(n_ary_vector<_BaseLHS> const &lhs,
 template <typename _BaseLHS, typename _BaseRHS>
 bool operator>(n_ary_vector<_BaseLHS> const &lhs,
                n_ary_vector<_BaseRHS> const &rhs) {
-  return !(lhs < rhs);
+  return rhs < lhs;
 }
 
 template <typename _BaseLHS, typename _BaseRHS>
@@ -171,7 +171,7 @@ template <typename _BaseLHS, typename _BaseRHS>
 bool operator!=(n_ary_vector<_BaseLHS> const &lhs,
                 n_ary_vector<_BaseRHS> const &rhs) {
   if (lhs.size() == 1 && rhs.size() == 1) {
-    return lhs.hash_map().begin()->second == rhs.hash_map().begin()->second;
+    return lhs.data().front() != rhs.data().front();
   }
   return !(lhs == rhs);
 }

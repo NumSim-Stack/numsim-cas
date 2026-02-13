@@ -24,23 +24,31 @@ public:
       return Traits::zero();
     }
 
-    using constant_type = typename Traits::constant_type;
     using add_type = typename Traits::add_type;
 
-    const auto lhs_constant{is_same<constant_type>(m_lhs)};
-    const auto rhs_constant{is_same<constant_type>(m_rhs)};
-    auto add_new{make_expression<add_type>()};
-    auto &add{add_new.template get<add_type>()};
-    if (lhs_constant) {
-      add.set_coeff(m_lhs);
-    } else {
-      add_new.template get<add_type>().push_back(m_lhs);
+    const auto lhs_val{Traits::try_numeric(m_lhs)};
+    const auto rhs_val{Traits::try_numeric(m_rhs)};
+
+    // Both numeric: compute directly
+    if (lhs_val && rhs_val) {
+      auto result = *lhs_val - *rhs_val;
+      if (result == scalar_number{0})
+        return Traits::zero();
+      return Traits::make_constant(result);
     }
 
-    if (rhs_constant) {
+    auto add_new{make_expression<add_type>()};
+    auto &add{add_new.template get<add_type>()};
+    if (lhs_val) {
+      add.set_coeff(m_lhs);
+    } else {
+      add.push_back(m_lhs);
+    }
+
+    if (rhs_val) {
       add.set_coeff(negate_constant(m_rhs));
     } else {
-      add_new.template get<add_type>().push_back(-m_rhs);
+      add.push_back(-m_rhs);
     }
     return add_new;
   }
@@ -54,48 +62,24 @@ public:
 
   template <typename _Expr, typename _ValueType>
   scalar_number get_coefficient(_Expr const &expr, _ValueType const &value) {
-    using negative_type = typename Traits::negative_type;
-    using one_type = typename Traits::one_type;
-    using constant_type = typename Traits::constant_type;
-
     if constexpr (is_detected_v<has_coefficient, _Expr>) {
-      auto func{[&](auto const &coeff) -> scalar_number {
-        if (coeff.is_valid()) {
-          if (is_same<negative_type>(coeff)) {
-            const auto &neg_expr{
-                coeff.template get<negative_type>().expr()};
-            if (is_same<one_type>(neg_expr))
-              return {-1};
-            if constexpr (requires(constant_type const &c) { c.value(); }) {
-              if (is_same<constant_type>(neg_expr))
-                return -neg_expr.template get<constant_type>().value();
-            }
-          } else {
-            if (is_same<one_type>(coeff))
-              return {1};
-            if constexpr (requires(constant_type const &c) { c.value(); }) {
-              if (is_same<constant_type>(coeff))
-                return coeff.template get<constant_type>().value();
-            }
-          }
-        }
-
-        return value;
-      }};
-      return func(expr.coeff());
+      auto const &coeff = expr.coeff();
+      if (coeff.is_valid()) {
+        auto val = Traits::try_numeric(coeff);
+        if (val)
+          return *val;
+      }
+      return value;
     }
     return value;
   }
 
 protected:
   static expr_holder_t negate_constant(expr_holder_t const &c) {
-    using constant_type = typename Traits::constant_type;
-    if constexpr (requires(constant_type const &x) { x.value(); }) {
-      return make_expression<constant_type>(
-          -c.template get<constant_type>().value());
-    } else {
-      return -c;
-    }
+    auto val = Traits::try_numeric(c);
+    if (val)
+      return Traits::make_constant(-(*val));
+    return -c;
   }
 
   expr_holder_t m_lhs;
@@ -148,18 +132,19 @@ public:
   using base::get_coefficient;
 
   constant_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
-      : base(std::move(lhs), std::move(rhs)),
-        lhs{base::m_lhs.template get<typename Traits::constant_type>()} {}
+      : base(std::move(lhs), std::move(rhs)) {}
 
   // constant - constant
-  expr_holder_t dispatch(typename Traits::constant_type const &rhs) {
-    using constant_type = typename Traits::constant_type;
-    if constexpr (requires(constant_type const &c) { c.value(); }) {
-      const auto value{lhs.value() - rhs.value()};
-      return make_expression<constant_type>(value);
-    } else {
-      return base::get_default();
+  expr_holder_t dispatch(typename Traits::constant_type const &) {
+    auto lhs_val = Traits::try_numeric(base::m_lhs);
+    auto rhs_val = Traits::try_numeric(base::m_rhs);
+    if (lhs_val && rhs_val) {
+      const auto value{*lhs_val - *rhs_val};
+      if (value == scalar_number{0})
+        return Traits::zero();
+      return Traits::make_constant(value);
     }
+    return base::get_default();
   }
 
   // constant - (coeff + x)
@@ -174,17 +159,15 @@ public:
 
   // constant - 1
   expr_holder_t dispatch(typename Traits::one_type const &) {
-    using constant_type = typename Traits::constant_type;
-    if constexpr (requires(constant_type const &c) { c.value(); }) {
-      const auto value{lhs.value() - 1};
-      return make_expression<constant_type>(value);
-    } else {
-      return base::get_default();
+    auto lhs_val = Traits::try_numeric(base::m_lhs);
+    if (lhs_val) {
+      const auto value{*lhs_val - scalar_number{1}};
+      if (value == scalar_number{0})
+        return Traits::zero();
+      return Traits::make_constant(value);
     }
+    return base::get_default();
   }
-
-private:
-  typename Traits::constant_type const &lhs;
 };
 
 //==============================================================================
@@ -206,24 +189,19 @@ public:
 
   // (coeff + terms) - constant
   expr_holder_t
-  dispatch([[maybe_unused]] typename Traits::constant_type const &rhs) {
-    auto add_expr{make_expression<typename Traits::add_type>(lhs)};
-    auto &add{add_expr.template get<typename Traits::add_type>()};
-    auto coeff{lhs.coeff() - base::m_rhs};
-    if (is_same<typename Traits::zero_type>(coeff)) {
+  dispatch([[maybe_unused]] typename Traits::constant_type const &) {
+    auto rhs_val = Traits::try_numeric(base::m_rhs);
+    if (rhs_val) {
+      auto add_expr{make_expression<typename Traits::add_type>(lhs)};
+      auto &add{add_expr.template get<typename Traits::add_type>()};
+      const auto value{base::get_coefficient(lhs, 0) - *rhs_val};
       add.coeff().free();
+      if (value != 0) {
+        add.set_coeff(Traits::make_constant(value));
+      }
       return add_expr;
     }
-    if constexpr (requires(typename Traits::constant_type const &c) {
-                    c.value();
-                  }) {
-      if (coeff.template get<typename Traits::constant_type>().value() == 0) {
-        add.coeff().free();
-        return add_expr;
-      }
-    }
-    add.set_coeff(std::move(coeff));
-    return add_expr;
+    return base::get_default();
   }
 
   // (coeff + terms) - 1
@@ -231,18 +209,10 @@ public:
   dispatch([[maybe_unused]] typename Traits::one_type const &) {
     auto add_expr{make_expression<typename Traits::add_type>(lhs)};
     auto &add{add_expr.template get<typename Traits::add_type>()};
-    if constexpr (requires(typename Traits::constant_type const &c) {
-                    c.value();
-                  }) {
-      const auto value{base::get_coefficient(add, 0) - 1};
-      add.coeff().free();
-      if (value != 0) {
-        auto coeff{make_expression<typename Traits::constant_type>(value)};
-        add.set_coeff(std::move(coeff));
-      }
-    } else {
-      auto coeff{lhs.coeff() - Traits::one()};
-      add.set_coeff(std::move(coeff));
+    const auto value{base::get_coefficient(add, 0) - 1};
+    add.coeff().free();
+    if (value != 0) {
+      add.set_coeff(Traits::make_constant(value));
     }
     return add_expr;
   }
@@ -425,23 +395,19 @@ public:
   using base::get_default;
 
   one_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
-      : base(std::move(lhs), std::move(rhs)),
-        lhs{base::m_lhs.template get<typename Traits::one_type>()} {}
+      : base(std::move(lhs), std::move(rhs)) {}
 
   // 1 - constant
-  expr_holder_t dispatch(typename Traits::constant_type const &rhs) {
-    using constant_type = typename Traits::constant_type;
-    if constexpr (requires(constant_type const &c) { c.value(); }) {
-      return make_expression<constant_type>(1 - rhs.value());
-    } else {
-      return get_default();
+  expr_holder_t dispatch(typename Traits::constant_type const &) {
+    auto rhs_val = Traits::try_numeric(base::m_rhs);
+    if (rhs_val) {
+      auto value = scalar_number{1} - *rhs_val;
+      if (value == scalar_number{0})
+        return Traits::zero();
+      return Traits::make_constant(value);
     }
+    return get_default();
   }
-
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  typename Traits::one_type const &lhs;
 };
 
 } // namespace detail

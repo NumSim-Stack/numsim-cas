@@ -14,8 +14,9 @@ public:
                                  RHS const &rhs) const noexcept {
     if (lhs.hash_value() != rhs.hash_value())
       return lhs.hash_value() < rhs.hash_value();
-    return static_cast<const void *>(std::addressof(lhs)) <
-           static_cast<const void *>(std::addressof(rhs));
+    if (lhs.id() != rhs.id())
+      return lhs.id() < rhs.id();
+    return false;
   }
 
   template <typename Type>

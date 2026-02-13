@@ -108,7 +108,8 @@ struct scalar_expr_less {
   }
 };
 
-template <typename ExprType> using umap = std::map<ExprType, ExprType>;
+template <typename ExprType> using expr_ordered_map = std::map<ExprType, ExprType>;
+template <typename ExprType> using umap = expr_ordered_map<ExprType>;
 template <typename ExprType> using expr_vector = std::vector<ExprType>;
 
 // template<typename _Visitor, typename... _Variants>

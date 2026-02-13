@@ -6,6 +6,7 @@
 #include <numsim_cas/scalar/visitors/scalar_printer.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_io.h>
 
 #include <algorithm>
 #include <string>
@@ -208,7 +209,6 @@ public:
     apply(visitable.expr_rhs(), precedence);
     m_out << ", ";
     m_out << indices_rhs;
-    m_out << ")";
     m_out << ")";
   }
 
@@ -444,15 +444,14 @@ public:
 
   void operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul const
                       &visitable) noexcept {
-    // constexpr auto precedence{Precedence::Multiplication};
-    // const auto parent_precedence{m_parent_precedence};
+    constexpr auto precedence{Precedence::Multiplication};
+    const auto parent_precedence{m_parent_precedence};
 
-    // begin(precedence, m_parent_precedence);
-    // tensor_to_scalar_printer<StreamType> printer(m_out);
-    // printer.apply(visitable.expr_lhs(), precedence);
-    // m_out << "*";
-    // apply(visitable.expr_rhs(), precedence);
-    // end(precedence, m_parent_precedence);
+    begin(precedence, parent_precedence);
+    m_out << visitable.expr_rhs();
+    m_out << "*";
+    apply(visitable.expr_lhs(), precedence);
+    end(precedence, parent_precedence);
   }
 
   // void

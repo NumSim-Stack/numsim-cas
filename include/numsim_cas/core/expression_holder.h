@@ -156,8 +156,10 @@ bool operator<(expression_holder<_ExprBase> const &lhs,
   if (lhs.get().hash_value() != rhs.get().hash_value())
     return lhs.get().hash_value() < rhs.get().hash_value();
 
-  return static_cast<const void *>(std::addressof(lhs.get())) <
-         static_cast<const void *>(std::addressof(rhs.get()));
+  if (lhs.get().id() != rhs.get().id())
+    return lhs.get().id() < rhs.get().id();
+
+  return false;
 }
 
 template <typename _ExprBase>

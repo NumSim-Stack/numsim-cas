@@ -1,9 +1,11 @@
 #ifndef SCALAR_DOMAIN_TRAITS_H
 #define SCALAR_DOMAIN_TRAITS_H
 
+#include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/domain_traits.h>
 #include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_globals.h>
+#include <optional>
 
 namespace numsim::cas {
 
@@ -22,6 +24,27 @@ template <> struct domain_traits<scalar_expression> {
   using visitor_return_expr_t = scalar_visitor_return_expr_t;
   static expr_holder_t zero() { return get_scalar_zero(); }
   static expr_holder_t one() { return get_scalar_one(); }
+
+  static std::optional<scalar_number> try_numeric(expr_holder_t const &expr) {
+    if (!expr.is_valid())
+      return std::nullopt;
+    if (is_same<scalar_zero>(expr))
+      return scalar_number{0};
+    if (is_same<scalar_one>(expr))
+      return scalar_number{1};
+    if (is_same<scalar_constant>(expr))
+      return expr.template get<scalar_constant>().value();
+    if (is_same<scalar_negative>(expr)) {
+      auto inner = try_numeric(expr.template get<scalar_negative>().expr());
+      if (inner)
+        return -(*inner);
+    }
+    return std::nullopt;
+  }
+
+  static expr_holder_t make_constant(scalar_number const &value) {
+    return make_expression<scalar_constant>(value);
+  }
 };
 
 } // namespace numsim::cas

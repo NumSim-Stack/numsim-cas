@@ -17,29 +17,16 @@ public:
   ~tensor_to_scalar_one() = default;
   const tensor_to_scalar_one &operator=(tensor_to_scalar_one &&) = delete;
 
-  friend bool operator<([[maybe_unused]] tensor_to_scalar_one const &lhs,
-                        [[maybe_unused]] tensor_to_scalar_one const &rhs) {
-    return true;
-  }
-
+  friend bool operator<(tensor_to_scalar_one const &lhs,
+                        tensor_to_scalar_one const &rhs);
   friend bool operator>(tensor_to_scalar_one const &lhs,
-                        tensor_to_scalar_one const &rhs) {
-    return !(lhs < rhs);
-  }
-
-  friend bool operator==([[maybe_unused]] tensor_to_scalar_one const &lhs,
-                         [[maybe_unused]] tensor_to_scalar_one const &rhs) {
-    return true;
-  }
-
+                        tensor_to_scalar_one const &rhs);
+  friend bool operator==(tensor_to_scalar_one const &lhs,
+                         tensor_to_scalar_one const &rhs);
   friend bool operator!=(tensor_to_scalar_one const &lhs,
-                         tensor_to_scalar_one const &rhs) {
-    return !(lhs == rhs);
-  }
+                         tensor_to_scalar_one const &rhs);
 
-  virtual void update_hash_value() const override {
-    hash_combine(base::m_hash_value, base::get_id());
-  }
+  void update_hash_value() const override;
 };
 
 } // namespace numsim::cas

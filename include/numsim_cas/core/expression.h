@@ -53,12 +53,7 @@ public:
    * @brief Retrieves the hash value of the expression.
    * @return The hash value.
    */
-  hash_type const &hash_value() const {
-    if (!m_hash_value) {
-      update_hash_value();
-    }
-    return m_hash_value;
-  }
+  hash_type const &hash_value() const;
 
   [[nodiscard]] virtual type_id id() const noexcept = 0;
 
@@ -66,25 +61,9 @@ public:
 
   inline auto const &assumptions() const noexcept { return m_assumption; }
 
-  bool operator==(expression const &rhs) const noexcept {
-    if (this == &rhs)
-      return true;
+  bool operator==(expression const &rhs) const noexcept;
 
-    // different dynamic node type => not equal
-    if (id() != rhs.id())
-      return false;
-
-    // fast reject
-    if (hash_value() != rhs.hash_value())
-      return false;
-
-    // same type => do the real compare
-    return equals_same_type(rhs);
-  }
-
-  bool operator!=(expression const &rhs) const noexcept {
-    return !(*this == rhs);
-  }
+  bool operator!=(expression const &rhs) const noexcept;
 
 protected:
   // each concrete node compares against same dynamic type here

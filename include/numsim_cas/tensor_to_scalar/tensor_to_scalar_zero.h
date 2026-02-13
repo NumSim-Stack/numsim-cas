@@ -19,28 +19,15 @@ public:
   const tensor_to_scalar_zero &operator=(tensor_to_scalar_zero &&) = delete;
 
   friend bool operator<(tensor_to_scalar_zero const &lhs,
-                        tensor_to_scalar_zero const &rhs) {
-    return lhs.hash_value() < rhs.hash_value();
-  }
-
+                        tensor_to_scalar_zero const &rhs);
   friend bool operator>(tensor_to_scalar_zero const &lhs,
-                        tensor_to_scalar_zero const &rhs) {
-    return rhs < lhs;
-  }
-
+                        tensor_to_scalar_zero const &rhs);
   friend bool operator==(tensor_to_scalar_zero const &lhs,
-                         tensor_to_scalar_zero const &rhs) {
-    return lhs.hash_value() == rhs.hash_value();
-  }
-
+                         tensor_to_scalar_zero const &rhs);
   friend bool operator!=(tensor_to_scalar_zero const &lhs,
-                         tensor_to_scalar_zero const &rhs) {
-    return !(lhs == rhs);
-  }
+                         tensor_to_scalar_zero const &rhs);
 
-  virtual void update_hash_value() const override {
-    hash_combine(base::m_hash_value, base::get_id());
-  }
+  void update_hash_value() const override;
 };
 
 } // namespace numsim::cas

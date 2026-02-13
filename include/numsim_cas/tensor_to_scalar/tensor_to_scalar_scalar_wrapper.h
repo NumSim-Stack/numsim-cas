@@ -46,8 +46,12 @@ public:
     return !(lhs == rhs);
   }
 
-  virtual void update_hash_value() const noexcept {
+  virtual void update_hash_value() const noexcept override {
+    base::m_hash_value = 0;
     hash_combine(base::m_hash_value, base::get_id());
+    if (this->expr().is_valid()) {
+      hash_combine(base::m_hash_value, this->expr().get().hash_value());
+    }
   }
 };
 

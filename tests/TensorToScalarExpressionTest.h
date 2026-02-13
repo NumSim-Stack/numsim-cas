@@ -181,4 +181,61 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_FALSE(s.empty());
 }
 
+// ---------- Numeric coefficient placement in add/mul ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_NumericCoefficientPlacement) {
+  auto &X = this->X;
+  auto &_2 = this->_2;
+  auto &_3 = this->_3;
+
+  using numsim::cas::trace;
+
+  auto trX = trace(X);
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+
+  // --- Addition: numeric scalar goes to coeff slot ---
+  // scalar_constant(3) + tr(X) --> coeff=3, child=tr(X)
+  EXPECT_PRINT(_3 + trX, "3+tr(X)");
+  // tr(X) + scalar_constant(3) --> same result (commutative)
+  EXPECT_PRINT(trX + _3, "3+tr(X)");
+
+  // --- Addition: fold two numeric operands ---
+  // t2s_one + t2s_one --> 2
+  EXPECT_PRINT(t2s_one + t2s_one, "2");
+  // scalar_constant(3) + t2s_one --> 4
+  EXPECT_PRINT(_3 + t2s_one, "4");
+
+  // --- Addition: n_ary_add folds numeric coeff with incoming numeric ---
+  // (2 + tr(X)) + t2s_one --> 3 + tr(X)
+  EXPECT_PRINT((_2 + trX) + t2s_one, "3+tr(X)");
+  // (2 + tr(X)) + scalar_constant(3) --> 5 + tr(X)
+  EXPECT_PRINT((_2 + trX) + _3, "5+tr(X)");
+
+  // --- Addition: zero identity ---
+  EXPECT_PRINT(t2s_zero + trX, "tr(X)");
+  EXPECT_PRINT(trX + t2s_zero, "tr(X)");
+
+  // --- Multiplication: numeric scalar goes to coeff slot ---
+  // scalar_constant(3) * tr(X) --> coeff=3, child=tr(X)
+  EXPECT_PRINT(_3 * trX, "3*tr(X)");
+  // tr(X) * scalar_constant(3) --> same result
+  EXPECT_PRINT(trX * _3, "3*tr(X)");
+
+  // --- Multiplication: fold two numeric operands ---
+  // scalar_constant(2) * scalar_constant(3) --> 6
+  EXPECT_PRINT(_2 * _3 * trX, "6*tr(X)");
+
+  // --- Subtraction with numerics ---
+  // wrap(3) - t2s_one --> 2
+  auto t2s_3 = numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_scalar_wrapper>(
+      numsim::cas::make_expression<numsim::cas::scalar_constant>(3));
+  EXPECT_PRINT(t2s_3 - t2s_one, "2");
+  // t2s_one - t2s_one --> 0
+  EXPECT_PRINT(t2s_one - t2s_one, "0");
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H

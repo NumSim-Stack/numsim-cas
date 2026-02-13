@@ -184,20 +184,32 @@ bool operator<(n_ary_tree<_BaseLHS> const &lhs,
 template <typename _BaseLHS, typename _BaseRHS>
 bool operator>(n_ary_tree<_BaseLHS> const &lhs,
                n_ary_tree<_BaseRHS> const &rhs) {
-  return !(lhs < rhs);
+  return rhs < lhs;
 }
 
 template <typename _BaseLHS, typename _BaseRHS>
 bool operator==(n_ary_tree<_BaseLHS> const &lhs,
                 n_ary_tree<_BaseRHS> const &rhs) {
-  return lhs.hash_value() == rhs.hash_value();
+  if (lhs.hash_value() != rhs.hash_value())
+    return false;
+  if (lhs.id() != rhs.id())
+    return false;
+  if (lhs.size() != rhs.size())
+    return false;
+  auto it_l = lhs.hash_map().begin();
+  auto it_r = rhs.hash_map().begin();
+  for (; it_l != lhs.hash_map().end(); ++it_l, ++it_r) {
+    if (it_l->second != it_r->second)
+      return false;
+  }
+  return true;
 }
 
 template <typename _BaseLHS, typename _BaseRHS>
 bool operator!=(n_ary_tree<_BaseLHS> const &lhs,
                 n_ary_tree<_BaseRHS> const &rhs) {
   if (lhs.size() == 1 && rhs.size() == 1) {
-    return lhs.hash_map().begin()->second == rhs.hash_map().begin()->second;
+    return lhs.hash_map().begin()->second != rhs.hash_map().begin()->second;
   }
   return !(lhs == rhs);
 }

@@ -164,6 +164,12 @@ TEST_F(ScalarFixture, PRINT_DivisionFormat) {
   EXPECT_PRINT(x * pow(y, -_2), "x/pow(y,2)");
   EXPECT_PRINT(pow(x, -_1) * pow(y, -_1), "pow(x*y,-1)");
   EXPECT_PRINT(pow(pow(cos(x), -1), 2), "pow(cos(x),-2)");
+  // pow(pow(x, a), -y) --> pow(x, -a*y)
+  EXPECT_PRINT(pow(pow(x, _2), -y), "pow(x,-2*y)");
+  EXPECT_PRINT(pow(pow(x, _3), -y), "pow(x,-3*y)");
+  EXPECT_PRINT(pow(pow(x, _2), -x), "pow(x,-2*x)");
+  EXPECT_PRINT(pow(pow(x, y), -z), "pow(x,-y*z)");
+  EXPECT_PRINT(pow(pow(x, y), -x), "pow(x,-x*y)");
   EXPECT_PRINT(x / 1, "x");
   EXPECT_PRINT(x / (-2), "-x/2");
   EXPECT_PRINT(x / y, "x/y");

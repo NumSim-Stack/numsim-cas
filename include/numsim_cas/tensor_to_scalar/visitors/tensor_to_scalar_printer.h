@@ -1,6 +1,8 @@
 #ifndef TENSOR_TO_SCALAR_PRINTER_H
 #define TENSOR_TO_SCALAR_PRINTER_H
 
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
+
 #include <numsim_cas/printer_base.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h>
@@ -8,7 +10,6 @@
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_add.h>
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_mul.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
-#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_io.h>
 
 namespace numsim::cas {
@@ -90,17 +91,17 @@ public:
     constexpr auto precedence{Precedence::Addition};
     begin(precedence, m_parent_precedence);
 
-    bool first = true;
+    bool first{false};
     if (visitable.coeff().is_valid()) {
       apply(visitable.coeff(), precedence);
-      m_out << "+";
+      first = true;
     }
     for (auto &child : visitable.hash_map() | std::views::values) {
-      if (!first && !is_same<tensor_to_scalar_negative>(child)) {
+      if (first && !is_same<tensor_to_scalar_negative>(child)) {
         m_out << "+";
       }
       apply(child, precedence);
-      first = false;
+      first = true;
     }
 
     end(precedence, m_parent_precedence);
@@ -191,7 +192,7 @@ public:
       m_out << ", ";
       m_out << indices_lhs;
       m_out << ", ";
-      apply(visitable.expr_lhs(), Precedence::None);
+      apply(visitable.expr_rhs(), Precedence::None);
       m_out << ", ";
       m_out << indices_rhs;
       m_out << ")";

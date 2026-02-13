@@ -5,6 +5,7 @@
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_div.h>
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_mul.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_domain_traits.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
 namespace numsim::cas {
@@ -57,10 +58,23 @@ protected:
   }
 
   [[nodiscard]] expr_holder_t get_default_imp() {
+    using Traits = domain_traits<tensor_to_scalar_expression>;
+    auto lhs_val = Traits::try_numeric(m_lhs);
+    auto rhs_val = Traits::try_numeric(m_rhs);
+    if (lhs_val && rhs_val)
+      return Traits::make_constant(*lhs_val * *rhs_val);
     auto mul_new{make_expression<tensor_to_scalar_mul>()};
     auto &mul{mul_new.template get<tensor_to_scalar_mul>()};
-    mul.push_back(m_lhs);
-    mul.push_back(m_rhs);
+    if (lhs_val) {
+      mul.set_coeff(m_lhs);
+      mul.push_back(m_rhs);
+    } else if (rhs_val) {
+      mul.push_back(m_lhs);
+      mul.set_coeff(m_rhs);
+    } else {
+      mul.push_back(m_lhs);
+      mul.push_back(m_rhs);
+    }
     return mul_new;
   }
 

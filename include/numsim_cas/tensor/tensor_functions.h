@@ -2,6 +2,7 @@
 #define TENSOR_FUNCTIONS_SYMTM_H
 
 #include <cstdlib>
+#include <numsim_cas/tensor/data/tensor_data_make_imp.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>

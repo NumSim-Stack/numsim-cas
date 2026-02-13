@@ -146,7 +146,7 @@ bool operator<(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
 template <typename _Base, typename _BaseLHS, typename _BaseRHS>
 bool operator>(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
                binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs) {
-  return !(lhs < rhs);
+  return rhs < lhs;
 }
 
 template <typename _Base, typename _BaseLHS, typename _BaseRHS>
