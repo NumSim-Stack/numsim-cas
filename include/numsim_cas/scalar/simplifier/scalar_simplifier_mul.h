@@ -1,7 +1,9 @@
 #ifndef SCALAR_SIMPLIFIER_MUL_H
 #define SCALAR_SIMPLIFIER_MUL_H
 
+#include <numsim_cas/core/simplifier/simplifier_mul.h>
 #include <numsim_cas/scalar/scalar_definitions.h>
+#include <numsim_cas/scalar/scalar_domain_traits.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_std.h>
@@ -9,33 +11,22 @@
 namespace numsim::cas {
 namespace simplifier {
 
+using scalar_traits = domain_traits<scalar_expression>;
+
 template <typename Derived>
-class mul_default : public scalar_visitor_return_expr_t {
+class mul_default : public scalar_visitor_return_expr_t,
+                    public detail::mul_dispatch<scalar_traits, Derived> {
+  using algo = detail::mul_dispatch<scalar_traits, Derived>;
+
 public:
-  using expr_holder_t = expression_holder<scalar_expression>;
-
-  mul_default(expr_holder_t lhs, expr_holder_t rhs)
-      : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
-
-  template <typename Expr> expr_holder_t dispatch(Expr const &) {
-    return get_default();
-  }
+  using expr_holder_t = typename algo::expr_holder_t;
+  using algo::algo;
+  using algo::dispatch;
+  using algo::get_default;
+  using algo::get_coefficient;
 
   // expr_lhs * (-expr_rhs) -->  -(expr_lhs * expr_rhs)
   expr_holder_t dispatch(scalar_negative const &rhs);
-
-  // expr * zero --> zero
-  expr_holder_t dispatch(scalar_zero const &) { return m_rhs; }
-
-  // expr * 1 --> expr
-  expr_holder_t dispatch(scalar_one const &) { return m_lhs; }
-
-  // x * (x*y*z) --> 2*x*y*z
-  expr_holder_t dispatch(scalar_mul const &rhs) {
-    auto mul{make_expression<scalar_mul>(rhs)};
-    mul.get<scalar_mul>().push_back(m_lhs);
-    return mul;
-  }
 
 protected:
 #define NUMSIM_MUL_OVR(T)                                                      \
@@ -49,62 +40,8 @@ protected:
   NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_MUL_OVR, NUMSIM_MUL_OVR)
 #undef NUMSIM_MUL_OVR
 
-  expr_holder_t get_default() {
-    if (m_lhs == m_rhs) {
-      return pow(m_lhs, 2);
-    }
-    const auto lhs_constant{is_same<scalar_constant>(m_lhs)};
-    const auto rhs_constant{is_same<scalar_constant>(m_rhs)};
-    if (lhs_constant && m_lhs.template get<scalar_constant>().value() == 1) {
-      return std::move(m_rhs);
-    }
-    if (rhs_constant && m_rhs.template get<scalar_constant>().value() == 1) {
-      return std::move(m_lhs);
-    }
-    auto mul_new{make_expression<scalar_mul>()};
-    auto &mul{mul_new.template get<scalar_mul>()};
-    if (lhs_constant) {
-      mul.set_coeff(m_lhs);
-    } else {
-      mul.push_back(m_lhs);
-    }
-
-    if (rhs_constant) {
-      mul.set_coeff(m_rhs);
-    } else {
-      mul.push_back(m_rhs);
-    }
-    return mul_new;
-  }
-
-  template <typename _Expr, typename _ValueType>
-  scalar_number get_coefficient(_Expr const &expr, _ValueType const &value) {
-    if (is_detected_v<has_coefficient, _Expr>) {
-      auto func{[&](auto const &coeff) -> scalar_number {
-        if (coeff.is_valid()) {
-          if (is_same<scalar_negative>(coeff)) {
-            const auto &neg_expr{coeff.template get<scalar_negative>().expr()};
-            if (is_same<scalar_one>(neg_expr))
-              return {-1};
-            if (is_same<scalar_constant>(neg_expr))
-              return -neg_expr.template get<scalar_constant>().value();
-          } else {
-            if (is_same<scalar_one>(coeff))
-              return {1};
-            if (is_same<scalar_constant>(coeff))
-              return coeff.template get<scalar_constant>().value();
-          }
-        }
-
-        return value;
-      }};
-      return func(expr.coeff());
-    }
-    return value;
-  }
-
-  expr_holder_t m_lhs;
-  expr_holder_t m_rhs;
+  using algo::m_lhs;
+  using algo::m_rhs;
 };
 
 class constant_mul final : public mul_default<constant_mul> {
