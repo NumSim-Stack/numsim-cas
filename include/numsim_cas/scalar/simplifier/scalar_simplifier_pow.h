@@ -4,6 +4,7 @@
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/simplifier/simplifier_pow.h>
+#include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_definitions.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
 #include <numsim_cas/scalar/scalar_globals.h>

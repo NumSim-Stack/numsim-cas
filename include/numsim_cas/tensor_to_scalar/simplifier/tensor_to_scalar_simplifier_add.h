@@ -105,7 +105,11 @@ public:
 
   expr_holder_t dispatch(tensor_to_scalar_negative const &);
 
-  template <typename Type> expr_holder_t dispatch(Type const &);
+  template <typename Type> expr_holder_t dispatch(Type const &) {
+    auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
+    add_default_visitor visitor(std::move(m_lhs), std::move(m_rhs));
+    return _rhs.accept(visitor);
+  }
 
   expr_holder_t m_lhs;
   expr_holder_t m_rhs;

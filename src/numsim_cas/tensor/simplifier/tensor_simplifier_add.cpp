@@ -140,13 +140,6 @@ add_base::dispatch(tensor const &) {
   return _rhs.accept(visitor);
 }
 
-template <typename Type>
-[[nodiscard]] add_base::expr_holder_t add_base::dispatch(Type const &) {
-  auto &_rhs{m_rhs.template get<tensor_visitable_t>()};
-  add_default<void> visitor(std::move(m_lhs), std::move(m_rhs));
-  return _rhs.accept(visitor);
-}
-
 } // namespace tensor_detail
 } // namespace simplifier
 } // namespace numsim::cas

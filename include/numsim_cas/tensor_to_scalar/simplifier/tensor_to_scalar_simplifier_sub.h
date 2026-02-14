@@ -86,7 +86,11 @@ struct sub_base final : public tensor_to_scalar_visitor_return_expr_t {
   // -expr_lhs - expr_rhs --> -(expr_lhs+expr_rhs)
   expr_holder_t dispatch(tensor_to_scalar_negative const &lhs);
 
-  template <typename Type> expr_holder_t dispatch(Type const &);
+  template <typename Type> expr_holder_t dispatch(Type const &) {
+    auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
+    sub_default_visitor visitor(std::move(m_lhs), std::move(m_rhs));
+    return _rhs.accept(visitor);
+  }
 
   expr_holder_t m_lhs;
   expr_holder_t m_rhs;

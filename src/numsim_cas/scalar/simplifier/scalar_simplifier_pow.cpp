@@ -1,6 +1,7 @@
 #include <numsim_cas/core/operators.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/simplifier/scalar_simplifier_pow.h>
+#include <numsim_cas/scalar/scalar_definitions.h>
 
 namespace numsim::cas::simplifier {
 

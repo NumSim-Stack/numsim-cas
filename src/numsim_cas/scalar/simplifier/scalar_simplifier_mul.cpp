@@ -1,14 +1,9 @@
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/simplifier/scalar_simplifier_mul.h>
+#include <numsim_cas/scalar/scalar_definitions.h>
 
 namespace numsim::cas {
 namespace simplifier {
-
-template <typename Derived>
-mul_default<Derived>::expr_holder_t
-mul_default<Derived>::dispatch(scalar_negative const &rhs) {
-  return -(std::move(m_lhs) * rhs.expr());
-}
 
 constant_mul::constant_mul(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),

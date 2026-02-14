@@ -1,9 +1,11 @@
 #include <algorithm>
+#include <ranges>
+#include <sstream>
+#include <vector>
+
 #include <numsim_cas/core/print_mul_fractions.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
 #include <numsim_cas/scalar/visitors/scalar_printer.h>
-#include <ranges>
-#include <vector>
 
 namespace numsim::cas {
 
@@ -250,5 +252,6 @@ template<typename Stream>
 }
 
 template class scalar_printer<std::ostream>;
+template class scalar_printer<std::stringstream>;
 
 } // namespace numsim::cas

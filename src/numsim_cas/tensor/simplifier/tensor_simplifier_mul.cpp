@@ -120,13 +120,6 @@ mul_base::expr_holder_t mul_base::dispatch(tensor_mul const &) {
   return _rhs.accept(visitor);
 }
 
-template <typename Expr>
-mul_base::expr_holder_t mul_base::dispatch(Expr const &) {
-  auto &_rhs{m_rhs.template get<tensor_visitable_t>()};
-  mul_default<void> visitor(std::move(m_lhs), std::move(m_rhs));
-  return _rhs.accept(visitor);
-}
-
 } // namespace simplifier
 } // namespace tensor_detail
 } // namespace numsim::cas

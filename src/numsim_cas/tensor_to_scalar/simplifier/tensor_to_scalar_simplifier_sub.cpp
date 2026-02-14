@@ -27,13 +27,6 @@ sub_base::dispatch(tensor_to_scalar_negative const &lhs) {
                                                     std::move(m_rhs));
 }
 
-template <typename Type>
-sub_base::expr_holder_t sub_base::dispatch(Type const &) {
-  auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
-  sub_default_visitor visitor(std::move(m_lhs), std::move(m_rhs));
-  return _rhs.accept(visitor);
-}
-
 } // namespace simplifier
 } // namespace tensor_to_scalar_detail
 } // namespace numsim::cas

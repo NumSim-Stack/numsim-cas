@@ -190,7 +190,11 @@ protected:
 
   expr_holder_t dispatch(tensor_mul const &);
 
-  template <typename Expr> expr_holder_t dispatch(Expr const &);
+  template <typename Expr> expr_holder_t dispatch(Expr const &) {
+    auto &_rhs{m_rhs.template get<tensor_visitable_t>()};
+    mul_default<void> visitor(std::move(m_lhs), std::move(m_rhs));
+    return _rhs.accept(visitor);
+  }
 
   expr_holder_t m_lhs;
   expr_holder_t m_rhs;

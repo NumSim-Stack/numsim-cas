@@ -2,6 +2,7 @@
 #define SCALAR_SIMPLIFIER_MUL_H
 
 #include <numsim_cas/core/simplifier/simplifier_mul.h>
+#include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_definitions.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
 #include <numsim_cas/scalar/scalar_expression.h>
@@ -26,7 +27,9 @@ public:
   using algo::get_coefficient;
 
   // expr_lhs * (-expr_rhs) -->  -(expr_lhs * expr_rhs)
-  expr_holder_t dispatch(scalar_negative const &rhs);
+  expr_holder_t dispatch(scalar_negative const &rhs) {
+    return -(std::move(m_lhs) * rhs.expr());
+  }
 
 protected:
 #define NUMSIM_MUL_OVR(T)                                                      \

@@ -43,7 +43,7 @@ namespace numsim::cas {
 //   return _lhs.accept(visitor);
 // }
 
-expression_holder<scalar_expression>
+inline expression_holder<scalar_expression>
 binary_scalar_pow_simplify(expression_holder<scalar_expression> lhs,
                            expression_holder<scalar_expression> rhs) {
   auto &_lhs{lhs.template get<scalar_visitable_t>()};

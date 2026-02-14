@@ -2,7 +2,6 @@
 #define SCALAR_SIMPLIFIER_ADD_H
 
 #include <numsim_cas/core/simplifier/simplifier_add.h>
-#include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
 #include <numsim_cas/scalar/scalar_globals.h>
 

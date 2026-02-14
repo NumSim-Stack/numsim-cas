@@ -48,13 +48,6 @@ mul_base::dispatch(tensor_to_scalar_mul const &) {
   return new_mul;
 }
 
-template <typename Type>
-[[nodiscard]] mul_base::expr_holder_t mul_base::dispatch(Type const &) {
-  auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
-  mul_default<void> visitor(std::move(m_lhs), std::move(m_rhs));
-  return _rhs.accept(visitor);
-}
-
 //        // tensor_scalar_with_scalar_mul * tensor_scalar -->
 //        // tensor_scalar_with_scalar_mul
 // [[nodiscard]] mul_base::expr_holder_t

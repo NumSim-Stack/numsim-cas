@@ -76,9 +76,9 @@ if(NUMSIM_CAS_SOURCES STREQUAL "")
 endif()
 
 # -----------------------------
-# Library target (SHARED)
+# Library target
 # -----------------------------
-add_library(${PROJECT_NAME} SHARED
+add_library(${PROJECT_NAME}
   ${NUMSIM_CAS_SOURCES}
   ${NUMSIM_CAS_HEADERS}   # for IDE visibility
 )

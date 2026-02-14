@@ -1,6 +1,7 @@
 #include <numsim_cas/core/operators.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/simplifier/scalar_simplifier_sub.h>
+#include <numsim_cas/scalar/scalar_definitions.h>
 
 namespace numsim::cas {
 namespace simplifier {
@@ -35,13 +36,6 @@ sub_base::expr_holder_t sub_base::dispatch(scalar const &) {
 sub_base::expr_holder_t sub_base::dispatch(scalar_one const &) {
   auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
   scalar_one_sub visitor(std::move(m_lhs), std::move(m_rhs));
-  return _rhs.accept(visitor);
-}
-
-template <typename Type>
-sub_base::expr_holder_t sub_base::dispatch([[maybe_unused]] Type const &rhs) {
-  auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
-  sub_default_visitor visitor(std::move(m_lhs), std::move(m_rhs));
   return _rhs.accept(visitor);
 }
 

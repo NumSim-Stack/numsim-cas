@@ -149,7 +149,11 @@ struct sub_base final : public scalar_visitor_return_expr_t {
   expr_holder_t dispatch(scalar_one const &);
 
   template <typename Type>
-  expr_holder_t dispatch([[maybe_unused]] Type const &rhs);
+  expr_holder_t dispatch([[maybe_unused]] Type const &rhs) {
+    auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
+    sub_default_visitor visitor(std::move(m_lhs), std::move(m_rhs));
+    return _rhs.accept(visitor);
+  }
 
   // 0 - expr
   expr_holder_t dispatch(scalar_zero const &);
