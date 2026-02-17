@@ -15,7 +15,7 @@ n_ary_add::n_ary_add(expr_holder_t lhs, expr_holder_t rhs)
       lhs(m_lhs.template get<tensor_add>()) {}
 
 template <typename Expr>
-[[nodiscard]] auto
+[[nodiscard]] n_ary_add::expr_holder_t
 n_ary_add::dispatch([[maybe_unused]] Expr const &rhs) {
   auto expr_add{make_expression<tensor_add>(lhs)};
   auto &add{expr_add.template get<tensor_add>()};
@@ -29,14 +29,14 @@ n_ary_add::dispatch([[maybe_unused]] Expr const &rhs) {
   return expr_add;
 }
 
-[[nodiscard]] auto n_ary_add::dispatch(tensor_add const &rhs) {
+[[nodiscard]] n_ary_add::expr_holder_t n_ary_add::dispatch(tensor_add const &rhs) {
   auto expr{make_expression<tensor_add>(rhs.dim(), rhs.rank())};
   auto &add{expr.template get<tensor_add>()};
   merge_add(lhs, rhs, add);
   return expr;
 }
 
-[[nodiscard]] auto n_ary_add::dispatch(tensor_negative const &rhs) {
+[[nodiscard]] n_ary_add::expr_holder_t n_ary_add::dispatch(tensor_negative const &rhs) {
   const auto &expr_rhs{rhs.expr()};
   const auto pos{lhs.hash_map().find(expr_rhs)};
   if (pos != lhs.hash_map().end()) {

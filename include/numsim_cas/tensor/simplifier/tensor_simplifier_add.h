@@ -84,11 +84,11 @@ public:
   n_ary_add(expr_holder_t lhs, expr_holder_t rhs);
 
   template <typename Expr>
-  [[nodiscard]] auto dispatch([[maybe_unused]] Expr const &rhs);
+  [[nodiscard]] expr_holder_t dispatch([[maybe_unused]] Expr const &rhs);
 
-  [[nodiscard]] auto dispatch(tensor_add const &rhs);
+  [[nodiscard]] expr_holder_t dispatch(tensor_add const &rhs);
 
-  [[nodiscard]] auto dispatch(tensor_negative const &rhs);
+  [[nodiscard]] expr_holder_t dispatch(tensor_negative const &rhs);
 
 protected:
   using base::m_lhs;
