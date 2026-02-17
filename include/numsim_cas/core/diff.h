@@ -1,6 +1,8 @@
 #ifndef DIFF_H
 #define DIFF_H
 
+#include <type_traits>
+
 #include <numsim_cas/core/tag_invoke.h>
 #include <numsim_cas/numsim_cas_forward.h>
 
