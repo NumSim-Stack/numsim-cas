@@ -72,6 +72,54 @@ public:
 #undef NUMSIM_LOOP_OVER
 };
 
+// Thin wrapper: LHS is constant (scalar_wrapper)
+class constant_add final
+    : public tensor_to_scalar_visitor_return_expr_t,
+      public detail::constant_add_dispatch<tensor_to_scalar_traits> {
+  using algo = detail::constant_add_dispatch<tensor_to_scalar_traits>;
+
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using algo::algo;
+
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+};
+
+// Thin wrapper: LHS is one
+class one_add final
+    : public tensor_to_scalar_visitor_return_expr_t,
+      public detail::one_add_dispatch<tensor_to_scalar_traits> {
+  using algo = detail::one_add_dispatch<tensor_to_scalar_traits>;
+
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using algo::algo;
+
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+};
+
+// Thin wrapper: LHS is mul
+class n_ary_mul_add final
+    : public tensor_to_scalar_visitor_return_expr_t,
+      public detail::n_ary_mul_add_dispatch<tensor_to_scalar_traits> {
+  using algo = detail::n_ary_mul_add_dispatch<tensor_to_scalar_traits>;
+
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using algo::algo;
+
+// Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
+#define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+};
+
 // Dispatcher: analyzes LHS type and creates appropriate specialized visitor
 class add_base final : public tensor_to_scalar_visitor_return_expr_t {
 public:
@@ -93,6 +141,12 @@ public:
   expr_holder_t dispatch(tensor_to_scalar_add const &);
 
   expr_holder_t dispatch(tensor_to_scalar_negative const &);
+
+  expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &);
+
+  expr_holder_t dispatch(tensor_to_scalar_one const &);
+
+  expr_holder_t dispatch(tensor_to_scalar_mul const &);
 
   template <typename Type> expr_holder_t dispatch(Type const &) {
     auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};

@@ -376,7 +376,7 @@ public:
     if (pos != lhs.hash_map().end() && lhs.hash_map().size() == 1) {
       auto expr{make_expression<typename Traits::mul_type>(lhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
-      mul.set_coeff(make_expression<typename Traits::constant_type>(
+      mul.set_coeff(Traits::make_constant(
           base::get_coefficient(lhs, 1) + 1));
       return expr;
     }
@@ -392,8 +392,7 @@ public:
       const auto fac_rhs{base::get_coefficient(rhs, 1)};
       auto expr{make_expression<typename Traits::mul_type>(lhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
-      mul.set_coeff(
-          make_expression<typename Traits::constant_type>(fac_lhs + fac_rhs));
+      mul.set_coeff(Traits::make_constant(fac_lhs + fac_rhs));
       return expr;
     }
     return get_default();
@@ -428,7 +427,7 @@ public:
     if (lhs == rhs) {
       auto mul{make_expression<typename Traits::mul_type>()};
       mul.template get<typename Traits::mul_type>().set_coeff(
-          make_expression<typename Traits::constant_type>(2));
+          Traits::make_constant(scalar_number{2}));
       mul.template get<typename Traits::mul_type>().push_back(base::m_rhs);
       return mul;
     }
@@ -441,7 +440,7 @@ public:
     if (pos != rhs.hash_map().end() && rhs.hash_map().size() == 1) {
       auto expr{make_expression<typename Traits::mul_type>(rhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
-      mul.set_coeff(make_expression<typename Traits::constant_type>(
+      mul.set_coeff(Traits::make_constant(
           base::get_coefficient(rhs, 1) + 1));
       return expr;
     }

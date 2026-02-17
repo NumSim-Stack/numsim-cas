@@ -57,9 +57,6 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<scalar_expression>>
 inline expression_holder<scalar_expression> tag_invoke(sub_fn, L &&lhs,
                                                        R &&rhs) {
-  if (lhs == rhs) {
-    return get_scalar_zero();
-  }
   auto &_lhs{lhs.template get<scalar_visitable_t>()};
   simplifier::sub_base visitor(std::forward<L>(lhs), std::forward<R>(rhs));
   return _lhs.accept(visitor);

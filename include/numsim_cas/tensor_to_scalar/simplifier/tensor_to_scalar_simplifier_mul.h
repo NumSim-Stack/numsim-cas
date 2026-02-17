@@ -44,6 +44,35 @@ protected:
   using algo::m_rhs;
 };
 
+class constant_mul final : public mul_default<constant_mul> {
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using base = mul_default<constant_mul>;
+  using base::operator();
+  using base::dispatch;
+  using base::get_coefficient;
+  using base::m_rhs;
+
+  constant_mul(expr_holder_t lhs, expr_holder_t rhs);
+
+  // scalar_wrapper * scalar_wrapper → numeric multiply
+  expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &rhs);
+
+  // scalar_wrapper * mul → merge coefficient
+  expr_holder_t dispatch(tensor_to_scalar_mul const &rhs);
+
+  template <typename ExprType>
+  expr_holder_t dispatch([[maybe_unused]] ExprType const &) {
+    if (lhs_val && *lhs_val == scalar_number{1}) {
+      return std::move(m_rhs);
+    }
+    return base::get_default();
+  }
+
+private:
+  std::optional<scalar_number> lhs_val;
+};
+
 class mul_base final : public tensor_to_scalar_visitor_return_expr_t {
 public:
   using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
@@ -61,6 +90,14 @@ protected:
 #undef NUMSIM_ADD_OVR_NEXT
 
   [[nodiscard]] expr_holder_t dispatch(tensor_to_scalar_mul const &);
+
+  [[nodiscard]] expr_holder_t dispatch(tensor_to_scalar_zero const &);
+
+  [[nodiscard]] expr_holder_t dispatch(tensor_to_scalar_one const &);
+
+  [[nodiscard]] expr_holder_t dispatch(tensor_to_scalar_negative const &);
+
+  [[nodiscard]] expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &);
 
   template <typename Type> [[nodiscard]] expr_holder_t dispatch(Type const &) {
     auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};

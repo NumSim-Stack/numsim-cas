@@ -130,6 +130,12 @@ public:
           result = result * std::move(pow_n);
         }
       }
+      // If mul has only coeff left (no children), collapse to coeff
+      if (mul.hash_map().empty()) {
+        if (mul.coeff().is_valid())
+          return pow(mul.coeff(), this->m_rhs) * result;
+        return result;
+      }
       return pow(mul_expr, this->m_rhs) * result;
     }
 
@@ -156,6 +162,12 @@ public:
         } else {
           result = result * std::move(pow_n);
         }
+      }
+      // If mul has only coeff left (no children), collapse to coeff
+      if (mul.hash_map().empty()) {
+        if (mul.coeff().is_valid())
+          return pow(mul.coeff(), this->m_rhs) * result;
+        return result;
       }
       return pow(mul_expr, this->m_rhs) * result;
     }

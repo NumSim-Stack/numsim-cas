@@ -82,7 +82,20 @@ std::ostream &operator<<(std::ostream &os, scalar_number const &a) {
 }
 
 bool operator==(scalar_number const &a, scalar_number const &b) {
-  return a.v_ == b.v_;
+  return std::visit(
+      [](auto const &x, auto const &y) -> bool {
+        using X = std::decay_t<decltype(x)>;
+        using Y = std::decay_t<decltype(y)>;
+        if constexpr (std::is_same_v<X, Y>) {
+          return x == y;
+        } else if constexpr (std::is_same_v<X, std::complex<double>> ||
+                             std::is_same_v<Y, std::complex<double>>) {
+          return to_complex(x) == to_complex(y);
+        } else {
+          return static_cast<double>(x) == static_cast<double>(y);
+        }
+      },
+      a.v_, b.v_);
 }
 
 bool operator<(scalar_number const &a, scalar_number const &b) {

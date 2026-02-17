@@ -125,6 +125,11 @@ public:
     }
 
     if (!denom.empty()) {
+      // scalar-like bases first for consistent ordering
+      std::stable_partition(denom.begin(), denom.end(),
+                            [](auto const &e) {
+                              return detail::is_scalar_like(e.base);
+                            });
       m_out << "/";
       const bool multi = denom.size() > 1;
       if (multi)

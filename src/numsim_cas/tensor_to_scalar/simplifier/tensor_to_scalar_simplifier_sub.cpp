@@ -16,6 +16,14 @@ namespace simplifier {
 NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
 #undef NUMSIM_LOOP_OVER
 
+// --- constant_sub virtual function bodies ---
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  constant_sub::expr_holder_t constant_sub::operator()(T const &n) {           \
+    return this->dispatch(n);                                                  \
+  }
+NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+
 // --- n_ary_sub virtual function bodies ---
 #define NUMSIM_LOOP_OVER(T)                                                    \
   n_ary_sub::expr_holder_t n_ary_sub::operator()(T const &n) {                \
@@ -43,6 +51,27 @@ sub_base::expr_holder_t
 sub_base::dispatch(tensor_to_scalar_negative const &lhs) {
   return make_expression<tensor_to_scalar_negative>(lhs.expr() +
                                                     std::move(m_rhs));
+}
+
+sub_base::expr_holder_t
+sub_base::dispatch(tensor_to_scalar_scalar_wrapper const &) {
+  auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
+  constant_sub visitor(std::move(m_lhs), std::move(m_rhs));
+  return _rhs.accept(visitor);
+}
+
+sub_base::expr_holder_t
+sub_base::dispatch(tensor_to_scalar_one const &) {
+  auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
+  one_sub visitor(std::move(m_lhs), std::move(m_rhs));
+  return _rhs.accept(visitor);
+}
+
+sub_base::expr_holder_t
+sub_base::dispatch(tensor_to_scalar_mul const &) {
+  auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
+  n_ary_mul_sub visitor(std::move(m_lhs), std::move(m_rhs));
+  return _rhs.accept(visitor);
 }
 
 } // namespace simplifier
