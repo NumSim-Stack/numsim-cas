@@ -25,8 +25,8 @@ public:
   using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
   using algo::algo;
 
-#define NUMSIM_LOOP_OVER(T)                                                    \
-  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+// Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
+#define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
   NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
 #undef NUMSIM_LOOP_OVER
 };
@@ -47,22 +47,11 @@ public:
 
   // Generic fallback: find in hash_map, combine or push_back
   // (symbol_type is void for t2s, so the base symbol dispatch is disabled)
-  template <typename T> expr_holder_t dispatch(T const &) {
-    auto expr_add{make_expression<tensor_to_scalar_add>(this->lhs)};
-    auto &add{expr_add.template get<tensor_to_scalar_add>()};
-    auto pos{add.hash_map().find(this->m_rhs)};
-    if (pos != add.hash_map().end()) {
-      auto combined{pos->second + this->m_rhs};
-      add.hash_map().erase(pos);
-      add.push_back(std::move(combined));
-      return expr_add;
-    }
-    add.push_back(this->m_rhs);
-    return expr_add;
-  }
+  // Body defined in .cpp to keep operator+ ADL in that TU.
+  template <typename T> expr_holder_t dispatch(T const &);
 
-#define NUMSIM_LOOP_OVER(T)                                                    \
-  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+// Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
+#define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
   NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
 #undef NUMSIM_LOOP_OVER
 };
@@ -77,8 +66,8 @@ public:
   using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
   using algo::algo;
 
-#define NUMSIM_LOOP_OVER(T)                                                    \
-  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+// Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
+#define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
   NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
 #undef NUMSIM_LOOP_OVER
 };

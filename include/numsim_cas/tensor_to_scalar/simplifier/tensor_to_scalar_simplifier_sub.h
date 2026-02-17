@@ -32,6 +32,7 @@ public:
 };
 
 // Thin wrapper: LHS is negative
+// Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
 class negative_sub final
     : public tensor_to_scalar_visitor_return_expr_t,
       public detail::negative_sub_dispatch<tensor_to_scalar_traits> {
@@ -41,13 +42,13 @@ public:
   using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
   using algo::algo;
 
-#define NUMSIM_LOOP_OVER(T)                                                    \
-  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+#define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
   NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
 #undef NUMSIM_LOOP_OVER
 };
 
 // Thin wrapper: LHS is add (n-ary sum)
+// Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
 class n_ary_sub final
     : public tensor_to_scalar_visitor_return_expr_t,
       public detail::n_ary_sub_dispatch<tensor_to_scalar_traits> {
@@ -57,8 +58,7 @@ public:
   using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
   using algo::algo;
 
-#define NUMSIM_LOOP_OVER(T)                                                    \
-  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+#define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
   NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
 #undef NUMSIM_LOOP_OVER
 };

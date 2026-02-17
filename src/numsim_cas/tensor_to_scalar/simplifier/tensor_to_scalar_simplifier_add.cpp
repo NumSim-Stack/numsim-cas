@@ -9,6 +9,50 @@ namespace numsim::cas {
 namespace tensor_to_scalar_detail {
 namespace simplifier {
 
+// --- n_ary_add::dispatch(T) template body ---
+// Defined here so that operator+ (from tensor_to_scalar_operators.h) is visible.
+template <typename T>
+n_ary_add::expr_holder_t n_ary_add::dispatch(T const &) {
+  auto expr_add{make_expression<tensor_to_scalar_add>(this->lhs)};
+  auto &add{expr_add.template get<tensor_to_scalar_add>()};
+  auto pos{add.hash_map().find(this->m_rhs)};
+  if (pos != add.hash_map().end()) {
+    auto combined{pos->second + this->m_rhs};
+    add.hash_map().erase(pos);
+    add.push_back(std::move(combined));
+    return expr_add;
+  }
+  add.push_back(this->m_rhs);
+  return expr_add;
+}
+
+// --- add_default_visitor virtual function bodies ---
+// Defined here so that operator+ (from tensor_to_scalar_operators.h) is visible
+// during template instantiation.
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  add_default_visitor::expr_holder_t add_default_visitor::operator()(           \
+      T const &n) {                                                            \
+    return this->dispatch(n);                                                  \
+  }
+NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+
+// --- n_ary_add virtual function bodies ---
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  n_ary_add::expr_holder_t n_ary_add::operator()(T const &n) {                \
+    return this->dispatch(n);                                                  \
+  }
+NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+
+// --- negative_add virtual function bodies ---
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  negative_add::expr_holder_t negative_add::operator()(T const &n) {           \
+    return this->dispatch(n);                                                  \
+  }
+NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+
 // ------------------------------------------------------------
 // n_ary_add — domain-specific scalar_wrapper dispatch
 // ------------------------------------------------------------

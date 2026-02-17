@@ -6,6 +6,24 @@ namespace numsim::cas {
 namespace tensor_to_scalar_detail {
 namespace simplifier {
 
+// --- negative_sub virtual function bodies ---
+// Defined here so that operator+ (from tensor_to_scalar_operators.h) is visible
+// during template instantiation.
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  negative_sub::expr_holder_t negative_sub::operator()(T const &n) {           \
+    return this->dispatch(n);                                                  \
+  }
+NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+
+// --- n_ary_sub virtual function bodies ---
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  n_ary_sub::expr_holder_t n_ary_sub::operator()(T const &n) {                \
+    return this->dispatch(n);                                                  \
+  }
+NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+
 sub_base::sub_base(expr_holder_t lhs, expr_holder_t rhs)
     : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
 
