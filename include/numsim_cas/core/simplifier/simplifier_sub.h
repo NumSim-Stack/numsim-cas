@@ -107,8 +107,15 @@ public:
   expr_holder_t dispatch(typename Traits::add_type const &rhs) {
     auto add_expr{make_expression<typename Traits::add_type>(rhs)};
     auto &add{add_expr.template get<typename Traits::add_type>()};
-    auto coeff{base::m_lhs + add.coeff()};
-    add.set_coeff(std::move(coeff));
+    auto inner = lhs.expr();
+    auto pos = add.hash_map().find(inner);
+    if (pos != add.hash_map().end()) {
+      auto combined = pos->second + inner;
+      add.hash_map().erase(pos);
+      add.push_back(combined);
+    } else {
+      add.push_back(inner);
+    }
     return make_expression<typename Traits::negative_type>(std::move(add_expr));
   }
 
@@ -147,13 +154,16 @@ public:
     return base::get_default();
   }
 
-  // constant - (coeff + x)
+  // constant - (coeff + x) --> (constant-coeff) + (-x)
   expr_holder_t
   dispatch([[maybe_unused]] typename Traits::add_type const &rhs) {
-    auto add_expr{make_expression<typename Traits::add_type>(rhs)};
+    auto add_expr{make_expression<typename Traits::add_type>()};
     auto &add{add_expr.template get<typename Traits::add_type>()};
-    auto coeff{base::m_lhs - add.coeff()};
+    auto coeff{base::m_lhs - rhs.coeff()};
     add.set_coeff(std::move(coeff));
+    for (auto &child : rhs.hash_map() | std::views::values) {
+      add.push_back(-child);
+    }
     return add_expr;
   }
 
@@ -299,25 +309,37 @@ public:
           return base::m_rhs;
         }
 
-        return make_expression<typename Traits::constant_type>(value) *
-               base::m_rhs;
+        return Traits::make_constant(value) * base::m_rhs;
       }
     }
 
     return get_default();
   }
 
-  /// expr + expr --> 2*expr
+  /// c1*expr - c2*expr --> (c1-c2)*expr
   expr_holder_t dispatch(typename Traits::mul_type const &rhs) {
     const auto &hash_rhs{rhs.hash_value()};
     const auto &hash_lhs{lhs.hash_value()};
     if (hash_rhs == hash_lhs) {
       const auto fac_lhs{base::get_coefficient(lhs, 1.0)};
       const auto fac_rhs{base::get_coefficient(rhs, 1.0)};
+      const auto result{fac_lhs - fac_rhs};
+      if (result == scalar_number{0})
+        return Traits::zero();
+      const auto abs_result{result.abs()};
+      if (abs_result == scalar_number{1} && lhs.size() == 1) {
+        auto child = lhs.hash_map().begin()->second;
+        if (result < 0)
+          return make_expression<typename Traits::negative_type>(
+              std::move(child));
+        return child;
+      }
       auto expr{make_expression<typename Traits::mul_type>(lhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
-      mul.set_coeff(
-          make_expression<typename Traits::constant_type>(fac_lhs + fac_rhs));
+      mul.set_coeff(Traits::make_constant(abs_result));
+      if (result < 0) {
+        return make_expression<typename Traits::negative_type>(std::move(expr));
+      }
       return expr;
     }
     return get_default();
@@ -363,8 +385,7 @@ public:
       auto expr{make_expression<typename Traits::mul_type>(rhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
       const auto value{1.0 - base::get_coefficient(rhs, 1.0)};
-      mul.set_coeff(
-          make_expression<typename Traits::constant_type>(value.abs()));
+      mul.set_coeff(Traits::make_constant(value.abs()));
       if (value < 0) {
         return make_expression<typename Traits::negative_type>(std::move(expr));
       } else {

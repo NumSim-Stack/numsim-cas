@@ -77,6 +77,14 @@ n_ary_add::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
   return expr_add;
 }
 
+// --- n_ary_mul_add virtual function bodies ---
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  n_ary_mul_add::expr_holder_t n_ary_mul_add::operator()(T const &n) {         \
+    return this->dispatch(n);                                                  \
+  }
+NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+
 // ------------------------------------------------------------
 // add_base
 // ------------------------------------------------------------
@@ -97,6 +105,27 @@ add_base::expr_holder_t
 add_base::dispatch(tensor_to_scalar_negative const &) {
   auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
   negative_add visitor(std::move(m_lhs), std::move(m_rhs));
+  return _rhs.accept(visitor);
+}
+
+add_base::expr_holder_t
+add_base::dispatch(tensor_to_scalar_scalar_wrapper const &) {
+  auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
+  constant_add visitor(std::move(m_lhs), std::move(m_rhs));
+  return _rhs.accept(visitor);
+}
+
+add_base::expr_holder_t
+add_base::dispatch(tensor_to_scalar_one const &) {
+  auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
+  one_add visitor(std::move(m_lhs), std::move(m_rhs));
+  return _rhs.accept(visitor);
+}
+
+add_base::expr_holder_t
+add_base::dispatch(tensor_to_scalar_mul const &) {
+  auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
+  n_ary_mul_add visitor(std::move(m_lhs), std::move(m_rhs));
   return _rhs.accept(visitor);
 }
 

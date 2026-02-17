@@ -305,4 +305,184 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_PRINT(numsim::cas::pow(t_sq, 3), "pow(tr(X),6)");
 }
 
+// ---------- ADD: constant_add (LHS = scalar_wrapper) ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_ConstantAdd_Simplification) {
+  auto &X = this->X;
+  auto &_2 = this->_2;
+
+  using numsim::cas::trace;
+  auto trX = trace(X);
+
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+
+  auto wrap = [](int v) {
+    return numsim::cas::make_expression<
+        numsim::cas::tensor_to_scalar_scalar_wrapper>(
+        numsim::cas::make_expression<numsim::cas::scalar_constant>(v));
+  };
+
+  // scalar_wrapper + scalar_wrapper → constant fold
+  EXPECT_PRINT(wrap(3) + wrap(2), "5");
+  EXPECT_PRINT(wrap(5) + wrap(-5), "0");
+
+  // scalar_wrapper + one → constant fold
+  EXPECT_PRINT(wrap(3) + t2s_one, "4");
+  EXPECT_PRINT(wrap(-1) + t2s_one, "0");
+
+  // scalar_wrapper + add → merge into coeff
+  EXPECT_PRINT(wrap(3) + (_2 + trX), "5+tr(X)");
+
+  // scalar_wrapper + (-scalar_wrapper) → constant fold
+  EXPECT_PRINT(wrap(3) + (-wrap(1)), "2");
+  EXPECT_PRINT(wrap(1) + (-wrap(1)), "0");
+
+  // scalar_wrapper + non-numeric → get_default (creates add)
+  EXPECT_PRINT(wrap(3) + trX, "3+tr(X)");
+}
+
+// ---------- ADD: one_add (LHS = tensor_to_scalar_one) ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_OneAdd_Simplification) {
+  auto &X = this->X;
+  auto &_2 = this->_2;
+
+  using numsim::cas::trace;
+  auto trX = trace(X);
+
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+
+  auto wrap = [](int v) {
+    return numsim::cas::make_expression<
+        numsim::cas::tensor_to_scalar_scalar_wrapper>(
+        numsim::cas::make_expression<numsim::cas::scalar_constant>(v));
+  };
+
+  // one + scalar_wrapper → constant fold
+  EXPECT_PRINT(t2s_one + wrap(3), "4");
+
+  // one + one → 2
+  EXPECT_PRINT(t2s_one + t2s_one, "2");
+
+  // one + add → merge into coeff
+  EXPECT_PRINT(t2s_one + (_2 + trX), "3+tr(X)");
+
+  // one + (-one) → 0
+  EXPECT_PRINT(t2s_one + (-t2s_one), "0");
+
+  // one + non-numeric → get_default (creates add)
+  EXPECT_PRINT(t2s_one + trX, "1+tr(X)");
+}
+
+// ---------- ADD/SUB: n_ary_mul coefficient combination ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_MulCoeffCombination) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &_2 = this->_2;
+  auto &_3 = this->_3;
+
+  using numsim::cas::trace;
+  auto trX = trace(X);
+  auto trY = trace(Y);
+
+  // n_ary_mul_add: c1*expr + c2*expr → (c1+c2)*expr
+  EXPECT_PRINT((_3 * trX) + (_2 * trX), "5*tr(X)");
+
+  // n_ary_mul_add: different children → not combined
+  auto sum = (_3 * trX) + (_2 * trY);
+  auto s = testcas::S(sum);
+  EXPECT_FALSE(s.empty()); // just verify it doesn't crash
+
+  // n_ary_mul_sub: c1*expr - c2*expr → (c1-c2)*expr
+  EXPECT_PRINT((_3 * trX) - (_2 * trX), "tr(X)");
+
+  // n_ary_mul_sub: equal → 0
+  EXPECT_PRINT((_3 * trX) - (_3 * trX), "0");
+
+  // n_ary_mul_sub: reversed sign
+  EXPECT_PRINT((_2 * trX) - (_3 * trX), "-tr(X)");
+}
+
+// ---------- SUB: constant_sub and one_sub ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_ConstantAndOneSub_Simplification) {
+  auto &X = this->X;
+  auto &_2 = this->_2;
+
+  using numsim::cas::trace;
+  auto trX = trace(X);
+
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+
+  auto wrap = [](int v) {
+    return numsim::cas::make_expression<
+        numsim::cas::tensor_to_scalar_scalar_wrapper>(
+        numsim::cas::make_expression<numsim::cas::scalar_constant>(v));
+  };
+
+  // constant_sub: scalar_wrapper - scalar_wrapper → constant fold
+  EXPECT_PRINT(wrap(5) - wrap(2), "3");
+
+  // constant_sub: scalar_wrapper - one → constant fold
+  EXPECT_PRINT(wrap(3) - t2s_one, "2");
+
+  // constant_sub: scalar_wrapper - add → adjust coeff and negate children
+  EXPECT_PRINT(wrap(5) - (_2 + trX), "3-tr(X)");
+
+  // one_sub: one - scalar_wrapper → constant fold
+  EXPECT_PRINT(t2s_one - wrap(3), "-2");
+
+  // negative_sub: -expr - (coeff + x) → -(expr + coeff + x)
+  EXPECT_PRINT(-trX - (_2 + trX), "-(2+2*tr(X))");
+  EXPECT_SAME_PRINT(-trX - (wrap(3) + trX), -(wrap(3) + _2 * trX));
+}
+
+// ---------- MUL: zero, one, negative, constant_mul ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_MulSimplifier_Specializations) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &_2 = this->_2;
+
+  using numsim::cas::trace;
+  auto trX = trace(X);
+  auto trY = trace(Y);
+
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+
+  auto wrap = [](int v) {
+    return numsim::cas::make_expression<
+        numsim::cas::tensor_to_scalar_scalar_wrapper>(
+        numsim::cas::make_expression<numsim::cas::scalar_constant>(v));
+  };
+
+  // zero * expr → zero
+  EXPECT_PRINT(t2s_zero * trX, "0");
+
+  // one * expr → expr
+  EXPECT_PRINT(t2s_one * trX, "tr(X)");
+
+  // (-expr) * expr → -(expr * expr)
+  EXPECT_SAME_PRINT((-trX) * trY, -(trX * trY));
+
+  // constant_mul: scalar_wrapper * scalar_wrapper → numeric multiply
+  EXPECT_PRINT(wrap(3) * wrap(2), "6");
+
+  // constant_mul: scalar_wrapper(1) * expr → identity
+  EXPECT_PRINT(wrap(1) * trX, "tr(X)");
+
+  // constant_mul: scalar_wrapper * mul → merge coeff
+  EXPECT_PRINT(wrap(3) * (_2 * trX), "6*tr(X)");
+
+  // constant_mul: scalar_wrapper * non-numeric → creates mul
+  EXPECT_PRINT(wrap(3) * trX, "3*tr(X)");
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H
