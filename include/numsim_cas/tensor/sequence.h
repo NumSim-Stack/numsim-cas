@@ -42,7 +42,7 @@ public:
   auto end() const noexcept { return m_data.end(); }
 
   index_t &operator[](std::size_t i) { return m_data[i]; }
-  index_t operator[](std::size_t i) const { return m_data[i] + 1; }
+  index_t operator[](std::size_t i) const { return m_data[i]; }
 
   template <class It> void insert(It pos, It first, It last) {
     m_data.insert(pos, first, last);
@@ -62,7 +62,7 @@ public:
     return a.m_data <=> b.m_data;
   }
 
-  // print as 1-based for readability
+  // print as 1-based for mathematical readability
   friend std::ostream &operator<<(std::ostream &os, sequence const &s) {
     os << '{';
     for (std::size_t i = 0; i < s.m_data.size(); ++i) {
@@ -149,39 +149,22 @@ inline std::vector<sequence> split_many(sequence const &s,
 // ---- permute ----
 // Permute by 0-based positions: perm[i] is in [0, n).
 // out[i] = in[perm[i]]
-inline sequence permute_0based(sequence const &in,
-                               std::span<const sequence::index_t> perm) {
+inline sequence permute(sequence const &in,
+                        std::span<const sequence::index_t> perm) {
   if (perm.size() != in.size())
-    throw std::invalid_argument("permute_0based: size mismatch");
+    throw std::invalid_argument("permute: size mismatch");
 
   sequence out(in.size());
   for (std::size_t i = 0; i < perm.size(); ++i) {
     const auto p = perm[i];
     if (p >= in.size())
-      throw std::out_of_range("permute_0based: entry out of range");
+      throw std::out_of_range("permute: entry out of range");
     out[i] = in[p];
   }
   return out;
 }
 
-// Permute by 1-based positions: perm[i] is in [1, n].
-// out[i] = in[perm[i]-1]
-inline sequence permute_1based(sequence const &in,
-                               std::span<const sequence::index_t> perm) {
-  if (perm.size() != in.size())
-    throw std::invalid_argument("permute_1based: size mismatch");
-
-  sequence out(in.size());
-  for (std::size_t i = 0; i < perm.size(); ++i) {
-    const auto p = perm[i];
-    if (p == 0 || p > in.size())
-      throw std::out_of_range("permute_1based: entry out of range");
-    out[i] = in[p - 1];
-  }
-  return out;
-}
-
-inline sequence invert_perm_0based(std::span<const std::size_t> perm) {
+inline sequence invert_perm(std::span<const std::size_t> perm) {
   const std::size_t n = perm.size();
   sequence inv(n);
 
@@ -189,29 +172,11 @@ inline sequence invert_perm_0based(std::span<const std::size_t> perm) {
   for (std::size_t i = 0; i < n; ++i) {
     const auto p = perm[i];
     if (p >= n)
-      throw std::out_of_range("invert_perm_0based: out of range");
+      throw std::out_of_range("invert_perm: out of range");
     if (seen[p])
-      throw std::invalid_argument("invert_perm_0based: duplicate entry");
+      throw std::invalid_argument("invert_perm: duplicate entry");
     seen[p] = true;
     inv[p] = i;
-  }
-  return inv;
-}
-
-inline sequence invert_perm_1based(std::span<const std::size_t> perm) {
-  const std::size_t n = perm.size();
-  sequence inv(n);
-
-  std::vector<bool> seen(n, false);
-  for (std::size_t i = 0; i < n; ++i) {
-    const auto p = perm[i];
-    if (p == 0 || p > n)
-      throw std::out_of_range("invert_perm_1based: out of range");
-    const auto z = p - 1;
-    if (seen[z])
-      throw std::invalid_argument("invert_perm_1based: duplicate entry");
-    seen[z] = true;
-    inv[z] = i + 1; // keep 1-based output
   }
   return inv;
 }

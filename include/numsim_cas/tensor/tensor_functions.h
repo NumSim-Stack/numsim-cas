@@ -95,20 +95,17 @@ constexpr inline auto otimesl(ExprLHS &&lhs, ExprRHS &&rhs) {
 template <typename Expr>
 constexpr inline auto permute_indices(Expr &&expr, sequence &&indices) {
   if (is_same<basis_change_imp>(expr)) {
-    std::cout << "basis_change_imp" << std::endl;
     auto &tensor{expr.template get<basis_change_imp>()};
     const auto &t_indices{tensor.indices()};
     sequence new_order(t_indices.size());
     for (std::size_t i{0}; i < t_indices.size(); ++i) {
-      new_order[i] = t_indices[indices[i] - 1];
+      new_order[i] = t_indices[indices[i]];
     }
-    std::ranges::transform(indices, new_order, [&](std::size_t from) {
-      return std::move(t_indices[from - 1]);
-    });
+    return make_expression<basis_change_imp>(tensor.expr(),
+                                             std::move(new_order));
   }
 
   if (is_same<outer_product_wrapper>(expr)) {
-    std::cout << "outer_product_wrapper" << std::endl;
     auto &tensor{expr.template get<outer_product_wrapper>()};
     const auto &indices_lhs{tensor.indices_lhs()};
     const auto &indices_rhs{tensor.indices_rhs()};
@@ -123,14 +120,9 @@ constexpr inline auto permute_indices(Expr &&expr, sequence &&indices) {
     indices_new_lhs.reserve(indices_lhs.size());
     indices_new_rhs.reserve(indices_rhs.size());
 
-    // I_ik I_jl
-    // basis_change(outer_product(I, {1,3}, I, {2,4}), [3,2,1,4])
-    // {}
-    // old {1,3,2,4}
-    // new {2,3,1,4}
-
+    // Permute: new[i] = old[perm[i]]  (all 0-based)
     for (std::size_t i{0}; i < indices.size(); ++i) {
-      indices_new[i] = 1 + indices_old[indices[i] - 1];
+      indices_new[i] = indices_old[indices[i]];
     }
 
     indices_new_lhs.insert(indices_new_lhs.begin(), indices_new.begin(),
