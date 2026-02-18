@@ -1,4 +1,7 @@
+#include "CoreBugFixTest.h"
+#include "LimitVisitorTest.h"
 #include "ScalarDifferentiationTest.h"
+#include "TensorDifferentiationTest.h"
 #include "ScalarEvaluatorTest.h"
 #include "ScalarExpressionTest.h"
 #include "TensorEvaluatorTest.h"
