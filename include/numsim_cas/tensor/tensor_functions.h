@@ -61,9 +61,10 @@ constexpr inline auto inner_product(ExprLHS &&lhs, sequence const &lhs_indices,
 template <typename ExprLHS, typename ExprRHS>
 constexpr inline auto otimes(ExprLHS &&lhs, ExprRHS &&rhs) {
   sequence lhs_indices(lhs.get().rank()), rhs_indices(rhs.get().rank());
-  std::iota(std::begin(lhs_indices), std::end(lhs_indices), 1);
+  std::iota(std::begin(lhs_indices), std::end(lhs_indices),
+            std::size_t{0});
   std::iota(std::begin(rhs_indices), std::end(rhs_indices),
-            lhs_indices.size() + 1);
+            lhs_indices.size());
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));

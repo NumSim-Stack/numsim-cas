@@ -49,7 +49,7 @@ protected:
     //      add.set_coeff(make_expression<tensor_constant>(-m_rhs.template
     //      get<scalar_constant>()()));
     //    }else{
-    add.push_back(m_rhs);
+    add.push_back(-m_rhs);
     //    }
     return std::move(add_new);
   }

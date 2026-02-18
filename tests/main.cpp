@@ -1,6 +1,7 @@
 #include "ScalarDifferentiationTest.h"
 #include "ScalarEvaluatorTest.h"
 #include "ScalarExpressionTest.h"
+#include "TensorEvaluatorTest.h"
 #include "ScalarSubstitutionTest.h"
 #include "TensorExpressionTest.h"
 #include "TensorSubstitutionTest.h"
