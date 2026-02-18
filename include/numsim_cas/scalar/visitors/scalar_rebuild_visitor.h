@@ -16,7 +16,7 @@ public:
 
   virtual ~scalar_rebuild_visitor() = default;
 
-  virtual expr_holder_t apply(expr_holder_t const &expr) noexcept {
+  virtual expr_holder_t apply(expr_holder_t const &expr) {
     if (expr.is_valid()) {
       m_current = expr;
       expr.get<scalar_visitable_t>().accept(*this);
@@ -25,25 +25,25 @@ public:
     return expr;
   }
 
-  void operator()(scalar const &) noexcept override { m_result = m_current; }
+  void operator()(scalar const &) override { m_result = m_current; }
 
-  void operator()(scalar_zero const &) noexcept override {
+  void operator()(scalar_zero const &) override {
     m_result = m_current;
   }
 
-  void operator()(scalar_one const &) noexcept override {
+  void operator()(scalar_one const &) override {
     m_result = m_current;
   }
 
-  void operator()(scalar_constant const &) noexcept override {
+  void operator()(scalar_constant const &) override {
     m_result = m_current;
   }
 
-  void operator()(scalar_rational const &) noexcept override {
+  void operator()(scalar_rational const &) override {
     m_result = m_current;
   }
 
-  void operator()(scalar_add const &v) noexcept override {
+  void operator()(scalar_add const &v) override {
     expr_holder_t result;
     if (v.coeff().is_valid())
       result += apply(v.coeff());
@@ -52,7 +52,7 @@ public:
     m_result = std::move(result);
   }
 
-  void operator()(scalar_mul const &v) noexcept override {
+  void operator()(scalar_mul const &v) override {
     expr_holder_t result;
     if (v.coeff().is_valid())
       result *= apply(v.coeff());
@@ -61,60 +61,60 @@ public:
     m_result = std::move(result);
   }
 
-  void operator()(scalar_negative const &v) noexcept override {
+  void operator()(scalar_negative const &v) override {
     m_result = -apply(v.expr());
   }
 
-  void operator()(scalar_function const &v) noexcept override {
+  void operator()(scalar_function const &v) override {
     m_result =
         make_expression<scalar_function>(std::string(v.name()), apply(v.expr()));
   }
 
-  void operator()(scalar_sin const &v) noexcept override {
+  void operator()(scalar_sin const &v) override {
     m_result = sin(apply(v.expr()));
   }
 
-  void operator()(scalar_cos const &v) noexcept override {
+  void operator()(scalar_cos const &v) override {
     m_result = cos(apply(v.expr()));
   }
 
-  void operator()(scalar_tan const &v) noexcept override {
+  void operator()(scalar_tan const &v) override {
     m_result = tan(apply(v.expr()));
   }
 
-  void operator()(scalar_asin const &v) noexcept override {
+  void operator()(scalar_asin const &v) override {
     m_result = asin(apply(v.expr()));
   }
 
-  void operator()(scalar_acos const &v) noexcept override {
+  void operator()(scalar_acos const &v) override {
     m_result = acos(apply(v.expr()));
   }
 
-  void operator()(scalar_atan const &v) noexcept override {
+  void operator()(scalar_atan const &v) override {
     m_result = atan(apply(v.expr()));
   }
 
-  void operator()(scalar_pow const &v) noexcept override {
+  void operator()(scalar_pow const &v) override {
     m_result = pow(apply(v.expr_lhs()), apply(v.expr_rhs()));
   }
 
-  void operator()(scalar_sqrt const &v) noexcept override {
+  void operator()(scalar_sqrt const &v) override {
     m_result = sqrt(apply(v.expr()));
   }
 
-  void operator()(scalar_log const &v) noexcept override {
+  void operator()(scalar_log const &v) override {
     m_result = log(apply(v.expr()));
   }
 
-  void operator()(scalar_exp const &v) noexcept override {
+  void operator()(scalar_exp const &v) override {
     m_result = exp(apply(v.expr()));
   }
 
-  void operator()(scalar_sign const &v) noexcept override {
+  void operator()(scalar_sign const &v) override {
     m_result = sign(apply(v.expr()));
   }
 
-  void operator()(scalar_abs const &v) noexcept override {
+  void operator()(scalar_abs const &v) override {
     m_result = abs(apply(v.expr()));
   }
 

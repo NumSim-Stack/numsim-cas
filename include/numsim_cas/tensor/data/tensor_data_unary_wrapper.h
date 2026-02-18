@@ -2,6 +2,7 @@
 #define TENSOR_DATA_UNARY_WRAPPER_H
 
 #include "tensor_data.h"
+#include <numsim_cas/core/cas_error.h>
 
 namespace numsim::cas {
 
@@ -26,16 +27,16 @@ public:
       auto const &in = static_cast<const Tensor &>(m_input).data();
       static_cast<Tensor &>(m_result).data() = Op::apply(in);
     } else {
-      throw std::runtime_error("tensor_data_unary_wrapper: invalid dim/rank");
+      throw evaluation_error("tensor_data_unary_wrapper: invalid dim/rank");
     }
   }
 
   void missmatch(std::size_t dim, std::size_t rank) {
     if (dim > this->_MaxDim || dim == 0)
-      throw std::runtime_error(
+      throw evaluation_error(
           "tensor_data_unary_wrapper: dim > MaxDim || dim == 0");
     if (rank > this->_MaxRank || rank == 0)
-      throw std::runtime_error(
+      throw evaluation_error(
           "tensor_data_unary_wrapper: rank > MaxRank || rank == 0");
   }
 
@@ -60,17 +61,17 @@ public:
       static_cast<Tensor &>(m_result).data() =
           tmech::eye<ValueType, Dim, Rank>();
     } else {
-      throw std::runtime_error(
+      throw evaluation_error(
           "tensor_data_identity: identity requires even rank");
     }
   }
 
   void missmatch(std::size_t dim, std::size_t rank) {
     if (dim > this->_MaxDim || dim == 0)
-      throw std::runtime_error(
+      throw evaluation_error(
           "tensor_data_identity: dim > MaxDim || dim == 0");
     if (rank > this->_MaxRank || rank == 0)
-      throw std::runtime_error(
+      throw evaluation_error(
           "tensor_data_identity: rank > MaxRank || rank == 0");
   }
 

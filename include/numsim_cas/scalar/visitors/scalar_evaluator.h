@@ -3,7 +3,6 @@
 
 #include <cmath>
 #include <complex>
-#include <exception>
 #include <numsim_cas/core/evaluator_base.h>
 #include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_operators.h>
@@ -31,23 +30,22 @@ public:
     if (expr.is_valid()) {
       base::m_current_expr = base::to_base_holder(expr);
       expr.template get<scalar_visitable_t>().accept(*this);
-      base::rethrow_if_needed();
       return m_result;
     }
     return ValueType{0};
   }
 
-  void operator()(scalar const &) noexcept override { base::dispatch(); }
+  void operator()(scalar const &) override { base::dispatch(); }
 
-  void operator()([[maybe_unused]] scalar_zero const &) noexcept override {
+  void operator()([[maybe_unused]] scalar_zero const &) override {
     m_result = ValueType{0};
   }
 
-  void operator()([[maybe_unused]] scalar_one const &) noexcept override {
+  void operator()([[maybe_unused]] scalar_one const &) override {
     m_result = ValueType{1};
   }
 
-  void operator()(scalar_constant const &visitable) noexcept override {
+  void operator()(scalar_constant const &visitable) override {
     m_result = std::visit(
         [](auto const &v) -> ValueType {
           using V = std::decay_t<decltype(v)>;
@@ -60,7 +58,7 @@ public:
         visitable.value().raw());
   }
 
-  void operator()(scalar_add const &visitable) noexcept override {
+  void operator()(scalar_add const &visitable) override {
     ValueType result{0};
     if (visitable.coeff().is_valid()) {
       result += apply(visitable.coeff());
@@ -71,7 +69,7 @@ public:
     m_result = result;
   }
 
-  void operator()(scalar_mul const &visitable) noexcept override {
+  void operator()(scalar_mul const &visitable) override {
     ValueType result{1};
     if (visitable.coeff().is_valid()) {
       result = apply(visitable.coeff());
@@ -82,56 +80,56 @@ public:
     m_result = result;
   }
 
-  void operator()(scalar_negative const &visitable) noexcept override {
+  void operator()(scalar_negative const &visitable) override {
     m_result = -apply(visitable.expr());
   }
 
-  void operator()(scalar_pow const &visitable) noexcept override {
+  void operator()(scalar_pow const &visitable) override {
     m_result =
         std::pow(apply(visitable.expr_lhs()), apply(visitable.expr_rhs()));
   }
 
-  void operator()(scalar_rational const &visitable) noexcept override {
+  void operator()(scalar_rational const &visitable) override {
     m_result = apply(visitable.expr_lhs()) / apply(visitable.expr_rhs());
   }
 
-  void operator()(scalar_sin const &visitable) noexcept override {
+  void operator()(scalar_sin const &visitable) override {
     m_result = std::sin(apply(visitable.expr()));
   }
 
-  void operator()(scalar_cos const &visitable) noexcept override {
+  void operator()(scalar_cos const &visitable) override {
     m_result = std::cos(apply(visitable.expr()));
   }
 
-  void operator()(scalar_tan const &visitable) noexcept override {
+  void operator()(scalar_tan const &visitable) override {
     m_result = std::tan(apply(visitable.expr()));
   }
 
-  void operator()(scalar_asin const &visitable) noexcept override {
+  void operator()(scalar_asin const &visitable) override {
     m_result = std::asin(apply(visitable.expr()));
   }
 
-  void operator()(scalar_acos const &visitable) noexcept override {
+  void operator()(scalar_acos const &visitable) override {
     m_result = std::acos(apply(visitable.expr()));
   }
 
-  void operator()(scalar_atan const &visitable) noexcept override {
+  void operator()(scalar_atan const &visitable) override {
     m_result = std::atan(apply(visitable.expr()));
   }
 
-  void operator()(scalar_sqrt const &visitable) noexcept override {
+  void operator()(scalar_sqrt const &visitable) override {
     m_result = std::sqrt(apply(visitable.expr()));
   }
 
-  void operator()(scalar_log const &visitable) noexcept override {
+  void operator()(scalar_log const &visitable) override {
     m_result = std::log(apply(visitable.expr()));
   }
 
-  void operator()(scalar_exp const &visitable) noexcept override {
+  void operator()(scalar_exp const &visitable) override {
     m_result = std::exp(apply(visitable.expr()));
   }
 
-  void operator()(scalar_sign const &visitable) noexcept override {
+  void operator()(scalar_sign const &visitable) override {
     const ValueType u{apply(visitable.expr())};
     if (u > ValueType{0})
       m_result = ValueType{1};
@@ -141,11 +139,11 @@ public:
       m_result = ValueType{0};
   }
 
-  void operator()(scalar_abs const &visitable) noexcept override {
+  void operator()(scalar_abs const &visitable) override {
     m_result = std::abs(apply(visitable.expr()));
   }
 
-  void operator()(scalar_function const &visitable) noexcept override {
+  void operator()(scalar_function const &visitable) override {
     m_result = apply(visitable.expr());
   }
 

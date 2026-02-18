@@ -56,7 +56,7 @@ public:
    * @param expr Expression to differentiate.
    * @return The symbolic derivative d(expr)/d(m_arg).
    */
-  auto apply(expr_holder_t const &expr) noexcept { return apply_imp(expr); }
+  auto apply(expr_holder_t const &expr) { return apply_imp(expr); }
 
   /**
    * @brief Derivative of a scalar variable.
@@ -65,7 +65,7 @@ public:
    *
    * @param visitable Scalar variable node.
    */
-  void operator()(scalar const &visitable) noexcept {
+  void operator()(scalar const &visitable) {
     if (visitable.hash_value() == m_arg.get().hash_value()) {
       m_result = get_scalar_one();
     } else {
@@ -81,7 +81,7 @@ public:
    *
    * @param visitable Function node.
    */
-  void operator()(scalar_function const &visitable) noexcept {
+  void operator()(scalar_function const &visitable) {
     scalar_differentiation diff(m_arg);
     expr_holder_t result{diff.apply(visitable.expr())};
     if (result.is_valid()) {
@@ -99,7 +99,7 @@ public:
    * @param visitable Multiplication node.
    * TODO: just copy the vector and manipulate the current entry
    */
-  void operator()(scalar_mul const &visitable) noexcept {
+  void operator()(scalar_mul const &visitable) {
     expr_holder_t expr_result;
     for (auto &expr_out : visitable.hash_map() | std::views::values) {
       expr_holder_t expr_result_in;
@@ -130,7 +130,7 @@ public:
    * \f]
    *    * @param visitable Addition node.
    */
-  void operator()([[maybe_unused]] scalar_add const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_add const &visitable) {
     expr_holder_t expr_result;
     for (auto &child : visitable.hash_map() | std::views::values) {
       scalar_differentiation diff(m_arg);
@@ -147,7 +147,7 @@ public:
    * \f]
    *    * @param visitable Negation node.
    */
-  void operator()(scalar_negative const &visitable) noexcept {
+  void operator()(scalar_negative const &visitable) {
     scalar_differentiation diff(m_arg);
     auto diff_expr{diff.apply(visitable.expr())};
     if (diff_expr.is_valid() || !is_same<scalar_zero>(diff_expr)) {
@@ -176,7 +176,7 @@ public:
    * @brief Derivative of a constant.
    * @param visitable Constant node.
    */
-  void operator()([[maybe_unused]] scalar_constant const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_constant const &visitable) {
     m_result = get_scalar_zero();
   }
 
@@ -187,7 +187,7 @@ public:
    * \sec^2(u(a))\,u'(a)=\frac{1}{\cos^2(u(a))}\,u'(a). \f]
    *    * @param visitable Tangent node.
    */
-  void operator()([[maybe_unused]] scalar_tan const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_tan const &visitable) {
     const auto &one{get_scalar_one()};
     m_result = pow(one / cos(visitable.expr()), 2);
     apply_inner_unary(visitable);
@@ -200,7 +200,7 @@ public:
    * \f]
    *    * @param visitable Sine node.
    */
-  void operator()([[maybe_unused]] scalar_sin const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_sin const &visitable) {
     m_result = cos(visitable.expr());
     apply_inner_unary(visitable);
   }
@@ -212,7 +212,7 @@ public:
    * \f]
    *    * @param visitable Cosine node.
    */
-  void operator()([[maybe_unused]] scalar_cos const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_cos const &visitable) {
     m_result = -sin(visitable.expr());
     apply_inner_unary(visitable);
   }
@@ -221,7 +221,7 @@ public:
    * @brief Derivative of one is zero.
    * @param visitable One node.
    */
-  void operator()([[maybe_unused]] scalar_one const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_one const &visitable) {
     m_result = get_scalar_zero();
   }
 
@@ -229,7 +229,7 @@ public:
    * @brief Derivative of zero is zero.
    * @param visitable Zero node.
    */
-  void operator()([[maybe_unused]] scalar_zero const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_zero const &visitable) {
     m_result = get_scalar_zero();
   }
 
@@ -240,7 +240,7 @@ public:
    * \f]
    *    * @param visitable Arctangent node.
    */
-  void operator()([[maybe_unused]] scalar_atan const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_atan const &visitable) {
     auto &one{get_scalar_one()};
     m_result = (one / (one + pow(visitable.expr(), 2)));
     apply_inner_unary(visitable);
@@ -253,7 +253,7 @@ public:
    * \f]
    *    * @param visitable Arcsine node.
    */
-  void operator()([[maybe_unused]] scalar_asin const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_asin const &visitable) {
     auto &one{get_scalar_one()};
     m_result = (one / (sqrt(one - pow(visitable.expr(), 2))));
     apply_inner_unary(visitable);
@@ -266,7 +266,7 @@ public:
    * \f]
    *    * @param visitable Arccosine node.
    */
-  void operator()([[maybe_unused]] scalar_acos const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_acos const &visitable) {
     auto &one{get_scalar_one()};
     m_result = -(one / (sqrt(one - pow(visitable.expr(), 2))));
     apply_inner_unary(visitable);
@@ -279,7 +279,7 @@ public:
    * \f]
    *    * @param visitable Square-root node.
    */
-  void operator()([[maybe_unused]] scalar_sqrt const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_sqrt const &visitable) {
     auto &one{get_scalar_one()};
     m_result = one / (2 * m_expr);
     apply_inner_unary(visitable);
@@ -292,7 +292,7 @@ public:
    * \f]
    *    * @param visitable Exponential node.
    */
-  void operator()([[maybe_unused]] scalar_exp const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_exp const &visitable) {
     m_result = m_expr;
     apply_inner_unary(visitable);
   }
@@ -311,7 +311,7 @@ public:
    * \f]
    *    * @param visitable Power node.
    */
-  void operator()([[maybe_unused]] scalar_pow const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_pow const &visitable) {
     const auto &g{visitable.expr_lhs()};
     const auto &h{visitable.expr_rhs()};
 
@@ -333,7 +333,7 @@ public:
    * @brief sign(u)' is treated as zero (non-differentiable at 0).
    * @param visitable Sign node.
    */
-  void operator()([[maybe_unused]] scalar_sign const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_sign const &visitable) {
     m_result = get_scalar_zero();
   }
 
@@ -345,7 +345,7 @@ public:
    * undefined at \f$u(a)=0\f$ (the CAS keeps the symbolic form).
    *    * @param visitable Absolute-value node.
    */
-  void operator()([[maybe_unused]] scalar_abs const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_abs const &visitable) {
     m_result = visitable.expr() / m_expr;
     apply_inner_unary(visitable);
   }
@@ -357,13 +357,13 @@ public:
    * \f]
    *    * @param visitable Logarithm node.
    */
-  void operator()([[maybe_unused]] scalar_log const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_log const &visitable) {
     auto &one{get_scalar_one()};
     m_result = one / visitable.expr();
     apply_inner_unary(visitable);
   }
 
-  void operator()([[maybe_unused]] scalar_rational const &visitable) noexcept {
+  void operator()([[maybe_unused]] scalar_rational const &visitable) {
     m_result = get_scalar_zero();
   }
 
@@ -371,7 +371,7 @@ public:
    * @brief Default overload for safty reasons.
    */
   template <class T>
-  void operator()([[maybe_unused]] T const &visitable) noexcept {
+  void operator()([[maybe_unused]] T const &visitable) {
     static_assert(
         sizeof(T) == 0,
         "scalar_differentiation: missing overload for this node type");
@@ -385,7 +385,7 @@ private:
    *    * @tparam T Unary node type exposing expr().
    * @param unary Unary node.
    */
-  template <typename T> void apply_inner_unary(T const &unary) noexcept {
+  template <typename T> void apply_inner_unary(T const &unary) {
     scalar_differentiation diff(m_arg);
     auto inner{diff.apply(unary.expr())};
     if (inner.is_valid()) {
@@ -398,7 +398,7 @@ private:
    * @param expr Expression to differentiate.
    * @return Derivative expression.
    */
-  expr_holder_t apply_imp(expr_holder_t const &expr) noexcept {
+  expr_holder_t apply_imp(expr_holder_t const &expr) {
     if (expr.is_valid()) {
       m_expr = expr;
       expr.get<scalar_visitable_t>().accept(*this);

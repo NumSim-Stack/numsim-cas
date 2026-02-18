@@ -65,7 +65,7 @@ public:
 
   auto apply(expression_holder<tensor_to_scalar_expression> const &expr,
              [[maybe_unused]] Precedence parent_precedence =
-                 Precedence::None) noexcept {
+                 Precedence::None) {
     if (expr.is_valid()) {
       m_parent_precedence = parent_precedence;
       static_cast<const tensor_to_scalar_visitable_t &>(expr.get())
@@ -73,23 +73,23 @@ public:
     }
   }
 
-  void operator()(tensor_trace const &visitable) noexcept {
+  void operator()(tensor_trace const &visitable) {
     print_unary("tr", visitable);
   }
 
-  void operator()(tensor_dot const &visitable) noexcept {
+  void operator()(tensor_dot const &visitable) {
     print_unary("dot", visitable);
   }
 
-  void operator()(tensor_norm const &visitable) noexcept {
+  void operator()(tensor_norm const &visitable) {
     print_unary("norm", visitable);
   }
 
-  void operator()(tensor_det const &visitable) noexcept {
+  void operator()(tensor_det const &visitable) {
     print_unary("det", visitable);
   }
 
-  void operator()(tensor_to_scalar_negative const &visitable) noexcept {
+  void operator()(tensor_to_scalar_negative const &visitable) {
     constexpr auto precedence{Precedence::Unary};
     m_out << "-";
     // begin(precedence, m_parent_precedence);
@@ -97,7 +97,7 @@ public:
     // end(precedence, m_parent_precedence);
   }
 
-  void operator()(tensor_to_scalar_mul const &visitable) noexcept {
+  void operator()(tensor_to_scalar_mul const &visitable) {
     using traits = domain_traits<tensor_to_scalar_expression>;
     constexpr auto precedence{Precedence::Multiplication};
     const auto parent_precedence{m_parent_precedence};
@@ -154,11 +154,11 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_to_scalar_log const &visitable) noexcept {
+  void operator()(tensor_to_scalar_log const &visitable) {
     print_unary("log", visitable);
   }
 
-  void operator()(tensor_to_scalar_add const &visitable) noexcept {
+  void operator()(tensor_to_scalar_add const &visitable) {
     constexpr auto precedence{Precedence::Addition};
     const auto parent_precedence{m_parent_precedence};
     begin(precedence, parent_precedence);
@@ -200,7 +200,7 @@ public:
   //   end(precedence, m_parent_precedence);
   // }
 
-  void operator()(tensor_to_scalar_pow const &visitable) noexcept {
+  void operator()(tensor_to_scalar_pow const &visitable) {
     m_out << "pow(";
     m_out << visitable.expr_lhs();
     m_out << ",";
@@ -253,7 +253,7 @@ public:
   //   end(precedence, m_parent_precedence);
   // }
 
-  void operator()(tensor_inner_product_to_scalar const &visitable) noexcept {
+  void operator()(tensor_inner_product_to_scalar const &visitable) {
     const auto &indices_lhs{visitable.indices_lhs()};
     const auto &indices_rhs{visitable.indices_rhs()};
     const auto parent_precedence{m_parent_precedence};
@@ -290,7 +290,7 @@ public:
    * @note Will be set to zero in apply function
    */
   void
-  operator()([[maybe_unused]] tensor_to_scalar_one const &visitable) noexcept {
+  operator()([[maybe_unused]] tensor_to_scalar_one const &visitable) {
     m_out << "1";
   }
 
@@ -300,7 +300,7 @@ public:
    * @note Will be set to zero in apply function
    */
   void
-  operator()([[maybe_unused]] tensor_to_scalar_zero const &visitable) noexcept {
+  operator()([[maybe_unused]] tensor_to_scalar_zero const &visitable) {
     m_out << "0";
   }
 
@@ -309,7 +309,7 @@ public:
    *
    */
   void operator()([[maybe_unused]] tensor_to_scalar_scalar_wrapper const
-                      &visitable) noexcept {
+                      &visitable) {
     apply(visitable.expr(), m_parent_precedence);
   }
 
@@ -317,17 +317,17 @@ public:
    * @brief Default overload for safty reasons.
    */
   template <class T>
-  void operator()([[maybe_unused]] T const &visitable) noexcept {
+  void operator()([[maybe_unused]] T const &visitable) {
     static_assert(sizeof(T) == 0, "tensor_to_scalar_printer: missing "
                                   "overload for this node type");
   }
 
 private:
   void apply(expression_holder<tensor_expression> const &expr,
-             Precedence parent_precedence = Precedence::None) noexcept;
+             Precedence parent_precedence = Precedence::None);
 
   void apply(expression_holder<scalar_expression> const &expr,
-             Precedence parent_precedence = Precedence::None) noexcept;
+             Precedence parent_precedence = Precedence::None);
 
   using base_visitor::m_out; ///< The output stream used for printing.
   Precedence m_parent_precedence;

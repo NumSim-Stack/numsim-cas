@@ -6,7 +6,7 @@ namespace numsim::cas {
 template <typename Stream>
 void tensor_to_scalar_printer<Stream>::apply(
     expression_holder<tensor_expression> const &expr,
-    Precedence parent_precedence) noexcept {
+    Precedence parent_precedence) {
   tensor_printer<std::ostream> p(m_out);
   p.apply(expr, parent_precedence);
 }
@@ -14,7 +14,7 @@ void tensor_to_scalar_printer<Stream>::apply(
 template <typename Stream>
 void tensor_to_scalar_printer<Stream>::apply(
     expression_holder<scalar_expression> const &expr,
-    Precedence parent_precedence) noexcept {
+    Precedence parent_precedence) {
   scalar_printer<std::ostream> p(m_out);
   p.apply(expr, parent_precedence);
 }

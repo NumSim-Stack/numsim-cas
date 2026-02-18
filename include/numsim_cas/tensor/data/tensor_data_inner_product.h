@@ -3,6 +3,7 @@
 
 #include "tensor_data.h"
 #include "tensor_data_basis_change.h"
+#include <numsim_cas/core/cas_error.h>
 #include <cstdlib>
 #include <vector>
 
@@ -103,16 +104,16 @@ public:
 
   void missmatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
     if (dim > this->_MaxDim || dim == 0) {
-      throw std::runtime_error("tensor_data_inner_product::evaluate(dim, "
+      throw evaluation_error("tensor_data_inner_product::evaluate(dim, "
                                "rankLHS, rankRHS) dim > MaxDim || dim == 0");
     }
     if (rankLHS > this->_MaxRank || rankLHS == 0) {
-      throw std::runtime_error(
+      throw evaluation_error(
           "tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) rankLHS "
           "> MaxRank || rankLHS == 0");
     }
     if (rankRHS > this->_MaxRank || rankRHS == 0) {
-      throw std::runtime_error(
+      throw evaluation_error(
           "tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) rankRHS "
           "> MaxRank || rankRHS == 0");
     }

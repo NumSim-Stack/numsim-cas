@@ -2,6 +2,7 @@
 #define TENSOR_FUNCTIONS_SYMTM_H
 
 #include <cstdlib>
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/tensor/data/tensor_data_make_imp.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
@@ -26,7 +27,7 @@ constexpr inline auto dev(Expr &&expr) {
   if (expr.get().rank() == 2) {
     return make_expression<tensor_deviatoric>(std::forward<Expr>(expr));
   }
-  throw std::runtime_error("");
+  throw evaluation_error("dev: requires rank-2 tensor");
 }
 
 template <typename ExprLHS, typename ExprRHS>

@@ -12,7 +12,7 @@ namespace numsim::cas {
 template <typename Stream>
 void scalar_printer<Stream>::apply(
     expression_holder<scalar_expression> const &expr,
-    [[maybe_unused]] Precedence parent_precedence) noexcept {
+    [[maybe_unused]] Precedence parent_precedence) {
   if (expr.is_valid()) {
     m_parent_precedence = parent_precedence;
     static_cast<const scalar_visitable_t &>(expr.get())
@@ -26,13 +26,13 @@ void scalar_printer<Stream>::apply(
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   m_out << visitable.name();
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_function const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   m_out << visitable.name();
   if (m_first_term) {
     m_out << " = ";
@@ -42,24 +42,24 @@ template<typename Stream>
 
 template <typename Stream>
 void scalar_printer<Stream>::operator()(
-    [[maybe_unused]] scalar_constant const &visitable) noexcept {
+    [[maybe_unused]] scalar_constant const &visitable) {
   m_out << visitable.value();
 }
 
 template <typename Stream>
 void scalar_printer<Stream>::operator()(
-    [[maybe_unused]] scalar_one const &visitable) noexcept {
+    [[maybe_unused]] scalar_one const &visitable) {
   m_out << "1";
 }
 
 template <typename Stream>
 void scalar_printer<Stream>::operator()(
-    [[maybe_unused]] scalar_zero const &visitable) noexcept {
+    [[maybe_unused]] scalar_zero const &visitable) {
   m_out << "0";
 }
 
 template <typename Stream>
-void scalar_printer<Stream>::operator()(scalar_mul const &visitable) noexcept {
+void scalar_printer<Stream>::operator()(scalar_mul const &visitable) {
   using traits = domain_traits<scalar_expression>;
   constexpr auto precedence{Precedence::Multiplication};
   const auto parent_precedence{m_parent_precedence};
@@ -104,7 +104,7 @@ void scalar_printer<Stream>::operator()(scalar_mul const &visitable) noexcept {
 }
 
 template <typename Stream>
-void scalar_printer<Stream>::operator()(scalar_add const &visitable) noexcept {
+void scalar_printer<Stream>::operator()(scalar_add const &visitable) {
   constexpr auto precedence{Precedence::Addition};
   const auto parent_precedence{m_parent_precedence};
   begin(precedence, parent_precedence);
@@ -136,7 +136,7 @@ void scalar_printer<Stream>::operator()(scalar_add const &visitable) noexcept {
 //  * @param parent_precedence The precedence of the parent expression.
 //  */
 // void scalar_printer<Stream>::operator()(scalar_div const &visitable/*,
-//                 Precedence parent_precedence*/) noexcept {
+//                 Precedence parent_precedence*/) {
 //   constexpr auto precedence{Precedence::Multiplication};
 //   const auto parent_precedence{m_parent_precedence};
 
@@ -149,7 +149,7 @@ void scalar_printer<Stream>::operator()(scalar_add const &visitable) noexcept {
 
 template <typename Stream>
 void scalar_printer<Stream>::operator()(
-    scalar_rational const &visitable) noexcept {
+    scalar_rational const &visitable) {
   constexpr auto precedence{Precedence::Multiplication};
   const auto parent_precedence{m_parent_precedence};
 
@@ -163,7 +163,7 @@ void scalar_printer<Stream>::operator()(
 template <typename Stream>
 void scalar_printer<Stream>::operator()(scalar_negative const
                                             &visitable /*,
-Precedence parent_precedence*/) noexcept {
+Precedence parent_precedence*/) {
   constexpr auto precedence{Precedence::Negative};
   const auto parent_precedence{m_parent_precedence};
 
@@ -175,37 +175,37 @@ Precedence parent_precedence*/) noexcept {
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_log const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("log", visitable);
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_sqrt const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("sqrt", visitable);
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_exp const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("exp", visitable);
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_sign const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("sign", visitable);
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_abs const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("abs", visitable);
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_pow const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   const auto &lhs{visitable.expr_lhs()};
   const auto &rhs{visitable.expr_rhs()};
   m_out << "pow(";
@@ -217,37 +217,37 @@ template<typename Stream>
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_tan const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("tan", visitable);
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_sin const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("sin", visitable);
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_cos const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("cos", visitable);
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_atan const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("atan", visitable);
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_asin const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("asin", visitable);
 }
 
 template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_acos const &visitable/*,
-                   [[maybe_unused]] Precedence parent_precedence*/) noexcept {
+                   [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("acos", visitable);
 }
 

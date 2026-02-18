@@ -3,13 +3,12 @@
 
 #include <algorithm>
 #include <cstring>
-#include <exception>
 #include <map>
 #include <memory>
 #include <numeric>
 #include <ranges>
-#include <stdexcept>
 
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/expression.h>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/scalar/visitors/scalar_evaluator.h>
@@ -51,7 +50,6 @@ public:
     if (expr.is_valid()) {
       m_current_expr = to_base_holder(expr);
       expr.template get<tensor_visitable_t>().accept(*this);
-      rethrow_if_needed();
       return std::move(m_result);
     }
     return nullptr;
@@ -59,25 +57,25 @@ public:
 
   // ─── Symbol ──────────────────────────────────────────────────
 
-  void operator()(tensor const &) noexcept override { dispatch_tensor(); }
+  void operator()(tensor const &) override { dispatch_tensor(); }
 
   // ─── Constants ───────────────────────────────────────────────
 
-  void operator()([[maybe_unused]] tensor_zero const &v) noexcept override {
+  void operator()([[maybe_unused]] tensor_zero const &v) override {
     m_result = make_tensor_data<ValueType>(v.dim(), v.rank());
   }
 
-  void operator()(kronecker_delta const &v) noexcept override {
+  void operator()(kronecker_delta const &v) override {
     eval_identity(v);
   }
 
-  void operator()(identity_tensor const &v) noexcept override {
+  void operator()(identity_tensor const &v) override {
     eval_identity(v);
   }
 
   // ─── Arithmetic ──────────────────────────────────────────────
 
-  void operator()(tensor_add const &visitable) noexcept override {
+  void operator()(tensor_add const &visitable) override {
     auto result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
     if (visitable.coeff().is_valid()) {
       auto temp = apply(visitable.coeff());
@@ -92,11 +90,11 @@ public:
     m_result = std::move(result);
   }
 
-  void operator()(tensor_negative const &v) noexcept override {
+  void operator()(tensor_negative const &v) override {
     eval_unary_tmech<tmech_ops::neg>(v);
   }
 
-  void operator()(tensor_scalar_mul const &visitable) noexcept override {
+  void operator()(tensor_scalar_mul const &visitable) override {
     const auto scalar_val = m_scalar_eval.apply(visitable.expr_lhs());
     auto tensor_data = apply(visitable.expr_rhs());
     const auto size = compute_size(visitable.dim(), visitable.rank());
@@ -109,7 +107,7 @@ public:
 
   // ─── Products ────────────────────────────────────────────────
 
-  void operator()(inner_product_wrapper const &visitable) noexcept override {
+  void operator()(inner_product_wrapper const &visitable) override {
     auto lhs_data = apply(visitable.expr_lhs());
     auto rhs_data = apply(visitable.expr_rhs());
     m_result =
@@ -120,7 +118,7 @@ public:
     ip.evaluate(visitable.dim(), rhs_data->rank(), lhs_data->rank());
   }
 
-  void operator()(outer_product_wrapper const &visitable) noexcept override {
+  void operator()(outer_product_wrapper const &visitable) override {
     auto lhs_data = apply(visitable.expr_lhs());
     auto rhs_data = apply(visitable.expr_rhs());
     m_result =
@@ -131,7 +129,7 @@ public:
     op.evaluate(visitable.dim(), rhs_data->rank(), lhs_data->rank());
   }
 
-  void operator()(basis_change_imp const &visitable) noexcept override {
+  void operator()(basis_change_imp const &visitable) override {
     auto temp = apply(visitable.expr());
     m_result =
         make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
@@ -140,7 +138,7 @@ public:
     bc.evaluate(visitable.dim(), visitable.rank());
   }
 
-  void operator()(simple_outer_product const &visitable) noexcept override {
+  void operator()(simple_outer_product const &visitable) override {
     const auto &children = visitable.data();
     if (children.empty()) {
       m_result =
@@ -167,7 +165,7 @@ public:
     m_result = std::move(accumulated);
   }
 
-  void operator()(tensor_mul const &visitable) noexcept override {
+  void operator()(tensor_mul const &visitable) override {
     const auto &children = visitable.data();
     if (children.empty()) {
       m_result =
@@ -210,7 +208,7 @@ public:
 
   // ─── Tensor functions (tmech wrappers) ─────────────────────
 
-  void operator()(tensor_pow const &visitable) noexcept override {
+  void operator()(tensor_pow const &visitable) override {
     auto base_data = apply(visitable.expr_lhs());
     const auto exp_val = m_scalar_eval.apply(visitable.expr_rhs());
     const auto n = static_cast<int>(exp_val);
@@ -244,39 +242,39 @@ public:
   }
 
   void
-  operator()([[maybe_unused]] tensor_power_diff const &visitable) noexcept
+  operator()([[maybe_unused]] tensor_power_diff const &visitable)
       override {
-    throw_not_implemented("tensor_power_diff");
+    throw not_implemented_error("tensor_evaluator: tensor_power_diff not yet implemented");
   }
 
-  void operator()(tensor_symmetry const &v) noexcept override {
+  void operator()(tensor_symmetry const &v) override {
     eval_unary_tmech<tmech_ops::sym>(v);
   }
 
-  void operator()(tensor_deviatoric const &v) noexcept override {
+  void operator()(tensor_deviatoric const &v) override {
     eval_unary_tmech<tmech_ops::dev>(v);
   }
 
-  void operator()(tensor_volumetric const &v) noexcept override {
+  void operator()(tensor_volumetric const &v) override {
     eval_unary_tmech<tmech_ops::vol>(v);
   }
 
-  void operator()(tensor_inv const &v) noexcept override {
+  void operator()(tensor_inv const &v) override {
     eval_unary_tmech<tmech_ops::inv>(v);
   }
 
   void
-  operator()([[maybe_unused]] tensor_projector const &visitable) noexcept
+  operator()([[maybe_unused]] tensor_projector const &visitable)
       override {
-    throw_not_implemented("tensor_projector");
+    throw not_implemented_error("tensor_evaluator: tensor_projector not yet implemented");
   }
 
   // ─── Cross-domain ────────────────────────────────────────────
 
   void operator()(
       [[maybe_unused]] tensor_to_scalar_with_tensor_mul const &visitable)
-      noexcept override {
-    throw_not_implemented("tensor_to_scalar_with_tensor_mul");
+      override {
+    throw not_implemented_error("tensor_evaluator: tensor_to_scalar_with_tensor_mul not yet implemented");
   }
 
   template <class T> void operator()([[maybe_unused]] T const &) noexcept {
@@ -288,64 +286,35 @@ private:
   // ─── Generic unary tmech dispatch ───────────────────────────
 
   template <typename Op, typename Visitable>
-  void eval_unary_tmech(Visitable const &visitable) noexcept {
-    try {
-      auto temp = apply(visitable.expr());
-      m_result =
-          make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
-      tensor_data_unary_wrapper<Op, ValueType> op(*m_result, *temp);
-      op.evaluate(visitable.dim(), visitable.rank());
-    } catch (...) {
-      m_exception = std::current_exception();
-    }
+  void eval_unary_tmech(Visitable const &visitable) {
+    auto temp = apply(visitable.expr());
+    m_result =
+        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_unary_wrapper<Op, ValueType> op(*m_result, *temp);
+    op.evaluate(visitable.dim(), visitable.rank());
   }
 
   // ─── Identity dispatch via tmech::eye ───────────────────────
 
   template <typename Visitable>
-  void eval_identity(Visitable const &visitable) noexcept {
-    try {
-      m_result =
-          make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
-      tensor_data_identity<ValueType> id(*m_result);
-      id.evaluate(visitable.dim(), visitable.rank());
-    } catch (...) {
-      m_exception = std::current_exception();
-    }
+  void eval_identity(Visitable const &visitable) {
+    m_result =
+        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_identity<ValueType> id(*m_result);
+    id.evaluate(visitable.dim(), visitable.rank());
   }
 
   // ─── Symbol dispatch ─────────────────────────────────────────
 
-  void dispatch_tensor() noexcept {
-    try {
-      auto it = m_tensor_values.find(m_current_expr);
-      if (it == m_tensor_values.end()) {
-        throw std::out_of_range("tensor_evaluator: symbol not found");
-      }
-      auto &src = it->second;
-      m_result = make_tensor_data<ValueType>(src->dim(), src->rank());
-      tensor_data_add<ValueType> add(*m_result, *src);
-      add.evaluate(src->dim(), src->rank());
-    } catch (...) {
-      m_exception = std::current_exception();
+  void dispatch_tensor() {
+    auto it = m_tensor_values.find(m_current_expr);
+    if (it == m_tensor_values.end()) {
+      throw evaluation_error("tensor_evaluator: symbol not found");
     }
-  }
-
-  void rethrow_if_needed() {
-    if (m_exception) {
-      auto ex = m_exception;
-      m_exception = nullptr;
-      std::rethrow_exception(ex);
-    }
-  }
-
-  void throw_not_implemented(const char *name) noexcept {
-    try {
-      throw std::runtime_error(
-          std::string("tensor_evaluator: ") + name + " not yet implemented");
-    } catch (...) {
-      m_exception = std::current_exception();
-    }
+    auto &src = it->second;
+    m_result = make_tensor_data<ValueType>(src->dim(), src->rank());
+    tensor_data_add<ValueType> add(*m_result, *src);
+    add.evaluate(src->dim(), src->rank());
   }
 
   template <typename ExprBase>
@@ -371,7 +340,6 @@ private:
   scalar_evaluator<ValueType> m_scalar_eval;
   data_ptr m_result;
   expression_holder<expression> m_current_expr;
-  std::exception_ptr m_exception{nullptr};
 };
 
 } // namespace numsim::cas

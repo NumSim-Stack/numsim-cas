@@ -284,7 +284,49 @@ TEST(ScalarEval, EvalSqrtOfSquare) {
 TEST(ScalarEval, EvalMissingSymbolThrows) {
   scalar_evaluator<double> ev;
   auto x = make_expression<scalar>("x");
-  EXPECT_THROW(ev.apply(x), std::out_of_range);
+  EXPECT_THROW(ev.apply(x), evaluation_error);
+}
+
+TEST(ScalarEval, EvalMissingSymbolInCompoundExpr) {
+  // Only x is set, y is missing — fails inside compound expression
+  scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  auto y = make_expression<scalar>("y");
+  ev.set(x, 3.0);
+  EXPECT_THROW(ev.apply(x + y), evaluation_error);
+}
+
+TEST(ScalarEval, EvalMissingSymbolInNestedExpr) {
+  // Missing symbol buried inside sin(x + y)
+  scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  auto y = make_expression<scalar>("y");
+  ev.set(x, 1.0);
+  EXPECT_THROW(ev.apply(sin(x + y)), evaluation_error);
+}
+
+TEST(ScalarEval, EvaluationErrorIsCatchableAsCasError) {
+  scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  EXPECT_THROW(ev.apply(x), cas_error);
+}
+
+TEST(ScalarEval, EvaluationErrorIsCatchableAsRuntimeError) {
+  scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  EXPECT_THROW(ev.apply(x), std::runtime_error);
+}
+
+TEST(ScalarEval, EvaluationErrorCarriesMessage) {
+  scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  try {
+    ev.apply(x);
+    FAIL() << "Expected evaluation_error";
+  } catch (evaluation_error const &e) {
+    EXPECT_TRUE(std::string(e.what()).find("symbol not found") !=
+                std::string::npos);
+  }
 }
 
 } // namespace numsim::cas

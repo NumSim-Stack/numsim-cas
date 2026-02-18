@@ -25,7 +25,7 @@ public:
                       target_holder_t const &new_val)
       : m_old(old_val), m_new(new_val) {}
 
-  tensor_holder_t apply(tensor_holder_t const &expr) noexcept override {
+  tensor_holder_t apply(tensor_holder_t const &expr) override {
     if constexpr (std::is_same_v<TargetBase, tensor_expression>) {
       if (expr.is_valid() && expr == m_old)
         return m_new;
@@ -34,7 +34,7 @@ public:
   }
 
   scalar_holder_t
-  apply_scalar(scalar_holder_t const &expr) noexcept override {
+  apply_scalar(scalar_holder_t const &expr) override {
     if constexpr (std::is_same_v<TargetBase, scalar_expression>) {
       return substitute(expr, m_old, m_new);
     } else {
@@ -42,7 +42,7 @@ public:
     }
   }
 
-  t2s_holder_t apply_t2s(t2s_holder_t const &expr) noexcept override {
+  t2s_holder_t apply_t2s(t2s_holder_t const &expr) override {
     return substitute(expr, m_old, m_new);
   }
 

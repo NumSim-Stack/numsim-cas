@@ -34,7 +34,7 @@ template <typename... Types> class visitor;
 template <typename T> class visitor<T> {
 public:
   virtual ~visitor() = default;
-  virtual void operator()(T &visitable) noexcept = 0;
+  virtual void operator()(T &visitable) = 0;
 };
 
 template <typename T, typename... Types>
@@ -42,7 +42,7 @@ class visitor<T, Types...> : public visitor<Types...> {
 public:
   using visitor<Types...>::operator();
   virtual ~visitor() = default;
-  virtual void operator()(T &visitable) noexcept = 0;
+  virtual void operator()(T &visitable) = 0;
 };
 
 // ---------------- const-node visitor (stateful visitor) ----------------
@@ -51,7 +51,7 @@ template <typename... Types> class visitor_const;
 template <typename T> class visitor_const<T> {
 public:
   virtual ~visitor_const() = default;
-  virtual void operator()(T const &visitable) noexcept = 0;
+  virtual void operator()(T const &visitable) = 0;
 };
 
 template <typename T, typename... Types>
@@ -59,7 +59,7 @@ class visitor_const<T, Types...> : public visitor_const<Types...> {
 public:
   using visitor_const<Types...>::operator();
   virtual ~visitor_const() = default;
-  virtual void operator()(T const &visitable) noexcept = 0;
+  virtual void operator()(T const &visitable) = 0;
 };
 
 // ---------------- visitable / visitable_impl ----------------
@@ -73,8 +73,8 @@ public:
   visitable() {}
   virtual ~visitable() = default;
 
-  virtual void accept(visitor<Types...> &v) noexcept = 0;
-  virtual void accept(visitor_const<Types...> &v) const noexcept = 0;
+  virtual void accept(visitor<Types...> &v) = 0;
+  virtual void accept(visitor_const<Types...> &v) const = 0;
 
   // NOTE: visitor_return now needs ReturnT explicitly
   virtual return_type
@@ -94,11 +94,11 @@ public:
   using visitable<Base, Types...>::visitable;
   virtual ~visitable_impl() = default;
 
-  void accept(visitor<Types...> &v) noexcept override {
+  void accept(visitor<Types...> &v) override {
     v(static_cast<Derived &>(*this));
   }
 
-  void accept(visitor_const<Types...> &v) const noexcept override {
+  void accept(visitor_const<Types...> &v) const override {
     v(static_cast<Derived const &>(*this));
   }
 

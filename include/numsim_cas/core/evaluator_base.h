@@ -2,12 +2,11 @@
 #define EVALUATOR_BASE_H
 
 #include <any>
-#include <exception>
 #include <map>
 #include <memory>
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/expression.h>
 #include <numsim_cas/core/expression_holder.h>
-#include <stdexcept>
 
 namespace numsim::cas {
 
@@ -23,21 +22,12 @@ public:
   }
 
 protected:
-  void dispatch() noexcept {
-    try {
-      m_result =
-          std::any_cast<value_type>(m_symbols_to_value.at(m_current_expr));
-    } catch (...) {
-      m_exception = std::current_exception();
+  void dispatch() {
+    auto it = m_symbols_to_value.find(m_current_expr);
+    if (it == m_symbols_to_value.end()) {
+      throw evaluation_error("evaluator_base: symbol not found");
     }
-  }
-
-  void rethrow_if_needed() {
-    if (m_exception) {
-      auto ex = m_exception;
-      m_exception = nullptr;
-      std::rethrow_exception(ex);
-    }
+    m_result = std::any_cast<value_type>(it->second);
   }
 
   template <typename ExprBase>
@@ -50,7 +40,6 @@ protected:
   std::map<expression_holder<expression>, std::any> m_symbols_to_value;
   value_type m_result{};
   expression_holder<expression> m_current_expr;
-  std::exception_ptr m_exception{nullptr};
 };
 
 } // namespace numsim::cas

@@ -20,7 +20,7 @@ public:
                       expr_holder_t const &new_val)
       : m_old(old_val), m_new(new_val) {}
 
-  expr_holder_t apply(expr_holder_t const &expr) noexcept override {
+  expr_holder_t apply(expr_holder_t const &expr) override {
     if (expr.is_valid() && expr == m_old)
       return m_new;
     return scalar_rebuild_visitor::apply(expr);

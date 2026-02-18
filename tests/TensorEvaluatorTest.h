@@ -13,6 +13,7 @@
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
 
 namespace numsim::cas {
 
@@ -240,7 +241,108 @@ TEST(TensorEval, EvalSymmetry) {
 TEST(TensorEval, EvalMissingSymbolThrows) {
   tensor_evaluator<double> ev;
   auto T = make_expression<tensor>("T", 2, 2);
-  EXPECT_THROW(ev.apply(T), std::out_of_range);
+  EXPECT_THROW(ev.apply(T), evaluation_error);
+}
+
+TEST(TensorEval, EvalMissingSymbolInCompoundExpr) {
+  // Only A is set, B is missing — fails inside A + B
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  auto B = make_expression<tensor>("B", 2, 2);
+  ev.set(A, make_test_data<2, 2>({1.0, 2.0, 3.0, 4.0}));
+  EXPECT_THROW(ev.apply(A + B), evaluation_error);
+}
+
+TEST(TensorEval, EvalMissingScalarSymbolInScalarMul) {
+  // Tensor A is set but scalar x is not — fails inside x * A
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  auto x = make_expression<scalar>("x");
+  ev.set(A, make_test_data<2, 2>({1.0, 2.0, 3.0, 4.0}));
+  EXPECT_THROW(ev.apply(x * A), evaluation_error);
+}
+
+TEST(TensorEval, EvalMissingSymbolInNestedExpr) {
+  // Missing symbol buried inside trans(inv(T))
+  tensor_evaluator<double> ev;
+  auto T = make_expression<tensor>("T", 2, 2);
+  EXPECT_THROW(ev.apply(trans(inv(T))), evaluation_error);
+}
+
+TEST(TensorEval, EvalPowerDiffNotImplemented) {
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  auto n = make_expression<scalar>("n");
+  auto expr = make_expression<tensor_power_diff>(A, n);
+  EXPECT_THROW(ev.apply(expr), not_implemented_error);
+}
+
+TEST(TensorEval, EvalProjectorNotImplemented) {
+  tensor_evaluator<double> ev;
+  auto expr = make_expression<tensor_projector>(
+      3, 2, tensor_space{Symmetric{}, AnyTraceTag{}});
+  EXPECT_THROW(ev.apply(expr), not_implemented_error);
+}
+
+TEST(TensorEval, EvalT2sTensorMulNotImplemented) {
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  auto t2s_expr = trace(A);
+  auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
+  EXPECT_THROW(ev.apply(expr), not_implemented_error);
+}
+
+TEST(TensorEval, NotImplementedErrorIsCatchableAsCasError) {
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  auto n = make_expression<scalar>("n");
+  auto expr = make_expression<tensor_power_diff>(A, n);
+  EXPECT_THROW(ev.apply(expr), cas_error);
+}
+
+TEST(TensorEval, NotImplementedErrorIsCatchableAsRuntimeError) {
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  auto n = make_expression<scalar>("n");
+  auto expr = make_expression<tensor_power_diff>(A, n);
+  EXPECT_THROW(ev.apply(expr), std::runtime_error);
+}
+
+TEST(TensorEval, EvaluationErrorIsCatchableAsCasError) {
+  tensor_evaluator<double> ev;
+  auto T = make_expression<tensor>("T", 2, 2);
+  EXPECT_THROW(ev.apply(T), cas_error);
+}
+
+TEST(TensorEval, EvaluationErrorIsCatchableAsRuntimeError) {
+  tensor_evaluator<double> ev;
+  auto T = make_expression<tensor>("T", 2, 2);
+  EXPECT_THROW(ev.apply(T), std::runtime_error);
+}
+
+TEST(TensorEval, EvaluationErrorCarriesMessage) {
+  tensor_evaluator<double> ev;
+  auto T = make_expression<tensor>("T", 2, 2);
+  try {
+    ev.apply(T);
+    FAIL() << "Expected evaluation_error";
+  } catch (evaluation_error const &e) {
+    EXPECT_TRUE(std::string(e.what()).find("symbol not found") !=
+                std::string::npos);
+  }
+}
+
+TEST(TensorEval, NotImplementedErrorCarriesMessage) {
+  tensor_evaluator<double> ev;
+  auto expr = make_expression<tensor_projector>(
+      3, 2, tensor_space{Symmetric{}, AnyTraceTag{}});
+  try {
+    ev.apply(expr);
+    FAIL() << "Expected not_implemented_error";
+  } catch (not_implemented_error const &e) {
+    EXPECT_TRUE(std::string(e.what()).find("not yet implemented") !=
+                std::string::npos);
+  }
 }
 
 // --- Combination tests ---
