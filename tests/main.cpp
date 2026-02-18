@@ -6,6 +6,7 @@
 #include "TensorExpressionTest.h"
 #include "TensorSubstitutionTest.h"
 #include "TensorToScalarDifferentiationTest.h"
+#include "TensorToScalarEvaluatorTest.h"
 #include "TensorToScalarExpressionTest.h"
 #include "TensorToScalarSubstitutionTest.h"
 #include "symTM_diff_test.h"
