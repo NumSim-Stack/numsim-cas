@@ -65,9 +65,9 @@ public:
     m_result = -apply(v.expr());
   }
 
-  void operator()(scalar_function const &v) override {
+  void operator()(scalar_named_expression const &v) override {
     m_result =
-        make_expression<scalar_function>(std::string(v.name()), apply(v.expr()));
+        make_expression<scalar_named_expression>(std::string(v.name()), apply(v.expr()));
   }
 
   void operator()(scalar_sin const &v) override {

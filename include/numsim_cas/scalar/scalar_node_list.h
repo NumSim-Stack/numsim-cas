@@ -15,7 +15,7 @@
   NEXT(scalar_add)                                                             \
   NEXT(scalar_mul)                                                             \
   NEXT(scalar_negative)                                                        \
-  NEXT(scalar_function)                                                        \
+  NEXT(scalar_named_expression)                                                \
   NEXT(scalar_sin)                                                             \
   NEXT(scalar_cos)                                                             \
   NEXT(scalar_tan)                                                             \

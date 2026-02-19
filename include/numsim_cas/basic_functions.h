@@ -78,9 +78,9 @@ template <typename Args> auto make_scalar_constant(Args &&args) {
 }
 
 template <typename Expr>
-auto make_scalar_function(std::string &&name, Expr &&expr) {
-  return make_expression<scalar_function>(std::move(name),
-                                          std::forward<Expr>(expr));
+auto make_scalar_named_expression(std::string &&name, Expr &&expr) {
+  return make_expression<scalar_named_expression>(std::move(name),
+                                                  std::forward<Expr>(expr));
 }
 
 template <typename... Args> auto make_tensor_variable(Args &&...args) {

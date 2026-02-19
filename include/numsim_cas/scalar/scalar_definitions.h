@@ -12,7 +12,7 @@
 #include "scalar_div.h"
 #include "scalar_exp.h"
 #include "scalar_expression.h"
-#include "scalar_function.h"
+#include "scalar_named_expression.h"
 #include "scalar_globals.h"
 #include "scalar_log.h"
 #include "scalar_mul.h"

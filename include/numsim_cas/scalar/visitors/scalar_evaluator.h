@@ -143,7 +143,7 @@ public:
     m_result = std::abs(apply(visitable.expr()));
   }
 
-  void operator()(scalar_function const &visitable) override {
+  void operator()(scalar_named_expression const &visitable) override {
     m_result = apply(visitable.expr());
   }
 

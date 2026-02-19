@@ -215,7 +215,7 @@ void scalar_limit_visitor::operator()(scalar_atan const &v) {
   }
 }
 
-void scalar_limit_visitor::operator()([[maybe_unused]] scalar_function const &v) {
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_named_expression const &v) {
   // Generic user-defined function: can't determine limit
   m_result = {dir::unknown};
 }

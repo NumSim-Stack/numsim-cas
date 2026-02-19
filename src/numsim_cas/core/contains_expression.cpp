@@ -79,7 +79,7 @@ public:
   void operator()(scalar_exp const &v) override { check(v.expr()); }
   void operator()(scalar_sign const &v) override { check(v.expr()); }
   void operator()(scalar_abs const &v) override { check(v.expr()); }
-  void operator()(scalar_function const &v) override { check(v.expr()); }
+  void operator()(scalar_named_expression const &v) override { check(v.expr()); }
 
 private:
   void check(expr_holder_t const &expr) {

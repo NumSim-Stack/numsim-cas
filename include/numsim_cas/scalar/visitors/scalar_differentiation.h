@@ -77,16 +77,16 @@ public:
    * @brief Derivative of a named scalar function.
    *
    * Computes the derivative of the function body and wraps it as a new
-   * scalar_function with name "d<name>".
+   * scalar_named_expression with name "d<name>".
    *
    * @param visitable Function node.
    */
-  void operator()(scalar_function const &visitable) {
+  void operator()(scalar_named_expression const &visitable) {
     scalar_differentiation diff(m_arg);
     expr_holder_t result{diff.apply(visitable.expr())};
     if (result.is_valid()) {
       m_result =
-          make_expression<scalar_function>("d" + visitable.name(), result);
+          make_expression<scalar_named_expression>("d" + visitable.name(), result);
     }
   }
 

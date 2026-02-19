@@ -269,7 +269,7 @@ TEST_F(ScalarFixture, PRINT_Functions) {
   EXPECT_PRINT(atan(x), "atan(x)");
 
   // Function wrapper
-  EXPECT_PRINT(make_expression<scalar_function>("func", x * x),
+  EXPECT_PRINT(make_expression<scalar_named_expression>("func", x * x),
                "func = pow(x,2)");
 
   auto expr = x * sqrt(x) * log(x) * exp(x) * cos(x) * sin(x) * tan(x) *

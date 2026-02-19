@@ -41,7 +41,7 @@ public:
   void operator()(scalar_asin const &) override;
   void operator()(scalar_acos const &) override;
   void operator()(scalar_atan const &) override;
-  void operator()(scalar_function const &) override;
+  void operator()(scalar_named_expression const &) override;
 
 private:
   expr_holder_t m_limit_var;

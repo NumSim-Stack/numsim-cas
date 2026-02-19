@@ -51,7 +51,7 @@
 //     handle(rhs); } void operator()(scalar_add const& rhs)        noexcept
 //     override { handle(rhs); } void operator()(scalar_mul const& rhs) noexcept
 //     override { handle(rhs); } void operator()(scalar_negative const& rhs)
-//     noexcept override { handle(rhs); } void operator()(scalar_function const&
+//     noexcept override { handle(rhs); } void operator()(scalar_named_expression const&
 //     rhs)   noexcept override { handle(rhs); }
 
 //     void operator()(scalar_sin const& rhs)        noexcept override {
@@ -102,7 +102,7 @@
 //     override { dispatch(lhs); } void operator()(scalar_mul const& lhs)
 //     noexcept override { dispatch(lhs); } void operator()(scalar_negative
 //     const& lhs)   noexcept override { dispatch(lhs); } void
-//     operator()(scalar_function const& lhs)   noexcept override {
+//     operator()(scalar_named_expression const& lhs)   noexcept override {
 //     dispatch(lhs); }
 
 //     void operator()(scalar_sin const& lhs)        noexcept override {

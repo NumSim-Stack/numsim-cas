@@ -102,7 +102,7 @@ public:
    * @param visitable The scalar function to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(scalar_function const &visitable/*,
+  void operator()(scalar_named_expression const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
 
 

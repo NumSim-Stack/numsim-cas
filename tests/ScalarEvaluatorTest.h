@@ -168,7 +168,7 @@ TEST(ScalarEval, EvalScalarFunction) {
   scalar_evaluator<double> ev;
   auto x = make_expression<scalar>("x");
   ev.set(x, 3.0);
-  auto f = make_scalar_function("f", x * x);
+  auto f = make_scalar_named_expression("f", x * x);
   EXPECT_NEAR(ev.apply(f), 9.0, 1e-12);
 }
 

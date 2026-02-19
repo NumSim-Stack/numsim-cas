@@ -31,7 +31,7 @@ template<typename Stream>
 }
 
 template<typename Stream>
-  void scalar_printer<Stream>::operator()(scalar_function const &visitable/*,
+  void scalar_printer<Stream>::operator()(scalar_named_expression const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/) {
   m_out << visitable.name();
   if (m_first_term) {

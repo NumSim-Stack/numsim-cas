@@ -333,7 +333,7 @@ void scalar_assumption_propagator::operator()(scalar_atan const &v) {
 }
 
 void scalar_assumption_propagator::operator()(
-    [[maybe_unused]] scalar_function const &) {
+    [[maybe_unused]] scalar_named_expression const &) {
   m_result = {};
 }
 
@@ -430,7 +430,7 @@ public:
     }
   }
 
-  void operator()([[maybe_unused]] scalar_function const &) override {
+  void operator()([[maybe_unused]] scalar_named_expression const &) override {
     m_result = {};
   }
 
