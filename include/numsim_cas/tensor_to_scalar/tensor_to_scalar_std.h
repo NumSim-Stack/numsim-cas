@@ -8,7 +8,7 @@
 
 namespace numsim::cas {
 
-inline auto
+[[nodiscard]] inline auto
 to_string(const expression_holder<tensor_to_scalar_expression> &expr) {
   std::stringstream ss;
   tensor_to_scalar_printer<std::stringstream> printer(ss);
@@ -25,7 +25,7 @@ template <typename ExprLHS, typename ExprRHS,
               std::is_base_of_v<tensor_to_scalar_expression,
                                 typename remove_cvref_t<ExprRHS>::expr_type>,
               bool> = true>
-auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
+[[nodiscard]] auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
   // pow(1, x) --> 1
   if (is_same<tensor_to_scalar_one>(expr_lhs))
     return make_expression<tensor_to_scalar_one>();
@@ -66,7 +66,7 @@ template <typename ExprLHS, typename ExprRHS,
                                 typename remove_cvref_t<ExprLHS>::expr_type>,
               bool> = true,
           std::enable_if_t<std::is_arithmetic_v<ExprRHS>, bool> = true>
-auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
+[[nodiscard]] auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
   auto constant{make_expression<tensor_to_scalar_scalar_wrapper>(
       make_expression<scalar_constant>(expr_rhs))};
   return pow(std::forward<ExprLHS>(expr_lhs), std::move(constant));
@@ -78,7 +78,7 @@ template <typename ExprLHS, typename ExprRHS,
                                 typename remove_cvref_t<ExprLHS>::expr_type>,
               bool> = true,
           std::enable_if_t<std::is_fundamental_v<ExprRHS>, bool> = true>
-auto pow(ExprLHS const &expr_lhs, ExprRHS &&expr_rhs) {
+[[nodiscard]] auto pow(ExprLHS const &expr_lhs, ExprRHS &&expr_rhs) {
   auto constant{make_expression<tensor_to_scalar_scalar_wrapper>(
       make_expression<scalar_constant>(expr_rhs))};
   return pow(expr_lhs, std::move(constant));
@@ -93,7 +93,7 @@ template <typename ExprLHS, typename ExprRHS,
               std::is_base_of_v<scalar_expression,
                                 typename remove_cvref_t<ExprRHS>::expr_type>,
               bool> = true>
-auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
+[[nodiscard]] auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
   return pow(std::forward<ExprLHS>(expr_lhs),
              make_expression<tensor_to_scalar_scalar_wrapper>(
                  std::forward<ExprRHS>(expr_rhs)));
@@ -104,7 +104,7 @@ template <
     std::enable_if_t<std::is_same_v<typename std::decay_t<Expr>::expr_type,
                                     tensor_to_scalar_expression>,
                      bool> = true>
-auto log(Expr &&expr) {
+[[nodiscard]] auto log(Expr &&expr) {
   return make_expression<tensor_to_scalar_log>(std::forward<Expr>(expr));
 }
 

@@ -9,7 +9,7 @@
 namespace numsim::cas {
 
 template <typename ExprLHS, typename ExprRHS>
-inline expression_holder<tensor_to_scalar_expression>
+[[nodiscard]] inline expression_holder<tensor_to_scalar_expression>
 dot_product(ExprLHS &&lhs, sequence &&lhs_indices, ExprRHS &&rhs,
             sequence &&rhs_indices) {
   assert(call_tensor::rank(lhs) == lhs_indices.size() ||

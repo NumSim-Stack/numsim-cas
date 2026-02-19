@@ -20,7 +20,7 @@ constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {
 }
 
 template <typename Expr>
-inline expression_holder<tensor_expression> dev(Expr &&expr) {
+[[nodiscard]] inline expression_holder<tensor_expression> dev(Expr &&expr) {
   if (auto simp = try_simplify_projector_contraction(ProjKind::Dev, expr)) {
     if (simp->rule == ContractionRule::Zero)
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
@@ -34,7 +34,7 @@ inline expression_holder<tensor_expression> dev(Expr &&expr) {
 }
 
 template <typename Expr>
-inline expression_holder<tensor_expression> sym(Expr &&expr) {
+[[nodiscard]] inline expression_holder<tensor_expression> sym(Expr &&expr) {
   if (auto simp = try_simplify_projector_contraction(ProjKind::Sym, expr)) {
     if (simp->rule == ContractionRule::Zero)
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
@@ -48,7 +48,7 @@ inline expression_holder<tensor_expression> sym(Expr &&expr) {
 }
 
 template <typename Expr>
-inline expression_holder<tensor_expression> vol(Expr &&expr) {
+[[nodiscard]] inline expression_holder<tensor_expression> vol(Expr &&expr) {
   if (auto simp = try_simplify_projector_contraction(ProjKind::Vol, expr)) {
     if (simp->rule == ContractionRule::Zero)
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
@@ -62,7 +62,7 @@ inline expression_holder<tensor_expression> vol(Expr &&expr) {
 }
 
 template <typename Expr>
-inline expression_holder<tensor_expression> skew(Expr &&expr) {
+[[nodiscard]] inline expression_holder<tensor_expression> skew(Expr &&expr) {
   if (auto simp = try_simplify_projector_contraction(ProjKind::Skew, expr)) {
     if (simp->rule == ContractionRule::Zero)
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
@@ -76,7 +76,7 @@ inline expression_holder<tensor_expression> skew(Expr &&expr) {
 }
 
 template <typename ExprLHS, typename ExprRHS>
-constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
+[[nodiscard]] constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                     ExprRHS &&rhs, sequence &&rhs_indices) {
   // const auto &_lhs{*lhs};
   // inner_product_simplifier<ExprLHS, ExprRHS> simplifier(
@@ -89,7 +89,7 @@ constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
 }
 
 template <typename ExprLHS, typename ExprRHS>
-constexpr inline auto inner_product(ExprLHS &&lhs, sequence const &lhs_indices,
+[[nodiscard]] constexpr inline auto inner_product(ExprLHS &&lhs, sequence const &lhs_indices,
                                     ExprRHS &&rhs,
                                     sequence const &rhs_indices) {
   // assert(call_tensor::rank(lhs) != lhs_indices.size() ||
@@ -105,7 +105,7 @@ constexpr inline auto inner_product(ExprLHS &&lhs, sequence const &lhs_indices,
 }
 
 template <typename ExprLHS, typename ExprRHS>
-constexpr inline auto otimes(ExprLHS &&lhs, ExprRHS &&rhs) {
+[[nodiscard]] constexpr inline auto otimes(ExprLHS &&lhs, ExprRHS &&rhs) {
   sequence lhs_indices(lhs.get().rank()), rhs_indices(rhs.get().rank());
   std::iota(std::begin(lhs_indices), std::end(lhs_indices),
             std::size_t{0});
@@ -117,7 +117,7 @@ constexpr inline auto otimes(ExprLHS &&lhs, ExprRHS &&rhs) {
 }
 
 template <typename ExprLHS, typename ExprRHS>
-constexpr inline auto otimes(ExprLHS &&lhs, sequence &&lhs_indices,
+[[nodiscard]] constexpr inline auto otimes(ExprLHS &&lhs, sequence &&lhs_indices,
                              ExprRHS &&rhs, sequence &&rhs_indices) {
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
@@ -125,21 +125,21 @@ constexpr inline auto otimes(ExprLHS &&lhs, sequence &&lhs_indices,
 }
 
 template <typename ExprLHS, typename ExprRHS>
-constexpr inline auto otimesu(ExprLHS &&lhs, ExprRHS &&rhs) {
+[[nodiscard]] constexpr inline auto otimesu(ExprLHS &&lhs, ExprRHS &&rhs) {
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(sequence{1, 3}),
       std::forward<ExprRHS>(rhs), std::move(sequence{2, 4}));
 }
 
 template <typename ExprLHS, typename ExprRHS>
-constexpr inline auto otimesl(ExprLHS &&lhs, ExprRHS &&rhs) {
+[[nodiscard]] constexpr inline auto otimesl(ExprLHS &&lhs, ExprRHS &&rhs) {
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(sequence{1, 4}),
       std::forward<ExprRHS>(rhs), std::move(sequence{2, 3}));
 }
 
 template <typename Expr>
-constexpr inline auto permute_indices(Expr &&expr, sequence &&indices) {
+[[nodiscard]] constexpr inline auto permute_indices(Expr &&expr, sequence &&indices) {
   if (is_same<basis_change_imp>(expr)) {
     auto &tensor{expr.template get<basis_change_imp>()};
     const auto &t_indices{tensor.indices()};
@@ -185,12 +185,12 @@ constexpr inline auto permute_indices(Expr &&expr, sequence &&indices) {
                                            std::move(indices));
 }
 
-template <typename Expr> constexpr inline auto trans(Expr &&expr) {
+template <typename Expr> [[nodiscard]] constexpr inline auto trans(Expr &&expr) {
   return make_expression<basis_change_imp>(std::forward<Expr>(expr),
                                            sequence{2, 1});
 }
 
-template <typename Expr> constexpr inline auto inv(Expr &&expr) {
+template <typename Expr> [[nodiscard]] constexpr inline auto inv(Expr &&expr) {
   return make_expression<tensor_inv>(std::forward<Expr>(expr));
 }
 

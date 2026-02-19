@@ -37,10 +37,10 @@ concept scalar_expr_holder = requires {
   typename decay_t<T>::expr_type;
 } && std::is_base_of_v<scalar_expression, typename decay_t<T>::expr_type>;
 
-std::string to_string(expression_holder<scalar_expression> const &expr);
+[[nodiscard]] std::string to_string(expression_holder<scalar_expression> const &expr);
 
 template <scalar_expr_holder L, scalar_expr_holder R>
-auto pow(L &&expr_lhs, R &&expr_rhs) {
+[[nodiscard]] auto pow(L &&expr_lhs, R &&expr_rhs) {
   assert(expr_rhs.is_valid());
   assert(expr_lhs.is_valid());
 
@@ -67,7 +67,7 @@ auto pow(L &&expr_lhs, R &&expr_rhs) {
 
 template <scalar_expr_holder L, typename R>
 requires std::is_arithmetic_v<std::remove_cvref_t<R>>
-auto pow(L &&expr_lhs, R expr_rhs) {
+[[nodiscard]] auto pow(L &&expr_lhs, R expr_rhs) {
   auto constant{detail::tag_invoke(detail::make_constant_fn{},
                                    std::type_identity<scalar_expression>{},
                                    expr_rhs)};
@@ -75,35 +75,35 @@ auto pow(L &&expr_lhs, R expr_rhs) {
                                     std::move(constant));
 }
 
-template <scalar_expr_holder E> auto sin(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto sin(E &&e) {
   return make_expression<scalar_sin>(std::forward<E>(e));
 }
-template <scalar_expr_holder E> auto cos(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto cos(E &&e) {
   return make_expression<scalar_cos>(std::forward<E>(e));
 }
-template <scalar_expr_holder E> auto tan(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto tan(E &&e) {
   return make_expression<scalar_tan>(std::forward<E>(e));
 }
-template <scalar_expr_holder E> auto asin(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto asin(E &&e) {
   return make_expression<scalar_asin>(std::forward<E>(e));
 }
-template <scalar_expr_holder E> auto acos(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto acos(E &&e) {
   return make_expression<scalar_acos>(std::forward<E>(e));
 }
-template <scalar_expr_holder E> auto atan(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto atan(E &&e) {
   return make_expression<scalar_atan>(std::forward<E>(e));
 }
-template <scalar_expr_holder E> auto exp(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto exp(E &&e) {
   return make_expression<scalar_exp>(std::forward<E>(e));
 }
-template <scalar_expr_holder E> auto abs(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto abs(E &&e) {
   if (is_positive(e) || is_nonnegative(e))
     return std::forward<E>(e);
   if (is_negative(e) || is_nonpositive(e))
     return -std::forward<E>(e);
   return make_expression<scalar_abs>(std::forward<E>(e));
 }
-template <scalar_expr_holder E> auto sqrt(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto sqrt(E &&e) {
   if (is_same<scalar_pow>(e)) {
     auto const &p = e.template get<scalar_pow>();
     if (is_same<scalar_constant>(p.expr_rhs()) &&
@@ -115,14 +115,14 @@ template <scalar_expr_holder E> auto sqrt(E &&e) {
   }
   return make_expression<scalar_sqrt>(std::forward<E>(e));
 }
-template <scalar_expr_holder E> auto sign(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto sign(E &&e) {
   if (is_positive(e))
     return get_scalar_one();
   if (is_negative(e))
     return -get_scalar_one();
   return make_expression<scalar_sign>(std::forward<E>(e));
 }
-template <scalar_expr_holder E> auto log(E &&e) {
+template <scalar_expr_holder E> [[nodiscard]] auto log(E &&e) {
   return make_expression<scalar_log>(std::forward<E>(e));
 }
 

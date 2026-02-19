@@ -25,25 +25,11 @@ public:
       : m_expr(expr) {}
   explicit expression_holder(std::shared_ptr<node_type> &&expr)
       : m_expr(std::move(expr)) {}
-  expression_holder(expression_holder const &data) : m_expr(data.m_expr) {}
-  expression_holder(expression_holder &&data)
-      : m_expr(std::move(data.m_expr)) {}
+  expression_holder(expression_holder const &) = default;
+  expression_holder(expression_holder &&) = default;
   ~expression_holder() = default;
-
-  expression_holder &operator=(expression_holder const &data) {
-    m_expr = data.m_expr;
-    return *this;
-  }
-
-  expression_holder &operator=(expression_holder &&data) {
-    m_expr = std::move(data.m_expr);
-    return *this;
-  }
-
-  // expression_holder &operator=(std::shared_ptr<node_type> &&data) {
-  //   m_expr = std::move(data);
-  //   return *this;
-  // }
+  expression_holder &operator=(expression_holder const &) = default;
+  expression_holder &operator=(expression_holder &&) = default;
 
   expression_holder &operator*=(expression_holder &data) {
     if (is_valid()) {
@@ -194,8 +180,8 @@ bool operator<(expression_holder<_ExprBase> const &lhs,
   if (lhs.get() == rhs.get())
     return false;
 
-  // Hash collision: address-based tiebreaker (total order via std::less)
-  return std::less<_ExprBase const *>{}(&lhs.get(), &rhs.get());
+  // Hash collision: creation-order tiebreaker (deterministic total order)
+  return lhs.get().creation_id() < rhs.get().creation_id();
 }
 
 template <typename _ExprBase>

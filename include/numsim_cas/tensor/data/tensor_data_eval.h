@@ -45,7 +45,7 @@ private:
         return rank_loop<Dim, RankIter + 1, Ranks...>(rank, args...);
       }
     } else {
-      return convert().missmatch(Dim, RankIter, Ranks..., args...);
+      return convert().mismatch(Dim, RankIter, Ranks..., args...);
     }
   }
 
@@ -63,7 +63,7 @@ private:
         return eval_dim<DimIter + 1>(dim, args...);
       }
     } else {
-      return convert().missmatch(dim, args...);
+      return convert().mismatch(dim, args...);
     }
   }
 };

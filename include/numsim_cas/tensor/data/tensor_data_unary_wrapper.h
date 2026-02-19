@@ -31,7 +31,7 @@ public:
     }
   }
 
-  void missmatch(std::size_t dim, std::size_t rank) {
+  void mismatch(std::size_t dim, std::size_t rank) {
     if (dim > this->_MaxDim || dim == 0)
       throw evaluation_error(
           "tensor_data_unary_wrapper: dim > MaxDim || dim == 0");
@@ -98,7 +98,7 @@ public:
     }
   }
 
-  void missmatch(std::size_t dim, std::size_t rank) {
+  void mismatch(std::size_t dim, std::size_t rank) {
     if (dim > this->_MaxDim || dim == 0)
       throw evaluation_error(
           "tensor_data_identity: dim > MaxDim || dim == 0");

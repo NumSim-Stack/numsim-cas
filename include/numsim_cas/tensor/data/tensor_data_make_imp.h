@@ -25,7 +25,7 @@ public:
   }
 
   [[nodiscard]] std::unique_ptr<tensor_data_base<ValueType>>
-  missmatch(std::size_t dim, std::size_t rank) {
+  mismatch(std::size_t dim, std::size_t rank) {
     if (dim > this->_MaxDim || dim == 0) {
       throw evaluation_error(
           "make_tensor_data_imp::evaluate(dim, rank) dim > MaxDim || dim == 0");

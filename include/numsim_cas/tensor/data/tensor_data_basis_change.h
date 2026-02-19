@@ -35,7 +35,7 @@ public:
     tmech::detail::for_loop_t<Rank - 1, Dim>::for_loop(func);
   }
 
-  inline void missmatch(std::size_t dim, std::size_t rank) {
+  inline void mismatch(std::size_t dim, std::size_t rank) {
     if (dim > this->_MaxDim || dim == 0) {
       throw evaluation_error("tensor_data_basis_change::evaluate(dim, rank) "
                                "dim > MaxDim || dim == 0");

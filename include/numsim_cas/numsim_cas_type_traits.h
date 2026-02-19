@@ -54,7 +54,7 @@ struct scalar_expr_less {
     if (ea.id() != eb.id())
       return ea.id() < eb.id();
 
-    return std::addressof(ea) < std::addressof(eb);
+    return ea.creation_id() < eb.creation_id();
   }
 };
 

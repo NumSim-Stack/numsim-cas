@@ -40,7 +40,7 @@ public:
     tmech::detail::for_loop_t<RankLHS + RankRHS - 1, Dim>::for_loop(func);
   }
 
-  void missmatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
+  void mismatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
     if (dim > this->_MaxDim || dim == 0) {
       throw evaluation_error("tensor_data_outer_product::evaluate(dim, "
                                "rankLHS, rankRHS) dim > MaxDim || dim == 0");
