@@ -152,3 +152,10 @@ if(BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
 endif()
+
+# -----------------------------
+# Examples
+# -----------------------------
+if(BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
