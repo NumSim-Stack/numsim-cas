@@ -79,24 +79,24 @@ public:
   //  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
   //  friend bool operator<(n_ary_tree<_Base, _DerivedLHS> const &lhs,
   //                        n_ary_tree<_Base, _DerivedRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator<(n_ary_tree<_BaseLHS> const &lhs,
-                        symbol_base<_BaseRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator<(symbol_base<_BaseLHS> const &lhs,
-                        n_ary_tree<_BaseRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator<(n_ary_tree<_BaseLHS> const &lhs,
-                        n_ary_tree<_BaseRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator>(n_ary_tree<_BaseLHS> const &lhs,
-                        n_ary_tree<_BaseRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator==(n_ary_tree<_BaseLHS> const &lhs,
-                         n_ary_tree<_BaseRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator!=(n_ary_tree<_BaseLHS> const &lhs,
-                         n_ary_tree<_BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator<(n_ary_tree<BaseLHS> const &lhs,
+                        symbol_base<BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator<(symbol_base<BaseLHS> const &lhs,
+                        n_ary_tree<BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator<(n_ary_tree<BaseLHS> const &lhs,
+                        n_ary_tree<BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator>(n_ary_tree<BaseLHS> const &lhs,
+                        n_ary_tree<BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator==(n_ary_tree<BaseLHS> const &lhs,
+                         n_ary_tree<BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator!=(n_ary_tree<BaseLHS> const &lhs,
+                         n_ary_tree<BaseRHS> const &rhs);
 
 protected:
   virtual void update_hash_value() const noexcept override {
@@ -110,12 +110,6 @@ protected:
     for (const auto &child : m_symbol_map | std::views::values) {
       child_hashes.push_back(child->hash_value());
     }
-
-    //    // for a single entry return this
-    //    if (child_hashes.size() == 1) {
-    //      this->m_hash_value = child_hashes.front();
-    //      return;
-    //    }
 
     // Sort for commutative operations like addition
     std::stable_sort(child_hashes.begin(), child_hashes.end());
@@ -157,42 +151,42 @@ private:
   }
 };
 
-template <typename _BaseSymbol, typename _BaseTree>
-bool operator<(symbol_base<_BaseSymbol> const &lhs,
-               n_ary_tree<_BaseTree> const &rhs) {
+template <typename BaseSymbol, typename BaseTree>
+bool operator<(symbol_base<BaseSymbol> const &lhs,
+               n_ary_tree<BaseTree> const &rhs) {
   if (rhs.size() == 1) {
     return lhs.hash_value() < rhs.hash_map().begin()->second.get().hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename _BaseSymbol, typename _BaseTree>
-bool operator<(n_ary_tree<_BaseTree> const &lhs,
-               symbol_base<_BaseSymbol> const &rhs) {
+template <typename BaseSymbol, typename BaseTree>
+bool operator<(n_ary_tree<BaseTree> const &lhs,
+               symbol_base<BaseSymbol> const &rhs) {
   if (lhs.size() == 1) {
     return lhs.hash_map().begin()->second.get().hash_value() < rhs.hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename _BaseLHS, typename _BaseRHS>
-bool operator<(n_ary_tree<_BaseLHS> const &lhs,
-               n_ary_tree<_BaseRHS> const &rhs) {
+template <typename BaseLHS, typename BaseRHS>
+bool operator<(n_ary_tree<BaseLHS> const &lhs,
+               n_ary_tree<BaseRHS> const &rhs) {
   if (lhs.size() == 1 && rhs.size() == 1) {
     return lhs.hash_map().begin()->second < rhs.hash_map().begin()->second;
   }
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename _BaseLHS, typename _BaseRHS>
-bool operator>(n_ary_tree<_BaseLHS> const &lhs,
-               n_ary_tree<_BaseRHS> const &rhs) {
+template <typename BaseLHS, typename BaseRHS>
+bool operator>(n_ary_tree<BaseLHS> const &lhs,
+               n_ary_tree<BaseRHS> const &rhs) {
   return rhs < lhs;
 }
 
-template <typename _BaseLHS, typename _BaseRHS>
-bool operator==(n_ary_tree<_BaseLHS> const &lhs,
-                n_ary_tree<_BaseRHS> const &rhs) {
+template <typename BaseLHS, typename BaseRHS>
+bool operator==(n_ary_tree<BaseLHS> const &lhs,
+                n_ary_tree<BaseRHS> const &rhs) {
   if (lhs.hash_value() != rhs.hash_value())
     return false;
   if (lhs.id() != rhs.id())
@@ -208,9 +202,9 @@ bool operator==(n_ary_tree<_BaseLHS> const &lhs,
   return true;
 }
 
-template <typename _BaseLHS, typename _BaseRHS>
-bool operator!=(n_ary_tree<_BaseLHS> const &lhs,
-                n_ary_tree<_BaseRHS> const &rhs) {
+template <typename BaseLHS, typename BaseRHS>
+bool operator!=(n_ary_tree<BaseLHS> const &lhs,
+                n_ary_tree<BaseRHS> const &rhs) {
   if (lhs.size() == 1 && rhs.size() == 1) {
     return lhs.hash_map().begin()->second != rhs.hash_map().begin()->second;
   }

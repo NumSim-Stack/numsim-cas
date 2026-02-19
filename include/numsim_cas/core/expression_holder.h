@@ -136,21 +136,21 @@ public:
 
   constexpr inline auto free() { return m_expr.reset(); }
 
-  template <typename _ExprBase>
+  template <typename ExprBaseT>
   friend std::ostream &operator<<(std::ostream &os,
-                                  expression_holder<_ExprBase> const &expr);
-  template <typename _ExprBase>
-  friend bool operator<(expression_holder<_ExprBase> const &lhs,
-                        expression_holder<_ExprBase> const &rhs);
-  template <typename _ExprBase>
-  friend bool operator>(expression_holder<_ExprBase> const &lhs,
-                        expression_holder<_ExprBase> const &rhs);
-  template <typename _ExprBase>
-  friend bool operator==(expression_holder<_ExprBase> const &lhs,
-                         expression_holder<_ExprBase> const &rhs);
-  template <typename _ExprBase>
-  friend bool operator!=(expression_holder<_ExprBase> const &lhs,
-                         expression_holder<_ExprBase> const &rhs);
+                                  expression_holder<ExprBaseT> const &expr);
+  template <typename ExprBaseT>
+  friend bool operator<(expression_holder<ExprBaseT> const &lhs,
+                        expression_holder<ExprBaseT> const &rhs);
+  template <typename ExprBaseT>
+  friend bool operator>(expression_holder<ExprBaseT> const &lhs,
+                        expression_holder<ExprBaseT> const &rhs);
+  template <typename ExprBaseT>
+  friend bool operator==(expression_holder<ExprBaseT> const &lhs,
+                         expression_holder<ExprBaseT> const &rhs);
+  template <typename ExprBaseT>
+  friend bool operator!=(expression_holder<ExprBaseT> const &lhs,
+                         expression_holder<ExprBaseT> const &rhs);
 
 private:
   inline void throw_if_invalid() const {
@@ -163,9 +163,9 @@ private:
   std::shared_ptr<node_type> m_expr;
 };
 
-template <typename _ExprBase>
-bool operator<(expression_holder<_ExprBase> const &lhs,
-               expression_holder<_ExprBase> const &rhs) {
+template <typename ExprBaseT>
+bool operator<(expression_holder<ExprBaseT> const &lhs,
+               expression_holder<ExprBaseT> const &rhs) {
   if (!lhs.is_valid() || !rhs.is_valid()) {
     throw invalid_expression_error(
         "expression_holder::operator<: comparing invalid (null) expression");
@@ -184,15 +184,15 @@ bool operator<(expression_holder<_ExprBase> const &lhs,
   return lhs.get().creation_id() < rhs.get().creation_id();
 }
 
-template <typename _ExprBase>
-bool operator>(expression_holder<_ExprBase> const &lhs,
-               expression_holder<_ExprBase> const &rhs) {
+template <typename ExprBaseT>
+bool operator>(expression_holder<ExprBaseT> const &lhs,
+               expression_holder<ExprBaseT> const &rhs) {
   return rhs < lhs;
 }
 
-template <typename _ExprBase>
-bool operator==(expression_holder<_ExprBase> const &lhs,
-                expression_holder<_ExprBase> const &rhs) {
+template <typename ExprBaseT>
+bool operator==(expression_holder<ExprBaseT> const &lhs,
+                expression_holder<ExprBaseT> const &rhs) {
   if (!lhs.is_valid() || !rhs.is_valid()) {
     throw invalid_expression_error(
         "expression_holder::operator==: comparing invalid (null) expression");
@@ -200,9 +200,9 @@ bool operator==(expression_holder<_ExprBase> const &lhs,
   return *lhs == *rhs;
 }
 
-template <typename _ExprBase>
-bool operator!=(expression_holder<_ExprBase> const &lhs,
-                expression_holder<_ExprBase> const &rhs) {
+template <typename ExprBaseT>
+bool operator!=(expression_holder<ExprBaseT> const &lhs,
+                expression_holder<ExprBaseT> const &rhs) {
   return !(lhs == rhs);
 }
 

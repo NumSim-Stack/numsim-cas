@@ -6,13 +6,6 @@ project(NumSim_CAS
   DESCRIPTION "NumSim_CAS description"
 )
 
-# -----------------------------
-# C++ standard
-# -----------------------------
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 # Don't hard-force Debug in multi-config IDEs
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type (Debug, Release, RelWithDebInfo, MinSizeRel)" FORCE)
@@ -111,7 +104,10 @@ target_compile_definitions(${PROJECT_NAME}
 set_target_properties(${PROJECT_NAME} PROPERTIES
   VERSION   ${PROJECT_VERSION}
   SOVERSION ${PROJECT_VERSION_MAJOR}
+  CXX_EXTENSIONS OFF
 )
+
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
 
 # Compiler warnings
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

@@ -65,24 +65,24 @@ public:
   //  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
   //  friend bool operator<(n_ary_vector<_Base, _DerivedLHS> const &lhs,
   //                        n_ary_vector<_Base, _DerivedRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator<(n_ary_vector<_BaseLHS> const &lhs,
-                        symbol_base<_BaseRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator<(symbol_base<_BaseLHS> const &lhs,
-                        n_ary_vector<_BaseRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator<(n_ary_vector<_BaseLHS> const &lhs,
-                        n_ary_vector<_BaseRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator>(n_ary_vector<_BaseLHS> const &lhs,
-                        n_ary_vector<_BaseRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator==(n_ary_vector<_BaseLHS> const &lhs,
-                         n_ary_vector<_BaseRHS> const &rhs);
-  template <typename _BaseLHS, typename _BaseRHS>
-  friend bool operator!=(n_ary_vector<_BaseLHS> const &lhs,
-                         n_ary_vector<_BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator<(n_ary_vector<BaseLHS> const &lhs,
+                        symbol_base<BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator<(symbol_base<BaseLHS> const &lhs,
+                        n_ary_vector<BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator<(n_ary_vector<BaseLHS> const &lhs,
+                        n_ary_vector<BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator>(n_ary_vector<BaseLHS> const &lhs,
+                        n_ary_vector<BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator==(n_ary_vector<BaseLHS> const &lhs,
+                         n_ary_vector<BaseRHS> const &rhs);
+  template <typename BaseLHS, typename BaseRHS>
+  friend bool operator!=(n_ary_vector<BaseLHS> const &lhs,
+                         n_ary_vector<BaseRHS> const &rhs);
 
 protected:
   virtual void update_hash_value() const override {
@@ -118,48 +118,48 @@ private:
   }
 };
 
-template <typename _BaseVector, typename _BaseSmbol>
-bool operator<(symbol_base<_BaseSmbol> const &lhs,
-               n_ary_vector<_BaseVector> const &rhs) {
+template <typename BaseVector, typename BaseSymbol>
+bool operator<(symbol_base<BaseSymbol> const &lhs,
+               n_ary_vector<BaseVector> const &rhs) {
   if (rhs.size() == 1) {
     return lhs.hash_value() < rhs.data().front().get().hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename _BaseVector, typename _BaseSmbol>
-bool operator<(n_ary_vector<_BaseVector> const &lhs,
-               symbol_base<_BaseSmbol> const &rhs) {
+template <typename BaseVector, typename BaseSymbol>
+bool operator<(n_ary_vector<BaseVector> const &lhs,
+               symbol_base<BaseSymbol> const &rhs) {
   if (lhs.size() == 1) {
     return lhs.data().front().get().hash_value() < rhs.hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename _BaseLHS, typename _BaseRHS>
-bool operator<(n_ary_vector<_BaseLHS> const &lhs,
-               n_ary_vector<_BaseRHS> const &rhs) {
+template <typename BaseLHS, typename BaseRHS>
+bool operator<(n_ary_vector<BaseLHS> const &lhs,
+               n_ary_vector<BaseRHS> const &rhs) {
   if (lhs.size() == 1 && rhs.size() == 1) {
     return lhs.data().front() < rhs.data().front();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename _BaseLHS, typename _BaseRHS>
-bool operator>(n_ary_vector<_BaseLHS> const &lhs,
-               n_ary_vector<_BaseRHS> const &rhs) {
+template <typename BaseLHS, typename BaseRHS>
+bool operator>(n_ary_vector<BaseLHS> const &lhs,
+               n_ary_vector<BaseRHS> const &rhs) {
   return rhs < lhs;
 }
 
-template <typename _BaseLHS, typename _BaseRHS>
-bool operator==(n_ary_vector<_BaseLHS> const &lhs,
-                n_ary_vector<_BaseRHS> const &rhs) {
+template <typename BaseLHS, typename BaseRHS>
+bool operator==(n_ary_vector<BaseLHS> const &lhs,
+                n_ary_vector<BaseRHS> const &rhs) {
   return lhs.hash_value() == rhs.hash_value();
 }
 
-template <typename _BaseLHS, typename _BaseRHS>
-bool operator!=(n_ary_vector<_BaseLHS> const &lhs,
-                n_ary_vector<_BaseRHS> const &rhs) {
+template <typename BaseLHS, typename BaseRHS>
+bool operator!=(n_ary_vector<BaseLHS> const &lhs,
+                n_ary_vector<BaseRHS> const &rhs) {
   if (lhs.size() == 1 && rhs.size() == 1) {
     return lhs.data().front() != rhs.data().front();
   }

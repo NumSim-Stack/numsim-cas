@@ -101,10 +101,10 @@ private:
 
   inline void hash_combine([[maybe_unused]] std::size_t &seed) {}
 
-  template <typename _T, typename... Rest>
-  inline void hash_combine(std::size_t &seed, const _T &v,
+  template <typename U, typename... Rest>
+  inline void hash_combine(std::size_t &seed, const U &v,
                            const Rest &...rest) {
-    std::hash<_T> hasher;
+    std::hash<U> hasher;
     seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     hash_combine(seed, rest...);
   }

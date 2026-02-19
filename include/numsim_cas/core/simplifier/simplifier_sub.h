@@ -60,9 +60,9 @@ public:
   // expr - 0 --> expr
   expr_holder_t dispatch(typename Traits::zero_type const &) { return m_lhs; }
 
-  template <typename _Expr, typename _ValueType>
-  scalar_number get_coefficient(_Expr const &expr, _ValueType const &value) {
-    if constexpr (is_detected_v<has_coefficient, _Expr>) {
+  template <typename ExprT, typename ValueTypeT>
+  scalar_number get_coefficient(ExprT const &expr, ValueTypeT const &value) {
+    if constexpr (is_detected_v<has_coefficient, ExprT>) {
       auto const &coeff = expr.coeff();
       if (coeff.is_valid()) {
         auto val = Traits::try_numeric(coeff);

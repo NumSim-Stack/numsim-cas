@@ -78,11 +78,6 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_PRINT(X_tr, "tr(X)");
   EXPECT_PRINT(X_norm, "norm(X)");
   EXPECT_PRINT(X_det, "det(X)");
-  std::cout << X_tr + X_tr << std::endl;
-  std::cout << X_norm + X_norm << std::endl;
-  std::cout << X_det + X_det << std::endl;
-  std::cout << X_tr + X_norm + X_det << std::endl;
-
   EXPECT_PRINT(X_tr + X_tr, "2*tr(X)");
   EXPECT_PRINT(X_tr * X_tr, "pow(tr(X),2)");
   EXPECT_PRINT(X_tr / X_tr, "tr(X)/tr(X)");
@@ -99,8 +94,6 @@ TYPED_TEST(TensorToScalarExpressionTest,
 
   auto X_tr = numsim::cas::trace(X);
 
-  std::cout << (x + X_tr) + x << std::endl;
-
   EXPECT_SAME_PRINT(x + X_tr, X_tr + x);
   EXPECT_SAME_PRINT((x + X_tr) + x, 2 * x + X_tr);
   EXPECT_SAME_PRINT(x + (X_tr + x), 2 * x + X_tr);
@@ -112,9 +105,11 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_PRINT((x * X_tr) * x, "pow(x,2)*tr(X)");
   EXPECT_PRINT(x * (X_tr * x), "pow(x,2)*tr(X)");
 
+  // TODO: mul-of-mul pow extraction not yet implemented
   // EXPECT_SAME_PRINT((X_tr * x) * (X_tr * x),
   //                   numsim::cas::pow(x, this->_2) * numsim::cas::pow(X_tr,
   //                   this->_2));
+  GTEST_SKIP() << "mul-of-mul pow extraction not yet implemented";
 }
 
 // ---------- Division chains with tensor-to-scalar nodes ----------

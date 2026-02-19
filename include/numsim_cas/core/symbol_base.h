@@ -27,18 +27,18 @@ public:
 
   [[nodiscard]] virtual bool is_symbol() const noexcept { return true; }
 
-  template <typename _BaseExpr>
-  friend bool operator<(symbol_base<_BaseExpr> const &lhs,
-                        symbol_base<_BaseExpr> const &rhs);
-  template <typename _BaseExpr>
-  friend bool operator>(symbol_base<_BaseExpr> const &lhs,
-                        symbol_base<_BaseExpr> const &rhs);
-  template <typename _BaseExpr>
-  friend bool operator==(symbol_base<_BaseExpr> const &lhs,
-                         symbol_base<_BaseExpr> const &rhs);
-  template <typename _BaseExpr>
-  friend bool operator!=(symbol_base<_BaseExpr> const &lhs,
-                         symbol_base<_BaseExpr> const &rhs);
+  template <typename BaseExprT>
+  friend bool operator<(symbol_base<BaseExprT> const &lhs,
+                        symbol_base<BaseExprT> const &rhs);
+  template <typename BaseExprT>
+  friend bool operator>(symbol_base<BaseExprT> const &lhs,
+                        symbol_base<BaseExprT> const &rhs);
+  template <typename BaseExprT>
+  friend bool operator==(symbol_base<BaseExprT> const &lhs,
+                         symbol_base<BaseExprT> const &rhs);
+  template <typename BaseExprT>
+  friend bool operator!=(symbol_base<BaseExprT> const &lhs,
+                         symbol_base<BaseExprT> const &rhs);
 
 public:
   // assumption_manager<expr_type> m_assumptions;
@@ -52,27 +52,27 @@ protected:
   std::string m_name;
 };
 
-template <typename _BaseExpr>
-bool operator<(symbol_base<_BaseExpr> const &lhs,
-               symbol_base<_BaseExpr> const &rhs) {
+template <typename BaseExprT>
+bool operator<(symbol_base<BaseExprT> const &lhs,
+               symbol_base<BaseExprT> const &rhs) {
   return lhs.hash_value() < rhs.hash_value();
 }
 
-template <typename _BaseExpr>
-bool operator>(symbol_base<_BaseExpr> const &lhs,
-               symbol_base<_BaseExpr> const &rhs) {
+template <typename BaseExprT>
+bool operator>(symbol_base<BaseExprT> const &lhs,
+               symbol_base<BaseExprT> const &rhs) {
   return rhs < lhs;
 }
 
-template <typename _BaseExpr>
-bool operator==(symbol_base<_BaseExpr> const &lhs,
-                symbol_base<_BaseExpr> const &rhs) {
+template <typename BaseExprT>
+bool operator==(symbol_base<BaseExprT> const &lhs,
+                symbol_base<BaseExprT> const &rhs) {
   return lhs.hash_value() == rhs.hash_value();
 }
 
-template <typename _BaseExpr>
-bool operator!=(symbol_base<_BaseExpr> const &lhs,
-                symbol_base<_BaseExpr> const &rhs) {
+template <typename BaseExprT>
+bool operator!=(symbol_base<BaseExprT> const &lhs,
+                symbol_base<BaseExprT> const &rhs) {
   return !(lhs == rhs);
 }
 

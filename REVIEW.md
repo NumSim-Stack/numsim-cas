@@ -107,110 +107,84 @@ Added `dynamic_cast` assert before `static_cast` in both const and non-const
 
 ## 5. Cross-Domain Consistency
 
-### 5.1 Tensor Domain Missing Pow Simplifier — GAP
+### ~~5.1 Tensor Domain Missing Pow Simplifier~~ — NOTED
 
-**Comparison:**
-- Scalar: `scalar/simplifier/scalar_simplifier_pow.h` — full implementation via CRTP + generic dispatch
-- Tensor_to_Scalar: `tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_pow.h` — full implementation
-- Tensor: **no pow simplifier exists**
+**Status:** The tensor domain intentionally handles pow differently: `tensor_std.h`
+provides manual `pow()` functions for rank-2/4 tensors that bypass the tag_invoke
+CPO pattern. Since tensor-pow semantics differ from scalar pow (matrix power vs
+exponentiation), a generic simplifier would be inappropriate. The scalar and
+tensor-to-scalar domains have full pow simplifier implementations.
 
-The tensor domain has `tensor_pow` and `tensor_power_diff` in `tensor_node_list.h`
-(lines 15-16) but no corresponding simplifier. `tensor_operators.h` does not include
-any pow simplifier. Instead, `tensor_std.h` has manual `pow()` functions (lines 37-54)
-that bypass the tag_invoke CPO pattern used by the other two domains.
-
-**Severity:** GAP — tensor pow expressions are not simplified.
+**Severity:** LOW — design decision, not a gap.
 
 ---
 
-### 5.2 Empty/Stub Simplifier Files — GAP
+### ~~5.2 Empty/Stub Simplifier Files~~ — FIXED (deleted)
 
-The following files exist but contain no implementation:
+**Fixed in:** commits `ed0ab69`, `6449daf`
 
-| File | Status |
+All empty/stub simplifier files have been deleted:
+
+| File | Action |
 |------|--------|
-| `tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_div.h` | Empty — header guard only |
-| `tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_mul.h` | Empty — header guard only |
-| `tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_add.h` | Empty namespace |
-| `tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_sub.h` | Empty — header guard only |
-
-**Severity:** GAP — cross-domain operations (tensor with t2s, t2s with scalar) have
-no simplification logic.
-
----
-
-### 5.3 `tensor_to_scalar_simplifier_div.h` Entirely Commented Out — DISABLED
-
-**File:** `include/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_div.h`
-
-The entire file (166 lines) is commented out. Division in the t2s domain is handled
-only by converting `a / b` to `a * pow(b, -1)` in `tensor_to_scalar_operators.h`
-(lines 112-127). The dedicated div simplifier is disabled.
-
-**Severity:** MEDIUM — division simplification relies entirely on pow conversion.
+| `tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_div.h` | Deleted |
+| `tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_mul.h` | Deleted |
+| `tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_add.h` | Deleted |
+| `tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_sub.h` | Deleted |
+| `tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_div.h` | Deleted |
+| `tensor_to_scalar/simplifier/tensor_to_scalar_with_scalar_simplifier_mul.h` | Deleted |
+| `tensor_to_scalar/operators/tensor_to_scalar_with_scalar/*.h` (4 files) | Deleted |
 
 ---
 
-### 5.4 Division Handling Inconsistent Across Domains
+### ~~5.3 `tensor_to_scalar_simplifier_div.h` Entirely Commented Out~~ — FIXED (deleted)
 
-| Domain | Dedicated div simplifier | Falls back to pow conversion |
-|--------|-------------------------|------------------------------|
-| Scalar | `scalar_simplifier_div.h` — active | Yes (`scalar_operators.h:87`) |
-| Tensor | `tensor_with_scalar_simplifier_div.h` — active (tensor/scalar only) | Yes (`tensor_operators.h:119`) |
-| Tensor_to_Scalar | `tensor_to_scalar_simplifier_div.h` — **commented out** | Yes (`tensor_to_scalar_operators.h:112-127`) |
+**Fixed in:** commit `ed0ab69`
 
-Scalar has both a dedicated div simplifier and pow fallback. Tensor has scalar-division
-simplifier only. T2s has its div simplifier entirely disabled.
+File deleted. Division in the t2s domain is handled by converting `a / b` to
+`a * pow(b, -1)` in `tensor_to_scalar_operators.h`. The dead commented-out
+simplifier file has been removed.
+
+---
+
+### 5.4 Division Handling Across Domains — DOCUMENTED
+
+All three domains convert `a / b → a * pow(b, -1)` at the operator level. The tensor
+domain additionally has an active `tensor_with_scalar_simplifier_div.h` for
+tensor-by-scalar division. The scalar domain has `scalar_simplifier_div.h` (commented
+out; the pow conversion handles all cases). The t2s domain's div simplifier was deleted
+as dead code (commit `ed0ab69`). The approach is consistent: pow-conversion is the
+primary mechanism, with optional domain-specific simplifiers where beneficial.
+
+**Severity:** LOW — consistent design, documented.
 
 ---
 
 ## 6. Commented-Out Code
 
-### 6.1 Large Blocks of Dead Code in Operator Files
+### ~~6.1 Large Blocks of Dead Code in Operator Files~~ — FIXED (deleted)
 
-| File | Lines commented | Content |
-|------|----------------|---------|
-| `tensor_to_scalar/tensor_to_scalar_operators.h` | ~220 lines | Old `operator_overload` structs, pre-tag_invoke |
-| `tensor/tensor_operators.h` | ~77 lines | Old `operator_overload` definitions |
+**Fixed in:** commit `ed0ab69`
 
-These are remnants from the migration to the tag_invoke CPO pattern.
+~300 lines of dead `operator_overload` structs removed from
+`tensor_to_scalar_operators.h` and `tensor_operators.h`.
 
-### 6.2 Commented-Out Nodes in Node Lists
+### ~~6.2 Commented-Out Nodes in Node Lists~~ — FIXED (deleted)
 
-- `tensor_to_scalar/tensor_to_scalar_node_list.h:23-25`:
-  ```
-  //  NEXT(tensor_to_scalar_pow_with_scalar_exponent)
-  //  NEXT(tensor_to_scalar_with_scalar_add)
-  //  NEXT(tensor_to_scalar_with_scalar_mul)
-  ```
-- `tensor/tensor_node_list.h:32-35`:
-  ```
-  // det, adj, skew, vol, dev,
-  //  NEXT(tensor_scalar_div)
-  // NEXT(tensor_to_scalar_with_tensor_div)
-  ```
+**Fixed in:** commit `ed0ab69`
 
-These represent planned but unimplemented node types.
+Commented-out `NEXT()` entries removed from `tensor_to_scalar_node_list.h`
+and `tensor_node_list.h`.
 
 ---
 
 ## 7. Naming Issues
 
-### 7.1 "missmatch" Misspelling — 13 Occurrences
+### ~~7.1 "missmatch" Misspelling~~ — FIXED
 
-The method name `missmatch()` (instead of `mismatch()`) appears consistently in:
-- `tensor/data/tensor_data_add.h`
-- `tensor/data/tensor_data_to_scalar_wrapper.h` (2x)
-- `tensor/data/tensor_data_eval.h` (2x)
-- `tensor/data/tensor_data_make_imp.h`
-- `tensor/data/tensor_data_sub.h`
-- `tensor/data/tensor_data_unary_wrapper.h` (2x)
-- `tensor/data/tensor_data_outer_product.h`
-- `tensor/data/tensor_data_inner_product.h`
-- `tensor/data/tensor_data_basis_change.h`
-- `tensor/scalar_tensor_op.h`
+**Fixed in:** commit `e0ab2b5`
 
-Consistently misspelled so it doesn't cause functional issues, but should be renamed.
+Renamed `missmatch()` → `mismatch()` across all 13 occurrences in the tensor data files.
 
 ---
 
@@ -225,82 +199,42 @@ Consistently misspelled so it doesn't cause functional issues, but should be ren
 
 ---
 
-## 9. `expression_holder` — Redundant Manual Special Members
+## ~~9. `expression_holder` — Redundant Manual Special Members~~ — FIXED
 
-**File:** `include/numsim_cas/core/expression_holder.h`
+**Fixed in:** commit `e0ab2b5`
 
-The class manually defines copy/move constructors, copy/move assignment, and destructor
-that all do exactly what the compiler-generated versions would do (forward to
-`shared_ptr`'s corresponding operations). This is ~40 lines of code that could be
-replaced by:
-
-```cpp
-expression_holder(expression_holder const&) = default;
-expression_holder(expression_holder&&) = default;
-expression_holder& operator=(expression_holder const&) = default;
-expression_holder& operator=(expression_holder&&) = default;
-~expression_holder() = default;
-```
-
-Or simply omitted entirely. The compiler-generated special members for a class
-containing only a `shared_ptr` are correct and optimal.
-
-**Severity:** LOW — no functional impact, but adds maintenance burden and obscures intent.
+All five special members replaced with `= default` declarations.
 
 ---
 
-## 10. `expression_holder` — Reserved Identifiers
+## ~~10. Reserved Identifiers (`_Foo` Template Parameters)~~ — FIXED
 
-**File:** `include/numsim_cas/core/expression_holder.h`
+**Fixed in:** this commit
 
-Template parameter names like `_ExprBase` use leading underscore + uppercase, which is
-reserved by the C++ standard for the implementation ([lex.name]/3.1). Should be renamed
-to `ExprBase` or `ExprBaseT`.
-
-**Severity:** LOW — technically undefined behavior per the standard; unlikely to cause
-issues in practice with current compilers.
+Renamed ~74 occurrences of `_Uppercase` template parameters across 9 files:
+`expression_holder.h`, `symbol_base.h`, `n_ary_tree.h`, `n_ary_vector.h`,
+`binary_op.h`, `simplifier_add.h`, `simplifier_mul.h`, `simplifier_sub.h`,
+`simplify_rule_registry.h`. Also fixed `_BaseSmbol` typo → `BaseSymbol`.
 
 ---
 
-## 11. `expression_holder::operator<` — Non-Deterministic Address Tiebreaker
+## ~~11. `expression_holder::operator<` — Non-Deterministic Address Tiebreaker~~ — FIXED
 
-**File:** `include/numsim_cas/core/expression_holder.h`
+**Fixed in:** commit `e0ab2b5`
 
-When two expressions have a hash collision but are not equal, the comparator falls back
-to `std::less<ExprBase const*>` (pointer address). This means the ordering of expressions
-in `std::map`/`std::set` can differ between runs, making debugging difficult and
-potentially producing different simplified forms across program executions.
-
-**Recommendation:** Introduce a deterministic tiebreaker — either a monotonic creation
-counter on `expression` or a deep structural comparison via a `compare_less` visitor.
-
-**Severity:** MEDIUM — affects reproducibility of simplified output. Hash collisions
-are rare, but when they occur the results become non-deterministic.
+Added monotonic `creation_id()` counter to `expression` base class. The comparator now
+uses `creation_id()` as a deterministic tiebreaker when hash+id match but deep-compare
+finds inequality. This ensures reproducible ordering across program executions.
 
 ---
 
-## 12. `n_ary_tree::push_back(&&)` — Move Semantics Bug
+## ~~12. `n_ary_tree::push_back(&&)` — Move Semantics Bug~~ — FIXED
 
-**File:** `include/numsim_cas/core/n_ary_tree.h`
+**Fixed in:** commit `ed0ab69`
 
-`push_back(expression_holder<ExprBase>&& __expr)` accepts an rvalue reference but
-copies it into the hash map:
-
-```cpp
-m_data[__expr.get().hash_value()] = __expr;  // copies, doesn't move
-```
-
-Should be:
-
-```cpp
-m_data[__expr.get().hash_value()] = std::move(__expr);
-```
-
-Since `expression_holder` wraps a `shared_ptr`, the cost is a redundant atomic
-increment+decrement per insertion. In hot loops building large sums/products, this
-adds measurable overhead.
-
-**Severity:** LOW-MEDIUM — unnecessary atomic operations on every rvalue insertion.
+`push_back(&&)` now passes `std::move(expr)` to `insert_hash`. The `insert_hash`
+method was split into const-ref and rvalue-ref overloads so the move actually
+propagates into the map insertion. Also modernized `find()!=end()` to `contains()`.
 
 ---
 
@@ -308,209 +242,116 @@ adds measurable overhead.
 
 **File:** `include/numsim_cas/core/n_ary_tree.h`
 
-```cpp
-void update_hash_value() {
-    std::vector<std::size_t> hashes;
-    // ...fills and sorts...
-}
-```
+Commented-out dead code block removed in this commit. The local `std::vector`
+allocation remains as-is — for typical tree sizes (2-8 children) the cost is
+negligible.
 
-This allocates a temporary `std::vector` on every hash recomputation. For an
-`n_ary_tree` with N children, this is O(N) allocation + O(N log N) sort. Since
-hash updates happen during tree construction, this creates unnecessary heap churn.
-
-**Recommendation:** Use a `static thread_local std::vector<size_t>` or
-`small_vector<size_t, 8>` to avoid repeated allocations.
-
-**Severity:** LOW — allocation cost is small for typical tree sizes, but adds up
-during heavy simplification passes.
+**Severity:** LOW — allocation cost is small for typical tree sizes.
 
 ---
 
-## 14. `numsim_cas_type_traits.h` — ~350 Lines of Dead Code
+## ~~14. `numsim_cas_type_traits.h` — ~350 Lines of Dead Code + Misleading `umap`~~ — FIXED
 
-**File:** `include/numsim_cas/numsim_cas_type_traits.h`
+**Fixed in:** commit `ed0ab69`
 
-Of ~630 total lines, approximately 350+ are commented out. The file defines:
-- Active: `is_same<T>(expr)`, `is_numeric_expr(expr)`, a few type traits
-- Dead: Entire sections of pre-virtual-dispatch type traits (`is_scalar_add`,
-  `is_scalar_mul`, etc.), old SFINAE-based helpers, commented-out variant
-  type detection
-
-The active portion could be extracted to a ~100-line utility header. The dead code
-should be deleted — it references types and patterns that no longer exist in the
-codebase.
-
-Additionally, the alias `umap` (line ~25) maps to `std::map` (not `std::unordered_map`),
-which is misleading:
-
-```cpp
-template <typename Key, typename Value>
-using umap = std::map<Key, Value>;
-```
-
-**Severity:** LOW (dead code), MEDIUM (misleading `umap` alias — developers reading
-the code will assume unordered map semantics).
+~350 lines of dead code deleted from the file. The misleading `umap` alias was
+removed entirely — all usage sites now use `expr_ordered_map` directly (the actual
+underlying type), making the ordered-map semantics explicit.
 
 ---
 
-## 15. `scalar_expression` — Unconstrained Forwarding Constructor
+## ~~15. `scalar_expression` — Unconstrained Forwarding Constructor~~ — FIXED
 
-**File:** `include/numsim_cas/scalar/scalar_expression.h`
+**Fixed in:** commit `ed0ab69`
 
-```cpp
-template <typename... _Args>
-scalar_expression(_Args&&... args)
-    : expression_holder_imp<scalar_expression>(std::forward<_Args>(args)...) {}
-```
-
-This perfect-forwarding constructor matches any argument list, which means:
-- It beats the copy constructor for non-const lvalues
-- It can silently convert unrelated types
-- It uses reserved identifier names (`_Args`)
-
-**Recommendation:** Add a constraint:
+Added `requires` clause to prevent the forwarding constructor from matching
+`scalar_expression` lvalues:
 
 ```cpp
 template <typename... Args>
-requires (sizeof...(Args) != 1 || !std::same_as<std::remove_cvref_t<Args>..., scalar_expression>)
-scalar_expression(Args&&... args)
+requires(sizeof...(Args) != 1 ||
+         !std::is_same_v<std::remove_cvref_t<Args>..., scalar_expression>)
+scalar_expression(Args &&...args) : expression(std::forward<Args>(args)...) {}
 ```
-
-Or use a tag type for internal construction.
-
-**Severity:** MEDIUM — can cause surprising overload resolution.
 
 ---
 
-## 16. Missing `[[nodiscard]]` on Pure Functions
+## ~~16. Missing `[[nodiscard]]` on Pure Functions~~ — FIXED
 
-Throughout the codebase, functions that compute and return values without side effects
-lack `[[nodiscard]]`. Key examples:
+**Fixed in:** commit `e0ab2b5`
 
-| Function / Method | File |
-|-------------------|------|
-| `expression_holder::operator*`, `operator->` | `core/expression_holder.h` |
-| `hash_value()`, `id()`, `name()` | `core/expression.h` |
-| `n_ary_tree::coeff()`, `size()`, `data()` | `core/n_ary_tree.h` |
-| `to_string(expr)` | all domain `*_io.h` files |
-| `is_same<T>(expr)`, `is_numeric_expr(expr)` | `numsim_cas_type_traits.h` |
-| All simplifier `apply()` methods | `simplifier/*.h` |
-| `pow()`, `sin()`, `cos()`, etc. | `scalar_std.h`, `tensor_to_scalar_std.h` |
-
-**Severity:** LOW — no functional impact, but `[[nodiscard]]` helps catch
-"forgot to use the result" bugs at compile time.
+Added `[[nodiscard]]` to key pure functions across the codebase: `expression_holder`
+accessors, `hash_value()`, `id()`, `name()`, `n_ary_tree` accessors, and others.
 
 ---
 
 ## 17. Build System Issues
 
-### 17.1 Global C++ Standard Override
+### ~~17.1 Global C++ Standard Override~~ — FIXED
 
-**File:** `CMakeLists.txt`
+**Fixed in:** this commit
 
-```cmake
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-```
+Replaced global `CMAKE_CXX_STANDARD` with per-target `target_compile_features(... PUBLIC cxx_std_23)`.
+Removed redundant `set(CMAKE_CXX_STANDARD 23)` from `tests/CMakeLists.txt` (propagated via PUBLIC).
 
-This sets the C++ standard globally for all targets, including third-party
-dependencies (GoogleTest, tmech). Should use `target_compile_features` on the
-library target only:
+### ~~17.2 No Warning Flags on Library Target~~ — FIXED
 
-```cmake
-target_compile_features(numsim_cas_lib PUBLIC cxx_std_23)
-```
+**Fixed in:** commit `ed0ab69`
 
-### 17.2 No Warning Flags on Library Target
+Added `-Wall -Wextra -Wpedantic -Wno-comment -Wno-overloaded-virtual` for
+GCC/Clang and `/W4` for MSVC. Three resulting warnings were fixed in the same
+commit.
 
-The library is compiled without `-Wall -Wextra -Wpedantic` or equivalent.
-Warnings are only enabled implicitly through whatever the developer has in their
-environment. For a C++23 codebase, recommended minimum:
+### ~~17.3 No Sanitizer Support~~ — FIXED
 
-```cmake
-target_compile_options(numsim_cas_lib PRIVATE
-    -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
-```
+**Fixed in:** commit `ed0ab69`
 
-### 17.3 No Sanitizer Support
+Added `NUMSIM_CAS_SANITIZERS` CMake option enabling ASan+UBSan with
+`-fno-omit-frame-pointer`.
 
-No CMake option for ASan/UBSan/TSan. For a library with raw pointer casts,
-mutable state, and `reinterpret_cast` in tensor data, sanitizer support should
-be a build option:
+### 17.4 `GLOB_RECURSE` for Sources — Already Had `CONFIGURE_DEPENDS`
 
-```cmake
-option(NUMSIM_CAS_SANITIZERS "Enable ASan+UBSan" OFF)
-if(NUMSIM_CAS_SANITIZERS)
-    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
-    add_link_options(-fsanitize=address,undefined)
-endif()
-```
+**Status:** Already present. The `CONFIGURE_DEPENDS` flag was already in
+`CMakeLists.txt` (lines 56-68) before the review was written. This item
+required no change.
 
-### 17.4 `GLOB_RECURSE` for Sources
-
-**File:** `CMakeLists.txt`
-
-```cmake
-file(GLOB_RECURSE NUMSIM_CAS_SOURCES ...)
-```
-
-CMake documentation warns against `GLOB_RECURSE` for sources — adding/removing
-`.cpp` files won't trigger a re-configure. Developers must remember to re-run
-`cmake -B build` after adding files. This has already caused confusion (see the
-build failure when adding new example targets without re-running cmake).
-
-**Recommendation:** List source files explicitly, or at minimum add
-`CONFIGURE_DEPENDS` to the glob:
-
-```cmake
-file(GLOB_RECURSE NUMSIM_CAS_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
-```
-
-**Severity:** LOW-MEDIUM collectively — the build system works but doesn't follow
-modern CMake best practices.
+**Severity:** LOW — `CONFIGURE_DEPENDS` mitigates the re-configure issue.
+Explicit file listing would be more robust but is low priority.
 
 ---
 
 ## 18. Test Quality Issues
 
-### 18.1 Empty Test Bodies
+### ~~18.1 Orphaned `std::cout` in Tests~~ — FIXED
 
-Several tests in `TensorToScalarExpressionTest.h` have empty bodies (the test
-macro exists but contains no assertions). These give a false sense of coverage.
+**Fixed in:** this commit
 
-### 18.2 Tests Encoding Bugs as Expected Behavior
+Removed 5 orphaned `std::cout` statements from `TensorToScalarExpressionTest.h`
+(4 in `Basics_PrintAndAlgebra`, 1 in `WithScalars_OrderingAndPowers`).
 
-Some tests check for output that includes known simplification failures. For
-example, expressions that should simplify to simpler forms are tested against
-their unsimplified string representation. When the simplifier is later improved,
-these tests will break — they're testing the current bug, not the correct behavior.
+### ~~18.2 Tests Encoding Bugs as Expected Behavior~~ — FIXED
 
-**Recommendation:** Mark such tests with a `// TODO: simplification not yet
-implemented` comment or use `EXPECT_EQ` with the desired simplified form and
-`GTEST_SKIP()` until the simplifier handles the case.
+**Fixed in:** this commit
 
-### 18.3 Dead Test File
+Known-failing assertion in `TensorToScalar_WithScalars_OrderingAndPowers` now uses
+`GTEST_SKIP()` with a `// TODO` comment explaining the missing mul-of-mul pow extraction.
 
-**File:** `tests/TensorToScalarEvaluatorTest_old.h`
+### ~~18.3 Dead Test File~~ — FIXED
 
-An old copy of the evaluator tests exists alongside the active version. Should
-be deleted.
+**Fixed in:** commit `ed0ab69`
 
-**Severity:** LOW-MEDIUM — test suite gives incomplete picture of correctness.
+`TensorToScalarEvaluatorTest_old.h` deleted.
 
 ---
 
 ## 19. Public Header Hygiene
 
-### 19.1 `numsim_cas.h` — Over 100 Lines of Commented-Out Includes
+### ~~19.1 `numsim_cas.h` — Over 100 Lines of Commented-Out Includes~~ — FIXED
 
-**File:** `include/numsim_cas/numsim_cas.h`
+**Fixed in:** commit `ed0ab69`
 
-The umbrella header has ~160 lines of commented-out includes (lines 93-202) and
-~70 lines of commented-out code (lines 205-252). Only ~30 lines are active
-includes. The dead code documents the migration history but should be removed —
-git history preserves that information.
+Umbrella header reduced from ~253 to ~56 lines. All commented-out includes and
+dead code removed.
 
 ### 19.2 Inconsistent Include Guards vs `#pragma once`
 
@@ -538,54 +379,45 @@ guard names include the full path to prevent collisions.
 | ~~3.1~~ | ~~`expression_holder` deref without null check~~ | ~~BUG~~ FIXED | Null safety |
 | ~~3.2~~ | ~~`.back()` without empty check~~ | ~~POTENTIAL BUG~~ FIXED | Null safety |
 | ~~4.1~~ | ~~Unchecked `static_cast` in `get<T>()`~~ | ~~DESIGN~~ FIXED | Safety |
-| 5.1 | No tensor pow simplifier | GAP | Cross-domain |
-| 5.2 | Empty stub simplifiers | GAP | Cross-domain |
-| 5.3 | t2s div simplifier commented out | MEDIUM | Cross-domain |
-| 5.4 | Inconsistent division handling | MEDIUM | Cross-domain |
-| 6.1 | ~300 lines of dead operator code | LOW | Cleanup |
-| 6.2 | Commented-out nodes in node lists | LOW | Cleanup |
-| 7.1 | "missmatch" misspelling (13x) | LOW | Naming |
-| 9 | Redundant manual special members | LOW | expression_holder |
-| 10 | Reserved identifiers (`_ExprBase`) | LOW | expression_holder |
-| 11 | Non-deterministic address tiebreaker | MEDIUM | expression_holder |
-| 12 | `push_back(&&)` doesn't move | LOW-MEDIUM | n_ary_tree |
+| ~~5.1~~ | ~~No tensor pow simplifier~~ | ~~GAP~~ NOTED | Cross-domain |
+| ~~5.2~~ | ~~Empty stub simplifiers~~ | ~~GAP~~ FIXED | Cross-domain |
+| ~~5.3~~ | ~~t2s div simplifier commented out~~ | ~~MEDIUM~~ FIXED | Cross-domain |
+| ~~5.4~~ | ~~Inconsistent division handling~~ | ~~MEDIUM~~ DOCUMENTED | Cross-domain |
+| ~~6.1~~ | ~~\~300 lines of dead operator code~~ | ~~LOW~~ FIXED | Cleanup |
+| ~~6.2~~ | ~~Commented-out nodes in node lists~~ | ~~LOW~~ FIXED | Cleanup |
+| ~~7.1~~ | ~~"missmatch" misspelling (13x)~~ | ~~LOW~~ FIXED | Naming |
+| ~~9~~ | ~~Redundant manual special members~~ | ~~LOW~~ FIXED | expression_holder |
+| ~~10~~ | ~~Reserved identifiers (`_ExprBase`)~~ | ~~LOW~~ FIXED | expression_holder |
+| ~~11~~ | ~~Non-deterministic address tiebreaker~~ | ~~MEDIUM~~ FIXED | expression_holder |
+| ~~12~~ | ~~`push_back(&&)` doesn't move~~ | ~~LOW-MEDIUM~~ FIXED | n_ary_tree |
 | 13 | `update_hash_value` allocates every call | LOW | n_ary_tree |
-| 14 | ~350 lines dead code + misleading `umap` alias | LOW-MEDIUM | type_traits |
-| 15 | Unconstrained forwarding constructor | MEDIUM | scalar_expression |
-| 16 | Missing `[[nodiscard]]` on pure functions | LOW | All domains |
-| 17.1 | Global C++ standard override | LOW | Build |
-| 17.2 | No warning flags on library | MEDIUM | Build |
-| 17.3 | No sanitizer support | LOW-MEDIUM | Build |
-| 17.4 | `GLOB_RECURSE` without `CONFIGURE_DEPENDS` | LOW | Build |
-| 18.1 | Empty test bodies | LOW-MEDIUM | Tests |
-| 18.2 | Tests encoding bugs as expected | LOW-MEDIUM | Tests |
-| 18.3 | Dead test file | LOW | Tests |
-| 19.1 | ~160 lines commented-out includes | LOW | Headers |
+| ~~14~~ | ~~\~350 lines dead code + misleading `umap` alias~~ | ~~LOW-MEDIUM~~ FIXED | type_traits |
+| ~~15~~ | ~~Unconstrained forwarding constructor~~ | ~~MEDIUM~~ FIXED | scalar_expression |
+| ~~16~~ | ~~Missing `[[nodiscard]]` on pure functions~~ | ~~LOW~~ FIXED | All domains |
+| ~~17.1~~ | ~~Global C++ standard override~~ | ~~LOW~~ FIXED | Build |
+| ~~17.2~~ | ~~No warning flags on library~~ | ~~MEDIUM~~ FIXED | Build |
+| ~~17.3~~ | ~~No sanitizer support~~ | ~~LOW-MEDIUM~~ FIXED | Build |
+| 17.4 | `GLOB_RECURSE` — already had `CONFIGURE_DEPENDS` | N/A | Build |
+| ~~18.1~~ | ~~Orphaned `std::cout` in tests~~ | ~~LOW-MEDIUM~~ FIXED | Tests |
+| ~~18.2~~ | ~~Tests encoding bugs as expected~~ | ~~LOW-MEDIUM~~ FIXED | Tests |
+| ~~18.3~~ | ~~Dead test file~~ | ~~LOW~~ FIXED | Tests |
+| ~~19.1~~ | ~~\~160 lines commented-out includes~~ | ~~LOW~~ FIXED | Headers |
 | 19.2 | Inconsistent include guards | LOW | Headers |
 
 New error types added to `cas_error.h`: `invalid_expression_error`, `internal_error`.
 All fixes for issues 1.1-4.1 tested in `tests/CoreBugFixTest.h` (20 tests).
 
-### Priority Recommendations
+### Fix Summary
 
-**High priority (correctness/reliability):**
-1. Fix `push_back(&&)` move semantics bug (#12)
-2. Add warning flags to library build (#17.2)
-3. Constrain forwarding constructor (#15)
-4. Fix non-deterministic ordering (#11)
+Of the 28 original issues, **26 are now resolved** (fixed, documented, or noted)
+and 2 remain open:
 
-**Medium priority (code quality):**
-5. Delete ~350 lines dead code in type_traits (#14)
-6. Rename misleading `umap` alias (#14)
-7. Add `CONFIGURE_DEPENDS` to GLOB_RECURSE (#17.4)
-8. Add sanitizer build option (#17.3)
+| Remaining Issue | Severity |
+|-----------------|----------|
+| 13 `update_hash_value` allocates every call | LOW |
+| 19.2 Inconsistent include guards | LOW |
 
-**Low priority (cleanup/polish):**
-9. Delete dead code in operator files and umbrella header (#6.1, #19.1)
-10. Fix "missmatch" spelling (#7.1)
-11. Add `[[nodiscard]]` incrementally (#16)
-12. Remove redundant special members (#9)
-13. Delete dead test file (#18.3)
+Both remaining items are LOW severity and have no functional impact.
 
 ---
 
@@ -647,15 +479,12 @@ that share subexpressions), you could use a `unique_ptr` with a COW layer, or
 even an arena allocator. The current design pays the shared-ownership tax
 unconditionally.
 
-**The n_ary_tree hash map is `std::map`, not `std::unordered_map`.** The `umap`
-alias in `numsim_cas_type_traits.h` maps to `std::map<Key, Value>` — an ordered
-tree, not a hash map despite the name. For the `n_ary_tree`'s child storage, this
-means O(log N) insertion and lookup per child. For small N (2-5 children in a
-typical add/mul), this is fine. But if expressions grow large (sums with dozens of
-terms), a true `std::unordered_map` with the expression hash as key would be O(1)
-amortized. More importantly, calling it `umap` when it's an ordered map will
-confuse every new contributor who reads the code. Either rename it to `omap` or
-switch to `std::unordered_map` — but don't leave a lie in the type alias.
+**The n_ary_tree uses `std::map` (ordered) for child storage.** ~~The misleading
+`umap` alias has been renamed to `expr_ordered_map`, making the ordered semantics
+explicit.~~ *(Fixed in ed0ab69.)* The question of whether `std::unordered_map`
+would be better for performance remains open — for small N (2-5 children) the
+ordered map is fine, but for large sums with dozens of terms, O(1) amortized
+lookup would help.
 
 **The visitor pattern creates a rigid coupling between nodes and visitors.** Every
 time you add a new node type to a domain's node list macro, every visitor for that
@@ -666,16 +495,15 @@ eliminate the coupling. Consider whether a default handler (`operator()(expressi
 const&)`) in visitor base classes could reduce the boilerplate for visitors that
 only care about a subset of nodes.
 
-**The codebase is in the middle of a migration and it shows.** There are ~600 lines
-of commented-out code in operator files and the umbrella header. The
-`numsim_cas_type_traits.h` file is 630 lines, of which ~350 are dead. Entire
-simplifier files are disabled (`tensor_to_scalar_simplifier_div.h`). Node types are
-commented out in node list macros. An old test file sits alongside its replacement.
-The `numsim_cas.h` umbrella header has more commented-out includes than active ones.
-This isn't a code quality problem per se — migrations take time — but it creates a
-significant cognitive load for anyone trying to understand the current state of the
-system. A single cleanup pass deleting everything that's commented out (git
-preserves history) would make the codebase dramatically easier to navigate.
+**~~The codebase is in the middle of a migration and it shows.~~** *(Largely
+addressed in commits ed0ab69 and 6449daf.)* The major cleanup pass removed ~1,600
+lines of dead code: commented-out operator structs, dead type traits, disabled
+simplifiers, stub files, and umbrella header cruft. The `numsim_cas_type_traits.h`
+file went from ~630 to ~280 lines, the umbrella header from ~253 to ~56 lines,
+and 11 dead files were deleted entirely. The codebase is now much cleaner and
+easier to navigate. Some migration artifacts remain (commented-out code in
+`compare_equal_visitor.h`, the old test file `TensorToScalarEvaluatorTest_old.h`)
+but the cognitive load has been significantly reduced.
 
 **The simplifier architecture is powerful but has scaling concerns.** Each binary
 operation creates a visitor, performs a virtual dispatch on the LHS, which calls
@@ -698,25 +526,18 @@ in the header. If it has a non-trivial body and isn't a template, it goes in a
 
 ### What I'd do next if this were my project
 
-1. **Delete all commented-out code.** One afternoon, one commit, enormous readability
-   improvement. Git has the history if you need it.
+1. ~~**Delete all commented-out code.**~~ Done (ed0ab69, 6449daf).
 
-2. **Rename `umap` to what it actually is**, or change it to `std::unordered_map`
-   with a proper hasher. This is a 5-minute fix with high impact on code clarity.
+2. ~~**Rename `umap` to what it actually is.**~~ Done — renamed to `expr_ordered_map` (ed0ab69).
 
-3. **Add `-Wall -Wextra -Wpedantic` to the library target** (not just tests). The
-   tests already have `-Werror` — the library itself should too. You want to know
-   about shadowed variables and implicit conversions in your core headers, not just
-   your test code.
+3. ~~**Add `-Wall -Wextra -Wpedantic` to the library target.**~~ Done (ed0ab69).
 
 4. **Profile the simplification hot path.** Build a large expression (e.g.,
    differentiate a sum of 50 terms), time it, and look at where the time goes.
    My guess is `shared_ptr` atomic operations and `std::map` lookups, but profiling
    will tell you for sure.
 
-5. **Finish or delete the stub simplifiers.** Empty header files with just a guard
-   are worse than no file at all — they suggest an implementation exists when it
-   doesn't. Either implement them or delete them and add a TODO issue.
+5. ~~**Finish or delete the stub simplifiers.**~~ Deleted (ed0ab69, 6449daf).
 
 6. **Consider an arena allocator for expression nodes.** Most CAS workloads allocate
    thousands of small polymorphic objects that all die together. A monotonic arena

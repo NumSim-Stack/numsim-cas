@@ -107,18 +107,18 @@ public:
    */
   [[nodiscard]] inline auto &expr_rhs() noexcept { return m_rhs; }
 
-  template <typename _Base, typename _BaseLHS, typename _BaseRHS>
-  friend bool operator<(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
-                        binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs);
-  template <typename _Base, typename _BaseLHS, typename _BaseRHS>
-  friend bool operator>(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
-                        binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs);
-  template <typename _Base, typename _BaseLHS, typename _BaseRHS>
-  friend bool operator==(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
-                         binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs);
-  template <typename _Base, typename _BaseLHS, typename _BaseRHS>
-  friend bool operator!=(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
-                         binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs);
+  template <typename B, typename L, typename R>
+  friend bool operator<(binary_op<B, L, R> const &lhs,
+                        binary_op<B, L, R> const &rhs);
+  template <typename B, typename L, typename R>
+  friend bool operator>(binary_op<B, L, R> const &lhs,
+                        binary_op<B, L, R> const &rhs);
+  template <typename B, typename L, typename R>
+  friend bool operator==(binary_op<B, L, R> const &lhs,
+                         binary_op<B, L, R> const &rhs);
+  template <typename B, typename L, typename R>
+  friend bool operator!=(binary_op<B, L, R> const &lhs,
+                         binary_op<B, L, R> const &rhs);
 
 protected:
   virtual void update_hash_value() const noexcept override {
@@ -136,28 +136,28 @@ protected:
   expression_holder<BaseRHS> m_rhs;
 };
 
-template <typename _Base, typename _BaseLHS, typename _BaseRHS>
-bool operator<(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
-               binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs) {
+template <typename BaseT, typename BaseLHS, typename BaseRHS>
+bool operator<(binary_op<BaseT, BaseLHS, BaseRHS> const &lhs,
+               binary_op<BaseT, BaseLHS, BaseRHS> const &rhs) {
   return lhs.hash_value() < rhs.hash_value();
   // lhs.m_lhs < rhs.m_lhs || lhs.m_rhs < rhs.m_rhs;
 }
 
-template <typename _Base, typename _BaseLHS, typename _BaseRHS>
-bool operator>(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
-               binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs) {
+template <typename BaseT, typename BaseLHS, typename BaseRHS>
+bool operator>(binary_op<BaseT, BaseLHS, BaseRHS> const &lhs,
+               binary_op<BaseT, BaseLHS, BaseRHS> const &rhs) {
   return rhs < lhs;
 }
 
-template <typename _Base, typename _BaseLHS, typename _BaseRHS>
-bool operator==(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
-                binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs) {
+template <typename BaseT, typename BaseLHS, typename BaseRHS>
+bool operator==(binary_op<BaseT, BaseLHS, BaseRHS> const &lhs,
+                binary_op<BaseT, BaseLHS, BaseRHS> const &rhs) {
   return lhs.m_lhs == rhs.m_lhs && lhs.m_rhs == rhs.m_rhs;
 }
 
-template <typename _Base, typename _BaseLHS, typename _BaseRHS>
-bool operator!=(binary_op<_Base, _BaseLHS, _BaseRHS> const &lhs,
-                binary_op<_Base, _BaseLHS, _BaseRHS> const &rhs) {
+template <typename BaseT, typename BaseLHS, typename BaseRHS>
+bool operator!=(binary_op<BaseT, BaseLHS, BaseRHS> const &lhs,
+                binary_op<BaseT, BaseLHS, BaseRHS> const &rhs) {
   return !(lhs == rhs);
 }
 
