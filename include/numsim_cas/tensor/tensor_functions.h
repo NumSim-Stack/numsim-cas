@@ -1,5 +1,5 @@
-#ifndef TENSOR_FUNCTIONS_SYMTM_H
-#define TENSOR_FUNCTIONS_SYMTM_H
+#ifndef NUMSIM_CAS_TENSOR_FUNCTIONS_H
+#define NUMSIM_CAS_TENSOR_FUNCTIONS_H
 
 #include <cstdlib>
 #include <numsim_cas/core/cas_error.h>
@@ -245,4 +245,4 @@ template <typename Expr> [[nodiscard]] constexpr inline auto inv(Expr &&expr) {
 // }
 } // namespace numsim::cas
 
-#endif // TENSOR_FUNCTIONS_SYMTM_H
+#endif // NUMSIM_CAS_TENSOR_FUNCTIONS_H

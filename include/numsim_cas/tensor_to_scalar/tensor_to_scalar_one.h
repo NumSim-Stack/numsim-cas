@@ -1,5 +1,5 @@
-#ifndef TENSOR_TO_tensor_to_scalar_one_H
-#define TENSOR_TO_tensor_to_scalar_one_H
+#ifndef TENSOR_TO_SCALAR_ONE_H
+#define TENSOR_TO_SCALAR_ONE_H
 
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
@@ -31,4 +31,4 @@ public:
 
 } // namespace numsim::cas
 
-#endif // TENSOR_TO_tensor_to_scalar_one_H
+#endif // TENSOR_TO_SCALAR_ONE_H

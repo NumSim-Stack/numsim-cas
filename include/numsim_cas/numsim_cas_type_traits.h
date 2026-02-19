@@ -1,5 +1,5 @@
-#ifndef NUMSIM_CAS_TRAITS_H
-#define NUMSIM_CAS_TRAITS_H
+#ifndef NUMSIM_CAS_TYPE_TRAITS_H
+#define NUMSIM_CAS_TYPE_TRAITS_H
 
 #include "numsim_cas_forward.h"
 #include "tensor/data/tensor_data.h"
@@ -332,4 +332,4 @@ using result_expression_t =
 
 } // namespace numsim::cas
 
-#endif // NUMSIM_CAS_TRAITS_H
+#endif // NUMSIM_CAS_TYPE_TRAITS_H

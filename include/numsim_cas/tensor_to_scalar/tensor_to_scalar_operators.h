@@ -1,5 +1,5 @@
-#ifndef TENSOR_SCALAR_OPERATORS_H
-#define TENSOR_SCALAR_OPERATORS_H
+#ifndef TENSOR_TO_SCALAR_OPERATORS_H
+#define TENSOR_TO_SCALAR_OPERATORS_H
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/make_constant.h>
@@ -147,4 +147,4 @@ tag_invoke(make_constant_fn, std::type_identity<tensor_to_scalar_expression>,
 
 } // namespace numsim::cas::detail
 
-#endif // TENSOR_SCALAR_OPERATORS_H
+#endif // TENSOR_TO_SCALAR_OPERATORS_H

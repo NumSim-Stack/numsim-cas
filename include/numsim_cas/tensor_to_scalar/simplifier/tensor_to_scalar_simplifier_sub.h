@@ -1,5 +1,5 @@
-#ifndef TENSOR_SCALAR_SIMPLIFIER_SUB_H
-#define TENSOR_SCALAR_SIMPLIFIER_SUB_H
+#ifndef TENSOR_TO_SCALAR_SIMPLIFIER_SUB_H
+#define TENSOR_TO_SCALAR_SIMPLIFIER_SUB_H
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/simplifier/simplifier_sub.h>
@@ -154,4 +154,4 @@ struct sub_base final : public tensor_to_scalar_visitor_return_expr_t {
 } // namespace tensor_to_scalar_detail
 } // namespace numsim::cas
 
-#endif // TENSOR_SCALAR_SIMPLIFIER_SUB_H
+#endif // TENSOR_TO_SCALAR_SIMPLIFIER_SUB_H

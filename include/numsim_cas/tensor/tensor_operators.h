@@ -1,5 +1,5 @@
-#ifndef TENSOR_OPERATORS_SYMTM_H
-#define TENSOR_OPERATORS_SYMTM_H
+#ifndef NUMSIM_CAS_TENSOR_OPERATORS_H
+#define NUMSIM_CAS_TENSOR_OPERATORS_H
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/make_constant.h>
@@ -129,4 +129,4 @@ tag_invoke(make_constant_fn, std::type_identity<tensor_expression>, T &&v) {
 
 } // namespace numsim::cas::detail
 
-#endif // TENSOR_OPERATORS_SYMTM_H
+#endif // NUMSIM_CAS_TENSOR_OPERATORS_H
