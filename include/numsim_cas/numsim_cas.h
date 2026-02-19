@@ -124,7 +124,6 @@
 #include <numsim_cas/scalar/scalar_visitor_typedef.h>
 #include <numsim_cas/scalar/scalar_zero.h>
 
-#include <numsim_cas/scalar/scalar_binary_simplify_imp.h>
 #include <numsim_cas/scalar/scalar_diff.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
