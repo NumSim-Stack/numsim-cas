@@ -69,7 +69,7 @@ template <typename Expr>
 n_ary_mul::expr_holder_t n_ary_mul::dispatch([[maybe_unused]] Expr const &rhs) {
   auto expr_mul{make_expression<tensor_mul>(lhs)};
   auto &mul{expr_mul.template get<tensor_mul>()};
-  if (lhs.data().back() == m_rhs) {
+  if (!lhs.data().empty() && lhs.data().back() == m_rhs) {
     auto last_element{lhs.data().back()};
     mul.data().erase(mul.data().end() - 1);
     return std::move(expr_mul) * (last_element * m_rhs);

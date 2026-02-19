@@ -1,9 +1,12 @@
 #ifndef EXPRESSION_HOLDER_H
 #define EXPRESSION_HOLDER_H
 
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/make_negative.h>
 #include <numsim_cas/numsim_cas_forward.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
+#include <cassert>
+#include <functional>
 #include <type_traits>
 
 namespace numsim::cas {
@@ -99,23 +102,40 @@ public:
 
   constexpr inline auto &data() { return m_expr; }
   constexpr inline const auto &data() const { return m_expr; }
-  constexpr inline auto &operator*() { return *m_expr; }
-  constexpr inline const auto &operator*() const { return *m_expr; }
-  constexpr inline auto *operator->() { return m_expr.get(); }
-  constexpr inline const auto *operator->() const { return m_expr.get(); }
 
-  template <typename T = ExprBase> constexpr inline auto &get() {
+  inline auto &operator*() {
+    throw_if_invalid();
+    return *m_expr;
+  }
+  inline const auto &operator*() const {
+    throw_if_invalid();
+    return *m_expr;
+  }
+  inline auto *operator->() {
+    throw_if_invalid();
+    return m_expr.get();
+  }
+  inline const auto *operator->() const {
+    throw_if_invalid();
+    return m_expr.get();
+  }
+
+  template <typename T = ExprBase> inline auto &get() {
+    throw_if_invalid();
     if constexpr (std::is_same_v<T, ExprBase>) {
       return *m_expr.get();
     } else {
+      assert(dynamic_cast<T *>(m_expr.get()) != nullptr);
       return static_cast<T &>(*m_expr.get());
     }
   }
 
-  template <typename T = ExprBase> constexpr inline const auto &get() const {
+  template <typename T = ExprBase> inline const auto &get() const {
+    throw_if_invalid();
     if constexpr (std::is_same_v<T, ExprBase>) {
       return *m_expr.get();
     } else {
+      assert(dynamic_cast<const T *>(m_expr.get()) != nullptr);
       return static_cast<const T &>(*m_expr.get());
     }
   }
@@ -147,19 +167,35 @@ public:
                          expression_holder<_ExprBase> const &rhs);
 
 private:
+  inline void throw_if_invalid() const {
+    if (!m_expr) {
+      throw invalid_expression_error(
+          "expression_holder: access to invalid (null) expression");
+    }
+  }
+
   std::shared_ptr<node_type> m_expr;
 };
 
 template <typename _ExprBase>
 bool operator<(expression_holder<_ExprBase> const &lhs,
                expression_holder<_ExprBase> const &rhs) {
+  if (!lhs.is_valid() || !rhs.is_valid()) {
+    throw invalid_expression_error(
+        "expression_holder::operator<: comparing invalid (null) expression");
+  }
   if (lhs.get().hash_value() != rhs.get().hash_value())
     return lhs.get().hash_value() < rhs.get().hash_value();
 
   if (lhs.get().id() != rhs.get().id())
     return lhs.get().id() < rhs.get().id();
 
-  return false;
+  // Same hash + id: deep-compare to distinguish hash collisions
+  if (lhs.get() == rhs.get())
+    return false;
+
+  // Hash collision: address-based tiebreaker (total order via std::less)
+  return std::less<_ExprBase const *>{}(&lhs.get(), &rhs.get());
 }
 
 template <typename _ExprBase>
@@ -171,6 +207,10 @@ bool operator>(expression_holder<_ExprBase> const &lhs,
 template <typename _ExprBase>
 bool operator==(expression_holder<_ExprBase> const &lhs,
                 expression_holder<_ExprBase> const &rhs) {
+  if (!lhs.is_valid() || !rhs.is_valid()) {
+    throw invalid_expression_error(
+        "expression_holder::operator==: comparing invalid (null) expression");
+  }
   return *lhs == *rhs;
 }
 

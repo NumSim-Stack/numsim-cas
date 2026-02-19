@@ -72,9 +72,8 @@ protected:
   virtual void update_hash_value() const = 0;
 
   numeric_assumption_manager m_assumption{};
-  /**
-   * @brief Stores the hash value of the expression.
-   */
+  // NOTE: lazy hash caching is not thread-safe. If multithreading is
+  // introduced, protect update_hash_value() with synchronization.
   mutable hash_type m_hash_value{0};
 };
 

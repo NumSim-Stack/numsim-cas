@@ -44,13 +44,9 @@ public:
   index_t &operator[](std::size_t i) { return m_data[i]; }
   index_t operator[](std::size_t i) const { return m_data[i]; }
 
-  template <class It> void insert(It pos, It first, It last) {
-    m_data.insert(pos, first, last);
-  }
-
-  // Allow inserting from other sequences easily
-  template <class It>
-  void insert(typename std::vector<index_t>::iterator pos, It first, It last) {
+  template <class InputIt>
+  void insert(typename std::vector<index_t>::iterator pos, InputIt first,
+              InputIt last) {
     m_data.insert(pos, first, last);
   }
 

@@ -59,7 +59,7 @@ public:
 
   inline auto set_coeff(expr_holder_t const &expr) noexcept { m_coeff = expr; }
 
-  [[nodiscard]] inline auto &coeff() const noexcept { return m_coeff; }
+  [[nodiscard]] inline auto const &coeff() const noexcept { return m_coeff; }
   [[nodiscard]] inline auto &coeff() noexcept { return m_coeff; }
 
   //  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
@@ -112,16 +112,6 @@ private:
   expr_vector<expr_holder_t> m_data;
 
 private:
-  template <typename T, typename... Args>
-  void init_parameter_pack(T &&first, Args &&...args) noexcept {
-    add_child(std::forward<T>(first));
-    init_parameter_pack(std::forward<Args>(args)...);
-  }
-
-  template <typename T> void init_parameter_pack(T &&first) noexcept {
-    add_child(std::forward<T>(first));
-  }
-
   template <typename T> void insert_hash(T const &expr) noexcept {
     m_data.emplace_back(expr);
     update_hash_value();

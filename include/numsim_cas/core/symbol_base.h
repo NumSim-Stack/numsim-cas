@@ -5,16 +5,6 @@
 
 namespace numsim::cas {
 
-// template<typename ExpressionType>
-// struct expression_type_traits;
-// template<typename T>
-// struct expression_type_traits<scalar_expression<T>>
-//{
-//   using symbol_type   = scalar<T>;
-//   using add_type      = scalar_add<T>;
-//   using negative_type = scalar_negative<T>;
-// };
-
 template <typename BaseExpr> class symbol_base : public BaseExpr {
 public:
   using expr_t = typename BaseExpr::expr_t;

@@ -4,6 +4,7 @@
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
 #include <numsim_cas/type_list.h>
+#include <cassert>
 
 namespace numsim::cas {
 
@@ -115,7 +116,7 @@ public:
 protected:
   // <-- THIS is the important part:
   bool equals_same_type(expression const &rhs) const noexcept override {
-    // ids already matched in expression::operator==, so this cast is safe.
+    assert(dynamic_cast<Derived const *>(&rhs) != nullptr);
     return static_cast<Derived const &>(*this) ==
            static_cast<Derived const &>(rhs);
   }

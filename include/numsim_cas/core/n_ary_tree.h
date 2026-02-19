@@ -1,6 +1,7 @@
 #ifndef N_ARY_TREE_H
 #define N_ARY_TREE_H
 
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/hash_functions.h>
 #include <numsim_cas/expression_crtp.h>
@@ -42,11 +43,11 @@ public:
 
   virtual ~n_ary_tree() = default;
 
-  inline void push_back(expression_holder<expr_t> const &expr) noexcept {
+  inline void push_back(expression_holder<expr_t> const &expr) {
     insert_hash(expr);
   }
 
-  inline void push_back(expression_holder<expr_t> &&expr) noexcept {
+  inline void push_back(expression_holder<expr_t> &&expr) {
     insert_hash(expr);
   }
 
@@ -72,7 +73,7 @@ public:
 
   inline auto set_coeff(expr_holder_t const &expr) noexcept { m_coeff = expr; }
 
-  [[nodiscard]] inline auto &coeff() const noexcept { return m_coeff; }
+  [[nodiscard]] inline auto const &coeff() const noexcept { return m_coeff; }
   [[nodiscard]] inline auto &coeff() noexcept { return m_coeff; }
 
   //  template <typename _Base, typename _DerivedLHS, typename _DerivedRHS>
@@ -137,18 +138,11 @@ private:
   umap<expr_holder_t> m_symbol_map;
 
 private:
-  template <typename T, typename... Args>
-  void init_parameter_pack(T &&first, Args &&...args) noexcept {
-    add_child(std::forward<T>(first));
-    init_parameter_pack(std::forward<Args>(args)...);
-  }
-
-  template <typename T> void init_parameter_pack(T &&first) noexcept {
-    add_child(std::forward<T>(first));
-  }
-
-  template <typename T> void insert_hash(T const &expr) noexcept {
-    assert(m_symbol_map.find(expr) == m_symbol_map.end());
+  template <typename T> void insert_hash(T const &expr) {
+    if (m_symbol_map.find(expr) != m_symbol_map.end()) {
+      throw internal_error(
+          "n_ary_tree::insert_hash: duplicate child insertion");
+    }
     m_symbol_map[expr] = expr;
     update_hash_value();
   }
