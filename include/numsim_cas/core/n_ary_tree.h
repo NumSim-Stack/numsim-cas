@@ -19,8 +19,8 @@ public:
   using expr_t = typename Base::expr_t;
   using hash_t = typename expr_t::hash_type;
   using expr_holder_t = expression_holder<expr_t>;
-  using iterator = typename umap<expr_t>::iterator;
-  using const_iterator = typename umap<expr_holder_t>::const_iterator;
+  using iterator = typename expr_ordered_map<expr_t>::iterator;
+  using const_iterator = typename expr_ordered_map<expr_holder_t>::const_iterator;
 
   n_ary_tree() noexcept { this->reserve(2); }
 
@@ -48,7 +48,7 @@ public:
   }
 
   inline void push_back(expression_holder<expr_t> &&expr) {
-    insert_hash(expr);
+    insert_hash(std::move(expr));
   }
 
   inline void reserve([[maybe_unused]] std::size_t size) noexcept {
@@ -135,15 +135,24 @@ private:
   //-> {hash_value(y), y}
   //-> {hash_value(z), 4z}
   //-> {hash_value(x*y), 4*x*y}
-  umap<expr_holder_t> m_symbol_map;
+  expr_ordered_map<expr_holder_t> m_symbol_map;
 
 private:
-  template <typename T> void insert_hash(T const &expr) {
-    if (m_symbol_map.find(expr) != m_symbol_map.end()) {
+  void insert_hash(expression_holder<expr_t> const &expr) {
+    if (m_symbol_map.contains(expr)) {
       throw internal_error(
           "n_ary_tree::insert_hash: duplicate child insertion");
     }
     m_symbol_map[expr] = expr;
+    update_hash_value();
+  }
+
+  void insert_hash(expression_holder<expr_t> &&expr) {
+    if (m_symbol_map.contains(expr)) {
+      throw internal_error(
+          "n_ary_tree::insert_hash: duplicate child insertion");
+    }
+    m_symbol_map[expr] = std::move(expr);
     update_hash_value();
   }
 };

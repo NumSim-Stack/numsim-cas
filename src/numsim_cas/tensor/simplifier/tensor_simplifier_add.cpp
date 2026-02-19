@@ -76,7 +76,7 @@ tensor_scalar_mul_add::tensor_scalar_mul_add(expr_holder_t lhs,
 
 template <typename Expr>
 [[nodiscard]] tensor_scalar_mul_add::expr_holder_t
-tensor_scalar_mul_add::dispatch(Expr const &rhs) {
+tensor_scalar_mul_add::dispatch(Expr const & /*rhs*/) {
   if (lhs.expr_rhs() == m_rhs) {
     return (lhs.expr_lhs() + 1) * m_rhs;
   }

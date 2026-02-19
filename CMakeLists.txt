@@ -34,6 +34,7 @@ option(NUMSIM_CAS_INSTALL_LIBRARY "Install NumSim_CAS into default locations" ${
 option(BUILD_EXAMPLES "Build NumSim_CAS examples" OFF)
 option(BUILD_TESTS "Build NumSim_CAS test suite" ON)
 option(BUILD_BENCHMARK "Build NumSim_CAS benchmark" OFF)
+option(NUMSIM_CAS_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
 set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 
@@ -111,6 +112,22 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
   VERSION   ${PROJECT_VERSION}
   SOVERSION ${PROJECT_VERSION_MAJOR}
 )
+
+# Compiler warnings
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        -Wall -Wextra -Wpedantic -Wno-comment -Wno-overloaded-virtual)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
+endif()
+
+# Sanitizers
+if(NUMSIM_CAS_SANITIZERS)
+    target_compile_options(${PROJECT_NAME} PUBLIC
+        -fsanitize=address,undefined -fno-omit-frame-pointer)
+    target_link_options(${PROJECT_NAME} PUBLIC
+        -fsanitize=address,undefined)
+endif()
 
 # Optional convenience for Windows
 if(WIN32)

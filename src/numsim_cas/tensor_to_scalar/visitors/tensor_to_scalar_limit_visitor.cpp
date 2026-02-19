@@ -190,7 +190,7 @@ void tensor_to_scalar_limit_visitor::operator()(
 }
 
 void tensor_to_scalar_limit_visitor::operator()(
-    tensor_to_scalar_scalar_wrapper const &v) {
+    tensor_to_scalar_scalar_wrapper const & /*v*/) {
   // Delegate to scalar limit visitor
   // Scalar expressions don't depend on tensor variables,
   // so they should evaluate to finite

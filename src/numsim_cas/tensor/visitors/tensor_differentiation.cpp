@@ -59,7 +59,7 @@ void tensor_differentiation::operator()(tensor_mul const &visitable) {
       if (i == j) continue;
       // Contract: inner_product on the adjacent indices
       auto rank_term = term.get().rank();
-      auto rank_fi = factors[i].get().rank();
+      [[maybe_unused]] auto rank_fi = factors[i].get().rank();
       // Contract last index of term with first index of factor[i]
       // (or first of factor[i] with last of previous result)
       term = inner_product(std::move(term), sequence{rank_term},

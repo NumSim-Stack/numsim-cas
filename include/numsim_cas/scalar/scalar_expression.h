@@ -14,6 +14,8 @@ public:
   using visitor_const_t = scalar_visitor_const_t;
 
   template <typename... Args>
+  requires(sizeof...(Args) != 1 ||
+           !std::is_same_v<std::remove_cvref_t<Args>..., scalar_expression>)
   scalar_expression(Args &&...args) : expression(std::forward<Args>(args)...) {}
   scalar_expression(scalar_expression const &data)
       : expression(static_cast<expression const &>(data)) {}

@@ -26,9 +26,5 @@
   NEXT(identity_tensor)                                                        \
   NEXT(tensor_scalar_mul)                                                      \
   NEXT(tensor_to_scalar_with_tensor_mul)
-// det, adj, skew, vol, dev,
-//  NEXT(tensor_scalar_div) \
-
-// NEXT(tensor_to_scalar_with_tensor_div)
 
 #endif // TENSOR_NODE_LIST_H
