@@ -114,38 +114,6 @@ public:
     }
   }
 
-  void operator()(tensor_deviatoric const &visitable) override {
-    // dev(A)' = dA - otimes(I,I):dA / dim
-    auto dA = diff(visitable.expr(), m_arg);
-    if (dA.is_valid()) {
-      auto IoI = otimes(m_I, m_I);
-      auto contracted =
-          inner_product(IoI, sequence{3, 4}, dA, sequence{1, 2});
-      m_result = dA - contracted *
-                          make_expression<scalar_constant>(1.0 / double(m_dim));
-    }
-  }
-
-  void operator()(tensor_volumetric const &visitable) override {
-    // vol(A)' = otimes(I,I):dA / dim
-    auto dA = diff(visitable.expr(), m_arg);
-    if (dA.is_valid()) {
-      auto IoI = otimes(m_I, m_I);
-      m_result =
-          inner_product(IoI, sequence{3, 4}, dA, sequence{1, 2}) *
-          make_expression<scalar_constant>(1.0 / double(m_dim));
-    }
-  }
-
-  void operator()(tensor_symmetry const &visitable) override {
-    auto dA = diff(visitable.expr(), m_arg);
-    if (dA.is_valid()) {
-      // sym(A)' = 0.5*(dA + permute(dA, {1,4,3,2})) for rank-4 result
-      m_result =
-          0.5 * (dA + permute_indices(dA, sequence{1, 4, 3, 2}));
-    }
-  }
-
   void operator()(tensor_pow const &visitable) override {
     // d(pow(A,n))/dX creates a tensor_power_diff node
     m_result = make_expression<tensor_power_diff>(visitable.expr_lhs(),

@@ -153,6 +153,16 @@ struct cof {
   }
 };
 
+struct skew {
+  template <std::size_t, std::size_t Rank>
+  static constexpr bool is_valid() {
+    return Rank == 2;
+  }
+  template <typename T> static constexpr auto apply(T const &t) {
+    return tmech::skew(t);
+  }
+};
+
 struct neg {
   template <std::size_t, std::size_t> static constexpr bool is_valid() {
     return true;

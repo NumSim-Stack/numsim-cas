@@ -20,9 +20,6 @@
   NEXT(outer_product_wrapper)                                                  \
   NEXT(kronecker_delta)                                                        \
   NEXT(simple_outer_product)                                                   \
-  NEXT(tensor_symmetry)                                                        \
-  NEXT(tensor_deviatoric)                                                      \
-  NEXT(tensor_volumetric)                                                      \
   NEXT(tensor_inv)                                                             \
   NEXT(tensor_zero)                                                            \
   NEXT(tensor_projector)                                                       \

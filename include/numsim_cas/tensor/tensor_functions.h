@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/tensor/data/tensor_data_make_imp.h>
+#include <numsim_cas/tensor/projection_tensor.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
@@ -16,18 +17,32 @@ constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {
   return make_tensor_data_imp<T>().evaluate(dim, rank);
 }
 
-template <typename Expr/*,
-          std::enable_if_t<
-              std::is_base_of_v<
-                  tensor_expression<
-                      typename std::remove_cvref_t<Expr>::value_t>,
-                  typename std::remove_cvref_t<Expr>::expr_t>,
-              bool> = true*/>
+template <typename Expr>
 constexpr inline auto dev(Expr &&expr) {
-  if (expr.get().rank() == 2) {
-    return make_expression<tensor_deviatoric>(std::forward<Expr>(expr));
-  }
-  throw evaluation_error("dev: requires rank-2 tensor");
+  auto d = expr.get().dim();
+  return inner_product(P_devi(d), sequence{3, 4},
+                       std::forward<Expr>(expr), sequence{1, 2});
+}
+
+template <typename Expr>
+constexpr inline auto sym(Expr &&expr) {
+  auto d = expr.get().dim();
+  return inner_product(P_sym(d), sequence{3, 4},
+                       std::forward<Expr>(expr), sequence{1, 2});
+}
+
+template <typename Expr>
+constexpr inline auto vol(Expr &&expr) {
+  auto d = expr.get().dim();
+  return inner_product(P_vol(d), sequence{3, 4},
+                       std::forward<Expr>(expr), sequence{1, 2});
+}
+
+template <typename Expr>
+constexpr inline auto skew(Expr &&expr) {
+  auto d = expr.get().dim();
+  return inner_product(P_skew(d), sequence{3, 4},
+                       std::forward<Expr>(expr), sequence{1, 2});
 }
 
 template <typename ExprLHS, typename ExprRHS>

@@ -174,6 +174,35 @@ public:
     const auto &indices_lhs{visitable.indices_lhs()};
     const auto &indices_rhs{visitable.indices_rhs()};
 
+    // Projector function notation: P:A → dev(A), sym(A), vol(A), skew(A)
+    if (indices_lhs == sequence{3, 4} && indices_rhs == sequence{1, 2} &&
+        is_same<tensor_projector>(visitable.expr_lhs())) {
+      auto const &proj =
+          visitable.expr_lhs().template get<tensor_projector>();
+      if (proj.acts_on_rank() == 2) {
+        auto const &sp = proj.space();
+        const char *fn = nullptr;
+        if (std::holds_alternative<Symmetric>(sp.perm) &&
+            std::holds_alternative<DeviatoricTag>(sp.trace))
+          fn = "dev";
+        else if (std::holds_alternative<Symmetric>(sp.perm) &&
+                 std::holds_alternative<AnyTraceTag>(sp.trace))
+          fn = "sym";
+        else if (std::holds_alternative<Symmetric>(sp.perm) &&
+                 std::holds_alternative<VolumetricTag>(sp.trace))
+          fn = "vol";
+        else if (std::holds_alternative<Skew>(sp.perm) &&
+                 std::holds_alternative<AnyTraceTag>(sp.trace))
+          fn = "skew";
+        if (fn) {
+          m_out << fn << "(";
+          apply(visitable.expr_rhs(), Precedence::None);
+          m_out << ")";
+          return;
+        }
+      }
+    }
+
     // single contraction
     const auto rank_lhs{call_tensor::rank(visitable.expr_lhs())};
     if (indices_lhs == sequence{rank_lhs} && indices_rhs == sequence{1}) {
@@ -467,30 +496,6 @@ public:
   //   printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
   //   end(precedence, parent_precedence);
   // }
-
-  /**
-   * @brief Prints a tensor deviatoric expression.
-   *
-   * @param visitable The tensor deviatoric expression to be printed.
-   * @param parent_precedence The precedence of the parent expression.
-   */
-  void operator()(tensor_deviatoric const &visitable) {
-    print_unary("dev", visitable);
-  }
-
-  void operator()(tensor_volumetric const &visitable) {
-    print_unary("vol", visitable);
-  }
-
-  /**
-   * @brief Prints a tensor symmetry expression.
-   *
-   * @param visitable The tensor symmetry expression to be printed.
-   * @param parent_precedence The precedence of the parent expression.
-   */
-  void operator()(tensor_symmetry const &visitable) {
-    print_unary("sym", visitable);
-  }
 
   void operator()(tensor_inv const &visitable) {
     print_unary("inv", visitable);

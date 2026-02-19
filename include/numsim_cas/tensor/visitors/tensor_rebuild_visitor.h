@@ -60,19 +60,6 @@ public:
     m_result = inv(apply(v.expr()));
   }
 
-  void operator()(tensor_deviatoric const &v) override {
-    m_result = dev(apply(v.expr()));
-  }
-
-  void operator()(tensor_volumetric const &v) override {
-    m_result = make_expression<tensor_volumetric>(apply(v.expr()));
-  }
-
-  void operator()(tensor_symmetry const &v) override {
-    m_result = make_expression<tensor_symmetry>(apply(v.expr()),
-                                                v.symmetries());
-  }
-
   void operator()(basis_change_imp const &v) override {
     m_result =
         make_expression<basis_change_imp>(apply(v.expr()), v.indices());

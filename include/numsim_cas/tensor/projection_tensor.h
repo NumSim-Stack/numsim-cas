@@ -151,40 +151,42 @@ public:
     return std::visit(*this, m_proj.space().perm, m_proj.space().trace);
   }
 
-  template <typename Perm, typename Space>
-  constexpr inline std::string operator()(Perm const &, Space const &) const {
-    // static_assert(true, "tensor_projector::printer_visitor::operator() no
-    // matching overload");
-    return "";
+  template <typename Perm, typename Trace>
+  constexpr inline std::string operator()(Perm const &, Trace const &) const {
+    return "P";
   }
 
-  template <typename Perm>
-  constexpr inline std::string operator()(Perm const &,
-                                          Symmetric const &) const {
-    return "sym";
-  }
-
-  template <typename Perm>
-  constexpr inline std::string operator()(Perm const &, Skew const &) const {
-    return "skew";
-  }
-
+  // Trace-specific: perm=Symmetric or General, trace=VolumetricTag
   template <typename Perm>
   constexpr inline std::string operator()(Perm const &,
                                           VolumetricTag const &) const {
-    return "vol";
+    return "P_vol";
   }
 
+  // Trace-specific: perm=Symmetric or General, trace=DeviatoricTag
   template <typename Perm>
   constexpr inline std::string operator()(Perm const &,
                                           DeviatoricTag const &) const {
-    return "dev";
+    return "P_dev";
   }
 
+  // Trace-specific: perm=Symmetric or General, trace=HarmonicTag
   template <typename Perm>
   constexpr inline std::string operator()(Perm const &,
                                           HarmonicTag const &) const {
-    return "harm";
+    return "P_harm";
+  }
+
+  // Perm-specific: perm=Symmetric, trace=AnyTraceTag (no trace constraint)
+  constexpr inline std::string operator()(Symmetric const &,
+                                          AnyTraceTag const &) const {
+    return "P_sym";
+  }
+
+  // Perm-specific: perm=Skew, trace=AnyTraceTag (no trace constraint)
+  constexpr inline std::string operator()(Skew const &,
+                                          AnyTraceTag const &) const {
+    return "P_skew";
   }
 
 private:

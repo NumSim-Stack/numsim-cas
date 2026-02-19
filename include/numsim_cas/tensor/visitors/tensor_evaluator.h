@@ -108,6 +108,38 @@ public:
   // ─── Products ────────────────────────────────────────────────
 
   void operator()(inner_product_wrapper const &visitable) override {
+    // Short-circuit: detect P:A where P is a known rank-2 projector
+    if (visitable.indices_lhs() == sequence{3, 4} &&
+        visitable.indices_rhs() == sequence{1, 2} &&
+        is_same<tensor_projector>(visitable.expr_lhs())) {
+      auto const &proj =
+          visitable.expr_lhs().template get<tensor_projector>();
+      if (proj.acts_on_rank() == 2) {
+        auto const &sp = proj.space();
+        // Dispatch on known projector types
+        if (std::holds_alternative<Symmetric>(sp.perm) &&
+            std::holds_alternative<AnyTraceTag>(sp.trace)) {
+          eval_projector_unary<tmech_ops::sym>(visitable);
+          return;
+        }
+        if (std::holds_alternative<Skew>(sp.perm) &&
+            std::holds_alternative<AnyTraceTag>(sp.trace)) {
+          eval_projector_unary<tmech_ops::skew>(visitable);
+          return;
+        }
+        if (std::holds_alternative<Symmetric>(sp.perm) &&
+            std::holds_alternative<VolumetricTag>(sp.trace)) {
+          eval_projector_unary<tmech_ops::vol>(visitable);
+          return;
+        }
+        if (std::holds_alternative<Symmetric>(sp.perm) &&
+            std::holds_alternative<DeviatoricTag>(sp.trace)) {
+          eval_projector_unary<tmech_ops::dev>(visitable);
+          return;
+        }
+      }
+    }
+    // Generic inner product
     auto lhs_data = apply(visitable.expr_lhs());
     auto rhs_data = apply(visitable.expr_rhs());
     m_result =
@@ -247,26 +279,96 @@ public:
     throw not_implemented_error("tensor_evaluator: tensor_power_diff not yet implemented");
   }
 
-  void operator()(tensor_symmetry const &v) override {
-    eval_unary_tmech<tmech_ops::sym>(v);
-  }
-
-  void operator()(tensor_deviatoric const &v) override {
-    eval_unary_tmech<tmech_ops::dev>(v);
-  }
-
-  void operator()(tensor_volumetric const &v) override {
-    eval_unary_tmech<tmech_ops::vol>(v);
-  }
-
   void operator()(tensor_inv const &v) override {
     eval_unary_tmech<tmech_ops::inv>(v);
   }
 
-  void
-  operator()([[maybe_unused]] tensor_projector const &visitable)
-      override {
-    throw not_implemented_error("tensor_evaluator: tensor_projector not yet implemented");
+  void operator()(tensor_projector const &visitable) override {
+    const auto d = visitable.dim();
+    const auto r = visitable.rank(); // 2 * acts_on_rank
+    m_result = make_tensor_data<ValueType>(d, r);
+    auto *raw = m_result->raw_data();
+    const auto size = compute_size(d, r);
+    std::fill(raw, raw + size, ValueType{0});
+
+    if (visitable.acts_on_rank() != 2) {
+      throw not_implemented_error(
+          "tensor_evaluator: tensor_projector only rank-2 projectors implemented");
+    }
+
+    auto const &sp = visitable.space();
+
+    // P_sym: (1/2)(δ_ik δ_jl + δ_il δ_jk)
+    auto fill_sym = [&]() {
+      for (std::size_t i = 0; i < d; ++i)
+        for (std::size_t j = 0; j < d; ++j)
+          for (std::size_t k = 0; k < d; ++k)
+            for (std::size_t l = 0; l < d; ++l) {
+              ValueType val{0};
+              if (i == k && j == l)
+                val += 0.5;
+              if (i == l && j == k)
+                val += 0.5;
+              raw[i * d * d * d + j * d * d + k * d + l] = val;
+            }
+    };
+
+    // P_skew: (1/2)(δ_ik δ_jl - δ_il δ_jk)
+    auto fill_skew = [&]() {
+      for (std::size_t i = 0; i < d; ++i)
+        for (std::size_t j = 0; j < d; ++j)
+          for (std::size_t k = 0; k < d; ++k)
+            for (std::size_t l = 0; l < d; ++l) {
+              ValueType val{0};
+              if (i == k && j == l)
+                val += 0.5;
+              if (i == l && j == k)
+                val -= 0.5;
+              raw[i * d * d * d + j * d * d + k * d + l] = val;
+            }
+    };
+
+    // P_vol: (1/d)(δ_ij δ_kl)
+    auto fill_vol = [&]() {
+      ValueType inv_d = ValueType{1} / static_cast<ValueType>(d);
+      for (std::size_t i = 0; i < d; ++i)
+        for (std::size_t j = 0; j < d; ++j)
+          for (std::size_t k = 0; k < d; ++k)
+            for (std::size_t l = 0; l < d; ++l) {
+              if (i == j && k == l)
+                raw[i * d * d * d + j * d * d + k * d + l] = inv_d;
+            }
+    };
+
+    // P_dev = P_sym - P_vol
+    auto fill_dev = [&]() {
+      fill_sym();
+      ValueType inv_d = ValueType{1} / static_cast<ValueType>(d);
+      for (std::size_t i = 0; i < d; ++i)
+        for (std::size_t j = 0; j < d; ++j)
+          for (std::size_t k = 0; k < d; ++k)
+            for (std::size_t l = 0; l < d; ++l) {
+              if (i == j && k == l)
+                raw[i * d * d * d + j * d * d + k * d + l] -= inv_d;
+            }
+    };
+
+    if (std::holds_alternative<Symmetric>(sp.perm) &&
+        std::holds_alternative<AnyTraceTag>(sp.trace)) {
+      fill_sym();
+    } else if (std::holds_alternative<Skew>(sp.perm) &&
+               std::holds_alternative<AnyTraceTag>(sp.trace)) {
+      fill_skew();
+    } else if (std::holds_alternative<Symmetric>(sp.perm) &&
+               std::holds_alternative<VolumetricTag>(sp.trace)) {
+      fill_vol();
+    } else if (std::holds_alternative<Symmetric>(sp.perm) &&
+               std::holds_alternative<DeviatoricTag>(sp.trace)) {
+      fill_dev();
+    } else {
+      throw not_implemented_error(
+          "tensor_evaluator: unsupported tensor_projector space");
+    }
   }
 
   // ─── Cross-domain ────────────────────────────────────────────
@@ -283,6 +385,17 @@ public:
   }
 
 private:
+  // ─── Projector short-circuit: apply tmech op to RHS of inner_product ───
+
+  template <typename Op>
+  void eval_projector_unary(inner_product_wrapper const &visitable) {
+    auto rhs_data = apply(visitable.expr_rhs());
+    m_result =
+        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_unary_wrapper<Op, ValueType> op(*m_result, *rhs_data);
+    op.evaluate(visitable.dim(), visitable.rank());
+  }
+
   // ─── Generic unary tmech dispatch ───────────────────────────
 
   template <typename Op, typename Visitable>

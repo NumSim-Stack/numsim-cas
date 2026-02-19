@@ -466,8 +466,9 @@ TYPED_TEST(TensorExpressionTest, AddGenericFallback) {
 
   // dev + dev (same) → 2*dev(X)
   EXPECT_PRINT(dX + dX, "2*dev(X)");
-  // dev + dev (different) → hash-ordered output
-  EXPECT_PRINT(dX + dY, "dev(Y)+dev(X)");
+  // dev + dev (different) → hash-ordered output (order depends on hash)
+  auto result = ::testcas::S(dX + dY);
+  EXPECT_TRUE(result == "dev(Y)+dev(X)" || result == "dev(X)+dev(Y)");
   // dev + zero → dev(X)
   EXPECT_PRINT(dX + this->_Zero, "dev(X)");
   // dev + (-dev) → 0

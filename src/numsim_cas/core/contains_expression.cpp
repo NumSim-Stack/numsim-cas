@@ -140,9 +140,6 @@ public:
   void operator()(tensor_pow const &v) override { check(v.expr_lhs()); }
   void operator()(tensor_power_diff const &v) override { check(v.expr_lhs()); }
   void operator()(tensor_inv const &v) override { check(v.expr()); }
-  void operator()(tensor_symmetry const &v) override { check(v.expr()); }
-  void operator()(tensor_deviatoric const &v) override { check(v.expr()); }
-  void operator()(tensor_volumetric const &v) override { check(v.expr()); }
 
   void operator()(inner_product_wrapper const &v) override {
     check(v.expr_lhs());
