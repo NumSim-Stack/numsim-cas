@@ -1,5 +1,6 @@
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/tag_invoke.h>
+#include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/scalar/scalar_negativ.h>

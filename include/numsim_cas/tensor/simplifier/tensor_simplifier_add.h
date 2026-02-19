@@ -180,6 +180,8 @@ public:
 
   [[nodiscard]] expr_holder_t dispatch(tensor const &);
 
+  [[nodiscard]] expr_holder_t dispatch(inner_product_wrapper const &);
+
   template <typename Type> [[nodiscard]] expr_holder_t dispatch(Type const &) {
     auto &_rhs{m_rhs.template get<tensor_visitable_t>()};
     add_default<void> visitor(std::move(m_lhs), std::move(m_rhs));

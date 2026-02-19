@@ -4,9 +4,11 @@
 #include <cstdlib>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/tensor/data/tensor_data_make_imp.h>
+#include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/projection_tensor.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
 #include <vector>
 
@@ -18,28 +20,56 @@ constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {
 }
 
 template <typename Expr>
-constexpr inline auto dev(Expr &&expr) {
+inline expression_holder<tensor_expression> dev(Expr &&expr) {
+  if (auto simp = try_simplify_projector_contraction(ProjKind::Dev, expr)) {
+    if (simp->rule == ContractionRule::Zero)
+      return make_expression<tensor_zero>(simp->dim, expr.get().rank());
+    return apply_projection(simp->result_kind, simp->argument);
+  }
+  if (is_same<tensor_zero>(expr))
+    return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   auto d = expr.get().dim();
   return inner_product(P_devi(d), sequence{3, 4},
                        std::forward<Expr>(expr), sequence{1, 2});
 }
 
 template <typename Expr>
-constexpr inline auto sym(Expr &&expr) {
+inline expression_holder<tensor_expression> sym(Expr &&expr) {
+  if (auto simp = try_simplify_projector_contraction(ProjKind::Sym, expr)) {
+    if (simp->rule == ContractionRule::Zero)
+      return make_expression<tensor_zero>(simp->dim, expr.get().rank());
+    return apply_projection(simp->result_kind, simp->argument);
+  }
+  if (is_same<tensor_zero>(expr))
+    return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   auto d = expr.get().dim();
   return inner_product(P_sym(d), sequence{3, 4},
                        std::forward<Expr>(expr), sequence{1, 2});
 }
 
 template <typename Expr>
-constexpr inline auto vol(Expr &&expr) {
+inline expression_holder<tensor_expression> vol(Expr &&expr) {
+  if (auto simp = try_simplify_projector_contraction(ProjKind::Vol, expr)) {
+    if (simp->rule == ContractionRule::Zero)
+      return make_expression<tensor_zero>(simp->dim, expr.get().rank());
+    return apply_projection(simp->result_kind, simp->argument);
+  }
+  if (is_same<tensor_zero>(expr))
+    return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   auto d = expr.get().dim();
   return inner_product(P_vol(d), sequence{3, 4},
                        std::forward<Expr>(expr), sequence{1, 2});
 }
 
 template <typename Expr>
-constexpr inline auto skew(Expr &&expr) {
+inline expression_holder<tensor_expression> skew(Expr &&expr) {
+  if (auto simp = try_simplify_projector_contraction(ProjKind::Skew, expr)) {
+    if (simp->rule == ContractionRule::Zero)
+      return make_expression<tensor_zero>(simp->dim, expr.get().rank());
+    return apply_projection(simp->result_kind, simp->argument);
+  }
+  if (is_same<tensor_zero>(expr))
+    return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   auto d = expr.get().dim();
   return inner_product(P_skew(d), sequence{3, 4},
                        std::forward<Expr>(expr), sequence{1, 2});

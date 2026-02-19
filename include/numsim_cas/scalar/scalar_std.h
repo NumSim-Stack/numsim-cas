@@ -8,6 +8,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/scalar/scalar_abs.h>
+#include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/scalar_acos.h>
 #include <numsim_cas/scalar/scalar_asin.h>
 #include <numsim_cas/scalar/scalar_atan.h>
@@ -96,12 +97,29 @@ template <scalar_expr_holder E> auto exp(E &&e) {
   return make_expression<scalar_exp>(std::forward<E>(e));
 }
 template <scalar_expr_holder E> auto abs(E &&e) {
+  if (is_positive(e) || is_nonnegative(e))
+    return std::forward<E>(e);
+  if (is_negative(e) || is_nonpositive(e))
+    return -std::forward<E>(e);
   return make_expression<scalar_abs>(std::forward<E>(e));
 }
 template <scalar_expr_holder E> auto sqrt(E &&e) {
+  if (is_same<scalar_pow>(e)) {
+    auto const &p = e.template get<scalar_pow>();
+    if (is_same<scalar_constant>(p.expr_rhs()) &&
+        p.expr_rhs().template get<scalar_constant>().value() ==
+            scalar_number{2}) {
+      if (is_nonnegative(p.expr_lhs()) || is_positive(p.expr_lhs()))
+        return p.expr_lhs();
+    }
+  }
   return make_expression<scalar_sqrt>(std::forward<E>(e));
 }
 template <scalar_expr_holder E> auto sign(E &&e) {
+  if (is_positive(e))
+    return get_scalar_one();
+  if (is_negative(e))
+    return -get_scalar_one();
   return make_expression<scalar_sign>(std::forward<E>(e));
 }
 template <scalar_expr_holder E> auto log(E &&e) {

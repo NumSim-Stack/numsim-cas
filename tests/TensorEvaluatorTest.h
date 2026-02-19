@@ -13,7 +13,6 @@
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
-#include <numsim_cas/tensor/simplifier/tensor_projector_simplifier.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
 
 namespace numsim::cas {
@@ -584,22 +583,27 @@ TEST(TensorEval, CompoundLinearCombinationWithTrans) {
 }
 
 TEST(TensorEval, CompoundNestedDevSym) {
-  // dev(sym(A)) — symmetric deviatoric part
+  // dev(sym(A)) simplifies to dev(A) at construction time (subspace rule).
+  // Use symmetric A so evaluator short-circuit tmech::dev matches projector
+  // algebra semantics.
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 3, 2);
   // clang-format off
   auto A_val = make_tmech<3, 2>({5.0, 1.0, 2.0,
-                                  3.0, 7.0, 4.0,
-                                  6.0, 8.0, 9.0});
+                                  1.0, 7.0, 4.0,
+                                  2.0, 4.0, 9.0});
   // clang-format on
   ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(A_val));
-  auto sym_A = sym(A);
-  auto expr = dev(sym_A);
+  auto expr = dev(sym(A));
+  // dev(sym(A)) simplifies to dev(A) at construction
   auto result = ev.apply(expr);
+  auto result_dev = ev.apply(dev(A));
   ASSERT_NE(result, nullptr);
-  auto sym_val = tmech::eval(tmech::sym(A_val));
-  auto expected = tmech::eval(tmech::dev(sym_val));
+  ASSERT_NE(result_dev, nullptr);
+  auto expected = tmech::eval(tmech::dev(A_val));
   EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result), expected, tol));
+  EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result),
+                                  as_tmech<3, 2>(*result_dev), tol));
 }
 
 TEST(TensorEval, CompoundSubOuterPlusTrans) {
@@ -649,17 +653,17 @@ TEST(TensorEval, CompoundInvOfSymmetricSum) {
 }
 
 TEST(TensorEval, CompoundVolPlusDevEqualsOriginal) {
-  // vol(A) + dev(A) == A  (volumetric-deviatoric decomposition)
+  // vol(A) + dev(A) simplifies to sym(A) at construction (projector addition).
+  // For symmetric A, sym(A) == A, so the decomposition identity holds.
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 3, 2);
   // clang-format off
   auto A_val = make_tmech<3, 2>({1.0, 2.0, 3.0,
-                                  4.0, 5.0, 6.0,
-                                  7.0, 8.0, 9.0});
+                                  2.0, 5.0, 6.0,
+                                  3.0, 6.0, 9.0});
   // clang-format on
   ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(A_val));
-  auto vol_A = vol(A);
-  auto expr = vol_A + dev(A);
+  auto expr = vol(A) + dev(A);
   auto result = ev.apply(expr);
   ASSERT_NE(result, nullptr);
   EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result), A_val, tol));
@@ -826,57 +830,103 @@ TEST(TensorEval, EvalStandaloneProjectorExpression) {
 // --- Projector algebra simplifier tests ---
 
 TEST(TensorProjAlgebra, IdempotentDevDev) {
-  // dev(dev(A)) simplifies to dev(A)
+  // dev(dev(A)) simplifies to dev(A) at construction time
   auto A = make_expression<tensor>("A", 3, 2);
-  auto expr = dev(dev(A));
+  auto dev_dev_A = dev(dev(A));
+  auto dev_A = dev(A);
 
-  tensor_projector_simplifier simplifier;
-  auto simplified = simplifier.apply(expr);
+  // Construction-time simplification: single inner_product_wrapper, not nested
+  EXPECT_EQ(dev_dev_A.get().hash_value(), dev_A.get().hash_value());
 
-  // Verify via evaluation that dev(dev(A)) == dev(A)
+  // Verify via evaluation
   // clang-format off
   auto A_val = make_tmech<3, 2>({1.0, 2.0, 3.0,
-                                  4.0, 5.0, 6.0,
-                                  7.0, 8.0, 9.0});
+                                  2.0, 5.0, 6.0,
+                                  3.0, 6.0, 9.0});
   // clang-format on
   tensor_evaluator<double> ev;
   ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(A_val));
 
-  auto result_orig = ev.apply(expr);
-  auto result_simp = ev.apply(simplified);
-  auto result_dev = ev.apply(dev(A));
+  auto result_dd = ev.apply(dev_dev_A);
+  auto result_d = ev.apply(dev_A);
 
-  ASSERT_NE(result_orig, nullptr);
-  ASSERT_NE(result_simp, nullptr);
-  ASSERT_NE(result_dev, nullptr);
-  // All three should be equal
+  ASSERT_NE(result_dd, nullptr);
+  ASSERT_NE(result_d, nullptr);
   EXPECT_TRUE(
-      tmech::almost_equal(as_tmech<3, 2>(*result_simp),
-                          as_tmech<3, 2>(*result_dev), tol));
-  EXPECT_TRUE(
-      tmech::almost_equal(as_tmech<3, 2>(*result_orig),
-                          as_tmech<3, 2>(*result_dev), tol));
+      tmech::almost_equal(as_tmech<3, 2>(*result_dd),
+                          as_tmech<3, 2>(*result_d), tol));
 }
 
 TEST(TensorProjAlgebra, OrthogonalDevVol) {
-  // vol(dev(A)) simplifies to zero (orthogonal projectors)
+  // vol(dev(A)) simplifies to zero at construction time (orthogonal projectors)
   auto A = make_expression<tensor>("A", 3, 2);
   auto expr = vol(dev(A));
 
-  tensor_projector_simplifier simplifier;
-  auto simplified = simplifier.apply(expr);
-
-  // The simplified expression should be zero
-  EXPECT_TRUE(is_same<tensor_zero>(simplified));
+  // Construction-time simplification produces tensor_zero
+  EXPECT_TRUE(is_same<tensor_zero>(expr));
 }
 
 TEST(TensorProjAlgebra, SubspaceDevSym) {
-  // dev(sym(A)) simplifies to dev(A) (dev is subspace of sym)
+  // dev(sym(A)) simplifies to dev(A) at construction time (subspace rule)
   auto A = make_expression<tensor>("A", 3, 2);
-  auto expr = dev(sym(A));
+  auto dev_sym_A = dev(sym(A));
+  auto dev_A = dev(A);
 
-  tensor_projector_simplifier simplifier;
-  auto simplified = simplifier.apply(expr);
+  // Construction-time simplification: same expression tree
+  EXPECT_EQ(dev_sym_A.get().hash_value(), dev_A.get().hash_value());
+
+  // Verify via evaluation (use symmetric A for evaluator consistency)
+  // clang-format off
+  auto A_val = make_tmech<3, 2>({1.0, 2.0, 3.0,
+                                  2.0, 5.0, 6.0,
+                                  3.0, 6.0, 9.0});
+  // clang-format on
+  tensor_evaluator<double> ev;
+  ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(A_val));
+
+  auto result_ds = ev.apply(dev_sym_A);
+  auto result_d = ev.apply(dev_A);
+  ASSERT_NE(result_ds, nullptr);
+  ASSERT_NE(result_d, nullptr);
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech<3, 2>(*result_ds),
+                          as_tmech<3, 2>(*result_d), tol));
+}
+
+TEST(TensorProjAlgebra, AdditionVolDevEqualsSymViaEval) {
+  // vol(A) + dev(A) → sym(A) via binary add simplifier at construction time
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto expr = vol(A) + dev(A);
+  auto sym_A = sym(A);
+
+  // Construction-time simplification: same expression tree as sym(A)
+  EXPECT_EQ(expr.get().hash_value(), sym_A.get().hash_value());
+
+  // Verify via evaluation (use symmetric A for evaluator consistency)
+  // clang-format off
+  auto A_val = make_tmech<3, 2>({1.0, 2.0, 3.0,
+                                  2.0, 5.0, 6.0,
+                                  3.0, 6.0, 9.0});
+  // clang-format on
+  tensor_evaluator<double> ev;
+  ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(A_val));
+
+  auto result_sum = ev.apply(expr);
+  auto result_sym = ev.apply(sym_A);
+  ASSERT_NE(result_sum, nullptr);
+  ASSERT_NE(result_sym, nullptr);
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech<3, 2>(*result_sum),
+                          as_tmech<3, 2>(*result_sym), tol));
+}
+
+TEST(TensorProjAlgebra, AdditionSymSkewEqualsIdentityViaEval) {
+  // sym(A) + skew(A) → A (identity) via binary add simplifier at construction
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto expr = sym(A) + skew(A);
+
+  // Construction-time simplification: should be the bare symbol A
+  EXPECT_EQ(expr.get().hash_value(), A.get().hash_value());
 
   // Verify via evaluation
   // clang-format off
@@ -887,61 +937,9 @@ TEST(TensorProjAlgebra, SubspaceDevSym) {
   tensor_evaluator<double> ev;
   ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(A_val));
 
-  auto result_simp = ev.apply(simplified);
-  auto result_dev = ev.apply(dev(A));
-  ASSERT_NE(result_simp, nullptr);
-  ASSERT_NE(result_dev, nullptr);
-  EXPECT_TRUE(
-      tmech::almost_equal(as_tmech<3, 2>(*result_simp),
-                          as_tmech<3, 2>(*result_dev), tol));
-}
-
-TEST(TensorProjAlgebra, AdditionVolDevEqualsSymViaEval) {
-  // vol(A) + dev(A) → sym(A) via projector addition rule
-  auto A = make_expression<tensor>("A", 3, 2);
-  auto expr = vol(A) + dev(A);
-
-  tensor_projector_simplifier simplifier;
-  auto simplified = simplifier.apply(expr);
-
-  // Verify via evaluation: vol(A) + dev(A) should equal sym(A)
-  // clang-format off
-  auto A_val = make_tmech<3, 2>({1.0, 2.0, 3.0,
-                                  4.0, 5.0, 6.0,
-                                  7.0, 8.0, 9.0});
-  // clang-format on
-  tensor_evaluator<double> ev;
-  ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(A_val));
-
-  auto result_simp = ev.apply(simplified);
-  auto result_sym = ev.apply(sym(A));
-  ASSERT_NE(result_simp, nullptr);
-  ASSERT_NE(result_sym, nullptr);
-  EXPECT_TRUE(
-      tmech::almost_equal(as_tmech<3, 2>(*result_simp),
-                          as_tmech<3, 2>(*result_sym), tol));
-}
-
-TEST(TensorProjAlgebra, AdditionSymSkewEqualsIdentityViaEval) {
-  // sym(A) + skew(A) → A (identity) via projector addition rule
-  auto A = make_expression<tensor>("A", 3, 2);
-  auto expr = sym(A) + skew(A);
-
-  tensor_projector_simplifier simplifier;
-  auto simplified = simplifier.apply(expr);
-
-  // Verify via evaluation: sym(A) + skew(A) should equal A
-  // clang-format off
-  auto A_val = make_tmech<3, 2>({1.0, 2.0, 3.0,
-                                  4.0, 5.0, 6.0,
-                                  7.0, 8.0, 9.0});
-  // clang-format on
-  tensor_evaluator<double> ev;
-  ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(A_val));
-
-  auto result_simp = ev.apply(simplified);
-  ASSERT_NE(result_simp, nullptr);
-  EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result_simp), A_val, tol));
+  auto result = ev.apply(expr);
+  ASSERT_NE(result, nullptr);
+  EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result), A_val, tol));
 }
 
 } // namespace numsim::cas

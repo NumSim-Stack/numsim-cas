@@ -108,9 +108,10 @@ public:
   // ─── Products ────────────────────────────────────────────────
 
   void operator()(inner_product_wrapper const &visitable) override {
-    // Short-circuit: detect P:A where P is a known rank-2 projector
+    // Short-circuit: detect P:A where P is a known rank-2 projector and A is rank-2
     if (visitable.indices_lhs() == sequence{3, 4} &&
         visitable.indices_rhs() == sequence{1, 2} &&
+        visitable.expr_rhs().get().rank() == 2 &&
         is_same<tensor_projector>(visitable.expr_lhs())) {
       auto const &proj =
           visitable.expr_lhs().template get<tensor_projector>();

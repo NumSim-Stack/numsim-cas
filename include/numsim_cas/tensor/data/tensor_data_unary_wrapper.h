@@ -58,8 +58,40 @@ public:
   template <std::size_t Dim, std::size_t Rank> void evaluate_imp() {
     if constexpr (Rank % 2 == 0) {
       using Tensor = tensor_data<ValueType, Dim, Rank>;
-      static_cast<Tensor &>(m_result).data() =
-          tmech::eye<ValueType, Dim, Rank>();
+      auto &data = static_cast<Tensor &>(m_result).data();
+      if constexpr (Rank == 2) {
+        data = tmech::eye<ValueType, Dim, 2>();
+      } else if constexpr (Rank == 4) {
+        // Minor identity: I_{ijkl} = delta_ik * delta_jl
+        // This is the 4th-order identity for differentiation: dA_ij/dA_kl
+        auto I2 = tmech::eye<ValueType, Dim, 2>();
+        data = tmech::otimesu(I2, I2);
+      } else {
+        // General minor identity for rank 2R:
+        // I_{i0,...,iR-1,j0,...,jR-1} = prod_k delta(i_k, j_{k})
+        constexpr std::size_t R = Rank / 2;
+        constexpr std::size_t total = []() {
+          std::size_t s = 1;
+          for (std::size_t i = 0; i < Rank; ++i) s *= Dim;
+          return s;
+        }();
+        auto *raw = data.raw_data();
+        for (std::size_t idx = 0; idx < total; ++idx) {
+          // Decompose flat index into multi-index
+          std::size_t tmp = idx;
+          std::size_t indices[Rank];
+          for (std::size_t k = Rank; k > 0; --k) {
+            indices[k - 1] = tmp % Dim;
+            tmp /= Dim;
+          }
+          // Check if i_k == i_{R+k} for all k in [0, R)
+          ValueType val{1};
+          for (std::size_t k = 0; k < R; ++k) {
+            if (indices[k] != indices[R + k]) { val = 0; break; }
+          }
+          raw[idx] = val;
+        }
+      }
     } else {
       throw evaluation_error(
           "tensor_data_identity: identity requires even rank");

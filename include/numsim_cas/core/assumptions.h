@@ -102,10 +102,15 @@ public:
   bool contains(numeric_assumption const &a) const {
     return set_.find(a) != set_.end();
   }
+  void clear() { set_.clear(); }
   auto const &data() const { return set_; }
+
+  bool inferred() const noexcept { return inferred_; }
+  void set_inferred() noexcept { inferred_ = true; }
 
 private:
   std::set<numeric_assumption, numeric_assumption_less> set_;
+  bool inferred_{false};
 };
 
 // class tensor_space_manager {

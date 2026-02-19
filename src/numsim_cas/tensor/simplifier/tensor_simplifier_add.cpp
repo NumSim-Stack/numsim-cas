@@ -1,6 +1,8 @@
 #include <numsim_cas/functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
+#include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_add.h>
+#include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 
 namespace numsim::cas {
@@ -137,6 +139,31 @@ add_base::dispatch(tensor_negative const &) {
 add_base::dispatch(tensor const &) {
   auto &_rhs{m_rhs.template get<tensor_visitable_t>()};
   symbol_add visitor(std::move(m_lhs), std::move(m_rhs));
+  return _rhs.accept(visitor);
+}
+
+[[nodiscard]] add_base::expr_holder_t
+add_base::dispatch(inner_product_wrapper const &) {
+  // Check if both LHS and RHS are projector contractions with same argument
+  auto lhs_info = as_projector_contraction(m_lhs);
+  auto rhs_info = as_projector_contraction(m_rhs);
+  if (lhs_info && rhs_info) {
+    auto k_lhs = classify(*lhs_info->proj);
+    auto k_rhs = classify(*rhs_info->proj);
+    if (k_lhs != ProjKind::Other && k_rhs != ProjKind::Other &&
+        lhs_info->argument.get().hash_value() ==
+            rhs_info->argument.get().hash_value()) {
+      auto combined = addition_rule(k_lhs, k_rhs);
+      if (combined)
+        return apply_projection(*combined, lhs_info->argument);
+      if (is_identity_sum(k_lhs, k_rhs)) {
+        return lhs_info->argument;
+      }
+    }
+  }
+  // Fall through to default
+  auto &_rhs{m_rhs.template get<tensor_visitable_t>()};
+  add_default<void> visitor(std::move(m_lhs), std::move(m_rhs));
   return _rhs.accept(visitor);
 }
 

@@ -137,13 +137,13 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
 
 // inner_product_wrapper: product rule
 // d(inner(A, idx_a, B, idx_b))/dX = inner(dA, idx_a, B, idx_b) + inner(A, idx_a, dB, idx_b)
-// with index shifting for the derivative's extra indices
+// Derivative indices are appended, so contraction positions are unchanged.
 void tensor_differentiation::operator()(
     inner_product_wrapper const &visitable) {
   auto const &expr_lhs = visitable.expr_lhs();
   auto const &expr_rhs = visitable.expr_rhs();
-  auto seq_lhs = visitable.indices_lhs();
-  auto seq_rhs = visitable.indices_rhs();
+  auto const &seq_lhs = visitable.indices_lhs();
+  auto const &seq_rhs = visitable.indices_rhs();
 
   auto dA = diff(expr_lhs, m_arg);
   auto dB = diff(expr_rhs, m_arg);
@@ -154,19 +154,13 @@ void tensor_differentiation::operator()(
   const auto free_lhs = rank_lhs - size_inner_lhs;
   const auto free_rhs = rank_rhs - seq_rhs.size();
 
-  // Shift indices by 1 (0-based to 1-based for inner_product)
-  sequence seq_lhs_1(seq_lhs.size()), seq_rhs_1(seq_rhs.size());
-  for (std::size_t i = 0; i < seq_lhs.size(); ++i)
-    seq_lhs_1[i] = seq_lhs[i] + 1;
-  for (std::size_t i = 0; i < seq_rhs.size(); ++i)
-    seq_rhs_1[i] = seq_rhs[i] + 1;
-
   tensor_holder_t result;
 
-  if (dA.is_valid()) {
-    // dA has rank = rank_lhs + rank_arg
-    // The contraction indices in dA are the same positions as in A
-    auto term_lhs = inner_product(dA, seq_lhs_1, expr_rhs, seq_rhs_1);
+  if (dA.is_valid() && !is_same<tensor_zero>(dA)) {
+    // dA has rank = rank_lhs + rank_arg, derivative indices appended.
+    // Contraction indices are at the same positions as in the original A.
+    auto term_lhs = inner_product(dA, sequence(seq_lhs),
+                                  expr_rhs, sequence(seq_rhs));
 
     if (free_rhs > 0) {
       // Need to reorder: put derivative indices (from arg) at the end
@@ -189,9 +183,11 @@ void tensor_differentiation::operator()(
     result = std::move(term_lhs);
   }
 
-  if (dB.is_valid()) {
-    // dB has rank = rank_rhs + rank_arg
-    auto term_rhs = inner_product(expr_lhs, seq_lhs_1, dB, seq_rhs_1);
+  if (dB.is_valid() && !is_same<tensor_zero>(dB)) {
+    // dB has rank = rank_rhs + rank_arg, derivative indices appended.
+    // Contraction indices are at the same positions as in the original B.
+    auto term_rhs = inner_product(expr_lhs, sequence(seq_lhs),
+                                  dB, sequence(seq_rhs));
     if (result.is_valid()) {
       result += term_rhs;
     } else {
