@@ -16,25 +16,21 @@ public:
   template <typename LHS, typename RHS>
   tensor_scalar_mul(LHS &&lhs, RHS &&rhs)
       : base(std::forward<LHS>(lhs), std::forward<RHS>(rhs), rhs.get().dim(),
-             rhs.get().rank()),
-        m_constant(is_same<scalar_constant>(this->m_lhs)) {}
+             rhs.get().rank()) {}
 
   template <typename LHS, typename RHS>
   tensor_scalar_mul(LHS const &lhs, RHS const &rhs)
-      : base(lhs, rhs, rhs.get().dim(), rhs.get().rank()),
-        m_constant(is_same<scalar_constant>(this->m_lhs)) {}
+      : base(lhs, rhs, rhs.get().dim(), rhs.get().rank()) {}
 
   virtual void update_hash_value() const noexcept override {
-    base::m_hash_value = 0;
-    if (!m_constant) {
+    if (is_same<scalar_constant>(this->m_lhs)) {
+      base::m_hash_value = this->m_rhs.get().hash_value();
+    } else {
+      base::m_hash_value = 0;
       hash_combine(base::m_hash_value, this->m_lhs.get().hash_value());
+      hash_combine(base::m_hash_value, this->m_rhs.get().hash_value());
     }
-    hash_combine(base::m_hash_value, this->m_rhs.get().hash_value());
-    base::m_hash_value = this->m_rhs.get().hash_value();
   }
-
-private:
-  bool m_constant;
 };
 
 } // namespace numsim::cas

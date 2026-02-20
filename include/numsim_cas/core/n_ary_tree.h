@@ -205,9 +205,6 @@ bool operator==(n_ary_tree<BaseLHS> const &lhs,
 template <typename BaseLHS, typename BaseRHS>
 bool operator!=(n_ary_tree<BaseLHS> const &lhs,
                 n_ary_tree<BaseRHS> const &rhs) {
-  if (lhs.size() == 1 && rhs.size() == 1) {
-    return lhs.hash_map().begin()->second != rhs.hash_map().begin()->second;
-  }
   return !(lhs == rhs);
 }
 

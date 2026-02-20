@@ -86,23 +86,13 @@ public:
 
 protected:
   virtual void update_hash_value() const override {
-    std::vector<std::size_t> child_hashes;
-    child_hashes.reserve(m_data.size());
     this->m_hash_value = 0;
 
     // otherwise we can not provide the order of the symbols
     hash_combine(this->m_hash_value, base_t::get_id());
 
     for (const auto &child : m_data) {
-      child_hashes.push_back(child.get().hash_value());
-    }
-
-    // Sort for commutative operations like addition
-    std::stable_sort(child_hashes.begin(), child_hashes.end());
-
-    // Combine all child hashes
-    for (const auto &child_hash : child_hashes) {
-      hash_combine(this->m_hash_value, child_hash);
+      hash_combine(this->m_hash_value, child.get().hash_value());
     }
   }
 
@@ -154,15 +144,22 @@ bool operator>(n_ary_vector<BaseLHS> const &lhs,
 template <typename BaseLHS, typename BaseRHS>
 bool operator==(n_ary_vector<BaseLHS> const &lhs,
                 n_ary_vector<BaseRHS> const &rhs) {
-  return lhs.hash_value() == rhs.hash_value();
+  if (lhs.hash_value() != rhs.hash_value())
+    return false;
+  if (lhs.id() != rhs.id())
+    return false;
+  if (lhs.size() != rhs.size())
+    return false;
+  for (std::size_t i = 0; i < lhs.data().size(); ++i) {
+    if (lhs.data()[i] != rhs.data()[i])
+      return false;
+  }
+  return true;
 }
 
 template <typename BaseLHS, typename BaseRHS>
 bool operator!=(n_ary_vector<BaseLHS> const &lhs,
                 n_ary_vector<BaseRHS> const &rhs) {
-  if (lhs.size() == 1 && rhs.size() == 1) {
-    return lhs.data().front() != rhs.data().front();
-  }
   return !(lhs == rhs);
 }
 

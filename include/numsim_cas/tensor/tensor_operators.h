@@ -116,6 +116,11 @@ inline expression_holder<tensor_expression> tag_invoke(div_fn, L &&lhs,
   if (is_same<tensor_zero>(lhs)) {
     return lhs;
   }
+  if (is_same<scalar_one>(rhs) ||
+      (is_same<scalar_constant>(rhs) &&
+       rhs.template get<scalar_constant>().value() == 1)) {
+    return std::forward<L>(lhs);
+  }
   return lhs * pow(rhs, -get_scalar_one());
 }
 

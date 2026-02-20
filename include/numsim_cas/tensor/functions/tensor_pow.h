@@ -1,6 +1,7 @@
 #ifndef TENSOR_POW_H
 #define TENSOR_POW_H
 
+#include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/binary_op.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 
@@ -23,15 +24,14 @@ public:
   ~tensor_pow() = default;
   const tensor_pow &operator=(tensor_pow &&) = delete;
 
-  inline void update_hash() {
-    //    base::m_hash_value = 0;
-    //    if(!is_same<scalar_constant>(this->m_rhs)){
-    //      hash_combine(base::m_hash_value, this->m_lhs.get().hash_value());
-    //      hash_combine(base::m_hash_value, this->m_rhs.get().hash_value());
-    //    }else{
-    //      base::m_hash_value = this->m_lhs.get().hash_value();
-    //    }
-    base::m_hash_value = this->m_lhs.get().hash_value();
+  virtual void update_hash_value() const noexcept override {
+    if (is_same<scalar_constant>(this->m_rhs)) {
+      base::m_hash_value = this->m_lhs.get().hash_value();
+    } else {
+      base::m_hash_value = 0;
+      hash_combine(base::m_hash_value, this->m_lhs.get().hash_value());
+      hash_combine(base::m_hash_value, this->m_rhs.get().hash_value());
+    }
   }
 
 private:

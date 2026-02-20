@@ -578,6 +578,39 @@ TYPED_TEST(TensorExpressionTest, TensorDivByOneIsIdentity) {
 }
 
 // -----------------------------------------------------------------------------
+// Equality deep-compare (n_ary_vector)
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, TensorMulEqualityDistinguishesOrder) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+
+  auto XY = X * Y;
+  auto YX = Y * X;
+  EXPECT_NE(XY.get().hash_value(), YX.get().hash_value());
+  EXPECT_NE(XY, YX);
+  // self-equality
+  EXPECT_EQ(XY, XY);
+}
+
+TYPED_TEST(TensorExpressionTest, NaryEqualityNotEqualConsistency) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Z = this->Z;
+
+  // n_ary_tree (add): !(a==b) must equal (a!=b)
+  auto sum1 = X + Y;
+  auto sum2 = X + Z;
+  EXPECT_TRUE((sum1 == sum2) == !(sum1 != sum2));
+  EXPECT_TRUE((sum1 != sum2) == !(sum1 == sum2));
+
+  // n_ary_vector (mul): !(a==b) must equal (a!=b)
+  auto prod1 = X * Y;
+  auto prod2 = Y * X;
+  EXPECT_TRUE((prod1 == prod2) == !(prod1 != prod2));
+  EXPECT_TRUE((prod1 != prod2) == !(prod1 == prod2));
+}
+
+// -----------------------------------------------------------------------------
 // Differentiation
 // -----------------------------------------------------------------------------
 TYPED_TEST(TensorExpressionTest, TensorDiff) {
