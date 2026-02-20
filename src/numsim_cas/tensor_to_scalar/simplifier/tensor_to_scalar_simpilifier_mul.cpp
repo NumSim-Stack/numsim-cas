@@ -8,30 +8,6 @@ namespace numsim::cas {
 namespace tensor_to_scalar_detail {
 namespace simplifier {
 
-// wrapper_tensor_to_scalar_mul_mul::wrapper_tensor_to_scalar_mul_mul(expr_holder_t
-// lhs, expr_holder_t rhs)
-//     : base(std::move(lhs), std::move(rhs)),
-//       lhs{base::m_lhs.template get<tensor_to_scalar_with_scalar_mul>()} {}
-
-//        // tensor_to_scalar_with_scalar_mul * tensor_to_scalar_with_scalar_mul
-//        -->
-//        // tensor_to_scalar_with_scalar_mul
-// [[nodiscard]] wrapper_tensor_to_scalar_mul_mul::expr_holder_t
-// wrapper_tensor_to_scalar_mul_mul::dispatch(tensor_to_scalar_with_scalar_mul
-// const &rhs) {
-//   return make_expression<tensor_to_scalar_with_scalar_mul>(
-//       lhs.expr_lhs() * rhs.expr_lhs(), lhs.expr_rhs() * rhs.expr_rhs());
-// }
-
-//        // tensor_to_scalar_with_scalar_mul * tensor_to_scalar -->
-//        // tensor_to_scalar_with_scalar_mul
-// template <typename Expr>
-// [[nodiscard]] wrapper_tensor_to_scalar_mul_mul::expr_holder_t
-// wrapper_tensor_to_scalar_mul_mul::dispatch(Expr const &) {
-//   return make_expression<tensor_to_scalar_with_scalar_mul>(
-//       lhs.expr_lhs(), m_rhs * lhs.expr_rhs());
-// }
-
 // --- constant_mul ---
 using t2s_traits = domain_traits<tensor_to_scalar_expression>;
 

@@ -61,11 +61,6 @@ struct scalar_expr_less {
 template <typename ExprType> using expr_ordered_map = std::map<ExprType, ExprType>;
 template <typename ExprType> using expr_vector = std::vector<ExprType>;
 
-template <class... Ts> struct overloaded : Ts... {
-  using Ts::operator()...;
-};
-template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
 template <typename T>
 using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
 

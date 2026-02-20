@@ -1,38 +1,10 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
-// // #include "scalar_functions.h"
-// // #include "tensor_functions.h"
-// #include "numsim_cas_type_traits.h"
-// #include "scalar/visitors/scalar_differentiation.h"
-// #include "scalar/visitors/scalar_evaluator.h"
-// #include "tensor/visitors/tensor_differentiation.h"
-// #include "tensor/visitors/tensor_evaluator.h"
-// #include "tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h"
-
-// #include "tensor/tensor_functions.h"
-// #include "tensor_to_scalar/tensor_to_scalar_functions.h"
 #include <numsim_cas/core/n_ary_tree.h>
 #include <numsim_cas/core/operators.h>
 
 namespace numsim::cas {
-
-// template <typename ValueType>
-// inline auto eval(scalar_expression<ValueType> &expr) {
-//   scalar_evaluator<ValueType> eval;
-//   return eval.apply(expr);
-// }
-
-// template <typename ValueType>
-// inline auto eval(expression_holder<scalar_expression<ValueType>> &&expr) {
-//   scalar_evaluator<ValueType> eval;
-//   return eval.apply(expr);
-// }
-
-// template <typename T, std::size_t Dim, std::size_t Rank>
-// inline auto get_tensor(std::unique_ptr<tensor_data_base<T>> const &data) {
-//   return static_cast<tensor_data<T, Dim, Rank> &>(*data.get()).data();
-// }
 
 /// merge two n_ary_trees
 ///   --> use std::function for special handling?

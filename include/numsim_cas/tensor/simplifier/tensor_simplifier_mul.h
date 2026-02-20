@@ -19,32 +19,10 @@ public:
   mul_default(expr_holder_t lhs, expr_holder_t rhs)
       : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
 
-  //    //if(rhs_constant){
-  //    //  add.set_coeff(m_rhs);
-  //    //}else{
-  //      add.push_back(m_rhs);
-  //    //}
-  //    return std::std::move(add_new);
-  //  }
-
   // expr * 0 --> 0
   expr_holder_t dispatch(tensor_zero const &) { return m_rhs; }
 
   expr_holder_t dispatch(kronecker_delta const &) { return m_lhs; }
-
-  //  template <typename _Expr, typename _ValueType>
-  //  constexpr auto get_coefficient(_Expr const &expr, _ValueType const &value)
-  //  {
-  //    if constexpr (is_detected_v<has_coefficient, _Expr>) {
-  //      auto func{[&](auto const &coeff) {
-  //        return coeff.is_valid() ? coeff.template
-  //        get<tensor_constant>()()
-  //                                : value;
-  //      }};
-  //      return func(expr.coeff());
-  //    }
-  //    return value;
-  //  }
 
   template <typename Expr> expr_holder_t dispatch(Expr const &) {
     return get_default();
@@ -55,17 +33,11 @@ protected:
     if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
       return pow(std::move(m_lhs), 2);
     }
-    // const auto lhs_constant{is_same<tensor_constant>(m_lhs)};
-    // const auto rhs_constant{is_same<tensor_constant>(m_rhs)};
     auto mul_new{
         make_expression<tensor_mul>(m_lhs.get().dim(), m_rhs.get().rank())};
     auto &add{mul_new.template get<tensor_mul>()};
-    // if(lhs_constant){
-    //   add.set_coeff(m_lhs);
-    // }else{
     add.push_back(m_lhs);
     add.push_back(m_rhs);
-    //}
     return mul_new;
   }
 

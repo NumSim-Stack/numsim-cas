@@ -27,10 +27,5 @@
 #include "scalar_tan.h"
 #include "scalar_visitor_typedef.h"
 #include "scalar_zero.h"
-// #include "simplifier/scalar_simplifier_add.h"
-// #include "simplifier/scalar_simplifier_div.h"
-// #include "simplifier/scalar_simplifier_mul.h"
-// #include "simplifier/scalar_simplifier_negative.h"
-// #include "simplifier/scalar_simplifier_sub.h"
 
 #endif // SCALAR_DEFINITIONS_H

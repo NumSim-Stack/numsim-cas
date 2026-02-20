@@ -78,11 +78,6 @@ template <typename Expr>
 template <typename ExprLHS, typename ExprRHS>
 [[nodiscard]] constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                     ExprRHS &&rhs, sequence &&rhs_indices) {
-  // const auto &_lhs{*lhs};
-  // inner_product_simplifier<ExprLHS, ExprRHS> simplifier(
-  //     std::forward<ExprLHS>(lhs), std::move(lhs_indices),
-  //     std::forward<ExprRHS>(rhs), std::move(rhs_indices));
-  // return std::visit(simplifier, _lhs);
   return make_expression<inner_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
@@ -92,13 +87,6 @@ template <typename ExprLHS, typename ExprRHS>
 [[nodiscard]] constexpr inline auto inner_product(ExprLHS &&lhs, sequence const &lhs_indices,
                                     ExprRHS &&rhs,
                                     sequence const &rhs_indices) {
-  // assert(call_tensor::rank(lhs) != lhs_indices.size() ||
-  //        call_tensor::rank(rhs) != rhs_indices.size());
-  // const auto &_lhs{*lhs};
-  // inner_product_simplifier<ExprLHS, ExprRHS> simplifier(
-  //     std::forward<ExprLHS>(lhs), lhs_indices, std::forward<ExprRHS>(rhs),
-  //     rhs_indices);
-  // return std::visit(simplifier, _lhs);
   return make_expression<inner_product_wrapper>(
       std::forward<ExprLHS>(lhs), lhs_indices, std::forward<ExprRHS>(rhs),
       rhs_indices);
@@ -194,55 +182,6 @@ template <typename Expr> [[nodiscard]] constexpr inline auto inv(Expr &&expr) {
   return make_expression<tensor_inv>(std::forward<Expr>(expr));
 }
 
-// template <typename ValueType, typename StreamType>
-// constexpr inline void
-// print(StreamType &out,
-//       expression_holder<tensor_expression> const &expr,
-//       Precedence precedence) {
-//   tensor_printer<StreamType> eval(out);
-//   eval.apply(expr, precedence);
-// }
-
-// template <typename ValueType>
-// constexpr inline expression_holder<tensor_expression>
-// diff(expression_holder<tensor_expression> const &expr,
-//      expression_holder<tensor_expression> const &arg) {
-//   tensor_differentiation eval(arg);
-//   return eval.apply(expr);
-// }
-
-// template <typename ValueType>
-// inline auto eval(expression_holder<tensor_expression> expr) {
-//   tensor_evaluator eval;
-//   return eval.apply(expr);
-// }
-
-// template <typename T>
-// [[nodiscard]] inline auto
-// identity_tensor(expression_holder<tensor_expression<T>> const &expr) {
-//   const auto &I{get_identity_tensor<T>(expr.get().dim())};
-//   const auto &tensor{expr.get()};
-
-//   if (tensor.rank() == 1) {
-//     return I;
-//   }
-
-//   if (expr.get().rank() == 2) {
-//     return otimesu(I, I);
-//   }
-
-//   auto outer_expr{make_expression<simple_outer_product<T>>(tensor.dim(),
-//                                                            tensor.rank() *
-//                                                            2)};
-//   auto &outer{outer_expr.template get<simple_outer_product<T>>()};
-//   sequence basis(tensor.rank() * 2);
-//   for (std::size_t i{0}; i < tensor.rank(); ++i) {
-//     outer.push_back(I);
-//     basis[(i * 2)] = i + 1;
-//     basis[(i * 2) + 1] = tensor.rank() + i + 1;
-//   }
-//   return permute_indices(std::move(outer_expr), std::move(basis));
-// }
 } // namespace numsim::cas
 
 #endif // NUMSIM_CAS_TENSOR_FUNCTIONS_H
