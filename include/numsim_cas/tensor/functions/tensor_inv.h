@@ -12,6 +12,16 @@ public:
   template <typename Expr>
   explicit tensor_inv(Expr &&_expr)
       : base(std::forward<Expr>(_expr), _expr.get().dim(), _expr.get().rank()) {
+    // inv preserves Symmetric, Volumetric, and Skew spaces.
+    // Deviatoric/Harmonic are NOT preserved (tr(A^{-1}) ≠ 0 in general),
+    // but the Symmetric perm is still valid — downgrade to Symmetric.
+    if (auto const &sp = this->expr().get().space()) {
+      if (std::holds_alternative<DeviatoricTag>(sp->trace) ||
+          std::holds_alternative<HarmonicTag>(sp->trace))
+        this->set_space({Symmetric{}, AnyTraceTag{}});
+      else
+        this->set_space(*sp);
+    }
   }
 };
 

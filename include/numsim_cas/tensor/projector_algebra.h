@@ -4,8 +4,8 @@
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/tensor/functions/inner_product_wrapper.h>
 #include <numsim_cas/tensor/projection_tensor.h>
-#include <cassert>
 #include <optional>
+#include <utility>
 
 namespace numsim::cas {
 
@@ -13,8 +13,7 @@ namespace numsim::cas {
 
 enum class ProjKind { Sym, Skew, Vol, Dev, Other };
 
-inline ProjKind classify(tensor_projector const &p) {
-  auto const &sp = p.space();
+inline ProjKind classify_space(tensor_space const &sp) {
   if (std::holds_alternative<Symmetric>(sp.perm)) {
     if (std::holds_alternative<AnyTraceTag>(sp.trace))
       return ProjKind::Sym;
@@ -27,6 +26,22 @@ inline ProjKind classify(tensor_projector const &p) {
       std::holds_alternative<AnyTraceTag>(sp.trace))
     return ProjKind::Skew;
   return ProjKind::Other;
+}
+
+inline ProjKind classify(tensor_projector const &p) {
+  return classify_space(p.space());
+}
+
+// ─── Map ProjKind → tensor_space ─────────────────────────────────────────────
+
+inline tensor_space space_for_kind(ProjKind kind) {
+  switch (kind) {
+  case ProjKind::Sym:  return {Symmetric{}, AnyTraceTag{}};
+  case ProjKind::Skew: return {Skew{}, AnyTraceTag{}};
+  case ProjKind::Vol:  return {Symmetric{}, VolumetricTag{}};
+  case ProjKind::Dev:  return {Symmetric{}, DeviatoricTag{}};
+  default: std::unreachable();
+  }
 }
 
 // ─── Helper: detect P:A pattern ─────────────────────────────────────────────
@@ -73,6 +88,13 @@ inline std::optional<ContractionRule> contraction_rule(ProjKind lhs,
     return ContractionRule::Zero;
   if ((lhs == ProjKind::Sym && rhs == ProjKind::Skew) ||
       (lhs == ProjKind::Skew && rhs == ProjKind::Sym))
+    return ContractionRule::Zero;
+  // Vol ⊂ Sym, Dev ⊂ Sym, so Skew ⊥ Vol and Skew ⊥ Dev
+  if ((lhs == ProjKind::Skew && rhs == ProjKind::Vol) ||
+      (lhs == ProjKind::Vol && rhs == ProjKind::Skew))
+    return ContractionRule::Zero;
+  if ((lhs == ProjKind::Skew && rhs == ProjKind::Dev) ||
+      (lhs == ProjKind::Dev && rhs == ProjKind::Skew))
     return ContractionRule::Zero;
 
   // Subspace relations: Vol ⊂ Sym, Dev ⊂ Sym
@@ -155,23 +177,29 @@ inline expression_holder<tensor_expression>
 apply_projection(ProjKind kind,
                  expression_holder<tensor_expression> const &arg) {
   auto d = arg.get().dim();
+  expression_holder<tensor_expression> result;
   switch (kind) {
   case ProjKind::Dev:
-    return make_expression<inner_product_wrapper>(
+    result = make_expression<inner_product_wrapper>(
         P_devi(d), sequence{3, 4}, arg, sequence{1, 2});
+    break;
   case ProjKind::Sym:
-    return make_expression<inner_product_wrapper>(
+    result = make_expression<inner_product_wrapper>(
         P_sym(d), sequence{3, 4}, arg, sequence{1, 2});
+    break;
   case ProjKind::Vol:
-    return make_expression<inner_product_wrapper>(
+    result = make_expression<inner_product_wrapper>(
         P_vol(d), sequence{3, 4}, arg, sequence{1, 2});
+    break;
   case ProjKind::Skew:
-    return make_expression<inner_product_wrapper>(
+    result = make_expression<inner_product_wrapper>(
         P_skew(d), sequence{3, 4}, arg, sequence{1, 2});
+    break;
   default:
-    assert(false && "apply_projection: invalid ProjKind");
-    return {};
+    std::unreachable();
   }
+  result.data()->set_space(space_for_kind(kind));
+  return result;
 }
 
 } // namespace numsim::cas

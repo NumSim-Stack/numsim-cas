@@ -2,8 +2,10 @@
 #define NUMSIM_CAS_TENSOR_FUNCTIONS_H
 
 #include <cstdlib>
+#include <optional>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/tensor/data/tensor_data_make_imp.h>
+#include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/projection_tensor.h>
 #include <numsim_cas/tensor/sequence.h>
@@ -21,6 +23,18 @@ constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {
 
 template <typename Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> dev(Expr &&expr) {
+  if (is_same<kronecker_delta>(expr))
+    return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
+  if (auto const &sp = expr.get().space()) {
+    if (auto rule = contraction_rule(ProjKind::Dev, classify_space(*sp))) {
+      if (*rule == ContractionRule::Idempotent ||
+          *rule == ContractionRule::RhsSubspace)
+        return expr;
+      if (*rule == ContractionRule::Zero)
+        return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
+      // LhsSubspace: projector is stricter — proceed to normal projection
+    }
+  }
   if (auto simp = try_simplify_projector_contraction(ProjKind::Dev, expr)) {
     if (simp->rule == ContractionRule::Zero)
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
@@ -37,12 +51,25 @@ template <typename Expr>
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   auto d = expr.get().dim();
-  return inner_product(P_devi(d), sequence{3, 4},
-                       std::forward<Expr>(expr), sequence{1, 2});
+  auto result = inner_product(P_devi(d), sequence{3, 4},
+                              std::forward<Expr>(expr), sequence{1, 2});
+  result.data()->set_space(space_for_kind(ProjKind::Dev));
+  return result;
 }
 
 template <typename Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> sym(Expr &&expr) {
+  if (is_same<kronecker_delta>(expr))
+    return expr;
+  if (auto const &sp = expr.get().space()) {
+    if (auto rule = contraction_rule(ProjKind::Sym, classify_space(*sp))) {
+      if (*rule == ContractionRule::Idempotent ||
+          *rule == ContractionRule::RhsSubspace)
+        return expr;
+      if (*rule == ContractionRule::Zero)
+        return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
+    }
+  }
   if (auto simp = try_simplify_projector_contraction(ProjKind::Sym, expr)) {
     if (simp->rule == ContractionRule::Zero)
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
@@ -59,12 +86,25 @@ template <typename Expr>
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   auto d = expr.get().dim();
-  return inner_product(P_sym(d), sequence{3, 4},
-                       std::forward<Expr>(expr), sequence{1, 2});
+  auto result = inner_product(P_sym(d), sequence{3, 4},
+                              std::forward<Expr>(expr), sequence{1, 2});
+  result.data()->set_space(space_for_kind(ProjKind::Sym));
+  return result;
 }
 
 template <typename Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> vol(Expr &&expr) {
+  if (is_same<kronecker_delta>(expr))
+    return expr;
+  if (auto const &sp = expr.get().space()) {
+    if (auto rule = contraction_rule(ProjKind::Vol, classify_space(*sp))) {
+      if (*rule == ContractionRule::Idempotent ||
+          *rule == ContractionRule::RhsSubspace)
+        return expr;
+      if (*rule == ContractionRule::Zero)
+        return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
+    }
+  }
   if (auto simp = try_simplify_projector_contraction(ProjKind::Vol, expr)) {
     if (simp->rule == ContractionRule::Zero)
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
@@ -81,12 +121,25 @@ template <typename Expr>
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   auto d = expr.get().dim();
-  return inner_product(P_vol(d), sequence{3, 4},
-                       std::forward<Expr>(expr), sequence{1, 2});
+  auto result = inner_product(P_vol(d), sequence{3, 4},
+                              std::forward<Expr>(expr), sequence{1, 2});
+  result.data()->set_space(space_for_kind(ProjKind::Vol));
+  return result;
 }
 
 template <typename Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> skew(Expr &&expr) {
+  if (is_same<kronecker_delta>(expr))
+    return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
+  if (auto const &sp = expr.get().space()) {
+    if (auto rule = contraction_rule(ProjKind::Skew, classify_space(*sp))) {
+      if (*rule == ContractionRule::Idempotent ||
+          *rule == ContractionRule::RhsSubspace)
+        return expr;
+      if (*rule == ContractionRule::Zero)
+        return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
+    }
+  }
   if (auto simp = try_simplify_projector_contraction(ProjKind::Skew, expr)) {
     if (simp->rule == ContractionRule::Zero)
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
@@ -103,22 +156,57 @@ template <typename Expr>
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   auto d = expr.get().dim();
-  return inner_product(P_skew(d), sequence{3, 4},
-                       std::forward<Expr>(expr), sequence{1, 2});
+  auto result = inner_product(P_skew(d), sequence{3, 4},
+                              std::forward<Expr>(expr), sequence{1, 2});
+  result.data()->set_space(space_for_kind(ProjKind::Skew));
+  return result;
 }
 
+namespace detail_ip {
+/// If RHS is a rank-2 projector and both index sets are {1,2},
+/// normalize X:{1,2} P:{1,2} → sym/dev/vol/skew(X).
 template <typename ExprLHS, typename ExprRHS>
-[[nodiscard]] constexpr inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
-                                    ExprRHS &&rhs, sequence &&rhs_indices) {
+inline std::optional<expression_holder<tensor_expression>>
+try_normalize_reversed_projector(ExprLHS &&lhs, sequence const &lhs_indices,
+                                  ExprRHS &&rhs, sequence const &rhs_indices) {
+  if (!is_same<tensor_projector>(rhs))
+    return std::nullopt;
+  if (lhs.get().rank() != 2)
+    return std::nullopt;
+  auto const &proj = rhs.template get<tensor_projector>();
+  if (proj.acts_on_rank() != 2)
+    return std::nullopt;
+  if (lhs_indices != sequence{1, 2} || rhs_indices != sequence{1, 2})
+    return std::nullopt;
+  auto kind = classify(proj);
+  switch (kind) {
+  case ProjKind::Sym:  return sym(std::forward<ExprLHS>(lhs));
+  case ProjKind::Skew: return skew(std::forward<ExprLHS>(lhs));
+  case ProjKind::Vol:  return vol(std::forward<ExprLHS>(lhs));
+  case ProjKind::Dev:  return dev(std::forward<ExprLHS>(lhs));
+  default: return std::nullopt;
+  }
+}
+} // namespace detail_ip
+
+template <typename ExprLHS, typename ExprRHS>
+[[nodiscard]] inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
+                                        ExprRHS &&rhs, sequence &&rhs_indices) {
+  if (auto norm = detail_ip::try_normalize_reversed_projector(
+          lhs, lhs_indices, rhs, rhs_indices))
+    return std::move(*norm);
   return make_expression<inner_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
 }
 
 template <typename ExprLHS, typename ExprRHS>
-[[nodiscard]] constexpr inline auto inner_product(ExprLHS &&lhs, sequence const &lhs_indices,
-                                    ExprRHS &&rhs,
-                                    sequence const &rhs_indices) {
+[[nodiscard]] inline auto inner_product(ExprLHS &&lhs, sequence const &lhs_indices,
+                                        ExprRHS &&rhs,
+                                        sequence const &rhs_indices) {
+  if (auto norm = detail_ip::try_normalize_reversed_projector(
+          lhs, lhs_indices, rhs, rhs_indices))
+    return std::move(*norm);
   return make_expression<inner_product_wrapper>(
       std::forward<ExprLHS>(lhs), lhs_indices, std::forward<ExprRHS>(rhs),
       rhs_indices);

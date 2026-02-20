@@ -6,6 +6,8 @@
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/core/operators.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
+#include <numsim_cas/tensor/projection_tensor.h>
+#include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
@@ -66,6 +68,21 @@ public:
 
   void operator()(tensor const &visitable) override {
     if (visitable.hash_value() == m_arg.get().hash_value()) {
+      if (m_rank_arg == 2) {
+        if (auto const &sp = m_arg.get().space()) {
+          auto kind = classify_space(*sp);
+          if (kind != ProjKind::Other) {
+            auto d = m_arg.get().dim();
+            switch (kind) {
+            case ProjKind::Sym:  m_result = P_sym(d);  return;
+            case ProjKind::Skew: m_result = P_skew(d); return;
+            case ProjKind::Vol:  m_result = P_vol(d);  return;
+            case ProjKind::Dev:  m_result = P_devi(d); return;
+            default: break;
+            }
+          }
+        }
+      }
       m_result = make_expression<identity_tensor>(m_dim, m_rank_result);
     }
     // else m_result stays invalid -> zero

@@ -7,6 +7,7 @@
 #include "ScalarExpressionTest.h"
 #include "TensorEvaluatorTest.h"
 #include "TensorProjectorDifferentiationTest.h"
+#include "TensorSpacePropagationTest.h"
 #include "ScalarSubstitutionTest.h"
 #include "TensorExpressionTest.h"
 #include "TensorSubstitutionTest.h"

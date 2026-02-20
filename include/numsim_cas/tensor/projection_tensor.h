@@ -2,33 +2,14 @@
 #define PROJECTION_TENSOR_H
 
 #include <numsim_cas/tensor/tensor_expression.h>
-#include <variant>
+#include <numsim_cas/tensor/tensor_space.h>
 
 namespace numsim::cas {
-// Algebraic spaces on rank-2 tensors
-struct Symmetric {}; // sym
-struct Skew {};      // skew
-struct Full {};      // identity on the whole space
-
-// Higher-rank symmetrizers
-struct Sym_r {
-  std::size_t r;
-}; // totally symmetric of rank r
-struct Anti_r {
-  std::size_t r;
-}; // totally antisymmetric of rank r
-struct Harm_r {
-  std::size_t r;
-}; // symmetric, trace-free (SO(d) harmonic)
-
-// Rank-4 elasticity-style
-struct Minor {};      // minor symmetry in (ij) and (kl)
-struct Major {};      // major symmetry (ij) <-> (kl)
-struct MinorMajor {}; // both
 
 // Directional projectors (onto || or ⟂ to a direction)
+// These remain here because they reference expression_holder<tensor_expression>.
 struct Parallel {
-  // unit vector expression; your library’s 1st-order tensor
+  // unit vector expression; your library's 1st-order tensor
   expression_holder<tensor_expression> n;
   bool normalize = true;
 };
@@ -37,32 +18,6 @@ struct Perp {
   expression_holder<tensor_expression> n;
   bool normalize = true;
 };
-
-// --- Permutation spaces (rank-agnostic) ---
-struct General {}; // no permutation constraint
-struct Young {     // generic Young symmetrizer
-  // e.g. {{1,2},{3}} means sym over (1,2), hold 3 separate
-  std::vector<std::vector<int>> blocks; // 1-based positions
-};
-
-// --- Trace spaces (rank-agnostic) ---
-struct AnyTraceTag {};   // no trace constraint
-struct VolumetricTag {}; // tr(.)/d * I
-struct DeviatoricTag {}; // sym(.) - vol(.)
-struct HarmonicTag {};   // fully trace-free (all pairs)
-struct PartialTraceTag { // remove/keep traces on selected pairs
-  std::vector<std::pair<int, int>> pairs; // 1-based positions to contract
-};
-
-// Bundle them (rank and dim are on the projector node)
-struct tensor_space {
-  std::variant<General, Symmetric, Skew, Young> perm;
-  std::variant<AnyTraceTag, VolumetricTag, DeviatoricTag, HarmonicTag,
-               PartialTraceTag>
-      trace;
-};
-
-static constexpr inline auto is_tensor_space(tensor_space const &) {}
 
 class tensor_projector final : public tensor_node_base_t<tensor_projector> {
 public:
@@ -75,15 +30,6 @@ public:
 
   std::size_t acts_on_rank() const { return r_; }
   const tensor_space &space() const { return space_; }
-
-  // friend bool operator<(tensor_projector const &lhs,
-  //                       tensor_projector const &rhs);
-  // friend bool operator>(tensor_projector const &lhs,
-  //                       tensor_projector const &rhs);
-  // friend bool operator==(tensor_projector const &lhs,
-  //                        tensor_projector const &rhs);
-  // friend bool operator!=(tensor_projector const &lhs,
-  //                        tensor_projector const &rhs);
 
   friend bool operator<(tensor_projector const &lhs,
                         tensor_projector const &rhs) {

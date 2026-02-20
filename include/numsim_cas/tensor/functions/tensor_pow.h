@@ -17,9 +17,23 @@ public:
   template <typename ExprTensor, typename ExprScalar>
   tensor_pow(ExprTensor &&tensor, ExprScalar &&scalar)
       : base(std::forward<ExprTensor>(tensor), std::forward<ExprScalar>(scalar),
-             tensor.get().dim(), tensor.get().rank()) {}
+             tensor.get().dim(), tensor.get().rank()) {
+    // Symmetric and Volumetric are closed under exponentiation.
+    // Deviatoric/Harmonic have Symmetric perm, so A^n is still symmetric
+    // but trace-freeness is lost (tr(D^2) ≠ 0) — downgrade to Symmetric.
+    // Skew^n alternates sym/skew with parity — can't determine, so drop.
+    if (auto const &sp = this->m_lhs.get().space()) {
+      if (std::holds_alternative<Symmetric>(sp->perm)) {
+        if (std::holds_alternative<AnyTraceTag>(sp->trace) ||
+            std::holds_alternative<VolumetricTag>(sp->trace))
+          this->set_space(*sp);
+        else
+          this->set_space({Symmetric{}, AnyTraceTag{}});
+      }
+    }
+  }
   tensor_pow(tensor_pow const &expr) : base(static_cast<base const &>(expr)) {}
-  tensor_pow(tensor_pow &&expr) : base(static_cast<base>(expr)) {}
+  tensor_pow(tensor_pow &&expr) : base(static_cast<base &&>(expr)) {}
   tensor_pow() = delete;
   ~tensor_pow() = default;
   const tensor_pow &operator=(tensor_pow &&) = delete;

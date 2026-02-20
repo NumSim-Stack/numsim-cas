@@ -18,6 +18,8 @@ public:
                 bool> = true>
   tensor_negative(Expr &&_expr)
       : base(std::forward<Expr>(_expr), _expr.get().dim(), _expr.get().rank()) {
+    if (auto const &sp = this->expr().get().space())
+      this->set_space(*sp);
   }
 
   tensor_negative() = delete;
