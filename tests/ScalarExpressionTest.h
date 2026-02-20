@@ -414,4 +414,42 @@ TEST_F(ScalarFixture, ADD_CanonicalOrderingAndCoeffFirst) {
   EXPECT_PRINT(_3 + x + y + _2, "5+x+y");
 }
 
+//
+// ABS simplification with assumptions
+//
+TEST_F(ScalarFixture, AbsSimplification) {
+  using namespace numsim::cas;
+
+  // abs(positive) → x
+  auto px = make_expression<scalar>("px");
+  assume(px, positive{});
+  EXPECT_PRINT(abs(px), "px");
+
+  // abs(-positive) → positive
+  auto py = make_expression<scalar>("py");
+  auto neg_py = -py;
+  assume(py, positive{});
+  EXPECT_PRINT(abs(neg_py), "py");
+
+  // abs(positive constant) → constant
+  auto c5 = make_expression<scalar_constant>(5);
+  assume(c5, positive{});
+  EXPECT_PRINT(abs(c5), "5");
+}
+
+//
+// SIGN simplification with assumptions
+//
+TEST_F(ScalarFixture, SignSimplification) {
+  using namespace numsim::cas;
+
+  auto px = make_expression<scalar>("spx");
+  assume(px, positive{});
+  EXPECT_PRINT(sign(px), "1");
+
+  auto ny = make_expression<scalar>("sny");
+  assume(ny, negative{});
+  EXPECT_PRINT(sign(ny), "-1");
+}
+
 #endif // SCALAREXPRESSIONTEST_H

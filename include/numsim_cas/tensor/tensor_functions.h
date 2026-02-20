@@ -26,6 +26,14 @@ template <typename Expr>
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
     return apply_projection(simp->result_kind, simp->argument);
   }
+  if (is_same<tensor_scalar_mul>(expr)) {
+    auto const &sm = expr.template get<tensor_scalar_mul>();
+    return sm.expr_lhs() * dev(sm.expr_rhs());
+  }
+  if (is_same<tensor_negative>(expr)) {
+    auto const &neg = expr.template get<tensor_negative>();
+    return -dev(neg.expr());
+  }
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   auto d = expr.get().dim();
@@ -39,6 +47,14 @@ template <typename Expr>
     if (simp->rule == ContractionRule::Zero)
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
     return apply_projection(simp->result_kind, simp->argument);
+  }
+  if (is_same<tensor_scalar_mul>(expr)) {
+    auto const &sm = expr.template get<tensor_scalar_mul>();
+    return sm.expr_lhs() * sym(sm.expr_rhs());
+  }
+  if (is_same<tensor_negative>(expr)) {
+    auto const &neg = expr.template get<tensor_negative>();
+    return -sym(neg.expr());
   }
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
@@ -54,6 +70,14 @@ template <typename Expr>
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
     return apply_projection(simp->result_kind, simp->argument);
   }
+  if (is_same<tensor_scalar_mul>(expr)) {
+    auto const &sm = expr.template get<tensor_scalar_mul>();
+    return sm.expr_lhs() * vol(sm.expr_rhs());
+  }
+  if (is_same<tensor_negative>(expr)) {
+    auto const &neg = expr.template get<tensor_negative>();
+    return -vol(neg.expr());
+  }
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   auto d = expr.get().dim();
@@ -67,6 +91,14 @@ template <typename Expr>
     if (simp->rule == ContractionRule::Zero)
       return make_expression<tensor_zero>(simp->dim, expr.get().rank());
     return apply_projection(simp->result_kind, simp->argument);
+  }
+  if (is_same<tensor_scalar_mul>(expr)) {
+    auto const &sm = expr.template get<tensor_scalar_mul>();
+    return sm.expr_lhs() * skew(sm.expr_rhs());
+  }
+  if (is_same<tensor_negative>(expr)) {
+    auto const &neg = expr.template get<tensor_negative>();
+    return -skew(neg.expr());
   }
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());

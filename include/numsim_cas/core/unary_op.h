@@ -64,8 +64,12 @@ template <typename BaseLHS, typename ExprBaseLHS, typename BaseRHS,
           typename ExprBaseRHS>
 bool operator<(unary_op<BaseLHS, ExprBaseLHS> const &lhs,
                unary_op<BaseRHS, ExprBaseRHS> const &rhs) {
+  if (lhs.hash_value() != rhs.hash_value())
+    return lhs.hash_value() < rhs.hash_value();
   if (lhs.id() != rhs.id())
     return lhs.id() < rhs.id();
+  if (lhs.expr().get().hash_value() != rhs.expr().get().hash_value())
+    return lhs.expr().get().hash_value() < rhs.expr().get().hash_value();
   return lhs.expr() < rhs.expr();
 }
 

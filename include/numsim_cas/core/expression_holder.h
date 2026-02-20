@@ -170,18 +170,7 @@ bool operator<(expression_holder<ExprBaseT> const &lhs,
     throw invalid_expression_error(
         "expression_holder::operator<: comparing invalid (null) expression");
   }
-  if (lhs.get().hash_value() != rhs.get().hash_value())
-    return lhs.get().hash_value() < rhs.get().hash_value();
-
-  if (lhs.get().id() != rhs.get().id())
-    return lhs.get().id() < rhs.get().id();
-
-  // Same hash + id: deep-compare to distinguish hash collisions
-  if (lhs.get() == rhs.get())
-    return false;
-
-  // Hash collision: creation-order tiebreaker (deterministic total order)
-  return lhs.get().creation_id() < rhs.get().creation_id();
+  return lhs.get() < rhs.get();
 }
 
 template <typename ExprBaseT>

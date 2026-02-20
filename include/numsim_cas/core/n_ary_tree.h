@@ -172,10 +172,19 @@ bool operator<(n_ary_tree<BaseTree> const &lhs,
 template <typename BaseLHS, typename BaseRHS>
 bool operator<(n_ary_tree<BaseLHS> const &lhs,
                n_ary_tree<BaseRHS> const &rhs) {
-  if (lhs.size() == 1 && rhs.size() == 1) {
-    return lhs.hash_map().begin()->second < rhs.hash_map().begin()->second;
+  if (lhs.hash_value() != rhs.hash_value())
+    return lhs.hash_value() < rhs.hash_value();
+  if (lhs.size() != rhs.size())
+    return lhs.size() < rhs.size();
+  auto lit = lhs.hash_map().begin();
+  auto rit = rhs.hash_map().begin();
+  for (; lit != lhs.hash_map().end(); ++lit, ++rit) {
+    if (lit->second < rit->second)
+      return true;
+    if (rit->second < lit->second)
+      return false;
   }
-  return lhs.hash_value() < rhs.hash_value();
+  return false;
 }
 
 template <typename BaseLHS, typename BaseRHS>

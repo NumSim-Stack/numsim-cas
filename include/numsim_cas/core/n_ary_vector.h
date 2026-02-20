@@ -129,10 +129,17 @@ bool operator<(n_ary_vector<BaseVector> const &lhs,
 template <typename BaseLHS, typename BaseRHS>
 bool operator<(n_ary_vector<BaseLHS> const &lhs,
                n_ary_vector<BaseRHS> const &rhs) {
-  if (lhs.size() == 1 && rhs.size() == 1) {
-    return lhs.data().front() < rhs.data().front();
+  if (lhs.hash_value() != rhs.hash_value())
+    return lhs.hash_value() < rhs.hash_value();
+  if (lhs.size() != rhs.size())
+    return lhs.size() < rhs.size();
+  for (std::size_t i = 0; i < lhs.data().size(); ++i) {
+    if (lhs.data()[i] < rhs.data()[i])
+      return true;
+    if (rhs.data()[i] < lhs.data()[i])
+      return false;
   }
-  return lhs.hash_value() < rhs.hash_value();
+  return false;
 }
 
 template <typename BaseLHS, typename BaseRHS>

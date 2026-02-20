@@ -642,4 +642,26 @@ TYPED_TEST(TensorExpressionTest, TensorDiff) {
   // }
 }
 
+// -----------------------------------------------------------------------------
+// inv() print test
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, InvPrint) {
+  EXPECT_PRINT(numsim::cas::inv(this->X), "inv(X)");
+}
+
+// -----------------------------------------------------------------------------
+// Projector linearity: scalar/neg pull-through
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, ProjectorScalarPullThrough) {
+  auto &X = this->X;
+  auto &_2 = this->_2;
+
+  // P_vol : (2*X) → 2*vol(X)
+  EXPECT_PRINT(numsim::cas::vol(_2 * X), "2*vol(X)");
+  // P_dev : (-X) → -dev(X)
+  EXPECT_PRINT(numsim::cas::dev(-X), "-dev(X)");
+  // P_dev : (2 * dev(X)) → 2*dev(X) (idempotent through scalar)
+  EXPECT_PRINT(numsim::cas::dev(_2 * numsim::cas::dev(X)), "2*dev(X)");
+}
+
 #endif // TENSOREXPRESSIONTEST_H

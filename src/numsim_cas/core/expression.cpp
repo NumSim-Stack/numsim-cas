@@ -29,4 +29,12 @@ bool expression::operator!=(expression const &rhs) const noexcept {
   return !(*this == rhs);
 }
 
+bool expression::operator<(expression const &rhs) const noexcept {
+  if (hash_value() != rhs.hash_value())
+    return hash_value() < rhs.hash_value();
+  if (id() != rhs.id())
+    return id() < rhs.id();
+  return less_than_same_type(rhs);
+}
+
 } // namespace numsim::cas

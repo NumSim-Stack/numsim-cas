@@ -45,16 +45,7 @@ struct scalar_expr_less {
   template <typename Expr>
   bool operator()(expression_holder<Expr> const &a,
                   expression_holder<Expr> const &b) const noexcept {
-    auto const &ea = a.get();
-    auto const &eb = b.get();
-
-    if (ea.hash_value() != eb.hash_value())
-      return ea.hash_value() < eb.hash_value();
-
-    if (ea.id() != eb.id())
-      return ea.id() < eb.id();
-
-    return ea.creation_id() < eb.creation_id();
+    return a < b;
   }
 };
 
