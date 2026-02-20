@@ -131,6 +131,9 @@ public:
   // scalar_expr_lhs * lhs + scalar_expr_rhs * rhs
   [[nodiscard]] expr_holder_t dispatch(tensor_scalar_mul const &rhs);
 
+  // (s*T) + (-T) → (s-1)*T
+  [[nodiscard]] expr_holder_t dispatch(tensor_negative const &rhs);
+
 private:
   using base::m_lhs;
   using base::m_rhs;
@@ -148,6 +151,8 @@ public:
   add_negative(expr_holder_t lhs, expr_holder_t rhs);
 
   [[nodiscard]] expr_holder_t dispatch(tensor_negative const &rhs);
+
+  [[nodiscard]] expr_holder_t dispatch(tensor_scalar_mul const &rhs);
 
 private:
   using base::m_lhs;

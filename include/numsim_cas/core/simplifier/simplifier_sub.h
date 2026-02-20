@@ -2,6 +2,7 @@
 #define SIMPLIFIER_SUB_H
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/domain_traits.h>
 #include <numsim_cas/core/scalar_number.h>
 #include <ranges>
 #include <set>
@@ -60,20 +61,6 @@ public:
   // expr - 0 --> expr
   expr_holder_t dispatch(typename Traits::zero_type const &) { return m_lhs; }
 
-  template <typename ExprT, typename ValueTypeT>
-  scalar_number get_coefficient(ExprT const &expr, ValueTypeT const &value) {
-    if constexpr (is_detected_v<has_coefficient, ExprT>) {
-      auto const &coeff = expr.coeff();
-      if (coeff.is_valid()) {
-        auto val = Traits::try_numeric(coeff);
-        if (val)
-          return *val;
-      }
-      return value;
-    }
-    return value;
-  }
-
 protected:
   static expr_holder_t negate_constant(expr_holder_t const &c) {
     auto val = Traits::try_numeric(c);
@@ -97,7 +84,7 @@ class negative_sub_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
 
   negative_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
       : base(std::move(lhs), std::move(rhs)),
@@ -136,7 +123,7 @@ class constant_sub_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
 
   constant_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
       : base(std::move(lhs), std::move(rhs)) {}
@@ -191,7 +178,7 @@ class n_ary_sub_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
 
   n_ary_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
       : base(std::move(lhs), std::move(rhs)),
@@ -204,7 +191,7 @@ public:
     if (rhs_val) {
       auto add_expr{make_expression<typename Traits::add_type>(lhs)};
       auto &add{add_expr.template get<typename Traits::add_type>()};
-      const auto value{base::get_coefficient(lhs, 0) - *rhs_val};
+      const auto value{get_coefficient<Traits>(lhs, 0) - *rhs_val};
       add.coeff().free();
       if (value != 0) {
         add.set_coeff(Traits::make_constant(value));
@@ -219,7 +206,7 @@ public:
   dispatch([[maybe_unused]] typename Traits::one_type const &) {
     auto add_expr{make_expression<typename Traits::add_type>(lhs)};
     auto &add{add_expr.template get<typename Traits::add_type>()};
-    const auto value{base::get_coefficient(add, 0) - 1};
+    const auto value{get_coefficient<Traits>(add, 0) - 1};
     add.coeff().free();
     if (value != 0) {
       add.set_coeff(Traits::make_constant(value));
@@ -286,7 +273,7 @@ class n_ary_mul_sub_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   n_ary_mul_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
@@ -300,7 +287,7 @@ public:
     if (lhs.hash_map().size() == 1) {
       auto pos{lhs.hash_map().find(base::m_rhs)};
       if (lhs.hash_map().end() != pos) {
-        const auto value{base::get_coefficient(lhs, 0) - 1};
+        const auto value{get_coefficient<Traits>(lhs, 0) - 1};
         if (value == 0) {
           return Traits::zero();
         }
@@ -321,8 +308,8 @@ public:
     const auto &hash_rhs{rhs.hash_value()};
     const auto &hash_lhs{lhs.hash_value()};
     if (hash_rhs == hash_lhs) {
-      const auto fac_lhs{base::get_coefficient(lhs, 1.0)};
-      const auto fac_rhs{base::get_coefficient(rhs, 1.0)};
+      const auto fac_lhs{get_coefficient<Traits>(lhs, 1.0)};
+      const auto fac_rhs{get_coefficient<Traits>(rhs, 1.0)};
       const auto result{fac_lhs - fac_rhs};
       if (result == scalar_number{0})
         return Traits::zero();
@@ -362,7 +349,7 @@ class symbol_sub_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   symbol_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
@@ -384,7 +371,7 @@ public:
     if (hash_rhs == hash_lhs) {
       auto expr{make_expression<typename Traits::mul_type>(rhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
-      const auto value{1.0 - base::get_coefficient(rhs, 1.0)};
+      const auto value{1.0 - get_coefficient<Traits>(rhs, 1.0)};
       mul.set_coeff(Traits::make_constant(value.abs()));
       if (value < 0) {
         return make_expression<typename Traits::negative_type>(std::move(expr));
@@ -412,7 +399,7 @@ class one_sub_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   one_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)

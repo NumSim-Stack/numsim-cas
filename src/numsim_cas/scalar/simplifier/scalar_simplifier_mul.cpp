@@ -21,7 +21,7 @@ constant_mul::dispatch([[maybe_unused]] scalar_mul const &rhs) {
   }
   auto mul_expr{make_expression<scalar_mul>(rhs)};
   auto &mul{mul_expr.template get<scalar_mul>()};
-  auto coeff{get_coefficient(mul, 1) * lhs.value()};
+  auto coeff{get_coefficient<scalar_traits>(mul, 1) * lhs.value()};
   mul.set_coeff(make_expression<scalar_constant>(coeff));
   return mul_expr;
 }

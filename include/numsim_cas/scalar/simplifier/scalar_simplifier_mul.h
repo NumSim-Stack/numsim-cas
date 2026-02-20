@@ -24,8 +24,6 @@ public:
   using algo::algo;
   using algo::dispatch;
   using algo::get_default;
-  using algo::get_coefficient;
-
   // expr_lhs * (-expr_rhs) -->  -(expr_lhs * expr_rhs)
   expr_holder_t dispatch(scalar_negative const &rhs) {
     return -(std::move(m_lhs) * rhs.expr());
@@ -53,7 +51,7 @@ public:
   using base = mul_default<constant_mul>;
   using base::operator();
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::m_rhs;
 
   constant_mul(expr_holder_t lhs, expr_holder_t rhs);
@@ -80,7 +78,7 @@ public:
   using base = mul_default<n_ary_mul>;
   using base::operator();
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   n_ary_mul(expr_holder_t lhs, expr_holder_t rhs);
@@ -115,7 +113,7 @@ public:
   using base = mul_default<scalar_pow_mul>;
   using base::operator();
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   scalar_pow_mul(expr_holder_t lhs, expr_holder_t rhs);
@@ -142,7 +140,7 @@ public:
   using base = mul_default<symbol_mul>;
   using base::operator();
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   symbol_mul(expr_holder_t lhs, expr_holder_t rhs);

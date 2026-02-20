@@ -367,18 +367,12 @@ TYPED_TEST(TensorExpressionTest, AddScalarMulBothSides) {
   EXPECT_PRINT(_2 * X + _3 * Y, "2*X+3*Y");
 }
 
-// tensor_scalar_mul_add + negative: coeff*T + (-T)
-// NOTE: tensor_scalar_mul hashes to the same value as its tensor child
-// (coefficient excluded from hash by design), so the hash-based cancellation
-// in add_default::dispatch(tensor_negative) incorrectly triggers for
-// coeff*T + (-T) → 0 instead of (coeff-1)*T.
-// The reverse direction (-T) + coeff*T is not affected.
+// tensor_scalar_mul_add + negative: coeff*T + (-T) and (-T) + coeff*T
 TYPED_TEST(TensorExpressionTest, AddScalarMulPlusNegative) {
   auto &X = this->X;
   auto &_2 = this->_2;
-
-  // reverse direction works correctly: (-X) + 2*X → 2*X-X (no simplification)
-  EXPECT_PRINT((-X) + _2 * X, "2*X-X");
+  EXPECT_PRINT((-X) + _2 * X, "X");
+  EXPECT_PRINT(_2 * X + (-X), "X");
 }
 
 // n_ary_add: (X+Y) + Z → X+Y+Z

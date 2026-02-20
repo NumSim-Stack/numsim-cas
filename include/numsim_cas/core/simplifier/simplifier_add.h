@@ -2,6 +2,7 @@
 #define SIMPLIFIER_ADD_H
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/domain_traits.h>
 #include <numsim_cas/core/scalar_number.h>
 #include <numsim_cas/functions.h>
 #include <ranges>
@@ -94,20 +95,6 @@ public:
     }
   }
 
-  template <typename ExprT, typename ValueTypeT>
-  scalar_number get_coefficient(ExprT const &expr, ValueTypeT const &value) {
-    if constexpr (is_detected_v<has_coefficient, ExprT>) {
-      auto const &coeff = expr.coeff();
-      if (coeff.is_valid()) {
-        auto val = Traits::try_numeric(coeff);
-        if (val)
-          return *val;
-      }
-      return value;
-    }
-    return value;
-  }
-
 protected:
   expr_holder_t m_lhs;
   expr_holder_t m_rhs;
@@ -124,7 +111,7 @@ class constant_add_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   constant_add_dispatch(expr_holder_t lhs, expr_holder_t rhs)
@@ -148,7 +135,7 @@ public:
   dispatch([[maybe_unused]] typename Traits::add_type const &rhs) {
     auto lhs_val = Traits::try_numeric(base::m_lhs);
     if (lhs_val) {
-      const auto value{base::get_coefficient(rhs, 0) + *lhs_val};
+      const auto value{get_coefficient<Traits>(rhs, 0) + *lhs_val};
       if (value != 0) {
         auto add_expr{make_expression<typename Traits::add_type>(rhs)};
         auto &add{add_expr.template get<typename Traits::add_type>()};
@@ -197,7 +184,7 @@ class one_add_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   one_add_dispatch(expr_holder_t lhs, expr_holder_t rhs)
@@ -218,7 +205,7 @@ public:
   // 1 + (coeff + x)
   expr_holder_t
   dispatch([[maybe_unused]] typename Traits::add_type const &rhs) {
-    const auto value{base::get_coefficient(rhs, 0) + 1};
+    const auto value{get_coefficient<Traits>(rhs, 0) + 1};
     if (value != 0) {
       auto add_expr{make_expression<typename Traits::add_type>(rhs)};
       auto &add{add_expr.template get<typename Traits::add_type>()};
@@ -257,7 +244,7 @@ class n_ary_add_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   n_ary_add_dispatch(expr_holder_t lhs, expr_holder_t rhs)
@@ -271,7 +258,7 @@ public:
     if (rhs_val) {
       auto add_expr{make_expression<typename Traits::add_type>(lhs)};
       auto &add{add_expr.template get<typename Traits::add_type>()};
-      const auto value{base::get_coefficient(lhs, 0) + *rhs_val};
+      const auto value{get_coefficient<Traits>(lhs, 0) + *rhs_val};
       add.coeff().free();
       if (value != 0) {
         add.set_coeff(Traits::make_constant(value));
@@ -286,7 +273,7 @@ public:
   dispatch([[maybe_unused]] typename Traits::one_type const &) {
     auto add_expr{make_expression<typename Traits::add_type>(lhs)};
     auto &add{add_expr.template get<typename Traits::add_type>()};
-    const auto value{base::get_coefficient(add, 0) + 1};
+    const auto value{get_coefficient<Traits>(add, 0) + 1};
     add.coeff().free();
     if (value != 0) {
       add.set_coeff(Traits::make_constant(value));
@@ -333,7 +320,7 @@ public:
     if (inner_val) {
       auto add_expr{make_expression<typename Traits::add_type>(lhs)};
       auto &add{add_expr.template get<typename Traits::add_type>()};
-      const auto value{base::get_coefficient(lhs, 0) - *inner_val};
+      const auto value{get_coefficient<Traits>(lhs, 0) - *inner_val};
       add.coeff().free();
       if (value != 0) {
         add.set_coeff(Traits::make_constant(value));
@@ -361,7 +348,7 @@ class n_ary_mul_add_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   n_ary_mul_add_dispatch(expr_holder_t lhs, expr_holder_t rhs)
@@ -377,7 +364,7 @@ public:
       auto expr{make_expression<typename Traits::mul_type>(lhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
       mul.set_coeff(Traits::make_constant(
-          base::get_coefficient(lhs, 1) + 1));
+          get_coefficient<Traits>(lhs, 1) + 1));
       return expr;
     }
     return get_default();
@@ -388,8 +375,8 @@ public:
     const auto &hash_rhs{rhs.hash_value()};
     const auto &hash_lhs{lhs.hash_value()};
     if (hash_rhs == hash_lhs) {
-      const auto fac_lhs{base::get_coefficient(lhs, 1)};
-      const auto fac_rhs{base::get_coefficient(rhs, 1)};
+      const auto fac_lhs{get_coefficient<Traits>(lhs, 1)};
+      const auto fac_rhs{get_coefficient<Traits>(rhs, 1)};
       auto expr{make_expression<typename Traits::mul_type>(lhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
       mul.set_coeff(Traits::make_constant(fac_lhs + fac_rhs));
@@ -415,7 +402,7 @@ class symbol_add_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   symbol_add_dispatch(expr_holder_t lhs, expr_holder_t rhs)
@@ -441,7 +428,7 @@ public:
       auto expr{make_expression<typename Traits::mul_type>(rhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
       mul.set_coeff(Traits::make_constant(
-          base::get_coefficient(rhs, 1) + 1));
+          get_coefficient<Traits>(rhs, 1) + 1));
       return expr;
     }
     return get_default();
@@ -464,7 +451,7 @@ class negative_add_dispatch
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
-  using base::get_coefficient;
+
   using base::get_default;
 
   negative_add_dispatch(expr_holder_t lhs, expr_holder_t rhs)
@@ -484,7 +471,7 @@ public:
 
     auto inner_val = Traits::try_numeric(lhs.expr());
     if (inner_val) {
-      const auto value{base::get_coefficient(rhs, 0) - *inner_val};
+      const auto value{get_coefficient<Traits>(rhs, 0) - *inner_val};
       add.coeff().free();
       if (value != 0) {
         add.set_coeff(Traits::make_constant(value));

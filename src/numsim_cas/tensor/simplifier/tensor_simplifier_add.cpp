@@ -91,6 +91,15 @@ tensor_scalar_mul_add::dispatch(tensor_scalar_mul const &rhs) {
   return get_default();
 }
 
+// (s*T) + (-T) → (s-1)*T
+[[nodiscard]] tensor_scalar_mul_add::expr_holder_t
+tensor_scalar_mul_add::dispatch(tensor_negative const &rhs) {
+  if (lhs.expr_rhs().get().hash_value() == rhs.expr().get().hash_value()) {
+    return (lhs.expr_lhs() - 1) * lhs.expr_rhs();
+  }
+  return get_default();
+}
+
 // ------------------------------------------------------------
 // add_negative
 // ------------------------------------------------------------
@@ -101,6 +110,15 @@ add_negative::add_negative(expr_holder_t lhs, expr_holder_t rhs)
 [[nodiscard]] add_negative::expr_holder_t
 add_negative::dispatch(tensor_negative const &rhs) {
   return -(lhs.expr() + rhs.expr());
+}
+
+// (-T) + (s*T) → (s-1)*T
+[[nodiscard]] add_negative::expr_holder_t
+add_negative::dispatch(tensor_scalar_mul const &rhs) {
+  if (lhs.expr().get().hash_value() == rhs.expr_rhs().get().hash_value()) {
+    return (rhs.expr_lhs() - 1) * rhs.expr_rhs();
+  }
+  return get_default();
 }
 
 // ------------------------------------------------------------

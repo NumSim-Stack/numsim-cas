@@ -50,7 +50,6 @@ public:
   using base = mul_default<constant_mul>;
   using base::operator();
   using base::dispatch;
-  using base::get_coefficient;
   using base::m_rhs;
 
   constant_mul(expr_holder_t lhs, expr_holder_t rhs);

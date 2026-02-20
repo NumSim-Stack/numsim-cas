@@ -2,6 +2,7 @@
 #define SIMPLIFIER_MUL_H
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/domain_traits.h>
 #include <numsim_cas/core/scalar_number.h>
 
 namespace numsim::cas {
@@ -74,20 +75,6 @@ public:
     auto mul{make_expression<typename Traits::mul_type>(rhs)};
     mul.template get<typename Traits::mul_type>().push_back(m_lhs);
     return mul;
-  }
-
-  template <typename ExprT, typename ValueTypeT>
-  scalar_number get_coefficient(ExprT const &expr, ValueTypeT const &value) {
-    if constexpr (is_detected_v<has_coefficient, ExprT>) {
-      auto const &coeff = expr.coeff();
-      if (coeff.is_valid()) {
-        auto val = Traits::try_numeric(coeff);
-        if (val)
-          return *val;
-      }
-      return value;
-    }
-    return value;
   }
 
 protected:

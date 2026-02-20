@@ -35,7 +35,7 @@ constant_mul::dispatch(tensor_to_scalar_mul const &rhs) {
   }
   auto mul_expr{make_expression<tensor_to_scalar_mul>(rhs)};
   auto &mul{mul_expr.template get<tensor_to_scalar_mul>()};
-  auto coeff{get_coefficient(mul, 1)};
+  auto coeff{get_coefficient<t2s_traits>(mul, 1)};
   if (lhs_val) {
     coeff = coeff * *lhs_val;
   }
