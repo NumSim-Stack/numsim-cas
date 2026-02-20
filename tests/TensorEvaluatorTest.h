@@ -942,6 +942,26 @@ TEST(TensorProjAlgebra, AdditionSymSkewEqualsIdentityViaEval) {
   EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result), A_val, tol));
 }
 
+// --- Projector hash tests ---
+
+TEST(TensorProjAlgebra, ProjectorHashDistinguishesYoungBlocks) {
+  auto p1 = make_projector(3, 3, Young{{{1, 2}, {3}}}, AnyTraceTag{});
+  auto p2 = make_projector(3, 3, Young{{{1, 3}, {2}}}, AnyTraceTag{});
+  EXPECT_NE(p1.get().hash_value(), p2.get().hash_value());
+}
+
+TEST(TensorProjAlgebra, ProjectorHashDistinguishesPartialTrace) {
+  auto p1 = make_projector(3, 2, Symmetric{}, PartialTraceTag{{{1, 2}}});
+  auto p2 = make_projector(3, 2, Symmetric{}, PartialTraceTag{{{1, 3}}});
+  EXPECT_NE(p1.get().hash_value(), p2.get().hash_value());
+}
+
+TEST(TensorProjAlgebra, ProjectorHashSameForIdenticalSpaces) {
+  auto p1 = make_projector(3, 3, Young{{{1, 2}, {3}}}, AnyTraceTag{});
+  auto p2 = make_projector(3, 3, Young{{{1, 2}, {3}}}, AnyTraceTag{});
+  EXPECT_EQ(p1.get().hash_value(), p2.get().hash_value());
+}
+
 } // namespace numsim::cas
 
 #endif // TENSOREVALUATORTEST_H

@@ -527,6 +527,57 @@ TYPED_TEST(TensorExpressionTest, TensorDecomposition) {
 }
 
 // -----------------------------------------------------------------------------
+// Hash invariants
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, TensorScalarMulHash) {
+  auto &X = this->X;
+  auto &_2 = this->_2;
+  auto &_3 = this->_3;
+  auto &x = this->x;
+  auto &y = this->y;
+
+  // constant coefficients excluded from hash — 2*X and 3*X sort with X
+  EXPECT_EQ((_2 * X).get().hash_value(), (_3 * X).get().hash_value());
+  EXPECT_EQ((_2 * X).get().hash_value(), X.get().hash_value());
+  // non-constant scalar included in hash
+  EXPECT_NE((x * X).get().hash_value(), X.get().hash_value());
+  EXPECT_NE((x * X).get().hash_value(), (y * X).get().hash_value());
+}
+
+TYPED_TEST(TensorExpressionTest, TensorPowHash) {
+  auto &X = this->X;
+  auto &x = this->x;
+  auto &y = this->y;
+
+  // constant exponents excluded — pow(X,2) and pow(X,3) sort with X
+  EXPECT_EQ(pow(X, 2).get().hash_value(), pow(X, 3).get().hash_value());
+  EXPECT_EQ(pow(X, 2).get().hash_value(), X.get().hash_value());
+  // non-constant exponent included
+  EXPECT_NE(pow(X, x).get().hash_value(), X.get().hash_value());
+  EXPECT_NE(pow(X, x).get().hash_value(), pow(X, y).get().hash_value());
+}
+
+// -----------------------------------------------------------------------------
+// Division early returns
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, TensorDivByOneIsIdentity) {
+  auto &X = this->X;
+  auto &_one = this->_one;
+  auto &_1 = this->_1;
+  auto &_Zero = this->_Zero;
+  auto &x = this->x;
+
+  // scalar_one early return
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor>(X / _one));
+  // scalar_constant(1) early return
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor>(X / _1));
+  // integer literal (goes through make_constant → scalar_constant)
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor>(X / 1));
+  // zero numerator early return
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(_Zero / x));
+}
+
+// -----------------------------------------------------------------------------
 // Differentiation
 // -----------------------------------------------------------------------------
 TYPED_TEST(TensorExpressionTest, TensorDiff) {
