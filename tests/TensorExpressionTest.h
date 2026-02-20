@@ -135,6 +135,10 @@ TYPED_TEST(TensorExpressionTest, TensorScalarExpressionTestPrint) {
   EXPECT_PRINT(X / (x * y * z), "X/(x*y*z)");
   EXPECT_PRINT(X / (x + y + z), "X/(x+y+z)");
   EXPECT_PRINT(X / (x * (y + z)), "X/(x*(y+z))");
+
+  // 0/x → 0
+  auto &Zero = this->_Zero;
+  EXPECT_PRINT(Zero / x, "0");
 }
 
 TYPED_TEST(TensorExpressionTest, TensorSubtractionAndNegationPrint) {
@@ -469,55 +473,9 @@ TYPED_TEST(TensorExpressionTest, AddGenericFallback) {
   EXPECT_PRINT(dX + (-dX), "0");
 }
 
-TYPED_TEST(TensorExpressionTest, TensorInnerProductScalarFactor) {
-  // using seq = numsim::cas::sequence;
-  // using numsim::cas::inner_product;
-
-  // auto &X = this->X;
-  // auto &x = this->x;
-
-  //        // pull-through of scalar factors (no distribution over sums)
-  // EXPECT_PRINT(inner_product(x * X, seq{2}, X, seq{1}), "x*X*X");
-  // EXPECT_PRINT(inner_product(X, seq{2}, x * X, seq{1}), "x*X*X");
-}
-
-TYPED_TEST(TensorExpressionTest, TensorDotProductNoDistribution) {
-  // using seq = numsim::cas::sequence;
-  // using numsim::cas::dot_product;
-
-  // auto &A = this->A;
-  // auto &B = this->B;
-  // auto &X = this->X;
-  // auto &Y = this->Y;
-  // auto &x = this->x;
-
-  // EXPECT_PRINT(dot_product(A + B, seq{1, 2, 3, 4}, B,
-  //                                      seq{1, 2, 3, 4}),
-  //           "(A+B)::B");
-  // EXPECT_PRINT(dot_product(A, seq{1, 2}, X + Y, seq{1, 2}),
-  //           "A:(X+Y)");
-  // EXPECT_PRINT(dot_product(A, seq{1, 2}, x * X, seq{1, 2}),
-  //           "A:x*X");
-}
-
 TYPED_TEST(TensorExpressionTest, TensorDecomposition) {
-  // using seq = numsim::cas::sequence;
-  //  using numsim::cas::dot_product;
-
-  // auto &A = this->A;
-  // auto &B = this->B;
   auto &X = this->X;
-  // auto &Y = this->Y;
-  // auto &x = this->x;
-
   EXPECT_PRINT(numsim::cas::dev(X), "dev(X)");
-  // EXPECT_PRINT(dot_product(A + B, seq{1, 2, 3, 4}, B,
-  //                                      seq{1, 2, 3, 4}),
-  //           "(A+B)::B");
-  // EXPECT_PRINT(dot_product(A, seq{1, 2}, X + Y, seq{1, 2}),
-  //           "A:(X+Y)");
-  // EXPECT_PRINT(dot_product(A, seq{1, 2}, x * X, seq{1, 2}),
-  //           "A:x*X");
 }
 
 // -----------------------------------------------------------------------------

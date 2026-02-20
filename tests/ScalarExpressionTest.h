@@ -179,6 +179,11 @@ TEST_F(ScalarFixture, PRINT_DivisionFormat) {
   // a*pow(b,-1) / (c * pow(d, -1)) --> a*pow(b,-1) * pow(c*pow(d,-1),-1)
   EXPECT_PRINT((a / b) / (c / d), "a*d/(b*c)");
   EXPECT_PRINT((a + b) / (c + d), "(a+b)/(c+d)");
+
+  // 0/x → 0
+  auto &zero = this->_zero;
+  EXPECT_PRINT(zero / x, "0");
+  EXPECT_PRINT(zero / _2, "0");
 }
 
 //
@@ -248,8 +253,6 @@ TEST_F(ScalarFixture, PRINT_Functions) {
   mul.template get<scalar_mul>().push_back(x);
   mul.template get<scalar_mul>().push_back(two);
   EXPECT_PRINT(mul, "x*2");
-
-  // EXPECT_PRINT(make_expression<scalar_div>(x, two), "x/2");
 
   // Powers / exponentials / logs
   EXPECT_PRINT(pow(z, z) * pow(x, x) * pow(y, y), "pow(x,x)*pow(y,y)*pow(z,z)");
