@@ -81,6 +81,10 @@ class constant_add final
 public:
   using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
   using algo::algo;
+  using algo::dispatch;
+
+  // domain-specific: wrapper + wrapper → unwrap, add in scalar domain, re-wrap
+  expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &);
 
 #define NUMSIM_LOOP_OVER(T)                                                    \
   expr_holder_t operator()(T const &n) override { return this->dispatch(n); }

@@ -508,6 +508,14 @@ public:
     return base::get_default();
   }
 
+  // -expr + expr --> 0 (generic fallback)
+  template <typename Expr> expr_holder_t dispatch(Expr const &) {
+    if (lhs.expr() == base::m_rhs) {
+      return Traits::zero();
+    }
+    return base::get_default();
+  }
+
 private:
   typename Traits::negative_type const &lhs;
 };

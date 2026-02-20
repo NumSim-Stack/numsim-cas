@@ -104,12 +104,6 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_SAME_PRINT(x * X_tr, X_tr * x);
   EXPECT_PRINT((x * X_tr) * x, "pow(x,2)*tr(X)");
   EXPECT_PRINT(x * (X_tr * x), "pow(x,2)*tr(X)");
-
-  // TODO: mul-of-mul pow extraction not yet implemented
-  // EXPECT_SAME_PRINT((X_tr * x) * (X_tr * x),
-  //                   numsim::cas::pow(x, this->_2) * numsim::cas::pow(X_tr,
-  //                   this->_2));
-  GTEST_SKIP() << "mul-of-mul pow extraction not yet implemented";
 }
 
 // ---------- Division chains with tensor-to-scalar nodes ----------
@@ -478,6 +472,65 @@ TYPED_TEST(TensorToScalarExpressionTest,
 
   // constant_mul: scalar_wrapper * non-numeric → creates mul
   EXPECT_PRINT(wrap(3) * trX, "3*tr(X)");
+}
+
+// ---------- Cross-domain subtraction (scalar - t2s, t2s - scalar) ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_CrossDomainSubtraction) {
+  auto &X = this->X;
+  auto &x = this->x;
+  auto &_2 = this->_2;
+  auto &_3 = this->_3;
+
+  using numsim::cas::trace;
+
+  auto trX = trace(X);
+
+  // t2s - scalar: tr(X) - scalar_constant(2)
+  EXPECT_PRINT(trX - _2, "-2+tr(X)");
+
+  // scalar - t2s: scalar_constant(3) - tr(X)
+  EXPECT_PRINT(_3 - trX, "3-tr(X)");
+
+  // t2s - scalar_variable: tr(X) - x
+  EXPECT_PRINT(trX - x, "-x+tr(X)");
+
+  // scalar_variable - t2s: x - tr(X)
+  EXPECT_PRINT(x - trX, "x-tr(X)");
+
+}
+
+// ---------- Scalar wrapper merging across operations ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_ScalarWrapperMerging) {
+  auto &X = this->X;
+  auto &x = this->x;
+  auto &y = this->y;
+  auto &_2 = this->_2;
+
+  using numsim::cas::trace;
+
+  auto trX = trace(X);
+
+  // --- constant_add: wrapper(a) + wrapper(b) → wrapper(a+b) ---
+  // Non-numeric scalar wrappers should merge in scalar domain
+  EXPECT_SAME_PRINT(trX + x + y, x + y + trX);
+
+  // --- constant_sub: wrapper(a) - wrapper(b) → wrapper(a-b) ---
+  EXPECT_SAME_PRINT(x - y + trX, trX + x - y);
+
+  // --- n_ary_add scanning: (trX + wrapper(x)) + wrapper(y) merges wrappers ---
+  EXPECT_SAME_PRINT((trX + x) + y, x + y + trX);
+
+  // --- n_ary_sub scanning: (trX + wrapper(x)) - wrapper(y) merges wrappers ---
+  EXPECT_SAME_PRINT((trX + x) - y, x - y + trX);
+
+  // --- wrapper cancellation via scalar sub ---
+  EXPECT_PRINT(trX + x - x, "tr(X)");
+
+  // --- constant_mul: wrapper(a) * wrapper(b) → wrapper(a*b) ---
+  EXPECT_SAME_PRINT((x * trX) * (y * trX),
+                     numsim::cas::pow(trX, _2) * x * y);
 }
 
 #endif // TENSORTOSCALAREXPRESSIONTEST_H

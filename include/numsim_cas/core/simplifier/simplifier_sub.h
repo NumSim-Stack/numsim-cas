@@ -269,7 +269,7 @@ public:
     return expr_add;
   }
 
-private:
+protected:
   using base::m_lhs;
   using base::m_rhs;
   typename Traits::add_type const &lhs;

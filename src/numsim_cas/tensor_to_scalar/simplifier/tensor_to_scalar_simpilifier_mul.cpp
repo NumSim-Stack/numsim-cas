@@ -1,6 +1,8 @@
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_mul.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h>
 
 namespace numsim::cas {
 namespace tensor_to_scalar_detail {
@@ -43,7 +45,11 @@ constant_mul::dispatch(tensor_to_scalar_scalar_wrapper const &) {
   if (lhs_val && rhs_val) {
     return t2s_traits::make_constant(*lhs_val * *rhs_val);
   }
-  return base::get_default();
+  // Non-numeric: unwrap both, multiply in scalar domain, re-wrap
+  auto &lhs_w = base::m_lhs.template get<tensor_to_scalar_scalar_wrapper>();
+  auto &rhs_w = base::m_rhs.template get<tensor_to_scalar_scalar_wrapper>();
+  auto result = lhs_w.expr() * rhs_w.expr();
+  return make_expression<tensor_to_scalar_scalar_wrapper>(std::move(result));
 }
 
 constant_mul::expr_holder_t

@@ -70,6 +70,28 @@ tag_invoke(sub_fn, [[maybe_unused]] L &&lhs, [[maybe_unused]] R &&rhs) {
 
 template <class L, class R>
 requires std::same_as<std::remove_cvref_t<L>,
+                      expression_holder<scalar_expression>> &&
+         std::same_as<std::remove_cvref_t<R>,
+                      expression_holder<tensor_to_scalar_expression>>
+inline expression_holder<tensor_to_scalar_expression>
+tag_invoke(sub_fn, L &&lhs, R &&rhs) {
+  return make_expression<tensor_to_scalar_scalar_wrapper>(std::forward<L>(lhs)) -
+         std::forward<R>(rhs);
+}
+
+template <class L, class R>
+requires std::same_as<std::remove_cvref_t<L>,
+                      expression_holder<tensor_to_scalar_expression>> &&
+         std::same_as<std::remove_cvref_t<R>,
+                      expression_holder<scalar_expression>>
+inline expression_holder<tensor_to_scalar_expression>
+tag_invoke(sub_fn, L &&lhs, R &&rhs) {
+  return std::forward<L>(lhs) -
+         make_expression<tensor_to_scalar_scalar_wrapper>(std::forward<R>(rhs));
+}
+
+template <class L, class R>
+requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_to_scalar_expression>> &&
          std::same_as<std::remove_cvref_t<R>,
                       expression_holder<tensor_to_scalar_expression>>

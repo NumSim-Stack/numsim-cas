@@ -39,6 +39,18 @@ inline auto get_all(n_ary_tree<Base> const &tree) {
   return result;
 }
 
+template <typename Type, typename Base>
+inline auto get_all(n_ary_vector<Base> const &tree) {
+  using expr_holder_t = typename Base::expr_holder_t;
+  std::vector<expr_holder_t> result;
+  for (const auto &expr : tree.data()) {
+    if (is_same<Type>(expr)) {
+      result.push_back(expr);
+    }
+  }
+  return result;
+}
+
 template <typename T, typename... Args>
 [[nodiscard]] auto make_expression(Args &&...args) {
   return expression_holder<typename T::expr_t>(

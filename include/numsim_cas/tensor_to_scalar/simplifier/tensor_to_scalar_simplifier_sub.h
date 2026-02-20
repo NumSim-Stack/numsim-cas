@@ -57,6 +57,14 @@ class n_ary_sub final
 public:
   using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
   using algo::algo;
+  using algo::dispatch;
+
+  // domain-specific: scalar_wrapper dispatch (numeric → base, else find/merge)
+  expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &);
+
+  // Generic fallback: find in hash_map, combine or push_back -rhs
+  // Body defined in .cpp to keep operator- ADL in that TU.
+  template <typename T> expr_holder_t dispatch(T const &);
 
 #define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
   NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
@@ -73,6 +81,10 @@ class constant_sub final
 public:
   using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
   using algo::algo;
+  using algo::dispatch;
+
+  // domain-specific: wrapper - wrapper → unwrap, sub in scalar domain, re-wrap
+  expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &);
 
 #define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
   NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
