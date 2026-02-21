@@ -8,8 +8,8 @@ include(CTest)
 include(FetchContent)
 
 #google test
-find_package(googletest QUIET)
-if(!GOOGLETEST_IS_DETECTED)
+find_package(GTest QUIET)
+if(NOT GTest_FOUND)
 	FetchContent_Declare(
 	  googletest
 	#  # Specify the commit you depend on and update it regularly.
