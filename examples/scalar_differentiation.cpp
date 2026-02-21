@@ -22,7 +22,8 @@ int main() {
   std::cout << "--- Basic Rules ---\n";
   std::cout << "d/dx(x)         = " << to_string(diff(x, x)) << "\n";
   std::cout << "d/dx(y)         = " << to_string(diff(y, x)) << "\n";
-  std::cout << "d/dx(5)         = " << to_string(diff(make_scalar_constant(5), x)) << "\n";
+  std::cout << "d/dx(5)         = "
+            << to_string(diff(make_scalar_constant(5), x)) << "\n";
 
   // Sum rule
   std::cout << "\n--- Sum Rule ---\n";
@@ -50,7 +51,8 @@ int main() {
 
   // Chain rule
   std::cout << "\n--- Chain Rule ---\n";
-  std::cout << "d/dx(sin(x^2))  = " << to_string(diff(sin(pow(x, _2)), x)) << "\n";
+  std::cout << "d/dx(sin(x^2))  = " << to_string(diff(sin(pow(x, _2)), x))
+            << "\n";
   std::cout << "d/dx(exp(x))    = " << to_string(diff(exp(x), x)) << "\n";
   std::cout << "d/dx(log(x))    = " << to_string(diff(log(x), x)) << "\n";
 }

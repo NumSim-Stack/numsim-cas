@@ -29,13 +29,11 @@ public:
     return expr;
   }
 
-  virtual scalar_holder_t
-  apply_scalar(scalar_holder_t const &expr) {
+  virtual scalar_holder_t apply_scalar(scalar_holder_t const &expr) {
     return expr;
   }
 
-  virtual tensor_holder_t
-  apply_tensor(tensor_holder_t const &expr) {
+  virtual tensor_holder_t apply_tensor(tensor_holder_t const &expr) {
     return expr;
   }
 
@@ -58,8 +56,7 @@ public:
   }
 
   // Unary scalar -> t2s (cross-domain!)
-  void
-  operator()(tensor_to_scalar_scalar_wrapper const &v) override {
+  void operator()(tensor_to_scalar_scalar_wrapper const &v) override {
     m_result = make_expression<tensor_to_scalar_scalar_wrapper>(
         apply_scalar(v.expr()));
   }
@@ -87,11 +84,10 @@ public:
   }
 
   // Binary tensor x tensor -> t2s (cross-domain!)
-  void operator()(
-      tensor_inner_product_to_scalar const &v) override {
+  void operator()(tensor_inner_product_to_scalar const &v) override {
     m_result = make_expression<tensor_inner_product_to_scalar>(
-        apply_tensor(v.expr_lhs()), v.indices_lhs(),
-        apply_tensor(v.expr_rhs()), v.indices_rhs());
+        apply_tensor(v.expr_lhs()), v.indices_lhs(), apply_tensor(v.expr_rhs()),
+        v.indices_rhs());
   }
 
   // N-ary t2s ops

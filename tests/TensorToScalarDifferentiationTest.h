@@ -24,7 +24,7 @@ protected:
 
   TensorToScalarDifferentiationTest() {
     std::tie(Y, X) = make_tensor_variable(std::tuple{"Y", dim, rank},
-                                           std::tuple{"X", dim, rank});
+                                          std::tuple{"X", dim, rank});
     trY = trace(Y);
     trX = trace(X);
     nY = norm(Y);

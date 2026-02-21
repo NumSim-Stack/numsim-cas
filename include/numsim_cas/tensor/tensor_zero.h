@@ -19,12 +19,10 @@ public:
   ~tensor_zero() = default;
   const tensor_zero &operator=(tensor_zero &&) = delete;
 
-  friend inline bool operator<(tensor_zero const &lhs,
-                               tensor_zero const &rhs) {
+  friend inline bool operator<(tensor_zero const &lhs, tensor_zero const &rhs) {
     return lhs.hash_value() < rhs.hash_value();
   }
-  friend inline bool operator>(tensor_zero const &lhs,
-                               tensor_zero const &rhs) {
+  friend inline bool operator>(tensor_zero const &lhs, tensor_zero const &rhs) {
     return rhs < lhs;
   }
   friend inline bool operator==(tensor_zero const &lhs,

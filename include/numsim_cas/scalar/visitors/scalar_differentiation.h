@@ -280,8 +280,7 @@ public:
   /**
    * @brief Default overload for safety reasons.
    */
-  template <class T>
-  void operator()([[maybe_unused]] T const &visitable) {
+  template <class T> void operator()([[maybe_unused]] T const &visitable) {
     static_assert(
         sizeof(T) == 0,
         "scalar_differentiation: missing overload for this node type");

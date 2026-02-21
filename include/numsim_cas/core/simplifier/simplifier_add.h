@@ -62,7 +62,8 @@ public:
       }
       return add_new;
     } else {
-      // Domains without n_ary_tree mul_type (e.g. tensor) override get_default()
+      // Domains without n_ary_tree mul_type (e.g. tensor) override
+      // get_default()
       return m_lhs;
     }
   }
@@ -131,8 +132,8 @@ public:
   }
 
   // constant + (coeff + x)
-  expr_holder_t
-  dispatch([[maybe_unused]] typename Traits::add_type const &rhs) {
+  expr_holder_t dispatch([[maybe_unused]]
+                         typename Traits::add_type const &rhs) {
     auto lhs_val = Traits::try_numeric(base::m_lhs);
     if (lhs_val) {
       const auto value{get_coefficient<Traits>(rhs, 0) + *lhs_val};
@@ -177,8 +178,7 @@ public:
 // one_add_dispatch<Traits> — LHS is one
 //==============================================================================
 template <typename Traits>
-class one_add_dispatch
-    : public add_dispatch<Traits, one_add_dispatch<Traits>> {
+class one_add_dispatch : public add_dispatch<Traits, one_add_dispatch<Traits>> {
   using base = add_dispatch<Traits, one_add_dispatch<Traits>>;
 
 public:
@@ -203,8 +203,8 @@ public:
   }
 
   // 1 + (coeff + x)
-  expr_holder_t
-  dispatch([[maybe_unused]] typename Traits::add_type const &rhs) {
+  expr_holder_t dispatch([[maybe_unused]]
+                         typename Traits::add_type const &rhs) {
     const auto value{get_coefficient<Traits>(rhs, 0) + 1};
     if (value != 0) {
       auto add_expr{make_expression<typename Traits::add_type>(rhs)};
@@ -252,8 +252,8 @@ public:
         lhs{base::m_lhs.template get<typename Traits::add_type>()} {}
 
   // (coeff + terms) + constant
-  expr_holder_t
-  dispatch([[maybe_unused]] typename Traits::constant_type const &) {
+  expr_holder_t dispatch([[maybe_unused]]
+                         typename Traits::constant_type const &) {
     auto rhs_val = Traits::try_numeric(base::m_rhs);
     if (rhs_val) {
       auto add_expr{make_expression<typename Traits::add_type>(lhs)};
@@ -269,8 +269,7 @@ public:
   }
 
   // (coeff + terms) + 1
-  expr_holder_t
-  dispatch([[maybe_unused]] typename Traits::one_type const &) {
+  expr_holder_t dispatch([[maybe_unused]] typename Traits::one_type const &) {
     auto add_expr{make_expression<typename Traits::add_type>(lhs)};
     auto &add{add_expr.template get<typename Traits::add_type>()};
     const auto value{get_coefficient<Traits>(add, 0) + 1};
@@ -363,8 +362,7 @@ public:
     if (pos != lhs.hash_map().end() && lhs.hash_map().size() == 1) {
       auto expr{make_expression<typename Traits::mul_type>(lhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
-      mul.set_coeff(Traits::make_constant(
-          get_coefficient<Traits>(lhs, 1) + 1));
+      mul.set_coeff(Traits::make_constant(get_coefficient<Traits>(lhs, 1) + 1));
       return expr;
     }
     return get_default();
@@ -427,8 +425,7 @@ public:
     if (pos != rhs.hash_map().end() && rhs.hash_map().size() == 1) {
       auto expr{make_expression<typename Traits::mul_type>(rhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
-      mul.set_coeff(Traits::make_constant(
-          get_coefficient<Traits>(rhs, 1) + 1));
+      mul.set_coeff(Traits::make_constant(get_coefficient<Traits>(rhs, 1) + 1));
       return expr;
     }
     return get_default();
@@ -464,8 +461,8 @@ public:
   }
 
   // -expr + (coeff + terms)
-  expr_holder_t
-  dispatch([[maybe_unused]] typename Traits::add_type const &rhs) {
+  expr_holder_t dispatch([[maybe_unused]]
+                         typename Traits::add_type const &rhs) {
     auto add_expr{make_expression<typename Traits::add_type>(rhs)};
     auto &add{add_expr.template get<typename Traits::add_type>()};
 

@@ -600,146 +600,205 @@ using Fn = double (*)() noexcept;
     return static_cast<double>(random_pick(rng));                              \
   }
 
-POLY_RULE(0, 0)
-POLY_RULE(0, 1) POLY_RULE(0, 2) POLY_RULE(0, 3) POLY_RULE(0, 4) POLY_RULE(0, 5)
-    POLY_RULE(0, 6) POLY_RULE(0, 7) POLY_RULE(0, 8) POLY_RULE(0, 9) POLY_RULE(
-        0, 10) POLY_RULE(0, 11) POLY_RULE(0, 12) POLY_RULE(1, 0) POLY_RULE(1, 1)
-        POLY_RULE(1, 2) POLY_RULE(1, 3) POLY_RULE(1, 4) POLY_RULE(
-            1, 5) POLY_RULE(1, 6) POLY_RULE(1, 7) POLY_RULE(1, 8) POLY_RULE(1,
-                                                                            9)
-            POLY_RULE(1, 10) POLY_RULE(1, 11) POLY_RULE(1, 12) POLY_RULE(2, 0)
-                POLY_RULE(2, 1) POLY_RULE(2, 2) POLY_RULE(2, 3) POLY_RULE(2, 4)
-                    POLY_RULE(2, 5) POLY_RULE(2, 6) POLY_RULE(2, 7) POLY_RULE(
-                        2,
-                        8) POLY_RULE(2,
-                                     9) POLY_RULE(2, 10)
-                        POLY_RULE(2, 11) POLY_RULE(2, 12) POLY_RULE(3, 0) POLY_RULE(
-                            3,
-                            1) POLY_RULE(3,
-                                         2) POLY_RULE(3, 3)
-                            POLY_RULE(
-                                3,
-                                4) POLY_RULE(3,
-                                             5) POLY_RULE(3, 6)
-                                POLY_RULE(
-                                    3,
-                                    7) POLY_RULE(3,
-                                                 8) POLY_RULE(3, 9)
-                                    POLY_RULE(3, 10) POLY_RULE(3, 11) POLY_RULE(
-                                        3, 12) POLY_RULE(4,
-                                                         0) POLY_RULE(4, 1)
-                                        POLY_RULE(
-                                            4,
-                                            2) POLY_RULE(4,
-                                                         3) POLY_RULE(4, 4)
-                                            POLY_RULE(
-                                                4,
-                                                5) POLY_RULE(4,
-                                                             6) POLY_RULE(4, 7)
-                                                POLY_RULE(
-                                                    4,
-                                                    8) POLY_RULE(4,
-                                                                 9) POLY_RULE(4, 10)
-                                                    POLY_RULE(4, 11) POLY_RULE(
-                                                        4, 12) POLY_RULE(5, 0)
-                                                        POLY_RULE(
-                                                            5,
-                                                            1) POLY_RULE(5, 2)
-                                                            POLY_RULE(
-                                                                5,
-                                                                3) POLY_RULE(5,
-                                                                             4)
-                                                                POLY_RULE(5, 5)
-                                                                    POLY_RULE(5,
-                                                                              6)
-                                                                        POLY_RULE(
-                                                                            5,
-                                                                            7)
-                                                                            POLY_RULE(5, 8) POLY_RULE(5, 9) POLY_RULE(5, 10) POLY_RULE(5, 11) POLY_RULE(5, 12) POLY_RULE(6, 0) POLY_RULE(6, 1) POLY_RULE(6, 2) POLY_RULE(6, 3) POLY_RULE(6,
-                                                                                                                                                                                                                                         4) POLY_RULE(6,
-                                                                                                                                                                                                                                                      5) POLY_RULE(6, 6) POLY_RULE(6, 7) POLY_RULE(6,
-                                                                                                                                                                                                                                                                                                   8) POLY_RULE(6,
-                                                                                                                                                                                                                                                                                                                9) POLY_RULE(6,
-                                                                                                                                                                                                                                                                                                                             10) POLY_RULE(6,
-                                                                                                                                                                                                                                                                                                                                           11) POLY_RULE(6,
-                                                                                                                                                                                                                                                                                                                                                         12) POLY_RULE(7,
-                                                                                                                                                                                                                                                                                                                                                                       0) POLY_RULE(7,
-                                                                                                                                                                                                                                                                                                                                                                                    1) POLY_RULE(7,
-                                                                                                                                                                                                                                                                                                                                                                                                 2) POLY_RULE(7,
-                                                                                                                                                                                                                                                                                                                                                                                                              3) POLY_RULE(7,
-                                                                                                                                                                                                                                                                                                                                                                                                                           4) POLY_RULE(7,
-                                                                                                                                                                                                                                                                                                                                                                                                                                        5) POLY_RULE(7,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                     6) POLY_RULE(7, 7) POLY_RULE(7, 8) POLY_RULE(7, 9) POLY_RULE(7, 10) POLY_RULE(7, 11) POLY_RULE(7, 12) POLY_RULE(8, 0) POLY_RULE(8, 1) POLY_RULE(8, 2) POLY_RULE(8, 3) POLY_RULE(8, 4) POLY_RULE(8, 5) POLY_RULE(8, 6) POLY_RULE(8,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     7) POLY_RULE(8,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  8) POLY_RULE(8,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               9) POLY_RULE(8,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            10) POLY_RULE(8, 11) POLY_RULE(8, 12) POLY_RULE(9,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            0) POLY_RULE(9,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         1) POLY_RULE(9,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      2) POLY_RULE(9,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   3) POLY_RULE(9,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                4) POLY_RULE(9,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             5) POLY_RULE(9,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          6) POLY_RULE(9, 7) POLY_RULE(9, 8) POLY_RULE(9, 9) POLY_RULE(9, 10) POLY_RULE(9, 11) POLY_RULE(9, 12) POLY_RULE(10,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          0) POLY_RULE(10, 1) POLY_RULE(10, 2) POLY_RULE(10, 3) POLY_RULE(10, 4) POLY_RULE(10, 5) POLY_RULE(10,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            6) POLY_RULE(10,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         7) POLY_RULE(10,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      8) POLY_RULE(10,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   9) POLY_RULE(10, 10) POLY_RULE(10, 11) POLY_RULE(10, 12) POLY_RULE(11, 0) POLY_RULE(11, 1) POLY_RULE(11, 2) POLY_RULE(11, 3) POLY_RULE(11,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          4) POLY_RULE(11,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       5) POLY_RULE(11,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    6) POLY_RULE(11,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 7) POLY_RULE(11,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              8) POLY_RULE(11,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           9) POLY_RULE(11,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        10) POLY_RULE(11,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      11) POLY_RULE(11,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    12)
-                                                                                POLY_RULE(12, 0) POLY_RULE(12, 1) POLY_RULE(12, 2) POLY_RULE(12, 3) POLY_RULE(
-                                                                                    12,
-                                                                                    4) POLY_RULE(12,
-                                                                                                 5) POLY_RULE(12, 6)
-                                                                                    POLY_RULE(12, 7) POLY_RULE(12, 8) POLY_RULE(
-                                                                                        12,
-                                                                                        9) POLY_RULE(12,
-                                                                                                     10)
-                                                                                        POLY_RULE(
-                                                                                            12,
-                                                                                            11)
-                                                                                            POLY_RULE(
-                                                                                                12,
-                                                                                                12)
+POLY_RULE(0, 0);
+POLY_RULE(0, 1);
+POLY_RULE(0, 2);
+POLY_RULE(0, 3);
+POLY_RULE(0, 4);
+POLY_RULE(0, 5);
+POLY_RULE(0, 6);
+POLY_RULE(0, 7);
+POLY_RULE(0, 8);
+POLY_RULE(0, 9);
+POLY_RULE(0, 10);
+POLY_RULE(0, 11);
+POLY_RULE(0, 12);
+POLY_RULE(1, 0);
+POLY_RULE(1, 1);
+POLY_RULE(1, 2);
+POLY_RULE(1, 3);
+POLY_RULE(1, 4);
+POLY_RULE(1, 5);
+POLY_RULE(1, 6);
+POLY_RULE(1, 7);
+POLY_RULE(1, 8);
+POLY_RULE(1, 9);
+POLY_RULE(1, 10);
+POLY_RULE(1, 11);
+POLY_RULE(1, 12);
+POLY_RULE(2, 0);
+POLY_RULE(2, 1);
+POLY_RULE(2, 2);
+POLY_RULE(2, 3);
+POLY_RULE(2, 4);
+POLY_RULE(2, 5);
+POLY_RULE(2, 6);
+POLY_RULE(2, 7);
+POLY_RULE(2, 8);
+POLY_RULE(2, 9);
+POLY_RULE(2, 10);
+POLY_RULE(2, 11);
+POLY_RULE(2, 12);
+POLY_RULE(3, 0);
+POLY_RULE(3, 1);
+POLY_RULE(3, 2);
+POLY_RULE(3, 3);
+POLY_RULE(3, 4);
+POLY_RULE(3, 5);
+POLY_RULE(3, 6);
+POLY_RULE(3, 7);
+POLY_RULE(3, 8);
+POLY_RULE(3, 9);
+POLY_RULE(3, 10);
+POLY_RULE(3, 11);
+POLY_RULE(3, 12);
+POLY_RULE(4, 0);
+POLY_RULE(4, 1);
+POLY_RULE(4, 2);
+POLY_RULE(4, 3);
+POLY_RULE(4, 4);
+POLY_RULE(4, 5);
+POLY_RULE(4, 6);
+POLY_RULE(4, 7);
+POLY_RULE(4, 8);
+POLY_RULE(4, 9);
+POLY_RULE(4, 10);
+POLY_RULE(4, 11);
+POLY_RULE(4, 12);
+POLY_RULE(5, 0);
+POLY_RULE(5, 1);
+POLY_RULE(5, 2);
+POLY_RULE(5, 3);
+POLY_RULE(5, 4);
+POLY_RULE(5, 5);
+POLY_RULE(5, 6);
+POLY_RULE(5, 7);
+POLY_RULE(5, 8);
+POLY_RULE(5, 9);
+POLY_RULE(5, 10);
+POLY_RULE(5, 11);
+POLY_RULE(5, 12);
+POLY_RULE(6, 0);
+POLY_RULE(6, 1);
+POLY_RULE(6, 2);
+POLY_RULE(6, 3);
+POLY_RULE(6, 4);
+POLY_RULE(6, 5);
+POLY_RULE(6, 6);
+POLY_RULE(6, 7);
+POLY_RULE(6, 8);
+POLY_RULE(6, 9);
+POLY_RULE(6, 10);
+POLY_RULE(6, 11);
+POLY_RULE(6, 12);
+POLY_RULE(7, 0);
+POLY_RULE(7, 1);
+POLY_RULE(7, 2);
+POLY_RULE(7, 3);
+POLY_RULE(7, 4);
+POLY_RULE(7, 5);
+POLY_RULE(7, 6);
+POLY_RULE(7, 7);
+POLY_RULE(7, 8);
+POLY_RULE(7, 9);
+POLY_RULE(7, 10);
+POLY_RULE(7, 11);
+POLY_RULE(7, 12);
+POLY_RULE(8, 0);
+POLY_RULE(8, 1);
+POLY_RULE(8, 2);
+POLY_RULE(8, 3);
+POLY_RULE(8, 4);
+POLY_RULE(8, 5);
+POLY_RULE(8, 6);
+POLY_RULE(8, 7);
+POLY_RULE(8, 8);
+POLY_RULE(8, 9);
+POLY_RULE(8, 10);
+POLY_RULE(8, 11);
+POLY_RULE(8, 12);
+POLY_RULE(9, 0);
+POLY_RULE(9, 1);
+POLY_RULE(9, 2);
+POLY_RULE(9, 3);
+POLY_RULE(9, 4);
+POLY_RULE(9, 5);
+POLY_RULE(9, 6);
+POLY_RULE(9, 7);
+POLY_RULE(9, 8);
+POLY_RULE(9, 9);
+POLY_RULE(9, 10);
+POLY_RULE(9, 11);
+POLY_RULE(9, 12);
+POLY_RULE(10, 0);
+POLY_RULE(10, 1);
+POLY_RULE(10, 2);
+POLY_RULE(10, 3);
+POLY_RULE(10, 4);
+POLY_RULE(10, 5);
+POLY_RULE(10, 6);
+POLY_RULE(10, 7);
+POLY_RULE(10, 8);
+POLY_RULE(10, 9);
+POLY_RULE(10, 10);
+POLY_RULE(10, 11);
+POLY_RULE(10, 12);
+POLY_RULE(11, 0);
+POLY_RULE(11, 1);
+POLY_RULE(11, 2);
+POLY_RULE(11, 3);
+POLY_RULE(11, 4);
+POLY_RULE(11, 5);
+POLY_RULE(11, 6);
+POLY_RULE(11, 7);
+POLY_RULE(11, 8);
+POLY_RULE(11, 9);
+POLY_RULE(11, 10);
+POLY_RULE(11, 11);
+POLY_RULE(11, 12);
+POLY_RULE(12, 0);
+POLY_RULE(12, 1);
+POLY_RULE(12, 2);
+POLY_RULE(12, 3);
+POLY_RULE(12, 4);
+POLY_RULE(12, 5);
+POLY_RULE(12, 6);
+POLY_RULE(12, 7);
+POLY_RULE(12, 8);
+POLY_RULE(12, 9);
+POLY_RULE(12, 10);
+POLY_RULE(12, 11);
+POLY_RULE(12, 12);
 
 #undef POLY_RULE
 
-                                                                                                static Fn
-    table[13][13] = {
-        {&r0_0, &r0_1, &r0_2, &r0_3, &r0_4, &r0_5, &r0_6, &r0_7, &r0_8, &r0_9,
-         &r0_10, &r0_11, &r0_12},
-        {&r1_0, &r1_1, &r1_2, &r1_3, &r1_4, &r1_5, &r1_6, &r1_7, &r1_8, &r1_9,
-         &r1_10, &r1_11, &r1_12},
-        {&r2_0, &r2_1, &r2_2, &r2_3, &r2_4, &r2_5, &r2_6, &r2_7, &r2_8, &r2_9,
-         &r2_10, &r2_11, &r2_12},
-        {&r3_0, &r3_1, &r3_2, &r3_3, &r3_4, &r3_5, &r3_6, &r3_7, &r3_8, &r3_9,
-         &r3_10, &r3_11, &r3_12},
-        {&r4_0, &r4_1, &r4_2, &r4_3, &r4_4, &r4_5, &r4_6, &r4_7, &r4_8, &r4_9,
-         &r4_10, &r4_11, &r4_12},
-        {&r5_0, &r5_1, &r5_2, &r5_3, &r5_4, &r5_5, &r5_6, &r5_7, &r5_8, &r5_9,
-         &r5_10, &r5_11, &r5_12},
-        {&r6_0, &r6_1, &r6_2, &r6_3, &r6_4, &r6_5, &r6_6, &r6_7, &r6_8, &r6_9,
-         &r6_10, &r6_11, &r6_12},
-        {&r7_0, &r7_1, &r7_2, &r7_3, &r7_4, &r7_5, &r7_6, &r7_7, &r7_8, &r7_9,
-         &r7_10, &r7_11, &r7_12},
-        {&r8_0, &r8_1, &r8_2, &r8_3, &r8_4, &r8_5, &r8_6, &r8_7, &r8_8, &r8_9,
-         &r8_10, &r8_11, &r8_12},
-        {&r9_0, &r9_1, &r9_2, &r9_3, &r9_4, &r9_5, &r9_6, &r9_7, &r9_8, &r9_9,
-         &r9_10, &r9_11, &r9_12},
-        {&r10_0, &r10_1, &r10_2, &r10_3, &r10_4, &r10_5, &r10_6, &r10_7, &r10_8,
-         &r10_9, &r10_10, &r10_11, &r10_12},
-        {&r11_0, &r11_1, &r11_2, &r11_3, &r11_4, &r11_5, &r11_6, &r11_7, &r11_8,
-         &r11_9, &r11_10, &r11_11, &r11_12},
-        {&r12_0, &r12_1, &r12_2, &r12_3, &r12_4, &r12_5, &r12_6, &r12_7, &r12_8,
-         &r12_9, &r12_10, &r12_11, &r12_12},
+static Fn table[13][13] = {
+    {&r0_0, &r0_1, &r0_2, &r0_3, &r0_4, &r0_5, &r0_6, &r0_7, &r0_8, &r0_9,
+     &r0_10, &r0_11, &r0_12},
+    {&r1_0, &r1_1, &r1_2, &r1_3, &r1_4, &r1_5, &r1_6, &r1_7, &r1_8, &r1_9,
+     &r1_10, &r1_11, &r1_12},
+    {&r2_0, &r2_1, &r2_2, &r2_3, &r2_4, &r2_5, &r2_6, &r2_7, &r2_8, &r2_9,
+     &r2_10, &r2_11, &r2_12},
+    {&r3_0, &r3_1, &r3_2, &r3_3, &r3_4, &r3_5, &r3_6, &r3_7, &r3_8, &r3_9,
+     &r3_10, &r3_11, &r3_12},
+    {&r4_0, &r4_1, &r4_2, &r4_3, &r4_4, &r4_5, &r4_6, &r4_7, &r4_8, &r4_9,
+     &r4_10, &r4_11, &r4_12},
+    {&r5_0, &r5_1, &r5_2, &r5_3, &r5_4, &r5_5, &r5_6, &r5_7, &r5_8, &r5_9,
+     &r5_10, &r5_11, &r5_12},
+    {&r6_0, &r6_1, &r6_2, &r6_3, &r6_4, &r6_5, &r6_6, &r6_7, &r6_8, &r6_9,
+     &r6_10, &r6_11, &r6_12},
+    {&r7_0, &r7_1, &r7_2, &r7_3, &r7_4, &r7_5, &r7_6, &r7_7, &r7_8, &r7_9,
+     &r7_10, &r7_11, &r7_12},
+    {&r8_0, &r8_1, &r8_2, &r8_3, &r8_4, &r8_5, &r8_6, &r8_7, &r8_8, &r8_9,
+     &r8_10, &r8_11, &r8_12},
+    {&r9_0, &r9_1, &r9_2, &r9_3, &r9_4, &r9_5, &r9_6, &r9_7, &r9_8, &r9_9,
+     &r9_10, &r9_11, &r9_12},
+    {&r10_0, &r10_1, &r10_2, &r10_3, &r10_4, &r10_5, &r10_6, &r10_7, &r10_8,
+     &r10_9, &r10_10, &r10_11, &r10_12},
+    {&r11_0, &r11_1, &r11_2, &r11_3, &r11_4, &r11_5, &r11_6, &r11_7, &r11_8,
+     &r11_9, &r11_10, &r11_11, &r11_12},
+    {&r12_0, &r12_1, &r12_2, &r12_3, &r12_4, &r12_5, &r12_6, &r12_7, &r12_8,
+     &r12_9, &r12_10, &r12_11, &r12_12},
 };
 
 static void double_dispatch_table_vcall(benchmark::State &state) {

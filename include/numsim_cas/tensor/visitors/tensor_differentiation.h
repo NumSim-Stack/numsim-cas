@@ -1,6 +1,7 @@
 #ifndef TENSOR_DIFFERENTIATION_H
 #define TENSOR_DIFFERENTIATION_H
 
+#include <numeric>
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/diff.h>
@@ -12,7 +13,6 @@
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
-#include <numeric>
 #include <ranges>
 
 namespace numsim::cas {
@@ -74,11 +74,20 @@ public:
           if (kind != ProjKind::Other) {
             auto d = m_arg.get().dim();
             switch (kind) {
-            case ProjKind::Sym:  m_result = P_sym(d);  return;
-            case ProjKind::Skew: m_result = P_skew(d); return;
-            case ProjKind::Vol:  m_result = P_vol(d);  return;
-            case ProjKind::Dev:  m_result = P_devi(d); return;
-            default: break;
+            case ProjKind::Sym:
+              m_result = P_sym(d);
+              return;
+            case ProjKind::Skew:
+              m_result = P_skew(d);
+              return;
+            case ProjKind::Vol:
+              m_result = P_vol(d);
+              return;
+            case ProjKind::Dev:
+              m_result = P_devi(d);
+              return;
+            default:
+              break;
             }
           }
         }
@@ -134,7 +143,7 @@ public:
   void operator()(tensor_pow const &visitable) override {
     // d(pow(A,n))/dX creates a tensor_power_diff node
     m_result = make_expression<tensor_power_diff>(visitable.expr_lhs(),
-                                                   visitable.expr_rhs());
+                                                  visitable.expr_rhs());
   }
 
   // --- Cross-domain / complex nodes: declared here, defined in .cpp ---

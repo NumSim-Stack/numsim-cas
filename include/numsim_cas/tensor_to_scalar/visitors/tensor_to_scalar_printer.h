@@ -16,8 +16,8 @@
 namespace numsim::cas {
 
 namespace detail {
-inline bool is_scalar_like(
-    expression_holder<tensor_to_scalar_expression> const &expr) {
+inline bool
+is_scalar_like(expression_holder<tensor_to_scalar_expression> const &expr) {
   if (!expr.is_valid())
     return false;
   if (is_same<tensor_to_scalar_scalar_wrapper>(expr))
@@ -34,8 +34,7 @@ inline bool is_scalar_like(
     return true;
   }
   if (is_same<tensor_to_scalar_pow>(expr))
-    return is_scalar_like(
-        expr.template get<tensor_to_scalar_pow>().expr_lhs());
+    return is_scalar_like(expr.template get<tensor_to_scalar_pow>().expr_lhs());
   if (is_same<tensor_to_scalar_negative>(expr))
     return is_scalar_like(
         expr.template get<tensor_to_scalar_negative>().expr());
@@ -62,8 +61,7 @@ public:
   operator=(tensor_to_scalar_printer const &) = delete;
 
   auto apply(expression_holder<tensor_to_scalar_expression> const &expr,
-             [[maybe_unused]] Precedence parent_precedence =
-                 Precedence::None) {
+             [[maybe_unused]] Precedence parent_precedence = Precedence::None) {
     if (expr.is_valid()) {
       m_parent_precedence = parent_precedence;
       static_cast<const tensor_to_scalar_visitable_t &>(expr.get())
@@ -101,14 +99,12 @@ public:
     const auto parent_precedence{m_parent_precedence};
     begin(precedence, parent_precedence);
 
-    auto [num, denom] =
-        partition_mul_fractions<traits>(visitable.hash_map());
+    auto [num, denom] = partition_mul_fractions<traits>(visitable.hash_map());
 
     // scalar-like children first for consistent ordering
-    std::stable_partition(num.begin(), num.end(),
-                          [](auto const &c) {
-                            return detail::is_scalar_like(c);
-                          });
+    std::stable_partition(num.begin(), num.end(), [](auto const &c) {
+      return detail::is_scalar_like(c);
+    });
 
     bool first = true;
     if (visitable.coeff().is_valid()) {
@@ -124,10 +120,9 @@ public:
 
     if (!denom.empty()) {
       // scalar-like bases first for consistent ordering
-      std::stable_partition(denom.begin(), denom.end(),
-                            [](auto const &e) {
-                              return detail::is_scalar_like(e.base);
-                            });
+      std::stable_partition(denom.begin(), denom.end(), [](auto const &e) {
+        return detail::is_scalar_like(e.base);
+      });
       m_out << "/";
       const bool multi = denom.size() > 1;
       if (multi)
@@ -168,10 +163,9 @@ public:
     for (auto &child : visitable.hash_map() | std::views::values) {
       children.push_back(child);
     }
-    std::stable_partition(children.begin(), children.end(),
-                          [](auto const &c) {
-                            return detail::is_scalar_like(c);
-                          });
+    std::stable_partition(children.begin(), children.end(), [](auto const &c) {
+      return detail::is_scalar_like(c);
+    });
 
     bool first{false};
     if (visitable.coeff().is_valid()) {
@@ -287,8 +281,7 @@ public:
    *
    * @note Will be set to zero in apply function
    */
-  void
-  operator()([[maybe_unused]] tensor_to_scalar_one const &visitable) {
+  void operator()([[maybe_unused]] tensor_to_scalar_one const &visitable) {
     m_out << "1";
   }
 
@@ -297,8 +290,7 @@ public:
    *
    * @note Will be set to zero in apply function
    */
-  void
-  operator()([[maybe_unused]] tensor_to_scalar_zero const &visitable) {
+  void operator()([[maybe_unused]] tensor_to_scalar_zero const &visitable) {
     m_out << "0";
   }
 
@@ -306,16 +298,15 @@ public:
    * @brief Scalar expression converted to tensor_to_scalar
    *
    */
-  void operator()([[maybe_unused]] tensor_to_scalar_scalar_wrapper const
-                      &visitable) {
+  void operator()(
+      [[maybe_unused]] tensor_to_scalar_scalar_wrapper const &visitable) {
     apply(visitable.expr(), m_parent_precedence);
   }
 
   /**
    * @brief Default overload for safty reasons.
    */
-  template <class T>
-  void operator()([[maybe_unused]] T const &visitable) {
+  template <class T> void operator()([[maybe_unused]] T const &visitable) {
     static_assert(sizeof(T) == 0, "tensor_to_scalar_printer: missing "
                                   "overload for this node type");
   }

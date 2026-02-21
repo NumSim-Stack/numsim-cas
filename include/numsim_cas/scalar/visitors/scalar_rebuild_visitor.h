@@ -27,21 +27,13 @@ public:
 
   void operator()(scalar const &) override { m_result = m_current; }
 
-  void operator()(scalar_zero const &) override {
-    m_result = m_current;
-  }
+  void operator()(scalar_zero const &) override { m_result = m_current; }
 
-  void operator()(scalar_one const &) override {
-    m_result = m_current;
-  }
+  void operator()(scalar_one const &) override { m_result = m_current; }
 
-  void operator()(scalar_constant const &) override {
-    m_result = m_current;
-  }
+  void operator()(scalar_constant const &) override { m_result = m_current; }
 
-  void operator()(scalar_rational const &) override {
-    m_result = m_current;
-  }
+  void operator()(scalar_rational const &) override { m_result = m_current; }
 
   void operator()(scalar_add const &v) override {
     expr_holder_t result;
@@ -66,8 +58,8 @@ public:
   }
 
   void operator()(scalar_named_expression const &v) override {
-    m_result =
-        make_expression<scalar_named_expression>(std::string(v.name()), apply(v.expr()));
+    m_result = make_expression<scalar_named_expression>(std::string(v.name()),
+                                                        apply(v.expr()));
   }
 
   void operator()(scalar_sin const &v) override {

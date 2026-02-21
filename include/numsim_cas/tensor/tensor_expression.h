@@ -18,7 +18,8 @@ public:
   tensor_expression(std::size_t dim, std::size_t rank)
       : m_dim(dim), m_rank(rank) {}
   // NOTE: 2-arg constructors intentionally do NOT copy m_tensor_space.
-  // Used by n_ary_tree which constructs a fresh base and manages space separately.
+  // Used by n_ary_tree which constructs a fresh base and manages space
+  // separately.
   tensor_expression(tensor_expression &&data, std::size_t dim, std::size_t rank)
       : expression(std::move(static_cast<expression &&>(data))), m_dim(dim),
         m_rank(rank) {}

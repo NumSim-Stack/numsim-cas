@@ -32,7 +32,7 @@ public:
     }
     if (rank > this->_MaxRank || rank == 0) {
       throw evaluation_error("make_tensor_data_imp::evaluate(dim, rank) rank "
-                               "> MaxRank || rank == 0");
+                             "> MaxRank || rank == 0");
     }
     return nullptr;
   }

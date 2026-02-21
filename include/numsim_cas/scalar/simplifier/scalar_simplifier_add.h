@@ -28,9 +28,8 @@ public:
 };
 
 // Thin wrapper: LHS is constant
-class constant_add final
-    : public scalar_visitor_return_expr_t,
-      public detail::constant_add_dispatch<scalar_traits> {
+class constant_add final : public scalar_visitor_return_expr_t,
+                           public detail::constant_add_dispatch<scalar_traits> {
   using algo = detail::constant_add_dispatch<scalar_traits>;
 
 public:
@@ -44,9 +43,8 @@ public:
 };
 
 // Thin wrapper: LHS is one
-class add_scalar_one final
-    : public scalar_visitor_return_expr_t,
-      public detail::one_add_dispatch<scalar_traits> {
+class add_scalar_one final : public scalar_visitor_return_expr_t,
+                             public detail::one_add_dispatch<scalar_traits> {
   using algo = detail::one_add_dispatch<scalar_traits>;
 
 public:
@@ -60,9 +58,8 @@ public:
 };
 
 // Thin wrapper: LHS is add (n-ary sum)
-class n_ary_add final
-    : public scalar_visitor_return_expr_t,
-      public detail::n_ary_add_dispatch<scalar_traits> {
+class n_ary_add final : public scalar_visitor_return_expr_t,
+                        public detail::n_ary_add_dispatch<scalar_traits> {
   using algo = detail::n_ary_add_dispatch<scalar_traits>;
 
 public:
@@ -92,9 +89,8 @@ public:
 };
 
 // Thin wrapper: LHS is symbol
-class symbol_add final
-    : public scalar_visitor_return_expr_t,
-      public detail::symbol_add_dispatch<scalar_traits> {
+class symbol_add final : public scalar_visitor_return_expr_t,
+                         public detail::symbol_add_dispatch<scalar_traits> {
   using algo = detail::symbol_add_dispatch<scalar_traits>;
 
 public:
@@ -108,9 +104,8 @@ public:
 };
 
 // Thin wrapper: LHS is negative
-class add_negative final
-    : public scalar_visitor_return_expr_t,
-      public detail::negative_add_dispatch<scalar_traits> {
+class add_negative final : public scalar_visitor_return_expr_t,
+                           public detail::negative_add_dispatch<scalar_traits> {
   using algo = detail::negative_add_dispatch<scalar_traits>;
 
 public:

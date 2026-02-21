@@ -8,8 +8,7 @@ namespace numsim::cas {
 
 // --- Set assumptions ---
 
-inline void
-assume_symmetric(expression_holder<tensor_expression> const &expr) {
+inline void assume_symmetric(expression_holder<tensor_expression> const &expr) {
   expr.data()->set_space({Symmetric{}, AnyTraceTag{}});
 }
 

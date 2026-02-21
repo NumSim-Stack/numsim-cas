@@ -6,11 +6,9 @@
 
 namespace numsim::cas {
 
-[[nodiscard]] expression_holder<tensor_to_scalar_expression>
-dot_product(expression_holder<tensor_expression> const &lhs,
-            sequence &&lhs_indices,
-            expression_holder<tensor_expression> const &rhs,
-            sequence &&rhs_indices);
+[[nodiscard]] expression_holder<tensor_to_scalar_expression> dot_product(
+    expression_holder<tensor_expression> const &lhs, sequence &&lhs_indices,
+    expression_holder<tensor_expression> const &rhs, sequence &&rhs_indices);
 
 [[nodiscard]] expression_holder<tensor_to_scalar_expression>
 dot(expression_holder<tensor_expression> const &expr);

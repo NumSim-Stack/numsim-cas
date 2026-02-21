@@ -1,6 +1,8 @@
 #ifndef N_ARY_TREE_H
 #define N_ARY_TREE_H
 
+#include <algorithm>
+#include <array>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/hash_functions.h>
@@ -8,8 +10,6 @@
 #include <numsim_cas/is_symbol.h>
 #include <numsim_cas/numsim_cas_forward.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
-#include <algorithm>
-#include <array>
 #include <ranges>
 #include <vector>
 
@@ -22,7 +22,8 @@ public:
   using hash_t = typename expr_t::hash_type;
   using expr_holder_t = expression_holder<expr_t>;
   using iterator = typename expr_ordered_map<expr_t>::iterator;
-  using const_iterator = typename expr_ordered_map<expr_holder_t>::const_iterator;
+  using const_iterator =
+      typename expr_ordered_map<expr_holder_t>::const_iterator;
 
   n_ary_tree() noexcept { this->reserve(2); }
 
@@ -183,8 +184,7 @@ bool operator<(n_ary_tree<BaseTree> const &lhs,
 }
 
 template <typename BaseLHS, typename BaseRHS>
-bool operator<(n_ary_tree<BaseLHS> const &lhs,
-               n_ary_tree<BaseRHS> const &rhs) {
+bool operator<(n_ary_tree<BaseLHS> const &lhs, n_ary_tree<BaseRHS> const &rhs) {
   if (lhs.hash_value() != rhs.hash_value())
     return lhs.hash_value() < rhs.hash_value();
   if (lhs.size() != rhs.size())
@@ -201,8 +201,7 @@ bool operator<(n_ary_tree<BaseLHS> const &lhs,
 }
 
 template <typename BaseLHS, typename BaseRHS>
-bool operator>(n_ary_tree<BaseLHS> const &lhs,
-               n_ary_tree<BaseRHS> const &rhs) {
+bool operator>(n_ary_tree<BaseLHS> const &lhs, n_ary_tree<BaseRHS> const &rhs) {
   return rhs < lhs;
 }
 

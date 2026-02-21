@@ -1,10 +1,10 @@
 #ifndef VISITOR_BASE_H
 #define VISITOR_BASE_H
 
+#include <cassert>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
 #include <numsim_cas/type_list.h>
-#include <cassert>
 
 namespace numsim::cas {
 

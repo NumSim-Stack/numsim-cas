@@ -12,10 +12,9 @@
 
 namespace {
 
-using T2sSubTestDims =
-    ::testing::Types<std::integral_constant<std::size_t, 1>,
-                     std::integral_constant<std::size_t, 2>,
-                     std::integral_constant<std::size_t, 3>>;
+using T2sSubTestDims = ::testing::Types<std::integral_constant<std::size_t, 1>,
+                                        std::integral_constant<std::size_t, 2>,
+                                        std::integral_constant<std::size_t, 3>>;
 
 } // namespace
 
@@ -57,8 +56,7 @@ TYPED_TEST(TensorToScalarSubstitutionTest, T2sForT2s) {
   auto result = numsim::cas::substitute(expr, trX, detX);
   auto expected = detX + nX;
   EXPECT_TRUE(result == expected)
-      << "Expected " << testcas::S(expected)
-      << ", got: " << testcas::S(result);
+      << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
 }
 
 // scalar -> scalar in t2s: subs(x+trace(X), x, y) -> y+trace(X) (via wrapper)
@@ -72,8 +70,7 @@ TYPED_TEST(TensorToScalarSubstitutionTest, ScalarInT2s) {
   auto result = numsim::cas::substitute(expr, x, y);
   auto expected = y + trX;
   EXPECT_TRUE(result == expected)
-      << "Expected " << testcas::S(expected)
-      << ", got: " << testcas::S(result);
+      << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
 }
 
 // tensor -> tensor in t2s: subs(trace(X), X, Y) -> trace(Y)
@@ -85,8 +82,7 @@ TYPED_TEST(TensorToScalarSubstitutionTest, TensorInT2s) {
   auto result = numsim::cas::substitute(expr, X, Y);
   auto expected = numsim::cas::trace(Y);
   EXPECT_TRUE(result == expected)
-      << "Expected " << testcas::S(expected)
-      << ", got: " << testcas::S(result);
+      << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
 }
 
 #endif // TENSORTOSCALARSUBSTITUTIONTEST_H

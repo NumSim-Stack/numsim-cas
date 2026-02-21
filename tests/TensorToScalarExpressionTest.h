@@ -228,16 +228,15 @@ TYPED_TEST(TensorToScalarExpressionTest,
 }
 
 // ---------- Pow simplification ----------
-TYPED_TEST(TensorToScalarExpressionTest,
-           TensorToScalar_PowSimplification) {
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_PowSimplification) {
   auto &X = this->X;
   auto &Y = this->Y;
   auto &x = this->x;
   auto &_2 = this->_2;
   auto &_3 = this->_3;
 
-  using numsim::cas::trace;
   using numsim::cas::norm;
+  using numsim::cas::trace;
 
   auto trX = trace(X);
   auto trY = trace(Y);
@@ -263,14 +262,12 @@ TYPED_TEST(TensorToScalarExpressionTest,
   // --- pow of pow: pow(pow(tr(X),a),b) → pow(tr(X),a*b) ---
   EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, 2), 3), "pow(tr(X),6)");
   EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, 3), 2), "pow(tr(X),6)");
-  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, _2), _3),
-               "pow(tr(X),6)");
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, _2), _3), "pow(tr(X),6)");
   EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, x), _2),
                "pow(tr(X),2*x)");
 
   // pow of pow with different base expressions
-  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(nX, 2), 3),
-               "pow(norm(X),6)");
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(nX, 2), 3), "pow(norm(X),6)");
 
   // --- Negative base extraction: pow(-expr, p) → -pow(expr, p) ---
   EXPECT_PRINT(numsim::cas::pow(-trX, 2), "-pow(tr(X),2)");
@@ -283,9 +280,8 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_PRINT(numsim::cas::pow(trX * nX, -nX), "tr(X)");
 
   // --- Mul-pow extraction: pow(a*pow(b,c), d) → pow(a,d)*pow(b,c*d) ---
-  EXPECT_PRINT(
-      numsim::cas::pow(trX * numsim::cas::pow(nX, 2), 3),
-      "pow(norm(X),6)*pow(tr(X),3)");
+  EXPECT_PRINT(numsim::cas::pow(trX * numsim::cas::pow(nX, 2), 3),
+               "pow(norm(X),6)*pow(tr(X),3)");
 
   // --- Interplay with existing mul simplifier ---
   // tr(X)*tr(X) creates pow(tr(X),2), then pow(pow(tr(X),2),3) simplifies
@@ -332,8 +328,7 @@ TYPED_TEST(TensorToScalarExpressionTest,
 }
 
 // ---------- ADD: one_add (LHS = tensor_to_scalar_one) ----------
-TYPED_TEST(TensorToScalarExpressionTest,
-           TensorToScalar_OneAdd_Simplification) {
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_OneAdd_Simplification) {
   auto &X = this->X;
   auto &_2 = this->_2;
 
@@ -366,8 +361,7 @@ TYPED_TEST(TensorToScalarExpressionTest,
 }
 
 // ---------- ADD/SUB: n_ary_mul coefficient combination ----------
-TYPED_TEST(TensorToScalarExpressionTest,
-           TensorToScalar_MulCoeffCombination) {
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_MulCoeffCombination) {
   auto &X = this->X;
   auto &Y = this->Y;
   auto &_2 = this->_2;
@@ -497,12 +491,10 @@ TYPED_TEST(TensorToScalarExpressionTest,
 
   // scalar_variable - t2s: x - tr(X)
   EXPECT_PRINT(x - trX, "x-tr(X)");
-
 }
 
 // ---------- Scalar wrapper merging across operations ----------
-TYPED_TEST(TensorToScalarExpressionTest,
-           TensorToScalar_ScalarWrapperMerging) {
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_ScalarWrapperMerging) {
   auto &X = this->X;
   auto &x = this->x;
   auto &y = this->y;
@@ -529,13 +521,11 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_PRINT(trX + x - x, "tr(X)");
 
   // --- constant_mul: wrapper(a) * wrapper(b) → wrapper(a*b) ---
-  EXPECT_SAME_PRINT((x * trX) * (y * trX),
-                     numsim::cas::pow(trX, _2) * x * y);
+  EXPECT_SAME_PRINT((x * trX) * (y * trX), numsim::cas::pow(trX, _2) * x * y);
 }
 
 // ---------- trace() simplification ----------
-TYPED_TEST(TensorToScalarExpressionTest,
-           TensorToScalar_TraceSimplification) {
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceSimplification) {
   auto &X = this->X;
   auto &x = this->x;
   auto &_2 = this->_2;
@@ -559,8 +549,7 @@ TYPED_TEST(TensorToScalarExpressionTest,
 }
 
 // ---------- det() simplification ----------
-TYPED_TEST(TensorToScalarExpressionTest,
-           TensorToScalar_DetSimplification) {
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_DetSimplification) {
   auto &X = this->X;
   auto &Zero = this->_Zero;
   auto &One = this->_One;
@@ -578,8 +567,7 @@ TYPED_TEST(TensorToScalarExpressionTest,
 }
 
 // ---------- norm() simplification ----------
-TYPED_TEST(TensorToScalarExpressionTest,
-           TensorToScalar_NormSimplification) {
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_NormSimplification) {
   auto &X = this->X;
   auto &Zero = this->_Zero;
 

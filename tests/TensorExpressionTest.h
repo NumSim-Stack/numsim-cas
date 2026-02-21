@@ -274,8 +274,8 @@ TYPED_TEST(TensorExpressionTest, AddZeroIdentity) {
   auto &A = this->A;
   auto &Zero = this->_Zero;
   typename TestFixture::tensor_t Zero4{
-      numsim::cas::make_expression<numsim::cas::tensor_zero>(
-          TestFixture::Dim, 4)};
+      numsim::cas::make_expression<numsim::cas::tensor_zero>(TestFixture::Dim,
+                                                             4)};
 
   // rank 2
   EXPECT_PRINT(Zero + X, "X");
@@ -440,8 +440,8 @@ TYPED_TEST(TensorExpressionTest, AddRank4) {
   auto &C = this->C;
   auto &_2 = this->_2;
   typename TestFixture::tensor_t Zero4{
-      numsim::cas::make_expression<numsim::cas::tensor_zero>(
-          TestFixture::Dim, 4)};
+      numsim::cas::make_expression<numsim::cas::tensor_zero>(TestFixture::Dim,
+                                                             4)};
 
   EXPECT_PRINT(A + B, "A+B");
   EXPECT_PRINT(A + A, "2*A");

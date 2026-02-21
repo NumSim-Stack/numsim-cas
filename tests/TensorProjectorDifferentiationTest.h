@@ -59,8 +59,7 @@ TEST(TensorProjDiff, DiffDevEqualsProjector) {
   ASSERT_NE(result_proj, nullptr);
 
   EXPECT_TRUE(tmech::almost_equal(as_tmech_proj<3, 4>(*result_diff),
-                                  as_tmech_proj<3, 4>(*result_proj),
-                                  proj_tol));
+                                  as_tmech_proj<3, 4>(*result_proj), proj_tol));
 }
 
 // d(sym(X))/dX = P_sym
@@ -82,8 +81,7 @@ TEST(TensorProjDiff, DiffSymEqualsProjector) {
   ASSERT_NE(result_diff, nullptr);
   ASSERT_NE(result_proj, nullptr);
   EXPECT_TRUE(tmech::almost_equal(as_tmech_proj<3, 4>(*result_diff),
-                                  as_tmech_proj<3, 4>(*result_proj),
-                                  proj_tol));
+                                  as_tmech_proj<3, 4>(*result_proj), proj_tol));
 }
 
 // d(vol(X))/dX = P_vol
@@ -105,8 +103,7 @@ TEST(TensorProjDiff, DiffVolEqualsProjector) {
   ASSERT_NE(result_diff, nullptr);
   ASSERT_NE(result_proj, nullptr);
   EXPECT_TRUE(tmech::almost_equal(as_tmech_proj<3, 4>(*result_diff),
-                                  as_tmech_proj<3, 4>(*result_proj),
-                                  proj_tol));
+                                  as_tmech_proj<3, 4>(*result_proj), proj_tol));
 }
 
 // d(skew(X))/dX = P_skew
@@ -128,8 +125,7 @@ TEST(TensorProjDiff, DiffSkewEqualsProjector) {
   ASSERT_NE(result_diff, nullptr);
   ASSERT_NE(result_proj, nullptr);
   EXPECT_TRUE(tmech::almost_equal(as_tmech_proj<3, 4>(*result_diff),
-                                  as_tmech_proj<3, 4>(*result_proj),
-                                  proj_tol));
+                                  as_tmech_proj<3, 4>(*result_proj), proj_tol));
 }
 
 // d(dev(sym(X)))/dX = P_devi (construction simplifies dev(sym(X)) to dev(X))
@@ -152,8 +148,7 @@ TEST(TensorProjDiff, DiffDevSymEqualsDevProjector) {
   ASSERT_NE(result_diff, nullptr);
   ASSERT_NE(result_proj, nullptr);
   EXPECT_TRUE(tmech::almost_equal(as_tmech_proj<3, 4>(*result_diff),
-                                  as_tmech_proj<3, 4>(*result_proj),
-                                  proj_tol));
+                                  as_tmech_proj<3, 4>(*result_proj), proj_tol));
 }
 
 // d(vol(X) + dev(X))/dX = P_sym (construction simplifies vol+dev to sym)
@@ -176,8 +171,7 @@ TEST(TensorProjDiff, DiffVolPlusDevEqualsSymProjector) {
   ASSERT_NE(result_diff, nullptr);
   ASSERT_NE(result_proj, nullptr);
   EXPECT_TRUE(tmech::almost_equal(as_tmech_proj<3, 4>(*result_diff),
-                                  as_tmech_proj<3, 4>(*result_proj),
-                                  proj_tol));
+                                  as_tmech_proj<3, 4>(*result_proj), proj_tol));
 }
 
 } // namespace numsim::cas

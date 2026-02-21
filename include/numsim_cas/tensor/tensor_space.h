@@ -60,10 +60,9 @@ struct tensor_space {
 /// Same space → same; both Symmetric perm → {Symmetric, AnyTrace}; else →
 /// nullopt.
 inline std::optional<tensor_space> join_tensor_space(tensor_space const &a,
-                                                      tensor_space const &b) {
+                                                     tensor_space const &b) {
   // Identical spaces join to themselves
-  if (a.perm.index() == b.perm.index() &&
-      a.trace.index() == b.trace.index())
+  if (a.perm.index() == b.perm.index() && a.trace.index() == b.trace.index())
     return a;
   // Both in the Symmetric family (Sym/Vol/Dev/Harmonic) → widen to Sym
   if (std::holds_alternative<Symmetric>(a.perm) &&

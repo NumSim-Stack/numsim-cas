@@ -24,8 +24,8 @@ public:
 
     // Same expression: x * x → pow(x, 2)
     if (m_lhs == m_rhs) {
-      return make_expression<pow_type>(
-          m_lhs, Traits::make_constant(scalar_number{2}));
+      return make_expression<pow_type>(m_lhs,
+                                       Traits::make_constant(scalar_number{2}));
     }
 
     auto lhs_val = Traits::try_numeric(m_lhs);

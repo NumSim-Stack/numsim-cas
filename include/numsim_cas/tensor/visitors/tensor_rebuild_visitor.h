@@ -27,29 +27,18 @@ public:
     return expr;
   }
 
-  virtual scalar_holder_t
-  apply_scalar(scalar_holder_t const &expr) {
+  virtual scalar_holder_t apply_scalar(scalar_holder_t const &expr) {
     return expr;
   }
 
-  virtual t2s_holder_t apply_t2s(t2s_holder_t const &expr) {
-    return expr;
-  }
+  virtual t2s_holder_t apply_t2s(t2s_holder_t const &expr) { return expr; }
 
   // Leaf nodes: return as-is
   void operator()(tensor const &) override { m_result = m_current; }
-  void operator()(tensor_zero const &) override {
-    m_result = m_current;
-  }
-  void operator()(kronecker_delta const &) override {
-    m_result = m_current;
-  }
-  void operator()(identity_tensor const &) override {
-    m_result = m_current;
-  }
-  void operator()(tensor_projector const &) override {
-    m_result = m_current;
-  }
+  void operator()(tensor_zero const &) override { m_result = m_current; }
+  void operator()(kronecker_delta const &) override { m_result = m_current; }
+  void operator()(identity_tensor const &) override { m_result = m_current; }
+  void operator()(tensor_projector const &) override { m_result = m_current; }
 
   // Unary tensor -> tensor
   void operator()(tensor_negative const &v) override {
@@ -61,8 +50,7 @@ public:
   }
 
   void operator()(basis_change_imp const &v) override {
-    m_result =
-        make_expression<basis_change_imp>(apply(v.expr()), v.indices());
+    m_result = make_expression<basis_change_imp>(apply(v.expr()), v.indices());
   }
 
   // Binary tensor x tensor -> tensor
@@ -86,7 +74,7 @@ public:
 
   void operator()(tensor_power_diff const &v) override {
     m_result = make_expression<tensor_power_diff>(apply(v.expr_lhs()),
-                                                   apply_scalar(v.expr_rhs()));
+                                                  apply_scalar(v.expr_rhs()));
   }
 
   // Binary scalar x tensor -> tensor (cross-domain!)
@@ -120,8 +108,7 @@ public:
   }
 
   void operator()(simple_outer_product const &v) override {
-    auto rebuilt = make_expression<simple_outer_product>(
-        v.dim(), v.rank());
+    auto rebuilt = make_expression<simple_outer_product>(v.dim(), v.rank());
     for (auto &child : v.data())
       rebuilt.template get<simple_outer_product>().push_back(apply(child));
     m_result = std::move(rebuilt);

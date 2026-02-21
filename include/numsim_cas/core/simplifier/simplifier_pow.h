@@ -60,8 +60,7 @@ protected:
 // pow_pow_dispatch<Traits> — LHS is pow: pow(pow(x,a),b) → pow(x,a*b)
 //==============================================================================
 template <typename Traits>
-class pow_pow_dispatch
-    : public pow_dispatch<Traits, pow_pow_dispatch<Traits>> {
+class pow_pow_dispatch : public pow_dispatch<Traits, pow_pow_dispatch<Traits>> {
   using base = pow_dispatch<Traits, pow_pow_dispatch<Traits>>;
 
 public:
@@ -90,8 +89,7 @@ protected:
 // mul_pow_dispatch<Traits> — LHS is mul
 //==============================================================================
 template <typename Traits>
-class mul_pow_dispatch
-    : public pow_dispatch<Traits, mul_pow_dispatch<Traits>> {
+class mul_pow_dispatch : public pow_dispatch<Traits, mul_pow_dispatch<Traits>> {
   using base = pow_dispatch<Traits, mul_pow_dispatch<Traits>>;
 
 public:
@@ -119,11 +117,9 @@ public:
     if (!pows.empty()) {
       expr_holder_t result;
       for (const auto &expr : pows) {
-        const auto &pow_expr{
-            expr.template get<typename Traits::pow_type>()};
+        const auto &pow_expr{expr.template get<typename Traits::pow_type>()};
         mul.hash_map().erase(expr);
-        auto pow_n{pow(pow_expr.expr_lhs(),
-                       pow_expr.expr_rhs() * this->m_rhs)};
+        auto pow_n{pow(pow_expr.expr_lhs(), pow_expr.expr_rhs() * this->m_rhs)};
         if (!result.is_valid()) {
           result = std::move(pow_n);
         } else {
@@ -152,11 +148,9 @@ public:
     if (!pows.empty()) {
       expr_holder_t result;
       for (const auto &expr : pows) {
-        const auto &pow_expr{
-            expr.template get<typename Traits::pow_type>()};
+        const auto &pow_expr{expr.template get<typename Traits::pow_type>()};
         mul.hash_map().erase(expr);
-        auto pow_n{pow(pow_expr.expr_lhs(),
-                       pow_expr.expr_rhs() * this->m_rhs)};
+        auto pow_n{pow(pow_expr.expr_lhs(), pow_expr.expr_rhs() * this->m_rhs)};
         if (!result.is_valid()) {
           result = std::move(pow_n);
         } else {

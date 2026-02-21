@@ -83,8 +83,7 @@ TEST(T2sEval, EvalDet3x3) {
                                    1.0, 3.0, 1.0,
                                    0.0, 1.0, 2.0}));
   // clang-format on
-  auto A_val = make_tmech<3, 2>(
-      {2.0, 1.0, 0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0});
+  auto A_val = make_tmech<3, 2>({2.0, 1.0, 0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0});
   auto expr = det(A);
   EXPECT_NEAR(ev.apply(expr), tmech::det(A_val), t2s_tol);
 }

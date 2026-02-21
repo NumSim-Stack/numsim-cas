@@ -79,8 +79,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void apply(expression_holder<scalar_expression> const &expr,
-             [[maybe_unused]] Precedence parent_precedence =
-                 Precedence::None);
+             [[maybe_unused]] Precedence parent_precedence = Precedence::None);
 
   /// ------------ scalar fundamentals ------------
   /**
@@ -91,7 +90,6 @@ public:
    */
   void operator()(scalar const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
-
 
   /**
    * @brief Prints a scalar function.
@@ -104,7 +102,6 @@ public:
    */
   void operator()(scalar_named_expression const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
-
 
   /**
    * @brief Prints a scalar constant value.
@@ -182,7 +179,6 @@ public:
   void operator()(scalar_negative const &visitable/*,
                    Precedence parent_precedence*/);
 
-
   /// ------------ scalar special math functions ------------
   /**
    * @brief Prints a scalar log expression.
@@ -193,7 +189,6 @@ public:
   void operator()(scalar_log const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
 
-
   /**
    * @brief Prints a scalar square root expression.
    *
@@ -202,7 +197,6 @@ public:
    */
   void operator()(scalar_sqrt const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
-
 
   /**
    * @brief Prints a scalar exponential expression.
@@ -213,7 +207,6 @@ public:
   void operator()(scalar_exp const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
 
-
   /**
    * @brief Prints a scalar sign expression.
    *
@@ -223,7 +216,6 @@ public:
   void operator()(scalar_sign const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
 
-
   /**
    * @brief Prints a scalar absolute value expression.
    *
@@ -232,7 +224,6 @@ public:
    */
   void operator()(scalar_abs const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
-
 
   /**
    * @brief Prints a scalar power expression.
@@ -245,7 +236,6 @@ public:
   void operator()(scalar_pow const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
 
-
   /// ------------ scalar trigonometric functions ------------
   /**
    * @brief Prints a scalar tangent expression.
@@ -256,7 +246,6 @@ public:
   void operator()(scalar_tan const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
 
-
   /**
    * @brief Prints a scalar sine expression.
    *
@@ -265,7 +254,6 @@ public:
    */
   void operator()(scalar_sin const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
-
 
   /**
    * @brief Prints a scalar cosine expression.
@@ -276,7 +264,6 @@ public:
   void operator()(scalar_cos const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
 
-
   /**
    * @brief Prints a scalar arctangent expression.
    *
@@ -285,7 +272,6 @@ public:
    */
   void operator()(scalar_atan const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
-
 
   /**
    * @brief Prints a scalar arcsine expression.
@@ -296,7 +282,6 @@ public:
   void operator()(scalar_asin const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
 
-
   /**
    * @brief Prints a scalar arccosine expression.
    *
@@ -305,7 +290,6 @@ public:
    */
   void operator()(scalar_acos const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/);
-
 
   /**
    * @brief Default overload for safty reasons.

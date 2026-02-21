@@ -1,5 +1,5 @@
-#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
 
 #include <numsim_cas/basic_functions.h>
@@ -9,11 +9,9 @@
 
 namespace numsim::cas {
 
-expression_holder<tensor_to_scalar_expression>
-dot_product(expression_holder<tensor_expression> const &lhs,
-            sequence &&lhs_indices,
-            expression_holder<tensor_expression> const &rhs,
-            sequence &&rhs_indices) {
+expression_holder<tensor_to_scalar_expression> dot_product(
+    expression_holder<tensor_expression> const &lhs, sequence &&lhs_indices,
+    expression_holder<tensor_expression> const &rhs, sequence &&rhs_indices) {
   assert(call_tensor::rank(lhs) == lhs_indices.size() ||
          call_tensor::rank(rhs) == rhs_indices.size());
 

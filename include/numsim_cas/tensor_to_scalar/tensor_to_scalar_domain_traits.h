@@ -22,7 +22,9 @@ template <> struct domain_traits<tensor_to_scalar_expression> {
   using symbol_type = void; // no single symbol type
   using visitable_t = tensor_to_scalar_visitable_t;
   using visitor_return_expr_t = tensor_to_scalar_visitor_return_expr_t;
-  static expr_holder_t zero() { return make_expression<tensor_to_scalar_zero>(); }
+  static expr_holder_t zero() {
+    return make_expression<tensor_to_scalar_zero>();
+  }
   static expr_holder_t zero(expr_holder_t const &) { return zero(); }
   static expr_holder_t one() { return make_expression<tensor_to_scalar_one>(); }
 
@@ -38,8 +40,8 @@ template <> struct domain_traits<tensor_to_scalar_expression> {
           expr.template get<tensor_to_scalar_scalar_wrapper>().expr());
     }
     if (is_same<tensor_to_scalar_negative>(expr)) {
-      auto inner = try_numeric(
-          expr.template get<tensor_to_scalar_negative>().expr());
+      auto inner =
+          try_numeric(expr.template get<tensor_to_scalar_negative>().expr());
       if (inner)
         return -(*inner);
     }

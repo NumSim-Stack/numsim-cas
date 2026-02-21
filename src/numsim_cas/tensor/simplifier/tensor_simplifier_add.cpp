@@ -31,14 +31,16 @@ n_ary_add::dispatch([[maybe_unused]] Expr const &rhs) {
   return expr_add;
 }
 
-[[nodiscard]] n_ary_add::expr_holder_t n_ary_add::dispatch(tensor_add const &rhs) {
+[[nodiscard]] n_ary_add::expr_holder_t
+n_ary_add::dispatch(tensor_add const &rhs) {
   auto expr{make_expression<tensor_add>(rhs.dim(), rhs.rank())};
   auto &add{expr.template get<tensor_add>()};
   merge_add(m_lhs_node, rhs, add);
   return expr;
 }
 
-[[nodiscard]] n_ary_add::expr_holder_t n_ary_add::dispatch(tensor_negative const &rhs) {
+[[nodiscard]] n_ary_add::expr_holder_t
+n_ary_add::dispatch(tensor_negative const &rhs) {
   const auto &expr_rhs{rhs.expr()};
   const auto pos{m_lhs_node.hash_map().find(expr_rhs)};
   if (pos != m_lhs_node.hash_map().end()) {
@@ -85,7 +87,8 @@ tensor_scalar_mul_add::dispatch(Expr const & /*rhs*/) {
 
 [[nodiscard]] tensor_scalar_mul_add::expr_holder_t
 tensor_scalar_mul_add::dispatch(tensor_scalar_mul const &rhs) {
-  if (m_lhs_node.expr_rhs().get().hash_value() == rhs.expr_rhs().get().hash_value()) {
+  if (m_lhs_node.expr_rhs().get().hash_value() ==
+      rhs.expr_rhs().get().hash_value()) {
     return (m_lhs_node.expr_lhs() + rhs.expr_lhs()) * rhs.expr_rhs();
   }
   return get_default();
@@ -94,7 +97,8 @@ tensor_scalar_mul_add::dispatch(tensor_scalar_mul const &rhs) {
 // (s*T) + (-T) → (s-1)*T
 [[nodiscard]] tensor_scalar_mul_add::expr_holder_t
 tensor_scalar_mul_add::dispatch(tensor_negative const &rhs) {
-  if (m_lhs_node.expr_rhs().get().hash_value() == rhs.expr().get().hash_value()) {
+  if (m_lhs_node.expr_rhs().get().hash_value() ==
+      rhs.expr().get().hash_value()) {
     return (m_lhs_node.expr_lhs() - 1) * m_lhs_node.expr_rhs();
   }
   return get_default();
@@ -115,7 +119,8 @@ add_negative::dispatch(tensor_negative const &rhs) {
 // (-T) + (s*T) → (s-1)*T
 [[nodiscard]] add_negative::expr_holder_t
 add_negative::dispatch(tensor_scalar_mul const &rhs) {
-  if (m_lhs_node.expr().get().hash_value() == rhs.expr_rhs().get().hash_value()) {
+  if (m_lhs_node.expr().get().hash_value() ==
+      rhs.expr_rhs().get().hash_value()) {
     return (rhs.expr_lhs() - 1) * rhs.expr_rhs();
   }
   return get_default();
@@ -127,13 +132,11 @@ add_negative::dispatch(tensor_scalar_mul const &rhs) {
 add_base::add_base(expr_holder_t lhs, expr_holder_t rhs)
     : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
 
-[[nodiscard]] add_base::expr_holder_t
-add_base::dispatch(tensor_zero const &) {
+[[nodiscard]] add_base::expr_holder_t add_base::dispatch(tensor_zero const &) {
   return std::move(m_rhs);
 }
 
-[[nodiscard]] add_base::expr_holder_t
-add_base::dispatch(tensor_add const &) {
+[[nodiscard]] add_base::expr_holder_t add_base::dispatch(tensor_add const &) {
   auto &_rhs{m_rhs.template get<tensor_visitable_t>()};
   n_ary_add visitor(std::move(m_lhs), std::move(m_rhs));
   return _rhs.accept(visitor);
@@ -153,8 +156,7 @@ add_base::dispatch(tensor_negative const &) {
   return _rhs.accept(visitor);
 }
 
-[[nodiscard]] add_base::expr_holder_t
-add_base::dispatch(tensor const &) {
+[[nodiscard]] add_base::expr_holder_t add_base::dispatch(tensor const &) {
   auto &_rhs{m_rhs.template get<tensor_visitable_t>()};
   symbol_add visitor(std::move(m_lhs), std::move(m_rhs));
   return _rhs.accept(visitor);

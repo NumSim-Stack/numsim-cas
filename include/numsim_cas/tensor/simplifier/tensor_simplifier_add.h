@@ -48,8 +48,7 @@ public:
     return get_default();
   }
 
-  template <typename Expr>
-  [[nodiscard]] expr_holder_t dispatch(Expr const &) {
+  template <typename Expr> [[nodiscard]] expr_holder_t dispatch(Expr const &) {
     return get_default();
   }
 

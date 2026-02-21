@@ -33,8 +33,7 @@ public:
     return tensor_rebuild_visitor::apply(expr);
   }
 
-  scalar_holder_t
-  apply_scalar(scalar_holder_t const &expr) override {
+  scalar_holder_t apply_scalar(scalar_holder_t const &expr) override {
     if constexpr (std::is_same_v<TargetBase, scalar_expression>) {
       return substitute(expr, m_old, m_new);
     } else {

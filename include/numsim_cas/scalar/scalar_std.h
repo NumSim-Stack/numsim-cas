@@ -8,9 +8,9 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/scalar/scalar_abs.h>
-#include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/scalar_acos.h>
 #include <numsim_cas/scalar/scalar_asin.h>
+#include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/scalar_atan.h>
 #include <numsim_cas/scalar/scalar_binary_simplify_fwd.h>
 #include <numsim_cas/scalar/scalar_constant.h>
@@ -37,7 +37,8 @@ concept scalar_expr_holder = requires {
   typename decay_t<T>::expr_type;
 } && std::is_base_of_v<scalar_expression, typename decay_t<T>::expr_type>;
 
-[[nodiscard]] std::string to_string(expression_holder<scalar_expression> const &expr);
+[[nodiscard]] std::string
+to_string(expression_holder<scalar_expression> const &expr);
 
 template <scalar_expr_holder L, scalar_expr_holder R>
 [[nodiscard]] auto pow(L &&expr_lhs, R &&expr_rhs) {

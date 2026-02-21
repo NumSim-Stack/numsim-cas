@@ -2,16 +2,16 @@
 #define NUMSIM_CAS_TENSOR_FUNCTIONS_H
 
 #include <cstdlib>
-#include <optional>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/tensor/data/tensor_data_make_imp.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
-#include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/projection_tensor.h>
+#include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
+#include <optional>
 #include <vector>
 
 namespace numsim::cas {
@@ -31,7 +31,8 @@ template <typename Expr>
           *rule == ContractionRule::RhsSubspace)
         return expr;
       if (*rule == ContractionRule::Zero)
-        return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
+        return make_expression<tensor_zero>(expr.get().dim(),
+                                            expr.get().rank());
       // LhsSubspace: projector is stricter — proceed to normal projection
     }
   }
@@ -67,7 +68,8 @@ template <typename Expr>
           *rule == ContractionRule::RhsSubspace)
         return expr;
       if (*rule == ContractionRule::Zero)
-        return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
+        return make_expression<tensor_zero>(expr.get().dim(),
+                                            expr.get().rank());
     }
   }
   if (auto simp = try_simplify_projector_contraction(ProjKind::Sym, expr)) {
@@ -102,7 +104,8 @@ template <typename Expr>
           *rule == ContractionRule::RhsSubspace)
         return expr;
       if (*rule == ContractionRule::Zero)
-        return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
+        return make_expression<tensor_zero>(expr.get().dim(),
+                                            expr.get().rank());
     }
   }
   if (auto simp = try_simplify_projector_contraction(ProjKind::Vol, expr)) {
@@ -137,7 +140,8 @@ template <typename Expr>
           *rule == ContractionRule::RhsSubspace)
         return expr;
       if (*rule == ContractionRule::Zero)
-        return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
+        return make_expression<tensor_zero>(expr.get().dim(),
+                                            expr.get().rank());
     }
   }
   if (auto simp = try_simplify_projector_contraction(ProjKind::Skew, expr)) {
@@ -168,7 +172,7 @@ namespace detail_ip {
 template <typename ExprLHS, typename ExprRHS>
 inline std::optional<expression_holder<tensor_expression>>
 try_normalize_reversed_projector(ExprLHS &&lhs, sequence const &lhs_indices,
-                                  ExprRHS &&rhs, sequence const &rhs_indices) {
+                                 ExprRHS &&rhs, sequence const &rhs_indices) {
   if (!is_same<tensor_projector>(rhs))
     return std::nullopt;
   if (lhs.get().rank() != 2)
@@ -180,11 +184,16 @@ try_normalize_reversed_projector(ExprLHS &&lhs, sequence const &lhs_indices,
     return std::nullopt;
   auto kind = classify(proj);
   switch (kind) {
-  case ProjKind::Sym:  return sym(std::forward<ExprLHS>(lhs));
-  case ProjKind::Skew: return skew(std::forward<ExprLHS>(lhs));
-  case ProjKind::Vol:  return vol(std::forward<ExprLHS>(lhs));
-  case ProjKind::Dev:  return dev(std::forward<ExprLHS>(lhs));
-  default: return std::nullopt;
+  case ProjKind::Sym:
+    return sym(std::forward<ExprLHS>(lhs));
+  case ProjKind::Skew:
+    return skew(std::forward<ExprLHS>(lhs));
+  case ProjKind::Vol:
+    return vol(std::forward<ExprLHS>(lhs));
+  case ProjKind::Dev:
+    return dev(std::forward<ExprLHS>(lhs));
+  default:
+    return std::nullopt;
   }
 }
 } // namespace detail_ip
@@ -192,8 +201,8 @@ try_normalize_reversed_projector(ExprLHS &&lhs, sequence const &lhs_indices,
 template <typename ExprLHS, typename ExprRHS>
 [[nodiscard]] inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                         ExprRHS &&rhs, sequence &&rhs_indices) {
-  if (auto norm = detail_ip::try_normalize_reversed_projector(
-          lhs, lhs_indices, rhs, rhs_indices))
+  if (auto norm = detail_ip::try_normalize_reversed_projector(lhs, lhs_indices,
+                                                              rhs, rhs_indices))
     return std::move(*norm);
   return make_expression<inner_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
@@ -201,11 +210,11 @@ template <typename ExprLHS, typename ExprRHS>
 }
 
 template <typename ExprLHS, typename ExprRHS>
-[[nodiscard]] inline auto inner_product(ExprLHS &&lhs, sequence const &lhs_indices,
-                                        ExprRHS &&rhs,
-                                        sequence const &rhs_indices) {
-  if (auto norm = detail_ip::try_normalize_reversed_projector(
-          lhs, lhs_indices, rhs, rhs_indices))
+[[nodiscard]] inline auto
+inner_product(ExprLHS &&lhs, sequence const &lhs_indices, ExprRHS &&rhs,
+              sequence const &rhs_indices) {
+  if (auto norm = detail_ip::try_normalize_reversed_projector(lhs, lhs_indices,
+                                                              rhs, rhs_indices))
     return std::move(*norm);
   return make_expression<inner_product_wrapper>(
       std::forward<ExprLHS>(lhs), lhs_indices, std::forward<ExprRHS>(rhs),
@@ -215,18 +224,17 @@ template <typename ExprLHS, typename ExprRHS>
 template <typename ExprLHS, typename ExprRHS>
 [[nodiscard]] constexpr inline auto otimes(ExprLHS &&lhs, ExprRHS &&rhs) {
   sequence lhs_indices(lhs.get().rank()), rhs_indices(rhs.get().rank());
-  std::iota(std::begin(lhs_indices), std::end(lhs_indices),
-            std::size_t{0});
-  std::iota(std::begin(rhs_indices), std::end(rhs_indices),
-            lhs_indices.size());
+  std::iota(std::begin(lhs_indices), std::end(lhs_indices), std::size_t{0});
+  std::iota(std::begin(rhs_indices), std::end(rhs_indices), lhs_indices.size());
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
 }
 
 template <typename ExprLHS, typename ExprRHS>
-[[nodiscard]] constexpr inline auto otimes(ExprLHS &&lhs, sequence &&lhs_indices,
-                             ExprRHS &&rhs, sequence &&rhs_indices) {
+[[nodiscard]] constexpr inline auto
+otimes(ExprLHS &&lhs, sequence &&lhs_indices, ExprRHS &&rhs,
+       sequence &&rhs_indices) {
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
@@ -247,7 +255,8 @@ template <typename ExprLHS, typename ExprRHS>
 }
 
 template <typename Expr>
-[[nodiscard]] constexpr inline auto permute_indices(Expr &&expr, sequence &&indices) {
+[[nodiscard]] constexpr inline auto permute_indices(Expr &&expr,
+                                                    sequence &&indices) {
   if (is_same<basis_change_imp>(expr)) {
     auto &tensor{expr.template get<basis_change_imp>()};
     const auto &t_indices{tensor.indices()};
@@ -293,7 +302,8 @@ template <typename Expr>
                                            std::move(indices));
 }
 
-template <typename Expr> [[nodiscard]] constexpr inline auto trans(Expr &&expr) {
+template <typename Expr>
+[[nodiscard]] constexpr inline auto trans(Expr &&expr) {
   if (is_same<basis_change_imp>(expr)) {
     auto const &bc = expr.template get<basis_change_imp>();
     if (bc.indices() == sequence{2, 1})

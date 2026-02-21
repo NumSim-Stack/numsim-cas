@@ -22,8 +22,7 @@ tensor_to_scalar_limit_visitor::tensor_to_scalar_limit_visitor(
 
 // ─── Apply ────────────────────────────────────────────────────────
 
-limit_result
-tensor_to_scalar_limit_visitor::apply(t2s_holder_t const &expr) {
+limit_result tensor_to_scalar_limit_visitor::apply(t2s_holder_t const &expr) {
   if (!expr.is_valid())
     return {dir::zero};
 
@@ -138,8 +137,7 @@ void tensor_to_scalar_limit_visitor::operator()(
 
 // ─── Arithmetic ───────────────────────────────────────────────────
 
-void tensor_to_scalar_limit_visitor::operator()(
-    tensor_to_scalar_add const &v) {
+void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_add const &v) {
   limit_result result{dir::zero};
   if (v.coeff().is_valid()) {
     result = apply(v.coeff());
@@ -150,8 +148,7 @@ void tensor_to_scalar_limit_visitor::operator()(
   m_result = result;
 }
 
-void tensor_to_scalar_limit_visitor::operator()(
-    tensor_to_scalar_mul const &v) {
+void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_mul const &v) {
   limit_result result{dir::finite_positive};
   if (v.coeff().is_valid()) {
     result = apply(v.coeff());
@@ -167,13 +164,11 @@ void tensor_to_scalar_limit_visitor::operator()(
   m_result = apply_neg(apply(v.expr()));
 }
 
-void tensor_to_scalar_limit_visitor::operator()(
-    tensor_to_scalar_pow const &v) {
+void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_pow const &v) {
   m_result = apply_pow(apply(v.expr_lhs()), apply(v.expr_rhs()));
 }
 
-void tensor_to_scalar_limit_visitor::operator()(
-    tensor_to_scalar_log const &v) {
+void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_log const &v) {
   m_result = apply_log(apply(v.expr()));
 }
 

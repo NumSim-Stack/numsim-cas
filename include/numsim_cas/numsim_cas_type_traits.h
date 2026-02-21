@@ -26,11 +26,9 @@ using std::get;
 using std::holds_alternative;
 using std::visit;
 
-template <typename ExprType>
-using expr_set = std::set<ExprType>;
+template <typename ExprType> using expr_set = std::set<ExprType>;
 
-template <typename ExprType>
-using expr_map = std::map<ExprType, ExprType>;
+template <typename ExprType> using expr_map = std::map<ExprType, ExprType>;
 
 template <typename T>
 using tensor_data_ptr = std::unique_ptr<tensor_data_base<T>>;
@@ -49,7 +47,8 @@ struct scalar_expr_less {
   }
 };
 
-template <typename ExprType> using expr_ordered_map = std::map<ExprType, ExprType>;
+template <typename ExprType>
+using expr_ordered_map = std::map<ExprType, ExprType>;
 template <typename ExprType> using expr_vector = std::vector<ExprType>;
 
 template <typename T>

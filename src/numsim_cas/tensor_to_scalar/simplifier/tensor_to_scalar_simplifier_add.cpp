@@ -11,9 +11,9 @@ namespace tensor_to_scalar_detail {
 namespace simplifier {
 
 // --- n_ary_add::dispatch(T) template body ---
-// Defined here so that operator+ (from tensor_to_scalar_operators.h) is visible.
-template <typename T>
-n_ary_add::expr_holder_t n_ary_add::dispatch(T const &) {
+// Defined here so that operator+ (from tensor_to_scalar_operators.h) is
+// visible.
+template <typename T> n_ary_add::expr_holder_t n_ary_add::dispatch(T const &) {
   auto expr_add{make_expression<tensor_to_scalar_add>(this->lhs)};
   auto &add{expr_add.template get<tensor_to_scalar_add>()};
   // Direct match: (sum with expr) + expr → combine
@@ -39,7 +39,7 @@ n_ary_add::expr_holder_t n_ary_add::dispatch(T const &) {
 // Defined here so that operator+ (from tensor_to_scalar_operators.h) is visible
 // during template instantiation.
 #define NUMSIM_LOOP_OVER(T)                                                    \
-  add_default_visitor::expr_holder_t add_default_visitor::operator()(           \
+  add_default_visitor::expr_holder_t add_default_visitor::operator()(          \
       T const &n) {                                                            \
     return this->dispatch(n);                                                  \
   }
@@ -48,7 +48,7 @@ NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
 
 // --- n_ary_add virtual function bodies ---
 #define NUMSIM_LOOP_OVER(T)                                                    \
-  n_ary_add::expr_holder_t n_ary_add::operator()(T const &n) {                \
+  n_ary_add::expr_holder_t n_ary_add::operator()(T const &n) {                 \
     return this->dispatch(n);                                                  \
   }
 NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
@@ -82,7 +82,8 @@ n_ary_add::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
     auto &rhs_w = m_rhs.get<tensor_to_scalar_scalar_wrapper>();
     auto merged = existing_w.expr() + rhs_w.expr();
     add.hash_map().erase(wrappers[0]);
-    auto wrapper = make_expression<tensor_to_scalar_scalar_wrapper>(std::move(merged));
+    auto wrapper =
+        make_expression<tensor_to_scalar_scalar_wrapper>(std::move(merged));
     auto val = Traits::try_numeric(wrapper);
     if (!val || *val != scalar_number{0}) {
       add.push_back(std::move(wrapper));
@@ -108,7 +109,8 @@ constant_add::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
   auto &lhs_w = m_lhs.get<tensor_to_scalar_scalar_wrapper>();
   auto &rhs_w = m_rhs.get<tensor_to_scalar_scalar_wrapper>();
   auto result = lhs_w.expr() + rhs_w.expr();
-  auto wrapper = make_expression<tensor_to_scalar_scalar_wrapper>(std::move(result));
+  auto wrapper =
+      make_expression<tensor_to_scalar_scalar_wrapper>(std::move(result));
   auto val = Traits::try_numeric(wrapper);
   if (val && *val == scalar_number{0})
     return Traits::zero();
@@ -139,8 +141,7 @@ add_base::expr_holder_t add_base::dispatch(tensor_to_scalar_add const &) {
   return _rhs.accept(visitor);
 }
 
-add_base::expr_holder_t
-add_base::dispatch(tensor_to_scalar_negative const &) {
+add_base::expr_holder_t add_base::dispatch(tensor_to_scalar_negative const &) {
   auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
   negative_add visitor(std::move(m_lhs), std::move(m_rhs));
   return _rhs.accept(visitor);
@@ -153,15 +154,13 @@ add_base::dispatch(tensor_to_scalar_scalar_wrapper const &) {
   return _rhs.accept(visitor);
 }
 
-add_base::expr_holder_t
-add_base::dispatch(tensor_to_scalar_one const &) {
+add_base::expr_holder_t add_base::dispatch(tensor_to_scalar_one const &) {
   auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
   one_add visitor(std::move(m_lhs), std::move(m_rhs));
   return _rhs.accept(visitor);
 }
 
-add_base::expr_holder_t
-add_base::dispatch(tensor_to_scalar_mul const &) {
+add_base::expr_holder_t add_base::dispatch(tensor_to_scalar_mul const &) {
   auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
   n_ary_mul_add visitor(std::move(m_lhs), std::move(m_rhs));
   return _rhs.accept(visitor);

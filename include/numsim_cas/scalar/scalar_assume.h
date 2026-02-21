@@ -12,8 +12,7 @@ void infer_assumptions(expression_holder<scalar_expression> const &expr);
 
 // ── assume(): set assumption + implied assumptions on the node ──────────
 
-inline void assume(expression_holder<scalar_expression> const &expr,
-                   positive) {
+inline void assume(expression_holder<scalar_expression> const &expr, positive) {
   auto &a = expr.data()->assumptions();
   a.insert(positive{});
   a.insert(nonnegative{});
@@ -22,8 +21,7 @@ inline void assume(expression_holder<scalar_expression> const &expr,
   expr.data()->assumptions().set_inferred();
 }
 
-inline void assume(expression_holder<scalar_expression> const &expr,
-                   negative) {
+inline void assume(expression_holder<scalar_expression> const &expr, negative) {
   auto &a = expr.data()->assumptions();
   a.insert(negative{});
   a.insert(nonpositive{});
@@ -48,15 +46,13 @@ inline void assume(expression_holder<scalar_expression> const &expr,
   expr.data()->assumptions().set_inferred();
 }
 
-inline void assume(expression_holder<scalar_expression> const &expr,
-                   nonzero) {
+inline void assume(expression_holder<scalar_expression> const &expr, nonzero) {
   auto &a = expr.data()->assumptions();
   a.insert(nonzero{});
   expr.data()->assumptions().set_inferred();
 }
 
-inline void assume(expression_holder<scalar_expression> const &expr,
-                   integer) {
+inline void assume(expression_holder<scalar_expression> const &expr, integer) {
   auto &a = expr.data()->assumptions();
   a.insert(integer{});
   a.insert(rational{});
@@ -94,16 +90,14 @@ inline void assume(expression_holder<scalar_expression> const &expr, prime) {
   expr.data()->assumptions().set_inferred();
 }
 
-inline void assume(expression_holder<scalar_expression> const &expr,
-                   rational) {
+inline void assume(expression_holder<scalar_expression> const &expr, rational) {
   auto &a = expr.data()->assumptions();
   a.insert(rational{});
   a.insert(real_tag{});
   expr.data()->assumptions().set_inferred();
 }
 
-inline void assume(expression_holder<scalar_expression> const &expr,
-                   real_tag) {
+inline void assume(expression_holder<scalar_expression> const &expr, real_tag) {
   auto &a = expr.data()->assumptions();
   a.insert(real_tag{});
   expr.data()->assumptions().set_inferred();
@@ -118,32 +112,27 @@ inline void remove_assumption(expression_holder<scalar_expression> const &expr,
 
 // ── Query helpers ───────────────────────────────────────────────────────
 
-inline bool
-is_positive(expression_holder<scalar_expression> const &expr) {
+inline bool is_positive(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
   return expr.data()->assumptions().contains(positive{});
 }
 
-inline bool
-is_negative(expression_holder<scalar_expression> const &expr) {
+inline bool is_negative(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
   return expr.data()->assumptions().contains(negative{});
 }
 
-inline bool
-is_nonnegative(expression_holder<scalar_expression> const &expr) {
+inline bool is_nonnegative(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
   return expr.data()->assumptions().contains(nonnegative{});
 }
 
-inline bool
-is_nonpositive(expression_holder<scalar_expression> const &expr) {
+inline bool is_nonpositive(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
   return expr.data()->assumptions().contains(nonpositive{});
 }
 
-inline bool
-is_nonzero(expression_holder<scalar_expression> const &expr) {
+inline bool is_nonzero(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
   return expr.data()->assumptions().contains(nonzero{});
 }
@@ -154,14 +143,12 @@ is_integer_assumed(expression_holder<scalar_expression> const &expr) {
   return expr.data()->assumptions().contains(integer{});
 }
 
-inline bool
-is_even(expression_holder<scalar_expression> const &expr) {
+inline bool is_even(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
   return expr.data()->assumptions().contains(even{});
 }
 
-inline bool
-is_real(expression_holder<scalar_expression> const &expr) {
+inline bool is_real(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
   return expr.data()->assumptions().contains(real_tag{});
 }

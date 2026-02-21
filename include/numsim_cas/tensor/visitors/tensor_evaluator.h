@@ -65,18 +65,15 @@ public:
     m_result = make_tensor_data<ValueType>(v.dim(), v.rank());
   }
 
-  void operator()(kronecker_delta const &v) override {
-    eval_identity(v);
-  }
+  void operator()(kronecker_delta const &v) override { eval_identity(v); }
 
-  void operator()(identity_tensor const &v) override {
-    eval_identity(v);
-  }
+  void operator()(identity_tensor const &v) override { eval_identity(v); }
 
   // ─── Arithmetic ──────────────────────────────────────────────
 
   void operator()(tensor_add const &visitable) override {
-    auto result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    auto result =
+        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
     if (visitable.coeff().is_valid()) {
       auto temp = apply(visitable.coeff());
       tensor_data_add<ValueType> add(*result, *temp);
@@ -108,13 +105,13 @@ public:
   // ─── Products ────────────────────────────────────────────────
 
   void operator()(inner_product_wrapper const &visitable) override {
-    // Short-circuit: detect P:A where P is a known rank-2 projector and A is rank-2
+    // Short-circuit: detect P:A where P is a known rank-2 projector and A is
+    // rank-2
     if (visitable.indices_lhs() == sequence{3, 4} &&
         visitable.indices_rhs() == sequence{1, 2} &&
         visitable.expr_rhs().get().rank() == 2 &&
         is_same<tensor_projector>(visitable.expr_lhs())) {
-      auto const &proj =
-          visitable.expr_lhs().template get<tensor_projector>();
+      auto const &proj = visitable.expr_lhs().template get<tensor_projector>();
       if (proj.acts_on_rank() == 2) {
         auto const &sp = proj.space();
         // Dispatch on known projector types
@@ -143,29 +140,26 @@ public:
     // Generic inner product
     auto lhs_data = apply(visitable.expr_lhs());
     auto rhs_data = apply(visitable.expr_rhs());
-    m_result =
-        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
-    tensor_data_inner_product<ValueType> ip(
-        *m_result, *lhs_data, *rhs_data, visitable.indices_lhs().indices(),
-        visitable.indices_rhs().indices());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_inner_product<ValueType> ip(*m_result, *lhs_data, *rhs_data,
+                                            visitable.indices_lhs().indices(),
+                                            visitable.indices_rhs().indices());
     ip.evaluate(visitable.dim(), rhs_data->rank(), lhs_data->rank());
   }
 
   void operator()(outer_product_wrapper const &visitable) override {
     auto lhs_data = apply(visitable.expr_lhs());
     auto rhs_data = apply(visitable.expr_rhs());
-    m_result =
-        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
-    tensor_data_outer_product<ValueType> op(
-        *m_result, *lhs_data, *rhs_data, visitable.indices_lhs().indices(),
-        visitable.indices_rhs().indices());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_outer_product<ValueType> op(*m_result, *lhs_data, *rhs_data,
+                                            visitable.indices_lhs().indices(),
+                                            visitable.indices_rhs().indices());
     op.evaluate(visitable.dim(), rhs_data->rank(), lhs_data->rank());
   }
 
   void operator()(basis_change_imp const &visitable) override {
     auto temp = apply(visitable.expr());
-    m_result =
-        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
     tensor_data_basis_change<ValueType> bc(*m_result, *temp,
                                            visitable.indices().indices());
     bc.evaluate(visitable.dim(), visitable.rank());
@@ -174,8 +168,7 @@ public:
   void operator()(simple_outer_product const &visitable) override {
     const auto &children = visitable.data();
     if (children.empty()) {
-      m_result =
-          make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+      m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
       return;
     }
     auto accumulated = apply(children.front());
@@ -184,8 +177,7 @@ public:
       const auto lhs_rank = accumulated->rank();
       const auto rhs_rank = rhs_data->rank();
       const auto result_rank = lhs_rank + rhs_rank;
-      auto result =
-          make_tensor_data<ValueType>(visitable.dim(), result_rank);
+      auto result = make_tensor_data<ValueType>(visitable.dim(), result_rank);
       sequence lhs_seq(lhs_rank), rhs_seq(rhs_rank);
       std::iota(lhs_seq.begin(), lhs_seq.end(), 0);
       std::iota(rhs_seq.begin(), rhs_seq.end(), lhs_rank);
@@ -201,8 +193,7 @@ public:
   void operator()(tensor_mul const &visitable) override {
     const auto &children = visitable.data();
     if (children.empty()) {
-      m_result =
-          make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+      m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
       return;
     }
     auto accumulated = apply(children.front());
@@ -210,10 +201,8 @@ public:
       auto rhs_data = apply(children[i]);
       const auto lhs_rank = accumulated->rank();
       const auto rhs_rank = rhs_data->rank();
-      const auto result_rank =
-          lhs_rank + rhs_rank - 2; // single contraction
-      auto result =
-          make_tensor_data<ValueType>(visitable.dim(), result_rank);
+      const auto result_rank = lhs_rank + rhs_rank - 2; // single contraction
+      auto result = make_tensor_data<ValueType>(visitable.dim(), result_rank);
       // contract last index of LHS with first index of RHS
       std::vector<std::size_t> lhs_idx{lhs_rank - 1};
       std::vector<std::size_t> rhs_idx{0};
@@ -226,8 +215,7 @@ public:
       auto coeff_data = apply(visitable.coeff());
       auto temp =
           make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
-      const auto size =
-          compute_size(visitable.dim(), visitable.rank());
+      const auto size = compute_size(visitable.dim(), visitable.rank());
       auto *dst = temp->raw_data();
       const auto *lhs = accumulated->raw_data();
       const auto *rhs = coeff_data->raw_data();
@@ -275,9 +263,9 @@ public:
   }
 
   void
-  operator()([[maybe_unused]] tensor_power_diff const &visitable)
-      override {
-    throw not_implemented_error("tensor_evaluator: tensor_power_diff not yet implemented");
+  operator()([[maybe_unused]] tensor_power_diff const &visitable) override {
+    throw not_implemented_error(
+        "tensor_evaluator: tensor_power_diff not yet implemented");
   }
 
   void operator()(tensor_inv const &v) override {
@@ -293,8 +281,8 @@ public:
     std::fill(raw, raw + size, ValueType{0});
 
     if (visitable.acts_on_rank() != 2) {
-      throw not_implemented_error(
-          "tensor_evaluator: tensor_projector only rank-2 projectors implemented");
+      throw not_implemented_error("tensor_evaluator: tensor_projector only "
+                                  "rank-2 projectors implemented");
     }
 
     auto const &sp = visitable.space();
@@ -374,10 +362,11 @@ public:
 
   // ─── Cross-domain ────────────────────────────────────────────
 
-  void operator()(
-      [[maybe_unused]] tensor_to_scalar_with_tensor_mul const &visitable)
-      override {
-    throw not_implemented_error("tensor_evaluator: tensor_to_scalar_with_tensor_mul not yet implemented");
+  void operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul const
+                      &visitable) override {
+    throw not_implemented_error(
+        "tensor_evaluator: tensor_to_scalar_with_tensor_mul not yet "
+        "implemented");
   }
 
   template <class T> void operator()([[maybe_unused]] T const &) noexcept {
@@ -391,8 +380,7 @@ private:
   template <typename Op>
   void eval_projector_unary(inner_product_wrapper const &visitable) {
     auto rhs_data = apply(visitable.expr_rhs());
-    m_result =
-        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
     tensor_data_unary_wrapper<Op, ValueType> op(*m_result, *rhs_data);
     op.evaluate(visitable.dim(), visitable.rank());
   }
@@ -402,18 +390,15 @@ private:
   template <typename Op, typename Visitable>
   void eval_unary_tmech(Visitable const &visitable) {
     auto temp = apply(visitable.expr());
-    m_result =
-        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
     tensor_data_unary_wrapper<Op, ValueType> op(*m_result, *temp);
     op.evaluate(visitable.dim(), visitable.rank());
   }
 
   // ─── Identity dispatch via tmech::eye ───────────────────────
 
-  template <typename Visitable>
-  void eval_identity(Visitable const &visitable) {
-    m_result =
-        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+  template <typename Visitable> void eval_identity(Visitable const &visitable) {
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
     tensor_data_identity<ValueType> id(*m_result);
     id.evaluate(visitable.dim(), visitable.rank());
   }

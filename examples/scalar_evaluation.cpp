@@ -54,8 +54,8 @@ int main() {
 
   // Evaluate a derivative numerically
   {
-    auto expr = pow(x, _3);         // x^3
-    auto dexpr = diff(expr, x);     // 3*x^2
+    auto expr = pow(x, _3);     // x^3
+    auto dexpr = diff(expr, x); // 3*x^2
 
     scalar_evaluator<double> ev;
     ev.set(x, 2.0);

@@ -1,16 +1,16 @@
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h>
 
+#include <numeric>
 #include <numsim_cas/core/diff.h>
-#include <numsim_cas/tensor/tensor_diff.h>
-#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h>
-#include <numeric>
 #include <ranges>
 
 namespace numsim::cas {
@@ -72,11 +72,12 @@ void tensor_to_scalar_differentiation::operator()(
     // t2s * tensor -> tensor (via tensor_to_scalar_with_tensor_mul)
     tensor_holder_t term = std::move(d_aj);
     for (auto it_in = factors.begin(); it_in != factors.end(); ++it_in) {
-      if (it_in == it_out) continue;
+      if (it_in == it_out)
+        continue;
       // it_in->second is a t2s expression, term is tensor
       // Create f * A node directly
-      term = make_expression<tensor_to_scalar_with_tensor_mul>(
-          std::move(term), it_in->second);
+      term = make_expression<tensor_to_scalar_with_tensor_mul>(std::move(term),
+                                                               it_in->second);
     }
 
     if (term.is_valid()) {
@@ -117,8 +118,7 @@ void tensor_to_scalar_differentiation::operator()(
     // h is constant: d(g^h)/dX = h * g^{h-1} * dg/dX
     auto g_pow = pow(g, h - one);
     // h * g^{h-1} is t2s, dg is tensor -> need t2s * tensor
-    m_result = make_expression<tensor_to_scalar_with_tensor_mul>(
-        dg, h * g_pow);
+    m_result = make_expression<tensor_to_scalar_with_tensor_mul>(dg, h * g_pow);
   } else {
     // General case: g^{h-1} * (h * dg + dh * log(g) * g)
     auto g_pow = pow(g, h - one);
@@ -152,10 +152,9 @@ void tensor_to_scalar_differentiation::operator()(
     return;
   }
   // (1/g) * dg -> t2s * tensor
-  auto one_over_g =
-      pow(visitable.expr(), -get_scalar_one());
-  m_result = make_expression<tensor_to_scalar_with_tensor_mul>(
-      std::move(dg), one_over_g);
+  auto one_over_g = pow(visitable.expr(), -get_scalar_one());
+  m_result = make_expression<tensor_to_scalar_with_tensor_mul>(std::move(dg),
+                                                               one_over_g);
 }
 
 // Trace: d(tr(A))/dX = I : dA/dX = inner(I, {1,2}, dA, {1,2})
@@ -174,8 +173,7 @@ void tensor_to_scalar_differentiation::operator()(
 }
 
 // Dot: d(A:A)/dX = 2 * A : dA/dX = 2 * inner(A, idx, dA, idx)
-void tensor_to_scalar_differentiation::operator()(
-    tensor_dot const &visitable) {
+void tensor_to_scalar_differentiation::operator()(tensor_dot const &visitable) {
   auto dA = diff(visitable.expr(), m_arg);
   if (is_same<tensor_zero>(dA)) {
     return;
@@ -215,8 +213,7 @@ void tensor_to_scalar_differentiation::operator()(
 }
 
 // Det: d(det(A))/dX = det(A) * inv(A^T) : dA/dX
-void tensor_to_scalar_differentiation::operator()(
-    tensor_det const &visitable) {
+void tensor_to_scalar_differentiation::operator()(tensor_det const &visitable) {
   auto dA = diff(visitable.expr(), m_arg);
   if (is_same<tensor_zero>(dA)) {
     return;
@@ -245,10 +242,12 @@ void tensor_to_scalar_differentiation::operator()(
   tensor_holder_t result;
 
   if (!is_same<tensor_zero>(dA)) {
-    result = inner_product(std::move(dA), seq_lhs, visitable.expr_rhs(), seq_rhs);
+    result =
+        inner_product(std::move(dA), seq_lhs, visitable.expr_rhs(), seq_rhs);
   }
   if (!is_same<tensor_zero>(dB)) {
-    auto term = inner_product(visitable.expr_lhs(), seq_lhs, std::move(dB), seq_rhs);
+    auto term =
+        inner_product(visitable.expr_lhs(), seq_lhs, std::move(dB), seq_rhs);
     if (result.is_valid()) {
       result += term;
     } else {

@@ -11,9 +11,9 @@
 #include <numsim_cas/tensor/data/tensor_data.h>
 #include <numsim_cas/tensor/data/tensor_data_to_scalar_wrapper.h>
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
-#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_add.h>
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_mul.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
 
 namespace numsim::cas {
 
@@ -52,13 +52,11 @@ public:
 
   // ─── Constants ───────────────────────────────────────────────
 
-  void
-  operator()([[maybe_unused]] tensor_to_scalar_zero const &) override {
+  void operator()([[maybe_unused]] tensor_to_scalar_zero const &) override {
     m_result = ValueType{0};
   }
 
-  void
-  operator()([[maybe_unused]] tensor_to_scalar_one const &) override {
+  void operator()([[maybe_unused]] tensor_to_scalar_one const &) override {
     m_result = ValueType{1};
   }
 

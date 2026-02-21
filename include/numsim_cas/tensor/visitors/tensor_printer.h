@@ -52,8 +52,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   auto apply(expression_holder<tensor_expression> const &expr,
-             [[maybe_unused]] Precedence parent_precedence =
-                 Precedence::None) {
+             [[maybe_unused]] Precedence parent_precedence = Precedence::None) {
     if (expr.is_valid()) {
       m_parent_precedence = parent_precedence;
       static_cast<const tensor_visitable_t &>(expr.get())
@@ -68,9 +67,7 @@ public:
    * @param visitable The tensor value to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(tensor const &visitable) {
-    m_out << visitable.name();
-  }
+  void operator()(tensor const &visitable) { m_out << visitable.name(); }
 
   /**
    * @brief Prints a identity tensor.
@@ -177,8 +174,7 @@ public:
     // Projector function notation: P:A → dev(A), sym(A), vol(A), skew(A)
     if (indices_lhs == sequence{3, 4} && indices_rhs == sequence{1, 2} &&
         is_same<tensor_projector>(visitable.expr_lhs())) {
-      auto const &proj =
-          visitable.expr_lhs().template get<tensor_projector>();
+      auto const &proj = visitable.expr_lhs().template get<tensor_projector>();
       if (proj.acts_on_rank() == 2) {
         auto const &sp = proj.space();
         const char *fn = nullptr;
@@ -305,8 +301,7 @@ public:
     }
   }
 
-  void
-  operator()([[maybe_unused]] simple_outer_product const &visitable) {
+  void operator()([[maybe_unused]] simple_outer_product const &visitable) {
     constexpr auto precedence{Precedence::Multiplication};
     const auto parent_precedence{m_parent_precedence};
 
@@ -471,8 +466,8 @@ public:
   //   end(precedence, parent_precedence);
   // }
 
-  void operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul const
-                      &visitable) {
+  void operator()(
+      [[maybe_unused]] tensor_to_scalar_with_tensor_mul const &visitable) {
     constexpr auto precedence{Precedence::Multiplication};
     const auto parent_precedence{m_parent_precedence};
 
@@ -532,8 +527,7 @@ public:
   /**
    * @brief Default overload for safty reasons.
    */
-  template <class T>
-  void operator()([[maybe_unused]] T const &visitable) {
+  template <class T> void operator()([[maybe_unused]] T const &visitable) {
     static_assert(sizeof(T) == 0,
                   "tensor_printer: missing overload for this node type");
   }

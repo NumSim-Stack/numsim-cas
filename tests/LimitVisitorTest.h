@@ -434,8 +434,8 @@ TEST(T2sLimit, NeoHookeanCompressionLimit) {
 
   // Build: -mu*log(J) where mu > 0
   // Using exact match mode with J as limit variable
-  auto mu = make_expression<tensor_to_scalar_scalar_wrapper>(
-      make_scalar_constant(1));
+  auto mu =
+      make_expression<tensor_to_scalar_scalar_wrapper>(make_scalar_constant(1));
   auto neg_mu_log_J = -(mu * log(J));
 
   tensor_to_scalar_limit_visitor v(J, {pt::zero_plus});

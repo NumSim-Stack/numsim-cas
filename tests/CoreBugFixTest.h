@@ -26,7 +26,8 @@ TEST(CoreBugFix, SymbolEqualityDifferentName) {
 TEST(CoreBugFix, SymbolOrderingByName) {
   auto [a] = make_scalar_variable("a");
   auto [b] = make_scalar_variable("b");
-  // Two different symbols must be distinguishable via expression_holder ordering
+  // Two different symbols must be distinguishable via expression_holder
+  // ordering
   EXPECT_TRUE(a < b || b < a);
 }
 

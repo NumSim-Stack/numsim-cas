@@ -79,7 +79,9 @@ public:
   void operator()(scalar_exp const &v) override { check(v.expr()); }
   void operator()(scalar_sign const &v) override { check(v.expr()); }
   void operator()(scalar_abs const &v) override { check(v.expr()); }
-  void operator()(scalar_named_expression const &v) override { check(v.expr()); }
+  void operator()(scalar_named_expression const &v) override {
+    check(v.expr());
+  }
 
 private:
   void check(expr_holder_t const &expr) {
@@ -200,9 +202,7 @@ public:
   }
 
   // T2S operations with tensor children
-  void operator()(tensor_trace const &v) override {
-    check_tensor(v.expr());
-  }
+  void operator()(tensor_trace const &v) override { check_tensor(v.expr()); }
   void operator()(tensor_det const &v) override { check_tensor(v.expr()); }
   void operator()(tensor_norm const &v) override { check_tensor(v.expr()); }
   void operator()(tensor_dot const &v) override { check_tensor(v.expr()); }

@@ -1,21 +1,21 @@
 #include <numsim_cas/tensor/visitors/tensor_differentiation.h>
 
+#include <numeric>
 #include <numsim_cas/core/diff.h>
-#include <numsim_cas/tensor/tensor_diff.h>
-#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 #include <numsim_cas/scalar/scalar_operators.h>
+#include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h>
-#include <numeric>
 
 namespace numsim::cas {
 
-// tensor_power_diff: d(A^n)/dX = sum_{r=0}^{n-1} otimesu(A^r, A^{n-1-r}) : dA/dX
-void tensor_differentiation::operator()(
-    tensor_power_diff const &visitable) {
+// tensor_power_diff: d(A^n)/dX = sum_{r=0}^{n-1} otimesu(A^r, A^{n-1-r}) :
+// dA/dX
+void tensor_differentiation::operator()(tensor_power_diff const &visitable) {
   auto const &A = visitable.expr_lhs();
   auto const &n_expr = visitable.expr_rhs();
 
@@ -58,14 +58,15 @@ void tensor_differentiation::operator()(tensor_mul const &visitable) {
     // The derivative replaces factor j with dAj (which has extra indices)
     tensor_holder_t term = dAj;
     for (std::size_t i = 0; i < factors.size(); ++i) {
-      if (i == j) continue;
+      if (i == j)
+        continue;
       // Contract: inner_product on the adjacent indices
       auto rank_term = term.get().rank();
       [[maybe_unused]] auto rank_fi = factors[i].get().rank();
       // Contract last index of term with first index of factor[i]
       // (or first of factor[i] with last of previous result)
-      term = inner_product(std::move(term), sequence{rank_term},
-                           factors[i], sequence{1});
+      term = inner_product(std::move(term), sequence{rank_term}, factors[i],
+                           sequence{1});
     }
 
     if (term.is_valid()) {
@@ -82,8 +83,7 @@ void tensor_differentiation::operator()(tensor_mul const &visitable) {
 }
 
 // simple_outer_product: product rule (outer products, no contraction)
-void tensor_differentiation::operator()(
-    simple_outer_product const &visitable) {
+void tensor_differentiation::operator()(simple_outer_product const &visitable) {
   auto const &factors = visitable.data();
   tensor_holder_t sum;
 
@@ -102,8 +102,8 @@ void tensor_differentiation::operator()(
       sequence lhs_idx(current_rank), rhs_idx(fi.get().rank());
       std::iota(lhs_idx.begin(), lhs_idx.end(), std::size_t{0});
       std::iota(rhs_idx.begin(), rhs_idx.end(), current_rank);
-      term = otimes(std::move(term), std::move(lhs_idx),
-                    fi, std::move(rhs_idx));
+      term =
+          otimes(std::move(term), std::move(lhs_idx), fi, std::move(rhs_idx));
       current_rank += fi.get().rank();
     }
 
@@ -116,7 +116,8 @@ void tensor_differentiation::operator()(
 }
 
 // tensor_inv: d(A^{-1})/dX = -inner(inner(inv(A), dA/dX), inv(A))
-// For rank-2: d(A^{-1})_{ij}/dX_{kl} = -A^{-1}_{im} (dA_{mn}/dX_{kl}) A^{-1}_{nj}
+// For rank-2: d(A^{-1})_{ij}/dX_{kl} = -A^{-1}_{im} (dA_{mn}/dX_{kl})
+// A^{-1}_{nj}
 void tensor_differentiation::operator()(tensor_inv const &visitable) {
   auto const &A = visitable.expr();
   auto dA = diff(A, m_arg);
@@ -138,8 +139,9 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
 }
 
 // inner_product_wrapper: product rule
-// d(inner(A, idx_a, B, idx_b))/dX = inner(dA, idx_a, B, idx_b) + inner(A, idx_a, dB, idx_b)
-// Derivative indices are appended, so contraction positions are unchanged.
+// d(inner(A, idx_a, B, idx_b))/dX = inner(dA, idx_a, B, idx_b) + inner(A,
+// idx_a, dB, idx_b) Derivative indices are appended, so contraction positions
+// are unchanged.
 void tensor_differentiation::operator()(
     inner_product_wrapper const &visitable) {
   auto const &expr_lhs = visitable.expr_lhs();
@@ -161,8 +163,8 @@ void tensor_differentiation::operator()(
   if (dA.is_valid() && !is_same<tensor_zero>(dA)) {
     // dA has rank = rank_lhs + rank_arg, derivative indices appended.
     // Contraction indices are at the same positions as in the original A.
-    auto term_lhs = inner_product(dA, sequence(seq_lhs),
-                                  expr_rhs, sequence(seq_rhs));
+    auto term_lhs =
+        inner_product(dA, sequence(seq_lhs), expr_rhs, sequence(seq_rhs));
 
     if (free_rhs > 0) {
       // Need to reorder: put derivative indices (from arg) at the end
@@ -174,11 +176,9 @@ void tensor_differentiation::operator()(
       std::iota(reorder.begin(), reorder.begin() + free_lhs, std::size_t{0});
       // free_rhs slots
       std::iota(reorder.begin() + free_lhs,
-                reorder.begin() + free_lhs + free_rhs,
-                free_lhs + m_rank_arg);
+                reorder.begin() + free_lhs + free_rhs, free_lhs + m_rank_arg);
       // rank_arg slots at end
-      std::iota(reorder.begin() + free_lhs + free_rhs, reorder.end(),
-                free_lhs);
+      std::iota(reorder.begin() + free_lhs + free_rhs, reorder.end(), free_lhs);
       term_lhs = permute_indices(std::move(term_lhs), std::move(reorder));
     }
 
@@ -188,8 +188,8 @@ void tensor_differentiation::operator()(
   if (dB.is_valid() && !is_same<tensor_zero>(dB)) {
     // dB has rank = rank_rhs + rank_arg, derivative indices appended.
     // Contraction indices are at the same positions as in the original B.
-    auto term_rhs = inner_product(expr_lhs, sequence(seq_lhs),
-                                  dB, sequence(seq_rhs));
+    auto term_rhs =
+        inner_product(expr_lhs, sequence(seq_lhs), dB, sequence(seq_rhs));
     if (result.is_valid()) {
       result += term_rhs;
     } else {
@@ -201,8 +201,7 @@ void tensor_differentiation::operator()(
 }
 
 // basis_change_imp: d(permute(A, indices))/dX = permute(dA, extended_indices)
-void tensor_differentiation::operator()(
-    basis_change_imp const &visitable) {
+void tensor_differentiation::operator()(basis_change_imp const &visitable) {
   auto const &child = visitable.expr();
   auto const &indices = visitable.indices();
 
@@ -211,13 +210,13 @@ void tensor_differentiation::operator()(
     return;
   }
 
-  // Extend the permutation: original indices stay, append identity for arg indices
+  // Extend the permutation: original indices stay, append identity for arg
+  // indices
   sequence extended(indices.size() + m_rank_arg);
   for (std::size_t i = 0; i < indices.size(); ++i) {
     extended[i] = indices[i];
   }
-  std::iota(extended.begin() + indices.size(), extended.end(),
-            indices.size());
+  std::iota(extended.begin() + indices.size(), extended.end(), indices.size());
 
   m_result = permute_indices(std::move(dA), std::move(extended));
 }
@@ -248,8 +247,8 @@ void tensor_differentiation::operator()(
     // Append derivative indices
     std::iota(new_lhs_idx.begin() + seq_lhs.size(), new_lhs_idx.end(),
               rank_lhs + rank_rhs);
-    result = otimes(std::move(dA), std::move(new_lhs_idx),
-                    expr_rhs, sequence(seq_rhs));
+    result = otimes(std::move(dA), std::move(new_lhs_idx), expr_rhs,
+                    sequence(seq_rhs));
   }
 
   if (dB.is_valid()) {
@@ -260,8 +259,8 @@ void tensor_differentiation::operator()(
     }
     std::iota(new_rhs_idx.begin() + seq_rhs.size(), new_rhs_idx.end(),
               rank_lhs + rank_rhs);
-    auto term = otimes(expr_lhs, sequence(seq_lhs),
-                       std::move(dB), std::move(new_rhs_idx));
+    auto term = otimes(expr_lhs, sequence(seq_lhs), std::move(dB),
+                       std::move(new_rhs_idx));
     if (result.is_valid()) {
       result += term;
     } else {
@@ -279,8 +278,8 @@ void tensor_differentiation::operator()(
 // so expr_lhs() = tensor, expr_rhs() = t2s
 void tensor_differentiation::operator()(
     tensor_to_scalar_with_tensor_mul const &visitable) {
-  auto const &A = visitable.expr_lhs();   // tensor
-  auto const &f = visitable.expr_rhs();   // tensor_to_scalar
+  auto const &A = visitable.expr_lhs(); // tensor
+  auto const &f = visitable.expr_rhs(); // tensor_to_scalar
 
   auto dA = diff(A, m_arg);
   auto df = diff(f, m_arg); // returns tensor (cross-domain)

@@ -18,15 +18,13 @@ tensor_projector_simplifier::apply(tensor_holder_t const &expr) {
 
 // ─── inner_product_wrapper: P:P contraction rules ───────────────────────────
 
-void tensor_projector_simplifier::operator()(
-    inner_product_wrapper const &v) {
+void tensor_projector_simplifier::operator()(inner_product_wrapper const &v) {
   // First, recursively simplify both sides.
   auto lhs = apply(v.expr_lhs());
   auto rhs = apply(v.expr_rhs());
 
   // Check for P : (P : X) pattern
-  if (v.indices_lhs() == sequence{3, 4} &&
-      v.indices_rhs() == sequence{1, 2} &&
+  if (v.indices_lhs() == sequence{3, 4} && v.indices_rhs() == sequence{1, 2} &&
       is_same<tensor_projector>(lhs)) {
     auto const &proj_lhs = lhs.template get<tensor_projector>();
     if (proj_lhs.acts_on_rank() == 2) {
@@ -122,8 +120,7 @@ void tensor_projector_simplifier::operator()(tensor_add const &v) {
     if (k == ProjKind::Other)
       continue;
     auto arg_hash = info->argument.get().hash_value();
-    groups[arg_hash].push_back(
-        {k, info->proj->dim(), info->argument, i});
+    groups[arg_hash].push_back({k, info->proj->dim(), info->argument, i});
   }
 
   // For each group, try to combine projectors.
@@ -144,8 +141,7 @@ void tensor_projector_simplifier::operator()(tensor_add const &v) {
           // Replace entry i with the combined projector, mark j as consumed.
           consumed[entries[i].child_index] = true;
           consumed[entries[j].child_index] = true;
-          auto new_expr = apply_projection(
-              *combined, entries[i].argument);
+          auto new_expr = apply_projection(*combined, entries[i].argument);
           simplified_children.push_back(std::move(new_expr));
           consumed.push_back(false);
           // Update the entry for further combination rounds.

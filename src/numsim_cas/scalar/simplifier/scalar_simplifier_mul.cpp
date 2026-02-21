@@ -1,6 +1,6 @@
+#include <numsim_cas/scalar/scalar_definitions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/simplifier/scalar_simplifier_mul.h>
-#include <numsim_cas/scalar/scalar_definitions.h>
 
 namespace numsim::cas {
 namespace simplifier {
@@ -157,8 +157,9 @@ scalar_pow_mul::dispatch([[maybe_unused]] scalar_mul const &rhs) {
   const auto &hash_map{rhs.hash_map()};
   if (hash_map.contains(m_lhs_node.expr_lhs())) {
     mul.hash_map().erase(m_lhs_node.expr_lhs());
-    expr_mul = std::move(expr_mul) *
-               pow(m_lhs_node.expr_lhs(), m_lhs_node.expr_rhs() + get_scalar_one());
+    expr_mul =
+        std::move(expr_mul) *
+        pow(m_lhs_node.expr_lhs(), m_lhs_node.expr_rhs() + get_scalar_one());
     return expr_mul;
   }
 

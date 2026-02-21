@@ -7,7 +7,8 @@
 namespace numsim::cas {
 
 // Directional projectors (onto || or ⟂ to a direction)
-// These remain here because they reference expression_holder<tensor_expression>.
+// These remain here because they reference
+// expression_holder<tensor_expression>.
 struct Parallel {
   // unit vector expression; your library's 1st-order tensor
   expression_holder<tensor_expression> n;
@@ -58,22 +59,26 @@ public:
     hash_combine(base::m_hash_value, r_);
     hash_combine(base::m_hash_value, space_.perm.index());
     hash_combine(base::m_hash_value, space_.trace.index());
-    std::visit([this](auto const &v) {
-      using T = std::decay_t<decltype(v)>;
-      if constexpr (std::is_same_v<T, Young>) {
-        for (auto const &block : v.blocks)
-          hash_combine(base::m_hash_value, block);
-      }
-    }, space_.perm);
-    std::visit([this](auto const &v) {
-      using T = std::decay_t<decltype(v)>;
-      if constexpr (std::is_same_v<T, PartialTraceTag>) {
-        for (auto const &[a, b] : v.pairs) {
-          hash_combine(base::m_hash_value, a);
-          hash_combine(base::m_hash_value, b);
-        }
-      }
-    }, space_.trace);
+    std::visit(
+        [this](auto const &v) {
+          using T = std::decay_t<decltype(v)>;
+          if constexpr (std::is_same_v<T, Young>) {
+            for (auto const &block : v.blocks)
+              hash_combine(base::m_hash_value, block);
+          }
+        },
+        space_.perm);
+    std::visit(
+        [this](auto const &v) {
+          using T = std::decay_t<decltype(v)>;
+          if constexpr (std::is_same_v<T, PartialTraceTag>) {
+            for (auto const &[a, b] : v.pairs) {
+              hash_combine(base::m_hash_value, a);
+              hash_combine(base::m_hash_value, b);
+            }
+          }
+        },
+        space_.trace);
   }
 
 private:

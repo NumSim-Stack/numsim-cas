@@ -528,8 +528,8 @@ TEST(TensorEval, CompoundScalarSymMinusDev) {
   ASSERT_NE(result, nullptr);
   auto sym_val = tmech::eval(tmech::sym(A_val));
   auto dev_val = tmech::eval(tmech::dev(B_val));
-  auto expected = tmech_test_helpers::sub(
-      tmech_test_helpers::scale(3.0, sym_val), dev_val);
+  auto expected =
+      tmech_test_helpers::sub(tmech_test_helpers::scale(3.0, sym_val), dev_val);
   EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result), expected, tol));
 }
 
@@ -570,15 +570,15 @@ TEST(TensorEval, CompoundLinearCombinationWithTrans) {
   // clang-format on
   ev.set(A, std::make_shared<tensor_data<double, 2, 2>>(A_val));
   ev.set(B, std::make_shared<tensor_data<double, 2, 2>>(B_val));
-  auto expr = make_scalar_constant(3) * A + make_scalar_constant(2) * B -
-              trans(A);
+  auto expr =
+      make_scalar_constant(3) * A + make_scalar_constant(2) * B - trans(A);
   auto result = ev.apply(expr);
   ASSERT_NE(result, nullptr);
   auto t1 = tmech_test_helpers::scale(3.0, A_val);
   auto t2 = tmech_test_helpers::scale(2.0, B_val);
   auto transA = tmech::eval(tmech::trans(A_val));
-  auto expected = tmech_test_helpers::sub(tmech_test_helpers::add(t1, t2),
-                                          transA);
+  auto expected =
+      tmech_test_helpers::sub(tmech_test_helpers::add(t1, t2), transA);
   EXPECT_TRUE(tmech::almost_equal(as_tmech<2, 2>(*result), expected, tol));
 }
 
@@ -621,8 +621,7 @@ TEST(TensorEval, CompoundSubOuterPlusTrans) {
   ev.set(A, std::make_shared<tensor_data<double, 2, 2>>(A_val));
   ev.set(u, std::make_shared<tensor_data<double, 2, 1>>(u_val));
   ev.set(v, std::make_shared<tensor_data<double, 2, 1>>(v_val));
-  auto expr =
-      A - make_scalar_constant(2) * otimes(u, v) + trans(A);
+  auto expr = A - make_scalar_constant(2) * otimes(u, v) + trans(A);
   auto result = ev.apply(expr);
   ASSERT_NE(result, nullptr);
   auto uv_val = tmech::eval(tmech::otimes(u_val, v_val));
@@ -852,9 +851,8 @@ TEST(TensorProjAlgebra, IdempotentDevDev) {
 
   ASSERT_NE(result_dd, nullptr);
   ASSERT_NE(result_d, nullptr);
-  EXPECT_TRUE(
-      tmech::almost_equal(as_tmech<3, 2>(*result_dd),
-                          as_tmech<3, 2>(*result_d), tol));
+  EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result_dd),
+                                  as_tmech<3, 2>(*result_d), tol));
 }
 
 TEST(TensorProjAlgebra, OrthogonalDevVol) {
@@ -888,9 +886,8 @@ TEST(TensorProjAlgebra, SubspaceDevSym) {
   auto result_d = ev.apply(dev_A);
   ASSERT_NE(result_ds, nullptr);
   ASSERT_NE(result_d, nullptr);
-  EXPECT_TRUE(
-      tmech::almost_equal(as_tmech<3, 2>(*result_ds),
-                          as_tmech<3, 2>(*result_d), tol));
+  EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result_ds),
+                                  as_tmech<3, 2>(*result_d), tol));
 }
 
 TEST(TensorProjAlgebra, AdditionVolDevEqualsSymViaEval) {
@@ -915,9 +912,8 @@ TEST(TensorProjAlgebra, AdditionVolDevEqualsSymViaEval) {
   auto result_sym = ev.apply(sym_A);
   ASSERT_NE(result_sum, nullptr);
   ASSERT_NE(result_sym, nullptr);
-  EXPECT_TRUE(
-      tmech::almost_equal(as_tmech<3, 2>(*result_sum),
-                          as_tmech<3, 2>(*result_sym), tol));
+  EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result_sum),
+                                  as_tmech<3, 2>(*result_sym), tol));
 }
 
 TEST(TensorProjAlgebra, AdditionSymSkewEqualsIdentityViaEval) {

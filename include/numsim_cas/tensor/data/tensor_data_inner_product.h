@@ -3,8 +3,8 @@
 
 #include "tensor_data.h"
 #include "tensor_data_basis_change.h"
-#include <numsim_cas/core/cas_error.h>
 #include <cstdlib>
+#include <numsim_cas/core/cas_error.h>
 #include <vector>
 
 namespace numsim::cas {
@@ -105,7 +105,7 @@ public:
   void mismatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
     if (dim > this->_MaxDim || dim == 0) {
       throw evaluation_error("tensor_data_inner_product::evaluate(dim, "
-                               "rankLHS, rankRHS) dim > MaxDim || dim == 0");
+                             "rankLHS, rankRHS) dim > MaxDim || dim == 0");
     }
     if (rankLHS > this->_MaxRank || rankLHS == 0) {
       throw evaluation_error(

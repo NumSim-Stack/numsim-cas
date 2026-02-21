@@ -29,15 +29,13 @@ public:
    * @brief Copy constructor.
    * @param data The expression object to copy from.
    */
-  expression(expression const &data)
-      : m_hash_value(data.m_hash_value) {}
+  expression(expression const &data) : m_hash_value(data.m_hash_value) {}
 
   /**
    * @brief Move constructor.
    * @param data The expression object to move from.
    */
-  expression(expression &&data)
-      : m_hash_value(data.m_hash_value) {}
+  expression(expression &&data) : m_hash_value(data.m_hash_value) {}
 
   /**
    * @brief Virtual destructor.

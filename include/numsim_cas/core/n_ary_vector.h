@@ -16,7 +16,8 @@ public:
   using expr_t = typename base_t::expr_t;
   using expr_holder_t = expression_holder<expr_t>;
   using iterator = typename expr_ordered_map<expr_holder_t>::iterator;
-  using const_iterator = typename expr_ordered_map<expr_holder_t>::const_iterator;
+  using const_iterator =
+      typename expr_ordered_map<expr_holder_t>::const_iterator;
 
   n_ary_vector() noexcept { this->reserve(2); }
 

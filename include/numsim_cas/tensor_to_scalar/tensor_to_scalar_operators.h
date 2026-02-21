@@ -75,7 +75,8 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_to_scalar_expression>>
 inline expression_holder<tensor_to_scalar_expression>
 tag_invoke(sub_fn, L &&lhs, R &&rhs) {
-  return make_expression<tensor_to_scalar_scalar_wrapper>(std::forward<L>(lhs)) -
+  return make_expression<tensor_to_scalar_scalar_wrapper>(
+             std::forward<L>(lhs)) -
          std::forward<R>(rhs);
 }
 

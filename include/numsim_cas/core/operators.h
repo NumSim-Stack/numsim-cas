@@ -37,11 +37,10 @@ concept cas_operand = requires { typename to_expr_result_t<T>; };
 
 template <class L, class R>
 concept cas_binary_op =
-    (is_expression_holder_v<L> || is_expression_holder_v<R>)&&(
-        is_expression_holder_v<L> ||
-        std::is_arithmetic_v<std::remove_cvref_t<
-            L>>)&&(is_expression_holder_v<R> ||
-                   std::is_arithmetic_v<std::remove_cvref_t<R>>);
+    (is_expression_holder_v<L> || is_expression_holder_v<R>) &&
+    (is_expression_holder_v<L> ||
+     std::is_arithmetic_v<std::remove_cvref_t<L>>) &&
+    (is_expression_holder_v<R> || std::is_arithmetic_v<std::remove_cvref_t<R>>);
 
 } // namespace numsim::cas::detail
 

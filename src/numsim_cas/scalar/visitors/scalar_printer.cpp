@@ -66,8 +66,7 @@ void scalar_printer<Stream>::operator()(scalar_mul const &visitable) {
 
   begin(precedence, parent_precedence);
 
-  auto [num, denom] =
-      partition_mul_fractions<traits>(visitable.hash_map());
+  auto [num, denom] = partition_mul_fractions<traits>(visitable.hash_map());
 
   std::map<expr_t, expr_t, detail::scalar_pretty_printer> sorted_map;
   for (auto &child : num) {
@@ -148,8 +147,7 @@ void scalar_printer<Stream>::operator()(scalar_add const &visitable) {
 // }
 
 template <typename Stream>
-void scalar_printer<Stream>::operator()(
-    scalar_rational const &visitable) {
+void scalar_printer<Stream>::operator()(scalar_rational const &visitable) {
   constexpr auto precedence{Precedence::Multiplication};
   const auto parent_precedence{m_parent_precedence};
 

@@ -23,8 +23,8 @@ auto make_test_data(std::initializer_list<double> values) {
 
 int main() {
   // Create rank-2 tensor variables in 3D
-  auto [X, Y] = make_tensor_variable(std::tuple{"X", 3, 2},
-                                      std::tuple{"Y", 3, 2});
+  auto [X, Y] =
+      make_tensor_variable(std::tuple{"X", 3, 2}, std::tuple{"Y", 3, 2});
 
   // Create scalar variables and constants
   auto [x] = make_scalar_variable("x");

@@ -29,7 +29,7 @@ public:
     }
     if (rank > this->_MaxRank || rank == 0) {
       throw evaluation_error("tensor_data_add::evaluate(dim, rank) rank "
-                               "> MaxRank || rank == 0");
+                             "> MaxRank || rank == 0");
     }
   }
 

@@ -1,12 +1,12 @@
 #ifndef EXPRESSION_HOLDER_H
 #define EXPRESSION_HOLDER_H
 
+#include <cassert>
+#include <functional>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/make_negative.h>
 #include <numsim_cas/numsim_cas_forward.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
-#include <cassert>
-#include <functional>
 #include <type_traits>
 
 namespace numsim::cas {
@@ -32,7 +32,7 @@ public:
   expression_holder &operator=(expression_holder &&) = default;
 
   template <typename U>
-    requires std::convertible_to<std::decay_t<U>, expression_holder>
+  requires std::convertible_to<std::decay_t<U>, expression_holder>
   expression_holder &operator*=(U &&data) {
     if (is_valid()) {
       *this = std::move(*this) * std::forward<U>(data);
@@ -43,7 +43,7 @@ public:
   }
 
   template <typename U>
-    requires std::convertible_to<std::decay_t<U>, expression_holder>
+  requires std::convertible_to<std::decay_t<U>, expression_holder>
   expression_holder &operator+=(U &&data) {
     if (is_valid()) {
       *this = std::move(*this) + std::forward<U>(data);

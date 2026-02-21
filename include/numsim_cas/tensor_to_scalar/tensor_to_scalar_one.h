@@ -18,16 +18,18 @@ public:
   ~tensor_to_scalar_one() = default;
   const tensor_to_scalar_one &operator=(tensor_to_scalar_one &&) = delete;
 
-  friend inline bool operator<([[maybe_unused]] tensor_to_scalar_one const &lhs,
-                               [[maybe_unused]] tensor_to_scalar_one const &rhs) {
+  friend inline bool
+  operator<([[maybe_unused]] tensor_to_scalar_one const &lhs,
+            [[maybe_unused]] tensor_to_scalar_one const &rhs) {
     return false;
   }
   friend inline bool operator>(tensor_to_scalar_one const &lhs,
                                tensor_to_scalar_one const &rhs) {
     return rhs < lhs;
   }
-  friend inline bool operator==([[maybe_unused]] tensor_to_scalar_one const &lhs,
-                                [[maybe_unused]] tensor_to_scalar_one const &rhs) {
+  friend inline bool
+  operator==([[maybe_unused]] tensor_to_scalar_one const &lhs,
+             [[maybe_unused]] tensor_to_scalar_one const &rhs) {
     return true;
   }
   friend inline bool operator!=(tensor_to_scalar_one const &lhs,

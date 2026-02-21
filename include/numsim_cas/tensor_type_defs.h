@@ -29,8 +29,7 @@ class tensor_to_scalar_with_tensor_div;
 using tensor_visitor_t =
     visitor<tensor, tensor_negative, inner_product_wrapper, basis_change_imp,
             outer_product_wrapper, kronecker_delta, simple_outer_product,
-            tensor_add, tensor_mul, tensor_inv,
-            tensor_zero, tensor_pow,
+            tensor_add, tensor_mul, tensor_inv, tensor_zero, tensor_pow,
             identity_tensor, tensor_projector, tensor_scalar_mul,
             tensor_power_diff, tensor_scalar_div,
             tensor_to_scalar_with_tensor_mul, tensor_to_scalar_with_tensor_div>;
@@ -38,16 +37,14 @@ using tensor_visitor_t =
 using tensor_visitor_const_t = visitor_const<
     tensor, tensor_negative, inner_product_wrapper, basis_change_imp,
     outer_product_wrapper, kronecker_delta, simple_outer_product, tensor_add,
-    tensor_mul, tensor_inv,
-    tensor_zero, tensor_pow, identity_tensor,
+    tensor_mul, tensor_inv, tensor_zero, tensor_pow, identity_tensor,
     tensor_projector, tensor_scalar_mul, tensor_power_diff, tensor_scalar_div,
     tensor_to_scalar_with_tensor_mul, tensor_to_scalar_with_tensor_div>;
 
 using tensor_visitable_t = visitable<
     tensor, tensor_negative, inner_product_wrapper, basis_change_imp,
     outer_product_wrapper, kronecker_delta, simple_outer_product, tensor_add,
-    tensor_mul, tensor_inv,
-    tensor_zero, tensor_pow, identity_tensor,
+    tensor_mul, tensor_inv, tensor_zero, tensor_pow, identity_tensor,
     tensor_projector, tensor_scalar_mul, tensor_power_diff, tensor_scalar_div,
     tensor_to_scalar_with_tensor_mul, tensor_to_scalar_with_tensor_div>;
 
@@ -55,10 +52,9 @@ template <typename T>
 using tensor_node_base_t = visitable_impl<
     scalar_expression, T, tensor, tensor_negative, inner_product_wrapper,
     basis_change_imp, outer_product_wrapper, kronecker_delta,
-    simple_outer_product, tensor_add, tensor_mul, tensor_inv,
-    tensor_zero, tensor_pow,
-    identity_tensor, tensor_projector, tensor_scalar_mul, tensor_power_diff,
-    tensor_scalar_div, tensor_to_scalar_with_tensor_mul,
+    simple_outer_product, tensor_add, tensor_mul, tensor_inv, tensor_zero,
+    tensor_pow, identity_tensor, tensor_projector, tensor_scalar_mul,
+    tensor_power_diff, tensor_scalar_div, tensor_to_scalar_with_tensor_mul,
     tensor_to_scalar_with_tensor_div>;
 
 } // namespace numsim::cas

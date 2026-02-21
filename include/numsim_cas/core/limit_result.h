@@ -11,13 +11,13 @@ struct growth_rate {
 
 struct limit_result {
   enum class direction {
-    zero,             // -> 0
-    finite_positive,  // -> c > 0
-    finite_negative,  // -> c < 0
-    pos_infinity,     // -> +inf
-    neg_infinity,     // -> -inf
-    indeterminate,    // 0/0, inf-inf, 0*inf
-    unknown           // can't determine
+    zero,            // -> 0
+    finite_positive, // -> c > 0
+    finite_negative, // -> c < 0
+    pos_infinity,    // -> +inf
+    neg_infinity,    // -> -inf
+    indeterminate,   // 0/0, inf-inf, 0*inf
+    unknown          // can't determine
   };
   direction dir = direction::unknown;
   growth_rate rate{};

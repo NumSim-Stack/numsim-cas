@@ -31,9 +31,6 @@
 *.out
 *.app
 
-# Claude
-*.claude
-
 # cmake user
 *.user
 

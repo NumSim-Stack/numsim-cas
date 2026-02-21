@@ -43,7 +43,7 @@ public:
   void mismatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
     if (dim > this->_MaxDim || dim == 0) {
       throw evaluation_error("tensor_data_outer_product::evaluate(dim, "
-                               "rankLHS, rankRHS) dim > MaxDim || dim == 0");
+                             "rankLHS, rankRHS) dim > MaxDim || dim == 0");
     }
     if (rankLHS > this->_MaxRank || rankLHS == 0) {
       throw evaluation_error(

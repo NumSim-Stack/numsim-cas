@@ -40,10 +40,10 @@ public:
     m_I = make_expression<kronecker_delta>(m_dim);
   }
 
-  tensor_to_scalar_differentiation(
-      tensor_to_scalar_differentiation const &) = delete;
-  tensor_to_scalar_differentiation(
-      tensor_to_scalar_differentiation &&) = delete;
+  tensor_to_scalar_differentiation(tensor_to_scalar_differentiation const &) =
+      delete;
+  tensor_to_scalar_differentiation(tensor_to_scalar_differentiation &&) =
+      delete;
   const tensor_to_scalar_differentiation &
   operator=(tensor_to_scalar_differentiation const &) = delete;
 

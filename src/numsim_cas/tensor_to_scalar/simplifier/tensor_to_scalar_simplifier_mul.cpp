@@ -78,7 +78,7 @@ static bool try_fold_numeric_pow(tensor_to_scalar_mul &mul,
 
 // Push child into mul, combining with existing entry if possible.
 static void push_or_combine(tensor_to_scalar_mul &mul,
-                             mul_base::expr_holder_t const &child) {
+                            mul_base::expr_holder_t const &child) {
   if (try_fold_numeric_pow(mul, child))
     return;
   auto pos = mul.hash_map().find(child);

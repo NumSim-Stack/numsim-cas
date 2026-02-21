@@ -28,8 +28,7 @@ public:
       auto const &in = static_cast<const Tensor &>(m_input).data();
       return static_cast<ValueType>(Op::apply(in));
     } else {
-      throw evaluation_error(
-          "tensor_data_to_scalar_wrapper: invalid dim/rank");
+      throw evaluation_error("tensor_data_to_scalar_wrapper: invalid dim/rank");
     }
   }
 
@@ -52,8 +51,8 @@ private:
 //
 template <typename ValueType>
 class tensor_data_dcontract_wrapper final
-    : public tensor_data_eval_up_unary<
-          tensor_data_dcontract_wrapper<ValueType>, ValueType> {
+    : public tensor_data_eval_up_unary<tensor_data_dcontract_wrapper<ValueType>,
+                                       ValueType> {
 public:
   tensor_data_dcontract_wrapper(tensor_data_base<ValueType> const &lhs,
                                 tensor_data_base<ValueType> const &rhs)
@@ -66,8 +65,7 @@ public:
       auto const &r = static_cast<const Tensor &>(m_rhs).data();
       return static_cast<ValueType>(tmech::dcontract(l, r));
     } else {
-      throw evaluation_error(
-          "tensor_data_dcontract_wrapper: requires rank 2");
+      throw evaluation_error("tensor_data_dcontract_wrapper: requires rank 2");
     }
   }
 
@@ -91,8 +89,7 @@ private:
 namespace tmech_ops {
 
 struct trace_op {
-  template <std::size_t, std::size_t Rank>
-  static constexpr bool is_valid() {
+  template <std::size_t, std::size_t Rank> static constexpr bool is_valid() {
     return Rank == 2;
   }
   template <typename T> static constexpr auto apply(T const &t) {
@@ -111,8 +108,7 @@ struct det_op {
 };
 
 struct norm_op {
-  template <std::size_t, std::size_t Rank>
-  static constexpr bool is_valid() {
+  template <std::size_t, std::size_t Rank> static constexpr bool is_valid() {
     return Rank == 2;
   }
   template <typename T> static constexpr auto apply(T const &t) {
@@ -121,8 +117,7 @@ struct norm_op {
 };
 
 struct dcontract_self_op {
-  template <std::size_t, std::size_t Rank>
-  static constexpr bool is_valid() {
+  template <std::size_t, std::size_t Rank> static constexpr bool is_valid() {
     return Rank == 2;
   }
   template <typename T> static constexpr auto apply(T const &t) {

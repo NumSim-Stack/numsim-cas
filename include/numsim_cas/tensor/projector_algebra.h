@@ -36,11 +36,16 @@ inline ProjKind classify(tensor_projector const &p) {
 
 inline tensor_space space_for_kind(ProjKind kind) {
   switch (kind) {
-  case ProjKind::Sym:  return {Symmetric{}, AnyTraceTag{}};
-  case ProjKind::Skew: return {Skew{}, AnyTraceTag{}};
-  case ProjKind::Vol:  return {Symmetric{}, VolumetricTag{}};
-  case ProjKind::Dev:  return {Symmetric{}, DeviatoricTag{}};
-  default: std::unreachable();
+  case ProjKind::Sym:
+    return {Symmetric{}, AnyTraceTag{}};
+  case ProjKind::Skew:
+    return {Skew{}, AnyTraceTag{}};
+  case ProjKind::Vol:
+    return {Symmetric{}, VolumetricTag{}};
+  case ProjKind::Dev:
+    return {Symmetric{}, DeviatoricTag{}};
+  default:
+    std::unreachable();
   }
 }
 
@@ -59,8 +64,7 @@ as_projector_contraction(expression_holder<tensor_expression> const &expr) {
     return std::nullopt;
 
   auto const &ip = expr.template get<inner_product_wrapper>();
-  if (ip.indices_lhs() != sequence{3, 4} ||
-      ip.indices_rhs() != sequence{1, 2})
+  if (ip.indices_lhs() != sequence{3, 4} || ip.indices_rhs() != sequence{1, 2})
     return std::nullopt;
 
   if (!is_same<tensor_projector>(ip.expr_lhs()))
@@ -142,8 +146,7 @@ struct contraction_simplification {
 /// is itself a projector contraction P_inner:X and return the simplification.
 inline std::optional<contraction_simplification>
 try_simplify_projector_contraction(
-    ProjKind outer,
-    expression_holder<tensor_expression> const &expr) {
+    ProjKind outer, expression_holder<tensor_expression> const &expr) {
   if (outer == ProjKind::Other)
     return std::nullopt;
 
@@ -161,10 +164,17 @@ try_simplify_projector_contraction(
 
   ProjKind result = ProjKind::Other;
   switch (*rule) {
-  case ContractionRule::Idempotent:  result = outer;   break;
-  case ContractionRule::Zero:        break;
-  case ContractionRule::LhsSubspace: result = outer;   break;
-  case ContractionRule::RhsSubspace: result = k_inner; break;
+  case ContractionRule::Idempotent:
+    result = outer;
+    break;
+  case ContractionRule::Zero:
+    break;
+  case ContractionRule::LhsSubspace:
+    result = outer;
+    break;
+  case ContractionRule::RhsSubspace:
+    result = k_inner;
+    break;
   }
 
   return contraction_simplification{*rule, result, inner->argument,
@@ -180,20 +190,20 @@ apply_projection(ProjKind kind,
   expression_holder<tensor_expression> result;
   switch (kind) {
   case ProjKind::Dev:
-    result = make_expression<inner_product_wrapper>(
-        P_devi(d), sequence{3, 4}, arg, sequence{1, 2});
+    result = make_expression<inner_product_wrapper>(P_devi(d), sequence{3, 4},
+                                                    arg, sequence{1, 2});
     break;
   case ProjKind::Sym:
-    result = make_expression<inner_product_wrapper>(
-        P_sym(d), sequence{3, 4}, arg, sequence{1, 2});
+    result = make_expression<inner_product_wrapper>(P_sym(d), sequence{3, 4},
+                                                    arg, sequence{1, 2});
     break;
   case ProjKind::Vol:
-    result = make_expression<inner_product_wrapper>(
-        P_vol(d), sequence{3, 4}, arg, sequence{1, 2});
+    result = make_expression<inner_product_wrapper>(P_vol(d), sequence{3, 4},
+                                                    arg, sequence{1, 2});
     break;
   case ProjKind::Skew:
-    result = make_expression<inner_product_wrapper>(
-        P_skew(d), sequence{3, 4}, arg, sequence{1, 2});
+    result = make_expression<inner_product_wrapper>(P_skew(d), sequence{3, 4},
+                                                    arg, sequence{1, 2});
     break;
   default:
     std::unreachable();

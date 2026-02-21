@@ -11,11 +11,11 @@ namespace numsim::cas::detail {
 struct substitute_fn {
   // explicit typed call
   template <class ExprBase, class TargetBase>
-  constexpr auto
-  operator()(std::type_identity<ExprBase>, std::type_identity<TargetBase>,
-             expression_holder<ExprBase> const &expr,
-             expression_holder<TargetBase> const &old_val,
-             expression_holder<TargetBase> const &new_val) const
+  constexpr auto operator()(std::type_identity<ExprBase>,
+                            std::type_identity<TargetBase>,
+                            expression_holder<ExprBase> const &expr,
+                            expression_holder<TargetBase> const &old_val,
+                            expression_holder<TargetBase> const &new_val) const
       noexcept(noexcept(tag_invoke(*this, std::type_identity<ExprBase>{},
                                    std::type_identity<TargetBase>{}, expr,
                                    old_val, new_val)))
@@ -24,15 +24,14 @@ struct substitute_fn {
                                  expression_holder<ExprBase> const &,
                                  expression_holder<TargetBase> const &,
                                  expression_holder<TargetBase> const &>
-  requires tag_invocable<
-      substitute_fn, std::type_identity<ExprBase>,
-      std::type_identity<TargetBase>, expression_holder<ExprBase> const &,
-      expression_holder<TargetBase> const &,
-      expression_holder<TargetBase> const &>
+  requires tag_invocable<substitute_fn, std::type_identity<ExprBase>,
+                         std::type_identity<TargetBase>,
+                         expression_holder<ExprBase> const &,
+                         expression_holder<TargetBase> const &,
+                         expression_holder<TargetBase> const &>
   {
     return tag_invoke(*this, std::type_identity<ExprBase>{},
-                      std::type_identity<TargetBase>{}, expr, old_val,
-                      new_val);
+                      std::type_identity<TargetBase>{}, expr, old_val, new_val);
   }
 
   // ergonomic call: substitute(expr, old, new)
@@ -41,8 +40,8 @@ struct substitute_fn {
                             expression_holder<TargetBase> const &old_val,
                             expression_holder<TargetBase> const &new_val) const
       noexcept(noexcept((*this)(std::type_identity<ExprBase>{},
-                                std::type_identity<TargetBase>{}, expr,
-                                old_val, new_val)))
+                                std::type_identity<TargetBase>{}, expr, old_val,
+                                new_val)))
           -> decltype((*this)(std::type_identity<ExprBase>{},
                               std::type_identity<TargetBase>{}, expr, old_val,
                               new_val)) {

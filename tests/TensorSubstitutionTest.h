@@ -56,8 +56,7 @@ TYPED_TEST(TensorSubstitutionTest, TensorForTensor) {
   auto result = numsim::cas::substitute(expr, X, Z);
   auto expected = Z + Y;
   EXPECT_TRUE(result == expected)
-      << "Expected " << testcas::S(expected)
-      << ", got: " << testcas::S(result);
+      << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
 }
 
 // scalar -> scalar in tensor: subs(x*X, x, y) -> y*X
@@ -70,8 +69,7 @@ TYPED_TEST(TensorSubstitutionTest, ScalarInTensor) {
   auto result = numsim::cas::substitute(expr, x, y);
   auto expected = y * X;
   EXPECT_TRUE(result == expected)
-      << "Expected " << testcas::S(expected)
-      << ", got: " << testcas::S(result);
+      << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
 }
 
 // t2s -> t2s in tensor: subs(trace(X)*Y, trace(X), det(X)) -> det(X)*Y
@@ -88,8 +86,7 @@ TYPED_TEST(TensorSubstitutionTest, T2sInTensor) {
   auto expected = numsim::cas::make_expression<
       numsim::cas::tensor_to_scalar_with_tensor_mul>(Y, detX);
   EXPECT_TRUE(result == expected)
-      << "Expected " << testcas::S(expected)
-      << ", got: " << testcas::S(result);
+      << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
 }
 
 // Cross-domain depth: scalar sub reaches through t2s then tensor
@@ -112,8 +109,7 @@ TYPED_TEST(TensorSubstitutionTest, CrossDomainDepth) {
   auto expected = numsim::cas::make_expression<
       numsim::cas::tensor_to_scalar_with_tensor_mul>(Y, expectedTr);
   EXPECT_TRUE(result == expected)
-      << "Expected " << testcas::S(expected)
-      << ", got: " << testcas::S(result);
+      << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
 }
 
 #endif // TENSORSUBSTITUTIONTEST_H

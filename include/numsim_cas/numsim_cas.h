@@ -13,11 +13,11 @@
 #include <numsim_cas/scalar/scalar_div.h>
 #include <numsim_cas/scalar/scalar_exp.h>
 #include <numsim_cas/scalar/scalar_expression.h>
-#include <numsim_cas/scalar/scalar_named_expression.h>
 #include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/scalar/scalar_log.h>
 #include <numsim_cas/scalar/scalar_mul.h>
+#include <numsim_cas/scalar/scalar_named_expression.h>
 #include <numsim_cas/scalar/scalar_negative.h>
 #include <numsim_cas/scalar/scalar_one.h>
 #include <numsim_cas/scalar/scalar_power.h>

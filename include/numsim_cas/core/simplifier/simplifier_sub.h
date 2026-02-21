@@ -85,7 +85,6 @@ public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
 
-
   negative_sub_dispatch(expr_holder_t lhs_in, expr_holder_t rhs)
       : base(std::move(lhs_in), std::move(rhs)),
         lhs{base::m_lhs.template get<typename Traits::negative_type>()} {}
@@ -124,7 +123,6 @@ public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
 
-
   constant_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
       : base(std::move(lhs), std::move(rhs)) {}
 
@@ -142,8 +140,8 @@ public:
   }
 
   // constant - (coeff + x) --> (constant-coeff) + (-x)
-  expr_holder_t
-  dispatch([[maybe_unused]] typename Traits::add_type const &rhs) {
+  expr_holder_t dispatch([[maybe_unused]]
+                         typename Traits::add_type const &rhs) {
     auto add_expr{make_expression<typename Traits::add_type>()};
     auto &add{add_expr.template get<typename Traits::add_type>()};
     auto coeff{base::m_lhs - rhs.coeff()};
@@ -179,14 +177,13 @@ public:
   using expr_holder_t = typename Traits::expr_holder_t;
   using base::dispatch;
 
-
   n_ary_sub_dispatch(expr_holder_t lhs_in, expr_holder_t rhs)
       : base(std::move(lhs_in), std::move(rhs)),
         lhs{base::m_lhs.template get<typename Traits::add_type>()} {}
 
   // (coeff + terms) - constant
-  expr_holder_t
-  dispatch([[maybe_unused]] typename Traits::constant_type const &) {
+  expr_holder_t dispatch([[maybe_unused]]
+                         typename Traits::constant_type const &) {
     auto rhs_val = Traits::try_numeric(base::m_rhs);
     if (rhs_val) {
       auto add_expr{make_expression<typename Traits::add_type>(lhs)};
@@ -202,8 +199,7 @@ public:
   }
 
   // (coeff + terms) - 1
-  expr_holder_t
-  dispatch([[maybe_unused]] typename Traits::one_type const &) {
+  expr_holder_t dispatch([[maybe_unused]] typename Traits::one_type const &) {
     auto add_expr{make_expression<typename Traits::add_type>(lhs)};
     auto &add{add_expr.template get<typename Traits::add_type>()};
     const auto value{get_coefficient<Traits>(add, 0) - 1};
@@ -392,8 +388,7 @@ private:
 // one_sub_dispatch<Traits> — LHS is one
 //==============================================================================
 template <typename Traits>
-class one_sub_dispatch
-    : public sub_dispatch<Traits, one_sub_dispatch<Traits>> {
+class one_sub_dispatch : public sub_dispatch<Traits, one_sub_dispatch<Traits>> {
   using base = sub_dispatch<Traits, one_sub_dispatch<Traits>>;
 
 public:

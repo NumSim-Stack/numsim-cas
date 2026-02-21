@@ -26,8 +26,7 @@ public:
                                 [[maybe_unused]] scalar_one const &rhs) {
     return true;
   }
-  friend inline bool operator!=(scalar_one const &lhs,
-                                scalar_one const &rhs) {
+  friend inline bool operator!=(scalar_one const &lhs, scalar_one const &rhs) {
     return !(lhs == rhs);
   }
 

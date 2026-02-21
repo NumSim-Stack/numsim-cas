@@ -183,8 +183,7 @@ TEST_F(TensorSpacePropagationTest, SymOfInvDev) {
 TEST_F(TensorSpacePropagationTest, InvSkewPreservesSkew) {
   // inv(W) preserves Skew: (W^{-1})^T = (W^T)^{-1} = (-W)^{-1} = -W^{-1}
   auto i = inv(W);
-  EXPECT_TRUE(is_skew(i))
-      << "inv(W) should be skew — (W^{-1})^T = -W^{-1}";
+  EXPECT_TRUE(is_skew(i)) << "inv(W) should be skew — (W^{-1})^T = -W^{-1}";
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -285,8 +284,7 @@ TEST_F(TensorSpacePropagationTest, ReversedProjOnKroneckerDelta) {
 
 TEST_F(TensorSpacePropagationTest, NormalProjNotAffected) {
   // inner_product(P_sym, {3,4}, X, {1,2}) is the normal form — should stay
-  auto result =
-      inner_product(P_sym(dim), sequence{3, 4}, X, sequence{1, 2});
+  auto result = inner_product(P_sym(dim), sequence{3, 4}, X, sequence{1, 2});
   EXPECT_PRINT(result, "sym(X)");
 }
 
@@ -355,7 +353,8 @@ TEST_F(TensorSpacePropagationTest, DiffTraceSquaredSymmetric) {
   auto trC = trace(C);
   auto d = diff(pow(trC, 2), C);
   auto s = ::testcas::S(d);
-  EXPECT_TRUE(s.find("tr") != std::string::npos && s.find("I") != std::string::npos)
+  EXPECT_TRUE(s.find("tr") != std::string::npos &&
+              s.find("I") != std::string::npos)
       << "Expected 2*tr(C)*I, got: " << s;
 }
 

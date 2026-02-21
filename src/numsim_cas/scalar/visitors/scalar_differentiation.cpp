@@ -13,8 +13,8 @@ void scalar_differentiation::operator()(
   scalar_differentiation d(m_arg);
   expr_holder_t result{d.apply(visitable.expr())};
   if (result.is_valid()) {
-    m_result = make_expression<scalar_named_expression>(
-        "d" + visitable.name(), result);
+    m_result = make_expression<scalar_named_expression>("d" + visitable.name(),
+                                                        result);
   }
 }
 
@@ -124,7 +124,8 @@ void scalar_differentiation::operator()(scalar_abs const &visitable) {
   if (is_positive(visitable.expr()) || is_nonnegative(visitable.expr())) {
     // |u| = u when u >= 0, so d|u|/dx = u'
     m_result = get_scalar_one();
-  } else if (is_negative(visitable.expr()) || is_nonpositive(visitable.expr())) {
+  } else if (is_negative(visitable.expr()) ||
+             is_nonpositive(visitable.expr())) {
     // |u| = -u when u <= 0, so d|u|/dx = -u'
     m_result = -get_scalar_one();
   } else {

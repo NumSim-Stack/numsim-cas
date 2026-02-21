@@ -17,12 +17,10 @@ public:
   ~scalar_zero() = default;
   const scalar_zero &operator=(scalar_zero &&) = delete;
 
-  friend inline bool operator<(scalar_zero const &lhs,
-                               scalar_zero const &rhs) {
+  friend inline bool operator<(scalar_zero const &lhs, scalar_zero const &rhs) {
     return lhs.hash_value() < rhs.hash_value();
   }
-  friend inline bool operator>(scalar_zero const &lhs,
-                               scalar_zero const &rhs) {
+  friend inline bool operator>(scalar_zero const &lhs, scalar_zero const &rhs) {
     return rhs < lhs;
   }
   friend inline bool operator==(scalar_zero const &lhs,

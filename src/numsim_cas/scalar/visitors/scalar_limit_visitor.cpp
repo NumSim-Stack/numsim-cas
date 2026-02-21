@@ -123,8 +123,7 @@ void scalar_limit_visitor::operator()(scalar_sin const &v) {
   auto child = apply(v.expr());
   if (child.dir == dir::indeterminate || child.dir == dir::unknown) {
     m_result = child;
-  } else if (child.dir == dir::pos_infinity ||
-             child.dir == dir::neg_infinity) {
+  } else if (child.dir == dir::pos_infinity || child.dir == dir::neg_infinity) {
     // sin oscillates => indeterminate
     m_result = {dir::unknown};
   } else {
@@ -137,8 +136,7 @@ void scalar_limit_visitor::operator()(scalar_cos const &v) {
   auto child = apply(v.expr());
   if (child.dir == dir::indeterminate || child.dir == dir::unknown) {
     m_result = child;
-  } else if (child.dir == dir::pos_infinity ||
-             child.dir == dir::neg_infinity) {
+  } else if (child.dir == dir::pos_infinity || child.dir == dir::neg_infinity) {
     m_result = {dir::unknown};
   } else {
     m_result = {dir::finite_positive};
@@ -215,7 +213,8 @@ void scalar_limit_visitor::operator()(scalar_atan const &v) {
   }
 }
 
-void scalar_limit_visitor::operator()([[maybe_unused]] scalar_named_expression const &v) {
+void scalar_limit_visitor::operator()(
+    [[maybe_unused]] scalar_named_expression const &v) {
   // Generic user-defined function: can't determine limit
   m_result = {dir::unknown};
 }

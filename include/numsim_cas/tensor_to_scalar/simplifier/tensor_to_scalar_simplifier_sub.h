@@ -92,9 +92,8 @@ public:
 };
 
 // Thin wrapper: LHS is one
-class one_sub final
-    : public tensor_to_scalar_visitor_return_expr_t,
-      public detail::one_sub_dispatch<tensor_to_scalar_traits> {
+class one_sub final : public tensor_to_scalar_visitor_return_expr_t,
+                      public detail::one_sub_dispatch<tensor_to_scalar_traits> {
   using algo = detail::one_sub_dispatch<tensor_to_scalar_traits>;
 
 public:

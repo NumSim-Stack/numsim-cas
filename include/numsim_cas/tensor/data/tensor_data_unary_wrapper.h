@@ -72,7 +72,8 @@ public:
         constexpr std::size_t R = Rank / 2;
         constexpr std::size_t total = []() {
           std::size_t s = 1;
-          for (std::size_t i = 0; i < Rank; ++i) s *= Dim;
+          for (std::size_t i = 0; i < Rank; ++i)
+            s *= Dim;
           return s;
         }();
         auto *raw = data.raw_data();
@@ -87,7 +88,10 @@ public:
           // Check if i_k == i_{R+k} for all k in [0, R)
           ValueType val{1};
           for (std::size_t k = 0; k < R; ++k) {
-            if (indices[k] != indices[R + k]) { val = 0; break; }
+            if (indices[k] != indices[R + k]) {
+              val = 0;
+              break;
+            }
           }
           raw[idx] = val;
         }
@@ -100,8 +104,7 @@ public:
 
   void mismatch(std::size_t dim, std::size_t rank) {
     if (dim > this->_MaxDim || dim == 0)
-      throw evaluation_error(
-          "tensor_data_identity: dim > MaxDim || dim == 0");
+      throw evaluation_error("tensor_data_identity: dim > MaxDim || dim == 0");
     if (rank > this->_MaxRank || rank == 0)
       throw evaluation_error(
           "tensor_data_identity: rank > MaxRank || rank == 0");
@@ -116,8 +119,7 @@ private:
 namespace tmech_ops {
 
 struct sym {
-  template <std::size_t, std::size_t Rank>
-  static constexpr bool is_valid() {
+  template <std::size_t, std::size_t Rank> static constexpr bool is_valid() {
     return Rank == 2;
   }
   template <typename T> static constexpr auto apply(T const &t) {
@@ -126,8 +128,7 @@ struct sym {
 };
 
 struct dev {
-  template <std::size_t, std::size_t Rank>
-  static constexpr bool is_valid() {
+  template <std::size_t, std::size_t Rank> static constexpr bool is_valid() {
     return Rank == 2;
   }
   template <typename T> static constexpr auto apply(T const &t) {
@@ -136,8 +137,7 @@ struct dev {
 };
 
 struct vol {
-  template <std::size_t, std::size_t Rank>
-  static constexpr bool is_valid() {
+  template <std::size_t, std::size_t Rank> static constexpr bool is_valid() {
     return Rank == 2;
   }
   template <typename T> static constexpr auto apply(T const &t) {
@@ -186,8 +186,7 @@ struct cof {
 };
 
 struct skew {
-  template <std::size_t, std::size_t Rank>
-  static constexpr bool is_valid() {
+  template <std::size_t, std::size_t Rank> static constexpr bool is_valid() {
     return Rank == 2;
   }
   template <typename T> static constexpr auto apply(T const &t) {
