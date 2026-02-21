@@ -370,7 +370,7 @@ public:
 
     begin(precedence, parent_precedence);
 
-    using expr_t = expression_holder<scalar_expression>;
+    using scalar_expr_t = expression_holder<scalar_expression>;
     scalar_printer<StreamType> sp(m_out);
 
     // Special case: tensor * pow(base, -exp)  ->  tensor / pow(base, exp)
@@ -379,7 +379,7 @@ public:
 
       if (auto neg_e = is_same_r<scalar_negative>(p.expr_rhs())) {
         const auto &neg = neg_e->get();
-        const expr_t &exp_pos = neg.expr();
+        const scalar_expr_t &exp_pos = neg.expr();
         // positive exponent expression
 
         // numerator: tensor

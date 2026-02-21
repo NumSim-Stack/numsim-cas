@@ -298,8 +298,8 @@ private:
    * @param unary Unary node.
    */
   template <typename T> void apply_inner_unary(T const &unary) {
-    scalar_differentiation diff(m_arg);
-    auto inner{diff.apply(unary.expr())};
+    scalar_differentiation inner_diff(m_arg);
+    auto inner{inner_diff.apply(unary.expr())};
     if (inner.is_valid()) {
       m_result *= std::move(inner);
     }

@@ -10,8 +10,8 @@ namespace numsim::cas {
 
 void scalar_differentiation::operator()(
     scalar_named_expression const &visitable) {
-  scalar_differentiation diff(m_arg);
-  expr_holder_t result{diff.apply(visitable.expr())};
+  scalar_differentiation d(m_arg);
+  expr_holder_t result{d.apply(visitable.expr())};
   if (result.is_valid()) {
     m_result = make_expression<scalar_named_expression>(
         "d" + visitable.name(), result);
@@ -24,8 +24,8 @@ void scalar_differentiation::operator()(scalar_mul const &visitable) {
     expr_holder_t expr_result_in;
     for (auto &expr_in : visitable.hash_map() | std::views::values) {
       if (expr_out == expr_in) {
-        scalar_differentiation diff(m_arg);
-        expr_result_in *= diff.apply(expr_in);
+        scalar_differentiation d(m_arg);
+        expr_result_in *= d.apply(expr_in);
       } else {
         expr_result_in *= expr_in;
       }
@@ -44,15 +44,15 @@ void scalar_differentiation::operator()(scalar_mul const &visitable) {
 void scalar_differentiation::operator()(scalar_add const &visitable) {
   expr_holder_t expr_result;
   for (auto &child : visitable.hash_map() | std::views::values) {
-    scalar_differentiation diff(m_arg);
-    expr_result += diff.apply(child);
+    scalar_differentiation d(m_arg);
+    expr_result += d.apply(child);
   }
   m_result = std::move(expr_result);
 }
 
 void scalar_differentiation::operator()(scalar_negative const &visitable) {
-  scalar_differentiation diff(m_arg);
-  auto diff_expr{diff.apply(visitable.expr())};
+  scalar_differentiation d(m_arg);
+  auto diff_expr{d.apply(visitable.expr())};
   if (diff_expr.is_valid() || !is_same<scalar_zero>(diff_expr)) {
     m_result = -diff_expr;
   }

@@ -113,8 +113,9 @@ inline std::pair<sequence, sequence> split(sequence const &s,
   lhs.reserve(lhs_size);
   rhs.reserve(s.size() - lhs_size);
 
-  lhs.insert(lhs.end(), s.begin(), s.begin() + lhs_size);
-  rhs.insert(rhs.end(), s.begin() + lhs_size, s.end());
+  auto split_at = s.begin() + static_cast<std::ptrdiff_t>(lhs_size);
+  lhs.insert(lhs.end(), s.begin(), split_at);
+  rhs.insert(rhs.end(), split_at, s.end());
   return {std::move(lhs), std::move(rhs)};
 }
 
@@ -135,9 +136,10 @@ inline std::vector<sequence> split_many(sequence const &s,
   for (auto n : sizes) {
     sequence part;
     part.reserve(n);
-    part.insert(part.end(), it, it + n);
+    auto step = static_cast<std::ptrdiff_t>(n);
+    part.insert(part.end(), it, it + step);
     out.push_back(std::move(part));
-    it += n;
+    it += step;
   }
   return out;
 }

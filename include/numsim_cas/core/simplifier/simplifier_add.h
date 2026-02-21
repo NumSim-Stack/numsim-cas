@@ -79,8 +79,8 @@ public:
   expr_holder_t dispatch(typename Traits::zero_type const &) { return m_lhs; }
 
   // expr + (-expr) --> 0
-  expr_holder_t dispatch(typename Traits::negative_type const &neg) {
-    if (m_lhs == neg.expr()) {
+  expr_holder_t dispatch(typename Traits::negative_type const &neg_node) {
+    if (m_lhs == neg_node.expr()) {
       return Traits::zero(m_lhs);
     }
     return get_default();

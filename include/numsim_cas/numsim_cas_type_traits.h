@@ -181,7 +181,7 @@ private:
   };
 
   template <std::size_t Index> struct helper<Index> {
-    static constexpr std::size_t value = -1;
+    static constexpr std::size_t value = static_cast<std::size_t>(-1);
   };
 
 public:
