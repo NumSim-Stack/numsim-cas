@@ -1,6 +1,8 @@
 #include <numsim_cas/tensor/visitors/tensor_differentiation.h>
 
 #include <numsim_cas/core/diff.h>
+#include <numsim_cas/tensor/tensor_diff.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>

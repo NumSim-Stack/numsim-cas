@@ -152,10 +152,12 @@ if(NUMSIM_CAS_INSTALL_LIBRARY)
       PATTERN "*.tpp"
   )
 
-  install(EXPORT NumSim_CASTargets
-    NAMESPACE NumSim_CAS::
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS"
-  )
+  if(tmech_FOUND)
+    install(EXPORT NumSim_CASTargets
+      NAMESPACE NumSim_CAS::
+      DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS"
+    )
+  endif()
 endif()
 
 # -----------------------------

@@ -1,6 +1,7 @@
 #include <numsim_cas/scalar/visitors/scalar_differentiation.h>
 
 #include <numsim_cas/printer_base.h>
+#include <numsim_cas/scalar/scalar_diff.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
 #include <ranges>
