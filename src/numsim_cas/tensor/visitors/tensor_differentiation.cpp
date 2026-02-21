@@ -13,9 +13,8 @@
 
 namespace numsim::cas {
 
-// tensor_power_diff: d(A^n)/dX = sum_{r=0}^{n-1} otimesu(A^r, A^{n-1-r}) :
-// dA/dX
-void tensor_differentiation::operator()(tensor_power_diff const &visitable) {
+// tensor_pow: d(A^n)/dX = sum_{r=0}^{n-1} otimesu(A^r, A^{n-1-r}) : dA/dX
+void tensor_differentiation::operator()(tensor_pow const &visitable) {
   auto const &A = visitable.expr_lhs();
   auto const &n_expr = visitable.expr_rhs();
 
@@ -24,21 +23,30 @@ void tensor_differentiation::operator()(tensor_power_diff const &visitable) {
     return;
   }
 
-  // The tensor_power_diff node stores (A, n) where n is a scalar expression
-  // We expand: sum_{r=0}^{n-1} otimesu(A^r, A^{n-1-r}) contracted with dA/dX
-  // For now, create the symbolic expression:
-  // inner_product(sum_{r} otimesu(pow(A,r), pow(A,n-1-r)), {3,4}, dA, {1,2})
-  auto one = get_scalar_one();
-  auto n_minus_one = n_expr - one;
+  // Extract integer exponent
+  if (!is_same<scalar_constant>(n_expr)) {
+    throw not_implemented_error(
+        "tensor_differentiation: pow with non-constant exponent");
+  }
+  auto const &val = n_expr.template get<scalar_constant>().value();
+  auto n = std::get<std::int64_t>(val.raw());
 
-  // Build the sum of otimesu terms
-  // For a general symbolic n, we can't expand. But tensor_pow typically has
-  // integer exponents. We'll build the symbolic chain rule form:
-  // d(A^n)/dX = n * inner(otimesu(A^0, A^{n-1}) + ... ), dA)
-  // Simplified: just return the tensor_power_diff node as-is for symbolic form
-  // The evaluator will handle the expansion.
-  // However, we need to contract with dA/dX:
-  m_result = inner_product(m_expr, sequence{3, 4}, dA, sequence{1, 2});
+  // Build sum: sum_{r=0}^{n-1} inner_product(otimesu(A^r, A^{n-1-r}), {3,4},
+  // dA/dX, {1,2})
+  tensor_holder_t sum;
+  for (std::int64_t r = 0; r < n; ++r) {
+    auto Ar = pow(A, static_cast<int>(r));
+    auto An1r = pow(A, static_cast<int>(n - 1 - r));
+    auto term =
+        inner_product(otimesu(Ar, An1r), sequence{3, 4}, dA, sequence{1, 2});
+    if (sum.is_valid()) {
+      sum += term;
+    } else {
+      sum = std::move(term);
+    }
+  }
+
+  m_result = std::move(sum);
 }
 
 // tensor_mul: product rule over the data() vector

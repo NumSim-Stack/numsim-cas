@@ -84,13 +84,14 @@ TEST_F(TensorDifferentiationTest, KroneckerDeltaConstant) {
       << "Expected tensor_zero, got: " << to_string(d);
 }
 
-// d(pow(X, 2))/d(X) produces a tensor_power_diff node
+// d(pow(X, 2))/d(X) = otimesu(I, X):dX + otimesu(X, I):dX
+// which simplifies to a tensor_add of two inner_product terms
 TEST_F(TensorDifferentiationTest, PowRule) {
   auto p = pow(X, 2);
   auto d = diff(p, X);
   EXPECT_TRUE(d.is_valid()) << "Expected valid result for pow diff";
-  EXPECT_TRUE(is_same<tensor_power_diff>(d))
-      << "Expected tensor_power_diff node, got: " << to_string(d);
+  EXPECT_TRUE(is_same<tensor_add>(d))
+      << "Expected tensor_add, got: " << to_string(d);
 }
 
 } // namespace numsim::cas

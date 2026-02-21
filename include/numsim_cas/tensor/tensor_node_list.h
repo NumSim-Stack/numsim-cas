@@ -13,7 +13,6 @@
   NEXT(tensor_add)                                                             \
   NEXT(tensor_mul)                                                             \
   NEXT(tensor_pow)                                                             \
-  NEXT(tensor_power_diff)                                                      \
   NEXT(tensor_negative)                                                        \
   NEXT(inner_product_wrapper)                                                  \
   NEXT(basis_change_imp)                                                       \

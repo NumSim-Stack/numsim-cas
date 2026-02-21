@@ -10,7 +10,6 @@ class tensor;
 class tensor_add;
 class tensor_mul;
 class tensor_pow;
-class tensor_power_diff;
 class tensor_negative;
 class inner_product_wrapper;
 class basis_change_imp;
@@ -31,7 +30,7 @@ using tensor_visitor_t =
             outer_product_wrapper, kronecker_delta, simple_outer_product,
             tensor_add, tensor_mul, tensor_inv, tensor_zero, tensor_pow,
             identity_tensor, tensor_projector, tensor_scalar_mul,
-            tensor_power_diff, tensor_scalar_div,
+            tensor_scalar_div,
             tensor_to_scalar_with_tensor_mul, tensor_to_scalar_with_tensor_div>;
 
 using tensor_visitor_const_t = visitor_const<
@@ -54,7 +53,7 @@ using tensor_node_base_t = visitable_impl<
     basis_change_imp, outer_product_wrapper, kronecker_delta,
     simple_outer_product, tensor_add, tensor_mul, tensor_inv, tensor_zero,
     tensor_pow, identity_tensor, tensor_projector, tensor_scalar_mul,
-    tensor_power_diff, tensor_scalar_div, tensor_to_scalar_with_tensor_mul,
+    tensor_scalar_div, tensor_to_scalar_with_tensor_mul,
     tensor_to_scalar_with_tensor_div>;
 
 } // namespace numsim::cas

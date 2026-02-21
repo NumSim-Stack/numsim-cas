@@ -140,15 +140,9 @@ public:
     }
   }
 
-  void operator()(tensor_pow const &visitable) override {
-    // d(pow(A,n))/dX creates a tensor_power_diff node
-    m_result = make_expression<tensor_power_diff>(visitable.expr_lhs(),
-                                                  visitable.expr_rhs());
-  }
-
   // --- Cross-domain / complex nodes: declared here, defined in .cpp ---
 
-  void operator()(tensor_power_diff const &visitable) override;
+  void operator()(tensor_pow const &visitable) override;
   void operator()(tensor_mul const &visitable) override;
   void operator()(simple_outer_product const &visitable) override;
   void operator()(tensor_inv const &visitable) override;

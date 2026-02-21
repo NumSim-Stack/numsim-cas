@@ -514,16 +514,6 @@ public:
     m_out << ")";
   }
 
-  // (A^2)' = (A*A)'
-  // sum_r^n otimesu(pow(expr, r), pow(expr, (n-1)-r)), n := scalar expr
-  void operator()(tensor_power_diff const &visitable) {
-    m_out << "pow_diff(";
-    apply(visitable.expr_lhs(), m_parent_precedence);
-    m_out << ",";
-    apply(visitable.expr_rhs(), m_parent_precedence);
-    m_out << ")";
-  }
-
   /**
    * @brief Default overload for safty reasons.
    */

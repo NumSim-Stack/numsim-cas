@@ -72,11 +72,6 @@ public:
                                            apply_scalar(v.expr_rhs()));
   }
 
-  void operator()(tensor_power_diff const &v) override {
-    m_result = make_expression<tensor_power_diff>(apply(v.expr_lhs()),
-                                                  apply_scalar(v.expr_rhs()));
-  }
-
   // Binary scalar x tensor -> tensor (cross-domain!)
   void operator()(tensor_scalar_mul const &v) override {
     m_result = apply_scalar(v.expr_lhs()) * apply(v.expr_rhs());

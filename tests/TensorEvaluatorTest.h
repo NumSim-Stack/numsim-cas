@@ -269,11 +269,11 @@ TEST(TensorEval, EvalMissingSymbolInNestedExpr) {
   EXPECT_THROW(ev.apply(trans(inv(T))), evaluation_error);
 }
 
-TEST(TensorEval, EvalPowerDiffNotImplemented) {
+TEST(TensorEval, EvalT2sTensorMulNotImplemented2) {
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
-  auto n = make_expression<scalar>("n");
-  auto expr = make_expression<tensor_power_diff>(A, n);
+  auto t2s_expr = trace(A);
+  auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
   EXPECT_THROW(ev.apply(expr), not_implemented_error);
 }
 
@@ -302,16 +302,16 @@ TEST(TensorEval, EvalT2sTensorMulNotImplemented) {
 TEST(TensorEval, NotImplementedErrorIsCatchableAsCasError) {
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
-  auto n = make_expression<scalar>("n");
-  auto expr = make_expression<tensor_power_diff>(A, n);
+  auto t2s_expr = trace(A);
+  auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
   EXPECT_THROW(ev.apply(expr), cas_error);
 }
 
 TEST(TensorEval, NotImplementedErrorIsCatchableAsRuntimeError) {
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
-  auto n = make_expression<scalar>("n");
-  auto expr = make_expression<tensor_power_diff>(A, n);
+  auto t2s_expr = trace(A);
+  auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
   EXPECT_THROW(ev.apply(expr), std::runtime_error);
 }
 
@@ -342,8 +342,8 @@ TEST(TensorEval, EvaluationErrorCarriesMessage) {
 TEST(TensorEval, NotImplementedErrorCarriesMessage) {
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
-  auto n = make_expression<scalar>("n");
-  auto expr = make_expression<tensor_power_diff>(A, n);
+  auto t2s_expr = trace(A);
+  auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
   try {
     ev.apply(expr);
     FAIL() << "Expected not_implemented_error";

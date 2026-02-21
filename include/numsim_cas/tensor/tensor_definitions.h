@@ -7,7 +7,6 @@
 #include <numsim_cas/tensor/functions/simple_outer_product.h>
 #include <numsim_cas/tensor/functions/tensor_inv.h>
 #include <numsim_cas/tensor/functions/tensor_pow.h>
-#include <numsim_cas/tensor/functions/tensor_power_diff.h>
 #include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/operators/scalar/tensor_scalar_mul.h>

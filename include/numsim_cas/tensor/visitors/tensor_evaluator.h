@@ -262,12 +262,6 @@ public:
     m_result = std::move(accumulated);
   }
 
-  void
-  operator()([[maybe_unused]] tensor_power_diff const &visitable) override {
-    throw not_implemented_error(
-        "tensor_evaluator: tensor_power_diff not yet implemented");
-  }
-
   void operator()(tensor_inv const &v) override {
     eval_unary_tmech<tmech_ops::inv>(v);
   }
