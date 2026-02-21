@@ -1,6 +1,7 @@
 #ifndef SCALAR_ZERO_H
 #define SCALAR_ZERO_H
 
+#include <numsim_cas/core/hash_functions.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
@@ -16,13 +17,27 @@ public:
   ~scalar_zero() = default;
   const scalar_zero &operator=(scalar_zero &&) = delete;
 
-  friend bool operator<(scalar_zero const &lhs, scalar_zero const &rhs);
-  friend bool operator>(scalar_zero const &lhs, scalar_zero const &rhs);
-  friend bool operator==(scalar_zero const &lhs, scalar_zero const &rhs);
-  friend bool operator!=(scalar_zero const &lhs, scalar_zero const &rhs);
+  friend inline bool operator<(scalar_zero const &lhs,
+                               scalar_zero const &rhs) {
+    return lhs.hash_value() < rhs.hash_value();
+  }
+  friend inline bool operator>(scalar_zero const &lhs,
+                               scalar_zero const &rhs) {
+    return rhs < lhs;
+  }
+  friend inline bool operator==(scalar_zero const &lhs,
+                                scalar_zero const &rhs) {
+    return lhs.hash_value() == rhs.hash_value();
+  }
+  friend inline bool operator!=(scalar_zero const &lhs,
+                                scalar_zero const &rhs) {
+    return !(lhs == rhs);
+  }
 
 private:
-  void update_hash_value() const override;
+  void update_hash_value() const override {
+    hash_combine(base::m_hash_value, base::get_id());
+  }
 };
 
 } // namespace numsim::cas

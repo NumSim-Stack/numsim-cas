@@ -1,6 +1,7 @@
 #ifndef TENSOR_TO_SCALAR_ZERO_H
 #define TENSOR_TO_SCALAR_ZERO_H
 
+#include <numsim_cas/core/hash_functions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
 namespace numsim::cas {
@@ -18,16 +19,26 @@ public:
   ~tensor_to_scalar_zero() = default;
   const tensor_to_scalar_zero &operator=(tensor_to_scalar_zero &&) = delete;
 
-  friend bool operator<(tensor_to_scalar_zero const &lhs,
-                        tensor_to_scalar_zero const &rhs);
-  friend bool operator>(tensor_to_scalar_zero const &lhs,
-                        tensor_to_scalar_zero const &rhs);
-  friend bool operator==(tensor_to_scalar_zero const &lhs,
-                         tensor_to_scalar_zero const &rhs);
-  friend bool operator!=(tensor_to_scalar_zero const &lhs,
-                         tensor_to_scalar_zero const &rhs);
+  friend inline bool operator<(tensor_to_scalar_zero const &lhs,
+                               tensor_to_scalar_zero const &rhs) {
+    return lhs.hash_value() < rhs.hash_value();
+  }
+  friend inline bool operator>(tensor_to_scalar_zero const &lhs,
+                               tensor_to_scalar_zero const &rhs) {
+    return rhs < lhs;
+  }
+  friend inline bool operator==(tensor_to_scalar_zero const &lhs,
+                                tensor_to_scalar_zero const &rhs) {
+    return lhs.hash_value() == rhs.hash_value();
+  }
+  friend inline bool operator!=(tensor_to_scalar_zero const &lhs,
+                                tensor_to_scalar_zero const &rhs) {
+    return !(lhs == rhs);
+  }
 
-  void update_hash_value() const override;
+  void update_hash_value() const override {
+    hash_combine(base::m_hash_value, base::get_id());
+  }
 };
 
 } // namespace numsim::cas

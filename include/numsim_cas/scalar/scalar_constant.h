@@ -1,6 +1,7 @@
 #ifndef SCALAR_CONSTANT_H
 #define SCALAR_CONSTANT_H
 
+#include <numsim_cas/core/hash_functions.h>
 #include <numsim_cas/core/scalar_number.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 
@@ -20,13 +21,30 @@ public:
 
   auto const &value() const noexcept { return m_value; }
 
-  friend bool operator==(scalar_constant const &a, scalar_constant const &b);
-  friend bool operator!=(scalar_constant const &a, scalar_constant const &b);
-  friend bool operator<(scalar_constant const &a, scalar_constant const &b);
-  friend bool operator>(scalar_constant const &a, scalar_constant const &b);
+  friend inline bool operator==(scalar_constant const &a,
+                                scalar_constant const &b) {
+    return a.value() == b.value();
+  }
+  friend inline bool operator!=(scalar_constant const &a,
+                                scalar_constant const &b) {
+    return !(a == b);
+  }
+  friend inline bool operator<(scalar_constant const &a,
+                               scalar_constant const &b) {
+    return a.value() < b.value();
+  }
+  friend inline bool operator>(scalar_constant const &a,
+                               scalar_constant const &b) {
+    return b < a;
+  }
 
 protected:
-  void update_hash_value() const noexcept override;
+  void update_hash_value() const noexcept override {
+    this->m_hash_value = 0;
+    hash_combine(this->m_hash_value, this->id());
+    std::visit([&](auto const &x) { hash_combine(this->m_hash_value, x); },
+               m_value.raw());
+  }
 
 private:
   scalar_number m_value;
