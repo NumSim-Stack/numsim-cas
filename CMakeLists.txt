@@ -42,10 +42,15 @@ if(NOT tmech_FOUND)
     GIT_TAG master
   )
   FetchContent_MakeAvailable(tmech)
-  # Suppress warnings from third-party tmech headers
-  get_target_property(_tmech_inc tmech::tmech INTERFACE_INCLUDE_DIRECTORIES)
+  # Suppress warnings from third-party tmech headers.
+  # tmech::tmech is an ALIAS — resolve to real target name for set_target_properties.
+  get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
+  if(NOT _tmech_real)
+    set(_tmech_real tmech::tmech)
+  endif()
+  get_target_property(_tmech_inc ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
   if(_tmech_inc)
-    set_target_properties(tmech::tmech PROPERTIES
+    set_target_properties(${_tmech_real} PROPERTIES
       INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_tmech_inc}")
   endif()
 endif()
