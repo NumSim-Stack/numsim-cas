@@ -3,7 +3,7 @@
 #include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/scalar/scalar_globals.h>
-#include <numsim_cas/scalar/scalar_negativ.h>
+#include <numsim_cas/scalar/scalar_negative.h>
 #include <numsim_cas/scalar/scalar_zero.h>
 
 namespace numsim::cas {

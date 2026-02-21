@@ -323,7 +323,7 @@ double val = ev.apply(sin(x));  // ~0.7071
 | `scalar/scalar_add.h` | N-ary addition node |
 | `scalar/scalar_mul.h` | N-ary multiplication node |
 | `scalar/scalar_power.h` | Binary power node |
-| `scalar/scalar_negativ.h` | Unary negation node |
+| `scalar/scalar_negative.h` | Unary negation node |
 | `scalar/simplifier/scalar_simplifier_add.h` | Add simplifier visitors |
 | `scalar/simplifier/scalar_simplifier_sub.h` | Sub simplifier visitors |
 | `scalar/simplifier/scalar_simplifier_mul.h` | Mul simplifier visitors |

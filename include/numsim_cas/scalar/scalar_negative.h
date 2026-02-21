@@ -1,5 +1,5 @@
-#ifndef SCALAR_NEGATIV_H
-#define SCALAR_NEGATIV_H
+#ifndef SCALAR_NEGATIVE_H
+#define SCALAR_NEGATIVE_H
 
 #include <numsim_cas/core/unary_op.h>
 #include <numsim_cas/scalar/scalar_expression.h>
@@ -23,4 +23,4 @@ public:
 
 } // namespace numsim::cas
 
-#endif // SCALAR_NEGATIV_H
+#endif // SCALAR_NEGATIVE_H

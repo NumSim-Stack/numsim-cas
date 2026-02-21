@@ -18,7 +18,7 @@
 #include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/scalar/scalar_log.h>
 #include <numsim_cas/scalar/scalar_mul.h>
-#include <numsim_cas/scalar/scalar_negativ.h>
+#include <numsim_cas/scalar/scalar_negative.h>
 #include <numsim_cas/scalar/scalar_one.h>
 #include <numsim_cas/scalar/scalar_power.h>
 #include <numsim_cas/scalar/scalar_sign.h>

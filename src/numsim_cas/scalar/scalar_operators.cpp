@@ -1,5 +1,5 @@
 #include <numsim_cas/scalar/scalar_functions.h>
-#include <numsim_cas/scalar/scalar_negativ.h>
+#include <numsim_cas/scalar/scalar_negative.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
 #include <numsim_cas/scalar/scalar_zero.h>

@@ -1,7 +1,7 @@
 // #ifndef GET_HASH_SCALAR_H
 // #define GET_HASH_SCALAR_H
 
-// #include "scalar/scalar_negativ.h"
+// #include "scalar/scalar_negative.h"
 // #include <algorithm>
 // #include <assert.h>
 // #include <utility>

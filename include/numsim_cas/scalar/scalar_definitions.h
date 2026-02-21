@@ -16,7 +16,7 @@
 #include "scalar_globals.h"
 #include "scalar_log.h"
 #include "scalar_mul.h"
-#include "scalar_negativ.h"
+#include "scalar_negative.h"
 #include "scalar_one.h"
 #include "scalar_power.h"
 #include "scalar_rational.h"

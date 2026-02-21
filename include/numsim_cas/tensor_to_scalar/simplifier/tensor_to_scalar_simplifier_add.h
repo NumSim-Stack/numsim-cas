@@ -3,7 +3,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/simplifier/simplifier_add.h>
-#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h>
+#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_add.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_domain_traits.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>

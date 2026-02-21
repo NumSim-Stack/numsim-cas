@@ -4,8 +4,8 @@
 #include <numsim_cas/core/limit_algebra.h>
 #include <numsim_cas/core/limit_result.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
-#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h>
-#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_mul.h>
+#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_add.h>
+#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_mul.h>
 
 namespace numsim::cas {
 
