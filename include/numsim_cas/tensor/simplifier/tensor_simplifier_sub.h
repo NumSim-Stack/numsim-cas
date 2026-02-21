@@ -38,7 +38,7 @@ protected:
     auto &add{add_new.template get<tensor_add>()};
     add.push_back(m_lhs);
     add.push_back(-m_rhs);
-    return std::move(add_new);
+    return add_new;
   }
 
   template <typename Expr> expr_holder_t dispatch(Expr const &) {

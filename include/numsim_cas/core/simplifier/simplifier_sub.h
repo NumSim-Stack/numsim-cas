@@ -86,8 +86,8 @@ public:
   using base::dispatch;
 
 
-  negative_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
-      : base(std::move(lhs), std::move(rhs)),
+  negative_sub_dispatch(expr_holder_t lhs_in, expr_holder_t rhs)
+      : base(std::move(lhs_in), std::move(rhs)),
         lhs{base::m_lhs.template get<typename Traits::negative_type>()} {}
 
   //-expr - (coeff + x) --> -(expr + coeff + x)
@@ -180,8 +180,8 @@ public:
   using base::dispatch;
 
 
-  n_ary_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
-      : base(std::move(lhs), std::move(rhs)),
+  n_ary_sub_dispatch(expr_holder_t lhs_in, expr_holder_t rhs)
+      : base(std::move(lhs_in), std::move(rhs)),
         lhs{base::m_lhs.template get<typename Traits::add_type>()} {}
 
   // (coeff + terms) - constant
@@ -276,8 +276,8 @@ public:
 
   using base::get_default;
 
-  n_ary_mul_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
-      : base(std::move(lhs), std::move(rhs)),
+  n_ary_mul_sub_dispatch(expr_holder_t lhs_in, expr_holder_t rhs)
+      : base(std::move(lhs_in), std::move(rhs)),
         lhs{base::m_lhs.template get<typename Traits::mul_type>()} {}
 
   // 2*x - x --> x  (symbol domains only)
@@ -352,8 +352,8 @@ public:
 
   using base::get_default;
 
-  symbol_sub_dispatch(expr_holder_t lhs, expr_holder_t rhs)
-      : base(std::move(lhs), std::move(rhs)),
+  symbol_sub_dispatch(expr_holder_t lhs_in, expr_holder_t rhs)
+      : base(std::move(lhs_in), std::move(rhs)),
         lhs{base::m_lhs.template get<typename Traits::symbol_type>()} {}
 
   /// x-x --> 0

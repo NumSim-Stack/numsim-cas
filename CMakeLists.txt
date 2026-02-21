@@ -42,6 +42,12 @@ if(NOT tmech_FOUND)
     GIT_TAG master
   )
   FetchContent_MakeAvailable(tmech)
+  # Suppress warnings from third-party tmech headers
+  get_target_property(_tmech_inc tmech::tmech INTERFACE_INCLUDE_DIRECTORIES)
+  if(_tmech_inc)
+    set_target_properties(tmech::tmech PROPERTIES
+      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_tmech_inc}")
+  endif()
 endif()
 
 # -----------------------------

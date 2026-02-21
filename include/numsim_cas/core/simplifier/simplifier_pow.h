@@ -69,8 +69,8 @@ public:
   using base::dispatch;
   using base::get_default;
 
-  pow_pow_dispatch(expr_holder_t lhs, expr_holder_t rhs)
-      : base(std::move(lhs), std::move(rhs)),
+  pow_pow_dispatch(expr_holder_t lhs_in, expr_holder_t rhs)
+      : base(std::move(lhs_in), std::move(rhs)),
         lhs{base::m_lhs.template get<typename Traits::pow_type>()} {}
 
   /// pow(pow(x,a),b) --> pow(x,a*b)
@@ -99,8 +99,8 @@ public:
   using base::dispatch;
   using base::get_default;
 
-  mul_pow_dispatch(expr_holder_t lhs, expr_holder_t rhs)
-      : base(std::move(lhs), std::move(rhs)),
+  mul_pow_dispatch(expr_holder_t lhs_in, expr_holder_t rhs)
+      : base(std::move(lhs_in), std::move(rhs)),
         lhs{base::m_lhs.template get<typename Traits::mul_type>()} {}
 
   // pow(mul, -rhs)
