@@ -24,12 +24,13 @@ else()
 endif()
 
 option(NUMSIM_CAS_INSTALL_LIBRARY "Install NumSim_CAS into default locations" ${IS_TOPLEVEL_PROJECT})
-option(BUILD_EXAMPLES "Build NumSim_CAS examples" OFF)
-option(BUILD_TESTS "Build NumSim_CAS test suite" ON)
-option(BUILD_BENCHMARK "Build NumSim_CAS benchmark" OFF)
+option(NUMSIM_CAS_BUILD_EXAMPLES "Build NumSim_CAS examples" OFF)
+option(NUMSIM_CAS_BUILD_TESTS "Build NumSim_CAS test suite" ON)
+option(NUMSIM_CAS_BUILD_BENCHMARK "Build NumSim_CAS benchmark" OFF)
 option(NUMSIM_CAS_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
 set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "Disable tmech tests" FORCE)
 
 # -----------------------------
 # Dependencies: tmech
@@ -188,7 +189,7 @@ endif()
 # -----------------------------
 # Tests
 # -----------------------------
-if(BUILD_TESTS)
+if(NUMSIM_CAS_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
 endif()
@@ -196,6 +197,6 @@ endif()
 # -----------------------------
 # Examples
 # -----------------------------
-if(BUILD_EXAMPLES)
+if(NUMSIM_CAS_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
