@@ -28,22 +28,6 @@ expression_holder<tensor_to_scalar_expression>
 tag_invoke(detail::neg_fn, std::type_identity<tensor_to_scalar_expression>,
            expression_holder<tensor_to_scalar_expression> const &e);
 
-// std::ostream &
-// operator<<(std::ostream &os,
-//            expression_holder<tensor_to_scalar_expression> const &expr) {
-//   tensor_to_scalar_printer<std::ostream> printer(os);
-//   printer.apply(expr);
-//   return os;
-// }
-
-// template <typename ValueType>
-// struct expression_details<tensor_to_scalar_expression> {
-//   template <typename Expr> static inline auto negative(Expr &&expr) {
-//     return
-//     make_expression<tensor_to_scalar_negative>(std::forward<Expr>(expr));
-//   }
-// };
-
 } // namespace numsim::cas
 
 #endif // TENSOR_TO_SCALAR_EXPRESSION_H

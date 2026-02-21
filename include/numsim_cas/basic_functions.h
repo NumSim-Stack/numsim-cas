@@ -25,8 +25,6 @@ is_same_r(Expr const &expr) noexcept {
   }
 }
 
-template <typename Type> inline auto get_first() {}
-
 template <typename Type, typename Base>
 inline auto get_all(n_ary_tree<Base> const &tree) {
   using expr_holder_t = typename Base::expr_holder_t;

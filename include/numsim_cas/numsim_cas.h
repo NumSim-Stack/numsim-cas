@@ -8,7 +8,6 @@
 #include <numsim_cas/scalar/scalar_add.h>
 #include <numsim_cas/scalar/scalar_asin.h>
 #include <numsim_cas/scalar/scalar_atan.h>
-#include <numsim_cas/scalar/scalar_compare_less_visitor.h>
 #include <numsim_cas/scalar/scalar_constant.h>
 #include <numsim_cas/scalar/scalar_cos.h>
 #include <numsim_cas/scalar/scalar_div.h>

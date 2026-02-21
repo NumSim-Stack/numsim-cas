@@ -6,14 +6,7 @@
 #include <numsim_cas/tensor_to_scalar/tensor_norm.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_negative.h>
 #include <numsim_cas/tensor_to_scalar/tensor_trace.h>
-// #include
-// <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar/tensor_to_scalar_add.h>
-// #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_mul.h>
-// #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_with_scalar_add.h>
-// #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_with_scalar_mul.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_pow.h>
-// #include
-// <numsim_cas/tensor_to_scalar/tensor_to_scalar_pow_with_scalar_exponent.h>
 #include <numsim_cas/tensor_to_scalar/tensor_inner_product_to_scalar.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_log.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_one.h>

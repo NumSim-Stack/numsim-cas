@@ -31,57 +31,24 @@ public:
   expression_holder &operator=(expression_holder const &) = default;
   expression_holder &operator=(expression_holder &&) = default;
 
-  expression_holder &operator*=(expression_holder &data) {
+  template <typename U>
+    requires std::convertible_to<std::decay_t<U>, expression_holder>
+  expression_holder &operator*=(U &&data) {
     if (is_valid()) {
-      *this = std::move(*this) * data;
+      *this = std::move(*this) * std::forward<U>(data);
     } else {
-      *this = data;
+      *this = std::forward<U>(data);
     }
     return *this;
   }
 
-  // template<typename ExprRHS>
-  expression_holder &operator*=(expression_holder const &data) {
+  template <typename U>
+    requires std::convertible_to<std::decay_t<U>, expression_holder>
+  expression_holder &operator+=(U &&data) {
     if (is_valid()) {
-      *this = std::move(*this) * data;
+      *this = std::move(*this) + std::forward<U>(data);
     } else {
-      *this = data;
-    }
-    return *this;
-  }
-
-  expression_holder &operator*=(expression_holder &&data) {
-    if (is_valid()) {
-      *this = std::move(*this) * std::move(data);
-    } else {
-      *this = std::move(data);
-    }
-    return *this;
-  }
-
-  expression_holder &operator+=(expression_holder &data) {
-    if (is_valid()) {
-      *this = std::move(*this) + data;
-    } else {
-      *this = data;
-    }
-    return *this;
-  }
-
-  expression_holder &operator+=(expression_holder const &data) {
-    if (is_valid()) {
-      *this = std::move(*this) + data;
-    } else {
-      *this = data;
-    }
-    return *this;
-  }
-
-  expression_holder &operator+=(expression_holder &&data) {
-    if (is_valid()) {
-      *this = std::move(*this) + std::move(data);
-    } else {
-      *this = std::move(data);
+      *this = std::forward<U>(data);
     }
     return *this;
   }

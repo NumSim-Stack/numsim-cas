@@ -147,8 +147,6 @@ bool operator<(binary_op<BaseT, BaseLHS, BaseRHS> const &lhs,
     return lhs.m_lhs.get().hash_value() < rhs.m_lhs.get().hash_value();
   if (lhs.m_rhs.get().hash_value() != rhs.m_rhs.get().hash_value())
     return lhs.m_rhs.get().hash_value() < rhs.m_rhs.get().hash_value();
-  if (lhs == rhs)
-    return false;
   if (lhs.m_lhs != rhs.m_lhs)
     return lhs.m_lhs < rhs.m_lhs;
   return lhs.m_rhs < rhs.m_rhs;

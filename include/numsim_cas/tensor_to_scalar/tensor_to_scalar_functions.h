@@ -48,22 +48,6 @@ det(expression_holder<tensor_expression> const &expr) {
   return make_expression<tensor_det>(expr);
 }
 
-// template <typename StreamType>
-// constexpr inline void
-// print(StreamType &out,
-//       expression_holder<tensor_to_scalar_expression> const &expr,
-//       Precedence precedence = Precedence::None) {
-//   tensor_to_scalar_printer<StreamType> eval(out);
-//   eval.apply(expr, precedence);
-// }
-
-// inline auto
-// diff(expression_holder<tensor_to_scalar_expression> const &expr,
-//      expression_holder<tensor_expression> const &arg) {
-//   tensor_to_scalar_differentiation visitor(arg);
-//   return visitor.apply(expr);
-// }
-
 } // namespace numsim::cas
 
 #endif // TENSOR_TO_SCALAR_FUNCTIONS_H
