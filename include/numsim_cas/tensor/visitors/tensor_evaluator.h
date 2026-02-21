@@ -17,6 +17,8 @@
 #include <numsim_cas/tensor/data/tensor_data_basis_change.h>
 #include <numsim_cas/tensor/data/tensor_data_inner_product.h>
 #include <numsim_cas/tensor/data/tensor_data_outer_product.h>
+#include <numsim_cas/tensor/data/tensor_data_projector.h>
+#include <numsim_cas/tensor/data/tensor_data_scalar_mul.h>
 #include <numsim_cas/tensor/data/tensor_data_sub.h>
 #include <numsim_cas/tensor/data/tensor_data_unary_wrapper.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
@@ -93,13 +95,10 @@ public:
 
   void operator()(tensor_scalar_mul const &visitable) override {
     const auto scalar_val = m_scalar_eval.apply(visitable.expr_lhs());
-    auto tensor_data = apply(visitable.expr_rhs());
-    const auto size = compute_size(visitable.dim(), visitable.rank());
-    auto *raw = tensor_data->raw_data();
-    for (std::size_t i = 0; i < size; ++i) {
-      raw[i] *= scalar_val;
-    }
-    m_result = std::move(tensor_data);
+    auto src = apply(visitable.expr_rhs());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_scalar_mul<ValueType> op(*m_result, *src, scalar_val);
+    op.evaluate(visitable.dim(), visitable.rank());
   }
 
   // ─── Products ────────────────────────────────────────────────
@@ -270,98 +269,15 @@ public:
     const auto d = visitable.dim();
     const auto r = visitable.rank(); // 2 * acts_on_rank
     m_result = make_tensor_data<ValueType>(d, r);
-    auto *raw = m_result->raw_data();
-    const auto size = compute_size(d, r);
-    std::fill(raw, raw + size, ValueType{0});
-
-    if (visitable.acts_on_rank() != 2) {
-      throw not_implemented_error("tensor_evaluator: tensor_projector only "
-                                  "rank-2 projectors implemented");
-    }
-
-    auto const &sp = visitable.space();
-
-    // P_sym: (1/2)(δ_ik δ_jl + δ_il δ_jk)
-    auto fill_sym = [&]() {
-      for (std::size_t i = 0; i < d; ++i)
-        for (std::size_t j = 0; j < d; ++j)
-          for (std::size_t k = 0; k < d; ++k)
-            for (std::size_t l = 0; l < d; ++l) {
-              ValueType val{0};
-              if (i == k && j == l)
-                val += 0.5;
-              if (i == l && j == k)
-                val += 0.5;
-              raw[i * d * d * d + j * d * d + k * d + l] = val;
-            }
-    };
-
-    // P_skew: (1/2)(δ_ik δ_jl - δ_il δ_jk)
-    auto fill_skew = [&]() {
-      for (std::size_t i = 0; i < d; ++i)
-        for (std::size_t j = 0; j < d; ++j)
-          for (std::size_t k = 0; k < d; ++k)
-            for (std::size_t l = 0; l < d; ++l) {
-              ValueType val{0};
-              if (i == k && j == l)
-                val += 0.5;
-              if (i == l && j == k)
-                val -= 0.5;
-              raw[i * d * d * d + j * d * d + k * d + l] = val;
-            }
-    };
-
-    // P_vol: (1/d)(δ_ij δ_kl)
-    auto fill_vol = [&]() {
-      ValueType inv_d = ValueType{1} / static_cast<ValueType>(d);
-      for (std::size_t i = 0; i < d; ++i)
-        for (std::size_t j = 0; j < d; ++j)
-          for (std::size_t k = 0; k < d; ++k)
-            for (std::size_t l = 0; l < d; ++l) {
-              if (i == j && k == l)
-                raw[i * d * d * d + j * d * d + k * d + l] = inv_d;
-            }
-    };
-
-    // P_dev = P_sym - P_vol
-    auto fill_dev = [&]() {
-      fill_sym();
-      ValueType inv_d = ValueType{1} / static_cast<ValueType>(d);
-      for (std::size_t i = 0; i < d; ++i)
-        for (std::size_t j = 0; j < d; ++j)
-          for (std::size_t k = 0; k < d; ++k)
-            for (std::size_t l = 0; l < d; ++l) {
-              if (i == j && k == l)
-                raw[i * d * d * d + j * d * d + k * d + l] -= inv_d;
-            }
-    };
-
-    if (std::holds_alternative<Symmetric>(sp.perm) &&
-        std::holds_alternative<AnyTraceTag>(sp.trace)) {
-      fill_sym();
-    } else if (std::holds_alternative<Skew>(sp.perm) &&
-               std::holds_alternative<AnyTraceTag>(sp.trace)) {
-      fill_skew();
-    } else if (std::holds_alternative<Symmetric>(sp.perm) &&
-               std::holds_alternative<VolumetricTag>(sp.trace)) {
-      fill_vol();
-    } else if (std::holds_alternative<Symmetric>(sp.perm) &&
-               std::holds_alternative<DeviatoricTag>(sp.trace)) {
-      fill_dev();
-    } else {
-      throw not_implemented_error(
-          "tensor_evaluator: unsupported tensor_projector space");
-    }
+    tensor_data_projector<ValueType> proj(*m_result, visitable.space());
+    proj.evaluate(d, r);
   }
 
   // ─── Cross-domain ────────────────────────────────────────────
 
-  void operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul const
-                      &visitable) override {
-    throw not_implemented_error(
-        "tensor_evaluator: tensor_to_scalar_with_tensor_mul not yet "
-        "implemented");
-  }
+  // f * A where f is tensor_to_scalar (scalar-valued), A is tensor
+  // Defined out-of-line after tensor_to_scalar_evaluator is available.
+  void operator()(tensor_to_scalar_with_tensor_mul const &visitable) override;
 
   template <class T> void operator()([[maybe_unused]] T const &) noexcept {
     static_assert(sizeof(T) == 0,
@@ -434,6 +350,31 @@ private:
   data_ptr m_result;
   expression_holder<expression> m_current_expr;
 };
+
+} // namespace numsim::cas
+
+// Break circular include: tensor_to_scalar_evaluator includes tensor_evaluator,
+// so we include it here (after tensor_evaluator is fully defined) and provide the
+// out-of-line implementation of the cross-domain operator.
+#include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_evaluator.h>
+
+namespace numsim::cas {
+
+template <typename ValueType>
+void tensor_evaluator<ValueType>::operator()(
+    tensor_to_scalar_with_tensor_mul const &visitable) {
+  tensor_to_scalar_evaluator<ValueType> t2s_eval;
+  for (auto const &[key, val] : m_tensor_values) {
+    t2s_eval.set(key, val);
+  }
+  const auto scalar_val = t2s_eval.apply(visitable.expr_rhs());
+  auto src = apply(visitable.expr_lhs());
+  const auto dim = src->dim();
+  const auto rank = src->rank();
+  m_result = make_tensor_data<ValueType>(dim, rank);
+  tensor_data_scalar_mul<ValueType> op(*m_result, *src, scalar_val);
+  op.evaluate(dim, rank);
+}
 
 } // namespace numsim::cas
 

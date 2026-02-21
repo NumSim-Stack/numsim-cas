@@ -269,12 +269,23 @@ TEST(TensorEval, EvalMissingSymbolInNestedExpr) {
   EXPECT_THROW(ev.apply(trans(inv(T))), evaluation_error);
 }
 
-TEST(TensorEval, EvalT2sTensorMulNotImplemented2) {
+TEST(TensorEval, EvalT2sTensorMul) {
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
   auto t2s_expr = trace(A);
   auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
-  EXPECT_THROW(ev.apply(expr), not_implemented_error);
+  // clang-format off
+  ev.set(A, make_test_data<2, 2>({1.0, 2.0,
+                                   3.0, 4.0}));
+  // clang-format on
+  auto result = ev.apply(expr);
+  ASSERT_NE(result, nullptr);
+  auto *raw = result->raw_data();
+  // trace(A) = 1 + 4 = 5, so result = 5 * A
+  EXPECT_NEAR(raw[0], 5.0, tol);
+  EXPECT_NEAR(raw[1], 10.0, tol);
+  EXPECT_NEAR(raw[2], 15.0, tol);
+  EXPECT_NEAR(raw[3], 20.0, tol);
 }
 
 TEST(TensorEval, EvalProjectorSym) {
@@ -291,12 +302,25 @@ TEST(TensorEval, EvalProjectorSym) {
   EXPECT_NEAR(raw[0 * 27 + 0 * 9 + 1 * 3 + 0], 0.0, tol);
 }
 
-TEST(TensorEval, EvalT2sTensorMulNotImplemented) {
+TEST(TensorEval, EvalT2sTensorMul3D) {
   tensor_evaluator<double> ev;
-  auto A = make_expression<tensor>("A", 2, 2);
+  auto A = make_expression<tensor>("A", 3, 2);
   auto t2s_expr = trace(A);
   auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
-  EXPECT_THROW(ev.apply(expr), not_implemented_error);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({1.0, 0.0, 0.0,
+                                   0.0, 2.0, 0.0,
+                                   0.0, 0.0, 3.0}));
+  // clang-format on
+  auto result = ev.apply(expr);
+  ASSERT_NE(result, nullptr);
+  auto *raw = result->raw_data();
+  // trace(A) = 1 + 2 + 3 = 6, so result = 6 * A
+  EXPECT_NEAR(raw[0], 6.0, tol);
+  EXPECT_NEAR(raw[4], 12.0, tol);
+  EXPECT_NEAR(raw[8], 18.0, tol);
+  // off-diag stays zero
+  EXPECT_NEAR(raw[1], 0.0, tol);
 }
 
 TEST(TensorEval, NotImplementedErrorIsCatchableAsCasError) {
@@ -339,18 +363,13 @@ TEST(TensorEval, EvaluationErrorCarriesMessage) {
   }
 }
 
-TEST(TensorEval, NotImplementedErrorCarriesMessage) {
+TEST(TensorEval, EvalT2sTensorMulMissingSymbol) {
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
   auto t2s_expr = trace(A);
   auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
-  try {
-    ev.apply(expr);
-    FAIL() << "Expected not_implemented_error";
-  } catch (not_implemented_error const &e) {
-    EXPECT_TRUE(std::string(e.what()).find("not yet implemented") !=
-                std::string::npos);
-  }
+  // No values set — evaluating should throw evaluation_error
+  EXPECT_THROW(ev.apply(expr), evaluation_error);
 }
 
 // --- Combination tests ---
