@@ -120,7 +120,16 @@ void scalar_differentiation::operator()(scalar_exp const &visitable) {
 }
 
 void scalar_differentiation::operator()(scalar_abs const &visitable) {
-  m_result = visitable.expr() / m_expr;
+  if (is_positive(visitable.expr()) || is_nonnegative(visitable.expr())) {
+    // |u| = u when u >= 0, so d|u|/dx = u'
+    m_result = get_scalar_one();
+  } else if (is_negative(visitable.expr()) || is_nonpositive(visitable.expr())) {
+    // |u| = -u when u <= 0, so d|u|/dx = -u'
+    m_result = -get_scalar_one();
+  } else {
+    // General case: d|u|/dx = (u/|u|) * u'
+    m_result = visitable.expr() / m_expr;
+  }
   apply_inner_unary(visitable);
 }
 
