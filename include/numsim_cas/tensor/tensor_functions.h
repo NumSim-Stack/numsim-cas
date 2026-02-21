@@ -294,11 +294,18 @@ template <typename Expr>
 }
 
 template <typename Expr> [[nodiscard]] constexpr inline auto trans(Expr &&expr) {
+  if (is_same<basis_change_imp>(expr)) {
+    auto const &bc = expr.template get<basis_change_imp>();
+    if (bc.indices() == sequence{2, 1})
+      return bc.expr();
+  }
   return make_expression<basis_change_imp>(std::forward<Expr>(expr),
                                            sequence{2, 1});
 }
 
 template <typename Expr> [[nodiscard]] constexpr inline auto inv(Expr &&expr) {
+  if (is_same<tensor_inv>(expr))
+    return expr.template get<tensor_inv>().expr();
   return make_expression<tensor_inv>(std::forward<Expr>(expr));
 }
 

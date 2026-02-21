@@ -533,4 +533,63 @@ TYPED_TEST(TensorToScalarExpressionTest,
                      numsim::cas::pow(trX, _2) * x * y);
 }
 
+// ---------- trace() simplification ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_TraceSimplification) {
+  auto &X = this->X;
+  auto &x = this->x;
+  auto &_2 = this->_2;
+  auto &Zero = this->_Zero;
+  auto &One = this->_One;
+
+  using numsim::cas::trace;
+
+  // trace(0) → 0
+  EXPECT_PRINT(trace(Zero), "0");
+
+  // trace(I) → dim
+  EXPECT_PRINT(trace(One), std::to_string(TestFixture::Dim));
+
+  // trace(s*A) → s*trace(A)
+  EXPECT_PRINT(trace(_2 * X), "2*tr(X)");
+  EXPECT_PRINT(trace(x * X), "x*tr(X)");
+
+  // normal case unchanged
+  EXPECT_PRINT(trace(X), "tr(X)");
+}
+
+// ---------- det() simplification ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_DetSimplification) {
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+  auto &One = this->_One;
+
+  using numsim::cas::det;
+
+  // det(0) → 0
+  EXPECT_PRINT(det(Zero), "0");
+
+  // det(I) → 1
+  EXPECT_PRINT(det(One), "1");
+
+  // normal case unchanged
+  EXPECT_PRINT(det(X), "det(X)");
+}
+
+// ---------- norm() simplification ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_NormSimplification) {
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  using numsim::cas::norm;
+
+  // norm(0) → 0
+  EXPECT_PRINT(norm(Zero), "0");
+
+  // normal case unchanged
+  EXPECT_PRINT(norm(X), "norm(X)");
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H

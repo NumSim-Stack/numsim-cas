@@ -616,4 +616,28 @@ TYPED_TEST(TensorExpressionTest, ProjectorScalarPullThrough) {
   EXPECT_PRINT(numsim::cas::dev(_2 * numsim::cas::dev(X)), "2*dev(X)");
 }
 
+// -----------------------------------------------------------------------------
+// trans(trans(A)) → A simplification
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, TransTransSimplification) {
+  auto &X = this->X;
+
+  // trans(trans(X)) → X
+  EXPECT_PRINT(numsim::cas::trans(numsim::cas::trans(X)), "X");
+  // single trans still works
+  EXPECT_PRINT(numsim::cas::trans(X), "trans(X)");
+}
+
+// -----------------------------------------------------------------------------
+// inv(inv(A)) → A simplification
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, InvInvSimplification) {
+  auto &X = this->X;
+
+  // inv(inv(X)) → X
+  EXPECT_PRINT(numsim::cas::inv(numsim::cas::inv(X)), "X");
+  // single inv still works
+  EXPECT_PRINT(numsim::cas::inv(X), "inv(X)");
+}
+
 #endif // TENSOREXPRESSIONTEST_H

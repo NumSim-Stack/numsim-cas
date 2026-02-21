@@ -455,4 +455,90 @@ TEST_F(ScalarFixture, SignSimplification) {
   EXPECT_PRINT(sign(ny), "-1");
 }
 
+//
+// TRIG function simplification — sin/cos/tan of zero, inverse pairs
+//
+TEST_F(ScalarFixture, TrigFunctionSimplification) {
+  using namespace numsim::cas;
+
+  auto &x = this->x;
+  auto &zero = this->_zero;
+
+  // sin(0) → 0
+  EXPECT_PRINT(sin(zero), "0");
+  // cos(0) → 1
+  EXPECT_PRINT(cos(zero), "1");
+  // tan(0) → 0
+  EXPECT_PRINT(tan(zero), "0");
+
+  // sin(asin(x)) → x
+  EXPECT_PRINT(sin(asin(x)), "x");
+  // cos(acos(x)) → x
+  EXPECT_PRINT(cos(acos(x)), "x");
+  // tan(atan(x)) → x
+  EXPECT_PRINT(tan(atan(x)), "x");
+}
+
+//
+// EXP/LOG simplification — zero arg, inverse pairs
+//
+TEST_F(ScalarFixture, ExpLogSimplification) {
+  using namespace numsim::cas;
+
+  auto &x = this->x;
+  auto &zero = this->_zero;
+  auto &one = this->_one;
+  auto &_1 = this->_1;
+
+  // exp(0) → 1
+  EXPECT_PRINT(exp(zero), "1");
+  // log(1) → 0 (scalar_one)
+  EXPECT_PRINT(log(one), "0");
+  // log(1) → 0 (scalar_constant(1))
+  EXPECT_PRINT(log(_1), "0");
+
+  // exp(log(x)) → x
+  EXPECT_PRINT(exp(log(x)), "x");
+  // log(exp(x)) → x
+  EXPECT_PRINT(log(exp(x)), "x");
+}
+
+//
+// INVERSE TRIG simplification — zero/identity arg
+//
+TEST_F(ScalarFixture, InverseTrigSimplification) {
+  using namespace numsim::cas;
+
+  auto &zero = this->_zero;
+  auto &one = this->_one;
+  auto &_1 = this->_1;
+
+  // asin(0) → 0
+  EXPECT_PRINT(asin(zero), "0");
+  // atan(0) → 0
+  EXPECT_PRINT(atan(zero), "0");
+  // acos(1) → 0 (scalar_one)
+  EXPECT_PRINT(acos(one), "0");
+  // acos(1) → 0 (scalar_constant(1))
+  EXPECT_PRINT(acos(_1), "0");
+}
+
+//
+// SQRT simplification — zero and one
+//
+TEST_F(ScalarFixture, SqrtSimplification) {
+  using namespace numsim::cas;
+
+  auto &zero = this->_zero;
+  auto &one = this->_one;
+  auto &_1 = this->_1;
+
+  // sqrt(0) → 0
+  EXPECT_PRINT(sqrt(zero), "0");
+  // sqrt(1) → 1 (scalar_one)
+  EXPECT_PRINT(sqrt(one), "1");
+  // sqrt(1) → 1 (scalar_constant(1))
+  EXPECT_PRINT(sqrt(_1), "1");
+}
+
 #endif // SCALAREXPRESSIONTEST_H
