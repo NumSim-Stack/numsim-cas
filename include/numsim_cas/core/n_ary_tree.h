@@ -8,6 +8,8 @@
 #include <numsim_cas/is_symbol.h>
 #include <numsim_cas/numsim_cas_forward.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
+#include <algorithm>
+#include <array>
 #include <ranges>
 #include <vector>
 
@@ -100,23 +102,34 @@ public:
 
 protected:
   virtual void update_hash_value() const noexcept override {
-    std::vector<std::size_t> child_hashes;
-    child_hashes.reserve(m_symbol_map.size());
     this->m_hash_value = 0;
 
     // otherwise we can not provide the order of the symbols
     hash_combine(this->m_hash_value, base_t::get_id());
 
+    // Stack buffer for typical small trees (2-8 children),
+    // heap fallback for unusually large ones
+    static constexpr std::size_t stack_max = 16;
+    const auto n = m_symbol_map.size();
+    std::array<std::size_t, stack_max> stack_buf;
+    std::vector<std::size_t> heap_buf;
+    auto *buf = stack_buf.data();
+    if (n > stack_max) {
+      heap_buf.resize(n);
+      buf = heap_buf.data();
+    }
+
+    std::size_t i = 0;
     for (const auto &child : m_symbol_map | std::views::values) {
-      child_hashes.push_back(child->hash_value());
+      buf[i++] = child->hash_value();
     }
 
     // Sort for commutative operations like addition
-    std::stable_sort(child_hashes.begin(), child_hashes.end());
+    std::sort(buf, buf + n);
 
     // Combine all child hashes
-    for (const auto &child_hash : child_hashes) {
-      hash_combine(this->m_hash_value, child_hash);
+    for (std::size_t j = 0; j < n; ++j) {
+      hash_combine(this->m_hash_value, buf[j]);
     }
   }
 
