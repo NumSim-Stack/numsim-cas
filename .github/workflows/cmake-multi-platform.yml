@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
 
   push:
-    branches: [ "main" ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "**" ]
 jobs:
   build:
     runs-on: ${{ matrix.os }}
