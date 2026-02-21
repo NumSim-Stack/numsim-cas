@@ -58,7 +58,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  scalar_pow const &lhs;
+  scalar_pow const &m_lhs_node;
 };
 
 class mul_pow final : public pow_default<mul_pow> {
@@ -80,7 +80,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  scalar_mul const &lhs;
+  scalar_mul const &m_lhs_node;
 };
 
 struct pow_base final : public scalar_visitor_return_expr_t {

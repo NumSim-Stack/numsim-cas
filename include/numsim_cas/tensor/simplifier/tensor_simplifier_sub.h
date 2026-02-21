@@ -61,7 +61,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  tensor_negative const &lhs;
+  tensor_negative const &m_lhs_node;
 };
 
 class n_ary_sub final : public sub_default<n_ary_sub> {
@@ -75,7 +75,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  tensor_add const &lhs;
+  tensor_add const &m_lhs_node;
 };
 
 class symbol_sub final : public sub_default<symbol_sub> {
@@ -93,7 +93,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  tensor const &lhs;
+  tensor const &m_lhs_node;
 };
 
 class sub_base final : public tensor_visitor_return_expr_t {

@@ -9,29 +9,29 @@ namespace simplifier {
 
 tensor_pow_mul::tensor_pow_mul(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
-      lhs{base::m_lhs.template get<tensor_pow>()} {}
+      m_lhs_node{base::m_lhs.template get<tensor_pow>()} {}
 
 tensor_pow_mul::expr_holder_t
 tensor_pow_mul::dispatch([[maybe_unused]] tensor const &rhs) {
-  if (lhs.expr_lhs().get().hash_value() == rhs.hash_value()) {
-    const auto rhs_expr{lhs.expr_rhs() + get_scalar_one()};
-    return make_expression<tensor_pow>(lhs.expr_lhs(), std::move(rhs_expr));
+  if (m_lhs_node.expr_lhs().get().hash_value() == rhs.hash_value()) {
+    const auto rhs_expr{m_lhs_node.expr_rhs() + get_scalar_one()};
+    return make_expression<tensor_pow>(m_lhs_node.expr_lhs(), std::move(rhs_expr));
   }
   return get_default();
 }
 
 tensor_pow_mul::expr_holder_t
 tensor_pow_mul::dispatch([[maybe_unused]] tensor_pow const &rhs) {
-  if (lhs.hash_value() == rhs.hash_value()) {
-    const auto rhs_expr{lhs.expr_rhs() + rhs.expr_rhs()};
-    return make_expression<tensor_pow>(lhs.expr_lhs(), std::move(rhs_expr));
+  if (m_lhs_node.hash_value() == rhs.hash_value()) {
+    const auto rhs_expr{m_lhs_node.expr_rhs() + rhs.expr_rhs()};
+    return make_expression<tensor_pow>(m_lhs_node.expr_lhs(), std::move(rhs_expr));
   }
   return get_default();
 }
 
 kronecker_delta_mul::kronecker_delta_mul(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
-      lhs{base::m_lhs.template get<kronecker_delta>()} {}
+      m_lhs_node{base::m_lhs.template get<kronecker_delta>()} {}
 
 // I_ij*expr_jkmnop.... --> expr_ikmnop....
 template <typename Expr>
@@ -42,11 +42,11 @@ kronecker_delta_mul::dispatch([[maybe_unused]] Expr const &rhs) {
 
 symbol_mul::symbol_mul(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
-      lhs{base::m_lhs.template get<tensor>()} {}
+      m_lhs_node{base::m_lhs.template get<tensor>()} {}
 
 /// X*X --> pow(X,2)
 symbol_mul::expr_holder_t symbol_mul::dispatch(tensor const &rhs) {
-  if (&lhs == &rhs) {
+  if (&m_lhs_node == &rhs) {
     return pow(std::move(m_lhs), 2);
   }
   return get_default();
@@ -54,7 +54,7 @@ symbol_mul::expr_holder_t symbol_mul::dispatch(tensor const &rhs) {
 
 /// X * pow(X,expr) --> pow(X,expr+1)
 symbol_mul::expr_holder_t symbol_mul::dispatch(tensor_pow const &rhs) {
-  if (lhs.hash_value() == rhs.expr_lhs().get().hash_value()) {
+  if (m_lhs_node.hash_value() == rhs.expr_lhs().get().hash_value()) {
     return pow(m_lhs, rhs.expr_rhs() + get_scalar_one());
   }
   return get_default();
@@ -62,15 +62,15 @@ symbol_mul::expr_holder_t symbol_mul::dispatch(tensor_pow const &rhs) {
 
 n_ary_mul::n_ary_mul(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
-      lhs{base::m_lhs.template get<tensor_mul>()} {}
+      m_lhs_node{base::m_lhs.template get<tensor_mul>()} {}
 
 // check if last element == rhs; if not just pushback element
 template <typename Expr>
 n_ary_mul::expr_holder_t n_ary_mul::dispatch([[maybe_unused]] Expr const &rhs) {
-  auto expr_mul{make_expression<tensor_mul>(lhs)};
+  auto expr_mul{make_expression<tensor_mul>(m_lhs_node)};
   auto &mul{expr_mul.template get<tensor_mul>()};
-  if (!lhs.data().empty() && lhs.data().back() == m_rhs) {
-    auto last_element{lhs.data().back()};
+  if (!m_lhs_node.data().empty() && m_lhs_node.data().back() == m_rhs) {
+    auto last_element{m_lhs_node.data().back()};
     mul.data().erase(mul.data().end() - 1);
     return std::move(expr_mul) * (last_element * m_rhs);
   }
@@ -81,7 +81,7 @@ n_ary_mul::expr_holder_t n_ary_mul::dispatch([[maybe_unused]] Expr const &rhs) {
 // merge to tensor_mul objects
 n_ary_mul::expr_holder_t
 n_ary_mul::dispatch([[maybe_unused]] tensor_mul const &rhs) {
-  auto expr_mul{make_expression<tensor_mul>(lhs)};
+  auto expr_mul{make_expression<tensor_mul>(m_lhs_node)};
   auto &mul{expr_mul.template get<tensor_mul>()};
   for (const auto &expr : rhs.data()) {
     mul.push_back(expr);

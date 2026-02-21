@@ -62,14 +62,14 @@ public:
 
   template <typename ExprType>
   expr_holder_t operator()([[maybe_unused]] ExprType const &rhs) {
-    if (lhs.value() == 1) {
+    if (m_lhs_node.value() == 1) {
       return std::move(m_rhs);
     }
     return base::get_default();
   }
 
 private:
-  scalar_constant const &lhs;
+  scalar_constant const &m_lhs_node;
 };
 
 class n_ary_mul final : public mul_default<n_ary_mul> {
@@ -95,7 +95,7 @@ public:
 
   template <typename Expr>
   expr_holder_t dispatch([[maybe_unused]] Expr const &rhs) {
-    auto expr_mul{make_expression<scalar_mul>(lhs)};
+    auto expr_mul{make_expression<scalar_mul>(m_lhs_node)};
     auto &mul{expr_mul.template get<scalar_mul>()};
     mul.push_back(m_rhs);
     return expr_mul;
@@ -104,7 +104,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  scalar_mul const &lhs;
+  scalar_mul const &m_lhs_node;
 };
 
 class scalar_pow_mul final : public mul_default<scalar_pow_mul> {
@@ -131,7 +131,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  scalar_pow const &lhs;
+  scalar_pow const &m_lhs_node;
 };
 
 class symbol_mul final : public mul_default<symbol_mul> {
@@ -156,7 +156,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  scalar const &lhs;
+  scalar const &m_lhs_node;
 };
 
 struct mul_base final : public scalar_visitor_return_expr_t {

@@ -9,23 +9,23 @@ namespace simplifier {
 
 negative_sub::negative_sub(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
-      lhs{base::m_lhs.template get<tensor_negative>()} {}
+      m_lhs_node{base::m_lhs.template get<tensor_negative>()} {}
 
 // n_ary_sub
 
 n_ary_sub::n_ary_sub(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
-      lhs{base::m_lhs.template get<tensor_add>()} {}
+      m_lhs_node{base::m_lhs.template get<tensor_add>()} {}
 
 // symbol_sub
 
 symbol_sub::symbol_sub(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
-      lhs{base::m_lhs.template get<tensor>()} {}
+      m_lhs_node{base::m_lhs.template get<tensor>()} {}
 
 /// x-x --> 0
 symbol_sub::expr_holder_t symbol_sub::dispatch(tensor const &rhs) {
-  if (&lhs == &rhs) {
+  if (&m_lhs_node == &rhs) {
     return make_expression<tensor_zero>(rhs.dim(), rhs.rank());
   }
   return get_default();

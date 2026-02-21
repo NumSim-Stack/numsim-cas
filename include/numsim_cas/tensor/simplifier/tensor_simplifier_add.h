@@ -93,7 +93,7 @@ public:
 protected:
   using base::m_lhs;
   using base::m_rhs;
-  tensor_add const &lhs;
+  tensor_add const &m_lhs_node;
 };
 
 // Thin wrapper: LHS is symbol
@@ -111,7 +111,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  tensor const &lhs;
+  tensor const &m_lhs_node;
 };
 
 // Thin wrapper: LHS is tensor_scalar_mul (tensor-specific, no generic equiv)
@@ -137,7 +137,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  tensor_scalar_mul const &lhs;
+  tensor_scalar_mul const &m_lhs_node;
 };
 
 // Thin wrapper: LHS is negative
@@ -157,7 +157,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  tensor_negative const &lhs;
+  tensor_negative const &m_lhs_node;
 };
 
 // Dispatcher: analyzes LHS type and creates appropriate specialized visitor

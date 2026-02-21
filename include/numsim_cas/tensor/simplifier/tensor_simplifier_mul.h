@@ -74,7 +74,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  tensor_pow const &lhs;
+  tensor_pow const &m_lhs_node;
 };
 
 class kronecker_delta_mul final : public mul_default<kronecker_delta_mul> {
@@ -93,7 +93,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  kronecker_delta const &lhs;
+  kronecker_delta const &m_lhs_node;
 };
 
 class symbol_mul final : public mul_default<symbol_mul> {
@@ -114,7 +114,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  tensor const &lhs;
+  tensor const &m_lhs_node;
 };
 
 class n_ary_mul final : public mul_default<n_ary_mul> {
@@ -135,7 +135,7 @@ public:
 private:
   using base::m_lhs;
   using base::m_rhs;
-  tensor_mul const &lhs;
+  tensor_mul const &m_lhs_node;
 };
 
 class mul_base final : public tensor_visitor_return_expr_t {

@@ -7,36 +7,36 @@ namespace numsim::cas::simplifier {
 
 pow_pow::pow_pow(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
-      lhs{base::m_lhs.template get<scalar_pow>()} {}
+      m_lhs_node{base::m_lhs.template get<scalar_pow>()} {}
 
 /// pow(pow(x,a),b) --> pow(x,a*b)
 /// TODO? pow(pow(x,-a), -b) --> pow(x,-a*b) only when x,a,b>0
 template <typename Expr>
 pow_pow::expr_holder_t pow_pow::dispatch(Expr const &) {
-  return pow(lhs.expr_lhs(), lhs.expr_rhs() * m_rhs);
+  return pow(m_lhs_node.expr_lhs(), m_lhs_node.expr_rhs() * m_rhs);
 }
 
 pow_pow::expr_holder_t pow_pow::dispatch(scalar_negative const &) {
-  return pow(lhs.expr_lhs(), lhs.expr_rhs() * m_rhs);
+  return pow(m_lhs_node.expr_lhs(), m_lhs_node.expr_rhs() * m_rhs);
 }
 
 mul_pow::mul_pow(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
-      lhs{base::m_lhs.template get<scalar_mul>()} {}
+      m_lhs_node{base::m_lhs.template get<scalar_mul>()} {}
 
 // pow(scalar_mul, -rhs)
 mul_pow::expr_holder_t mul_pow::dispatch(scalar_negative const &rhs) {
-  auto pos{lhs.hash_map().find(rhs.expr())};
-  auto mul_expr{make_expression<scalar_mul>(lhs)};
+  auto pos{m_lhs_node.hash_map().find(rhs.expr())};
+  auto mul_expr{make_expression<scalar_mul>(m_lhs_node)};
   auto &mul{mul_expr.template get<scalar_mul>()};
   // x*y*z / x --> y*z
-  if (pos != lhs.hash_map().end()) {
+  if (pos != m_lhs_node.hash_map().end()) {
     mul.hash_map().erase(rhs.expr());
     return mul_expr;
   }
 
   // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pos(z,base*rhs)
-  const auto pows{get_all<scalar_pow>(lhs)};
+  const auto pows{get_all<scalar_pow>(m_lhs_node)};
   if (!pows.empty()) {
     expr_holder_t result;
     for (const auto &expr : pows) {
@@ -57,11 +57,11 @@ mul_pow::expr_holder_t mul_pow::dispatch(scalar_negative const &rhs) {
 
 template <typename Expr>
 mul_pow::expr_holder_t mul_pow::dispatch([[maybe_unused]] Expr const &rhs) {
-  auto mul_expr{make_expression<scalar_mul>(lhs)};
+  auto mul_expr{make_expression<scalar_mul>(m_lhs_node)};
   auto &mul{mul_expr.template get<scalar_mul>()};
 
   // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pos(z,base*rhs)
-  const auto pows{get_all<scalar_pow>(lhs)};
+  const auto pows{get_all<scalar_pow>(m_lhs_node)};
   if (!pows.empty()) {
     expr_holder_t result;
     for (const auto &expr : pows) {
