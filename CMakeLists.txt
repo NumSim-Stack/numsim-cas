@@ -109,12 +109,26 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
 
-# Compiler warnings
+# Compiler warnings and flags
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE
         -Wall -Wextra -Wpedantic -Wno-comment -Wno-overloaded-virtual)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(${PROJECT_NAME} PRIVATE
+            -Wshadow -Wconversion -Wnon-virtual-dtor -Wcast-align
+            -Wunused -Wnull-dereference -Wdouble-promotion)
+    elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+        target_compile_options(${PROJECT_NAME} PRIVATE -O3)
+    endif()
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        /W4 /EHsc /utf-8 /permissive-)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(${PROJECT_NAME} PRIVATE /sdl)
+    elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+        target_compile_options(${PROJECT_NAME} PRIVATE /O2 /GL)
+        target_link_options(${PROJECT_NAME} PRIVATE /LTCG)
+    endif()
 endif()
 
 # Sanitizers
