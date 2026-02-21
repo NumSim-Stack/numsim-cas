@@ -25,7 +25,7 @@ macro(add_numsim_cas_test TARGET_NAME)
     add_executable(${TARGET_NAME} ${ARGN})
     target_link_libraries(${TARGET_NAME} PRIVATE gtest NumSim_CAS)
     add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
-    gtest_discover_tests(${TARGET_NAME})
+    gtest_discover_tests(${TARGET_NAME} DISCOVERY_TIMEOUT 30)
 endmacro()
 
 add_numsim_cas_test(numsim_cas_test
