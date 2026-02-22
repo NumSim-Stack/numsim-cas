@@ -13,10 +13,10 @@ public:
   using base::base;
 
   tensor_to_scalar_mul() : base() {}
-  ~tensor_to_scalar_mul() = default;
+  ~tensor_to_scalar_mul() override = default;
   tensor_to_scalar_mul(tensor_to_scalar_mul const &data)
       : base(static_cast<base const &>(data)) {}
-  tensor_to_scalar_mul(tensor_to_scalar_mul &&data)
+  tensor_to_scalar_mul(tensor_to_scalar_mul &&data) noexcept
       : base(std::forward<base>(data)) {}
 
   const tensor_to_scalar_mul &operator=(tensor_to_scalar_mul &&) = delete;

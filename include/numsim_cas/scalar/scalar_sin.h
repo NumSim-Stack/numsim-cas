@@ -12,9 +12,9 @@ public:
 
   using base::base;
   scalar_sin(scalar_sin const &expr) : base(static_cast<base const &>(expr)) {}
-  scalar_sin(scalar_sin &&expr) : base(std::move(static_cast<base &&>(expr))) {}
+  scalar_sin(scalar_sin &&expr) noexcept : base(std::move(static_cast<base &&>(expr))) {}
   scalar_sin() = delete;
-  ~scalar_sin() = default;
+  ~scalar_sin() override = default;
   const scalar_sin &operator=(scalar_sin &&) = delete;
 
 private:

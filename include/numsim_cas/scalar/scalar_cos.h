@@ -12,9 +12,9 @@ public:
 
   using base::base;
   scalar_cos(scalar_cos const &expr) : base(static_cast<base const &>(expr)) {}
-  scalar_cos(scalar_cos &&expr) : base(std::move(static_cast<base &&>(expr))) {}
+  scalar_cos(scalar_cos &&expr) noexcept : base(std::move(static_cast<base &&>(expr))) {}
   scalar_cos() = delete;
-  ~scalar_cos() = default;
+  ~scalar_cos() override = default;
   const scalar_cos &operator=(scalar_cos &&) = delete;
 
 private:

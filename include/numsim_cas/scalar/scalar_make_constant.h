@@ -13,7 +13,7 @@ expression_holder<scalar_expression>
 tag_invoke(make_constant_fn, std::type_identity<scalar_expression>, T &&v) {
   // adapt to your actual scalar number type:
   using V = std::remove_cvref_t<T>;
-  if constexpr (std::is_integral_v<T>) {
+  if constexpr (std::is_integral_v<T>) { // NOLINT(bugprone-branch-clone)
     if (v == 0)
       return get_scalar_zero();
     if (v == 1)

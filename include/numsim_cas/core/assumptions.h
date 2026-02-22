@@ -97,7 +97,7 @@ struct numeric_assumption_less {
 // ---------- Managers ----------
 class numeric_assumption_manager {
 public:
-  void insert(numeric_assumption a) { set_.insert(std::move(a)); }
+  void insert(numeric_assumption a) { set_.insert(a); }
   void erase(numeric_assumption const &a) { set_.erase(a); }
   bool contains(numeric_assumption const &a) const {
     return set_.find(a) != set_.end();

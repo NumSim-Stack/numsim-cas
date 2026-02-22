@@ -19,9 +19,9 @@ public:
   scalar_expression(Args &&...args) : expression(std::forward<Args>(args)...) {}
   scalar_expression(scalar_expression const &data)
       : expression(static_cast<expression const &>(data)) {}
-  scalar_expression(scalar_expression &&data)
+  scalar_expression(scalar_expression &&data) noexcept
       : expression(std::move(static_cast<expression &&>(data))) {}
-  virtual ~scalar_expression() = default;
+  ~scalar_expression() override = default;
   const scalar_expression &operator=(scalar_expression const &) = delete;
 };
 

@@ -17,10 +17,10 @@ public:
   using base::base;
   tensor_trace(tensor_trace const &expr)
       : base(static_cast<base const &>(expr)) {}
-  tensor_trace(tensor_trace &&expr)
+  tensor_trace(tensor_trace &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
   tensor_trace() = delete;
-  ~tensor_trace() = default;
+  ~tensor_trace() override = default;
   const tensor_trace &operator=(tensor_trace &&) = delete;
 
 private:

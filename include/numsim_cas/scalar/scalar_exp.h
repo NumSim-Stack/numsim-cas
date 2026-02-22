@@ -12,9 +12,9 @@ public:
 
   using base::base;
   scalar_exp(scalar_exp const &expr) : base(static_cast<base const &>(expr)) {}
-  scalar_exp(scalar_exp &&expr) : base(std::move(static_cast<base &&>(expr))) {}
+  scalar_exp(scalar_exp &&expr) noexcept : base(std::move(static_cast<base &&>(expr))) {}
   scalar_exp() = delete;
-  ~scalar_exp() = default;
+  ~scalar_exp() override = default;
   const scalar_exp &operator=(scalar_exp &&) = delete;
 
 private:

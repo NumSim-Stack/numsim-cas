@@ -41,7 +41,7 @@ public:
   /**
    * @brief Virtual destructor.
    */
-  virtual ~unary_op() = default;
+  ~unary_op() override = default;
 
   [[nodiscard]] constexpr expr_holder_t &expr() noexcept { return m_expr; }
   [[nodiscard]] constexpr expr_holder_t const &expr() const noexcept {
@@ -49,7 +49,7 @@ public:
   }
 
 protected:
-  virtual void update_hash_value() const noexcept override {
+  void update_hash_value() const noexcept override {
     this->m_hash_value = 0;
     hash_combine(this->m_hash_value, this->get_id());
     if (m_expr.is_valid()) {

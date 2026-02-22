@@ -98,8 +98,8 @@ Tensor-to-scalar nodes bridge tensor and scalar domains. The `tensor_to_scalar_s
 - `operator<` enables consistent ordering for canonical forms
 
 **Issues**:
-- **Thread safety**: `m_hash_value` is lazily computed via `hash_value()` but has no synchronization. Multiple threads calling `hash_value()` simultaneously on a newly-created expression will race.
-- **No `std::atomic`**: Even relaxed atomics would prevent torn reads
+- ~~**Thread safety**: `m_hash_value` is lazily computed via `hash_value()` but has no synchronization. Multiple threads calling `hash_value()` simultaneously on a newly-created expression will race.~~ [NOT APPLICABLE — thread safety is out of scope; comment in `expression.h` documents this]
+- ~~**No `std::atomic`**: Even relaxed atomics would prevent torn reads~~ [NOT APPLICABLE — see above]
 - **mutable m_hash_value**: The `const` method `hash_value()` mutates state, which is correct for caching but violates const-correctness expectations
 
 ### 3.2 expression_holder.h
@@ -450,7 +450,7 @@ Differentiating T2S with respect to tensors produces tensor expressions:
 
 **Issues**:
 - **No code coverage reporting** (lcov/gcov)
-- **No static analysis** (clang-tidy, cppcheck, PVS-Studio)
+- ~~**No static analysis** (clang-tidy, cppcheck, PVS-Studio)~~ [RESOLVED — clang-tidy added to CI]
 - **No memory sanitizer** (MSAN) in CI
 - **No thread sanitizer** (TSAN) in CI
 - **No benchmark regression tracking**
@@ -609,7 +609,7 @@ The `benchmarks/` directory exists with a `poly_verse_variant` benchmark but:
 
 | # | Issue | Location | Impact |
 |---|-------|----------|--------|
-| C1 | Thread-unsafe lazy hash caching | `expression.h` | Data race in multithreaded use |
+| ~~C1~~ | ~~Thread-unsafe lazy hash caching~~ | ~~`expression.h`~~ | ~~Data race in multithreaded use~~ [NOT APPLICABLE — thread safety out of scope] |
 | ~~C2~~ | ~~Missing test files not compiled~~ | ~~`tests/CMakeLists.txt`~~ | ~~Tests exist but never run~~ [RESOLVED] |
 | ~~C3~~ | ~~README option names incorrect~~ | ~~`README.md` line 98~~ | ~~Users will use wrong CMake options~~ [RESOLVED] |
 
@@ -655,8 +655,8 @@ The `benchmarks/` directory exists with a `poly_verse_variant` benchmark but:
 
 ### 12.1 High Priority
 
-#### E1: Thread-Safe Hash Caching
-Replace `mutable std::size_t m_hash_value` with `mutable std::atomic<std::size_t>` using relaxed ordering. Cost is minimal; benefit is thread safety.
+#### ~~E1: Thread-Safe Hash Caching~~ [NOT APPLICABLE]
+~~Replace `mutable std::size_t m_hash_value` with `mutable std::atomic<std::size_t>` using relaxed ordering.~~ Thread safety is out of scope for this library; documented with a comment in `expression.h`.
 
 #### ~~E2: Fix Test Build~~ [RESOLVED]
 ~~Wire all test headers into `tests/CMakeLists.txt`.~~ All test headers now compiled and running.
@@ -724,12 +724,8 @@ Before evaluating, walk the expression tree and identify shared subexpressions. 
 
 Each domain traits specialization has a `static_assert` that verifies its concept at definition time, so errors are caught immediately rather than when a simplifier is first instantiated.
 
-#### E10: Static Analysis in CI
-Add clang-tidy with a `.clang-tidy` configuration to catch:
-- Unused variables/includes
-- Missing `const` qualifiers
-- Pointer arithmetic issues
-- Modern C++ idiom suggestions
+#### ~~E10: Static Analysis in CI~~ [RESOLVED]
+~~Add clang-tidy with a `.clang-tidy` configuration.~~ Added `.clang-tidy` config (bugprone-*, performance-*, select modernize checks, with noisy checks excluded) and `.github/workflows/clang-tidy-check.yml` CI workflow (Ubuntu 24.04, clang-tidy-18, advisory warnings only). `HeaderFilterRegex` scoped to `include/numsim_cas/.*` to avoid third-party noise.
 
 ### 12.3 Lower Priority
 

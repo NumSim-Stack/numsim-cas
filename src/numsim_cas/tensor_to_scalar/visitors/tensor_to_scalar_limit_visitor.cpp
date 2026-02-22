@@ -31,8 +31,7 @@ limit_result tensor_to_scalar_limit_visitor::apply(t2s_holder_t const &expr) {
     using pt = limit_target::point;
     switch (m_target.target) {
     case pt::zero_plus:
-      m_result = {dir::zero};
-      break;
+      [[fallthrough]];
     case pt::zero_minus:
       m_result = {dir::zero};
       break;
@@ -198,14 +197,8 @@ void tensor_to_scalar_limit_visitor::operator()(
   // Delegate to scalar limit visitor
   // Scalar expressions don't depend on tensor variables,
   // so they should evaluate to finite
-  if (m_mode == dependency_mode::exact_match && m_limit_var_t2s.is_valid()) {
-    // In exact match mode with a T2S limit var, scalar sub-expressions
-    // don't contain the T2S limit var, so they're finite
-    m_result = {dir::finite_positive};
-  } else {
-    // In tensor dependency mode, scalar expressions are independent of tensor
-    m_result = {dir::finite_positive};
-  }
+  // Scalar sub-expressions don't depend on tensor or T2S limit variables
+  m_result = {dir::finite_positive};
 }
 
 } // namespace numsim::cas

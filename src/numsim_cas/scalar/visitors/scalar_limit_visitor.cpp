@@ -18,7 +18,6 @@ limit_result target_to_limit(limit_target target) {
   using pt = limit_target::point;
   switch (target.target) {
   case pt::zero_plus:
-    return {dir::zero};
   case pt::zero_minus:
     return {dir::zero};
   case pt::pos_infinity:
@@ -198,13 +197,11 @@ void scalar_limit_visitor::operator()(scalar_atan const &v) {
   auto child = apply(v.expr());
   if (child.dir == dir::indeterminate || child.dir == dir::unknown) {
     m_result = child;
-  } else if (child.dir == dir::pos_infinity) {
-    // atan(+inf) = pi/2
-    m_result = {dir::finite_positive};
   } else if (child.dir == dir::neg_infinity) {
     // atan(-inf) = -pi/2
     m_result = {dir::finite_negative};
   } else {
+    // atan(finite) or atan(+inf) = finite_positive
     m_result = {dir::finite_positive};
   }
 }

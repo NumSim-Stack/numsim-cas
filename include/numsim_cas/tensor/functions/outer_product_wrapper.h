@@ -25,7 +25,7 @@ public:
   const auto &indices_rhs() const noexcept { return m_rhs_indices; }
 
 protected:
-  virtual void update_hash_value() const noexcept override {
+  void update_hash_value() const noexcept override {
     hash_combine(base::m_hash_value, base::get_id());
     numsim::cas::hash_combine(base::m_hash_value,
                               base::expr_lhs().get().hash_value());

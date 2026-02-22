@@ -12,10 +12,10 @@ public:
   using base::base;
   scalar_acos(scalar_acos const &expr)
       : base(static_cast<base const &>(expr)) {}
-  scalar_acos(scalar_acos &&expr)
+  scalar_acos(scalar_acos &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
   scalar_acos() = delete;
-  ~scalar_acos() = default;
+  ~scalar_acos() override = default;
   const scalar_acos &operator=(scalar_acos &&) = delete;
 
 private:

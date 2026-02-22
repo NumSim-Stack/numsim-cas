@@ -21,7 +21,7 @@ public:
   explicit symbol_base(std::string const &name, Args &&...args) noexcept
       : base_t(std::forward<Args>(args)...), m_name(name) {}
 
-  virtual ~symbol_base() {}
+  ~symbol_base() override {}
 
   [[nodiscard]] inline auto &name() const noexcept { return m_name; }
 
@@ -45,7 +45,7 @@ public:
   // assumption<std::any> m_assumptions;
 
 protected:
-  virtual void update_hash_value() const override {
+  void update_hash_value() const override {
     hash_combine(this->m_hash_value, m_name);
   }
 

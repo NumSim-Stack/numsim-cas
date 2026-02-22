@@ -63,7 +63,7 @@ public:
   [[nodiscard]] scalar_number abs() const noexcept;
 
 private:
-  explicit scalar_number(variant_t vv) : v_(std::move(vv)) {}
+  explicit scalar_number(variant_t vv) : v_(vv) {}
 
   variant_t v_;
 };

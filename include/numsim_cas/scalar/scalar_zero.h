@@ -11,10 +11,10 @@ public:
   using base = scalar_node_base_t<scalar_zero>;
 
   scalar_zero() {}
-  scalar_zero(scalar_zero &&data) : base(static_cast<base &&>(data)) {}
+  scalar_zero(scalar_zero &&data) noexcept : base(static_cast<base &&>(data)) {}
   scalar_zero(scalar_zero const &data)
       : base(static_cast<base const &>(data)) {}
-  ~scalar_zero() = default;
+  ~scalar_zero() override = default;
   const scalar_zero &operator=(scalar_zero &&) = delete;
 
   friend inline bool operator<(scalar_zero const &lhs, scalar_zero const &rhs) {

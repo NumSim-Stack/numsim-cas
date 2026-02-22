@@ -38,7 +38,7 @@ public:
     this->m_hash_value = data.m_hash_value;
   }
 
-  virtual ~n_ary_vector() = default;
+  ~n_ary_vector() override = default;
 
   inline void push_back(expression_holder<expr_t> const &expr) noexcept {
     insert_hash(expr);
@@ -86,7 +86,7 @@ public:
                          n_ary_vector<BaseRHS> const &rhs);
 
 protected:
-  virtual void update_hash_value() const override {
+  void update_hash_value() const override {
     this->m_hash_value = 0;
 
     // otherwise we can not provide the order of the symbols

@@ -36,7 +36,7 @@ public:
    * @brief Move constructor.
    * @param data The basis_change_imp object to move from.
    */
-  explicit basis_change_imp(basis_change_imp &&data)
+  explicit basis_change_imp(basis_change_imp &&data) noexcept
       : base(static_cast<base>(data)), m_indices(std::move(data.m_indices)) {}
 
   /**

@@ -263,8 +263,8 @@ void tensor_to_scalar_differentiation::operator()(
   auto dB = diff(visitable.expr_rhs(), m_arg);
 
   // Stored indices are already 0-based; inner_product passes them through
-  sequence seq_lhs(visitable.indices_lhs());
-  sequence seq_rhs(visitable.indices_rhs());
+  sequence const &seq_lhs = visitable.indices_lhs();
+  sequence const &seq_rhs = visitable.indices_rhs();
 
   tensor_holder_t result;
 

@@ -28,7 +28,7 @@ public:
       this->set_space(*sp);
   }
 
-  virtual void update_hash_value() const noexcept override {
+  void update_hash_value() const noexcept override {
     if (is_same<scalar_constant>(this->m_lhs)) {
       base::m_hash_value = this->m_rhs.get().hash_value();
     } else {

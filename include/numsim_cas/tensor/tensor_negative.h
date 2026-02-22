@@ -25,7 +25,7 @@ public:
   tensor_negative() = delete;
   tensor_negative(tensor_negative const &add) = delete;
   tensor_negative(tensor_negative &&) = delete;
-  ~tensor_negative() = default;
+  ~tensor_negative() override = default;
   const tensor_negative &operator=(tensor_negative &&) = delete;
 };
 

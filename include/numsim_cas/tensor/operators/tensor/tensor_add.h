@@ -17,12 +17,12 @@ public:
     if (auto const &sp = add.space())
       this->set_space(*sp);
   }
-  tensor_add(tensor_add &&add)
+  tensor_add(tensor_add &&add) noexcept
       : base(static_cast<base &&>(add), add.dim(), add.rank()) {
     if (auto const &sp = add.space())
       this->set_space(*sp);
   }
-  ~tensor_add() = default;
+  ~tensor_add() override = default;
   const tensor_add &operator=(tensor_add &&) = delete;
 
   /// Override push_back to maintain a running space join.

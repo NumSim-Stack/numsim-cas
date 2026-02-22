@@ -33,10 +33,10 @@ public:
   }
 
   ValueType mismatch(std::size_t dim, std::size_t rank) {
-    if (dim > this->_MaxDim || dim == 0)
+    if (dim > this->MaxDim_ || dim == 0)
       throw evaluation_error(
           "tensor_data_to_scalar_wrapper: dim > MaxDim || dim == 0");
-    if (rank > this->_MaxRank || rank == 0)
+    if (rank > this->MaxRank_ || rank == 0)
       throw evaluation_error(
           "tensor_data_to_scalar_wrapper: rank > MaxRank || rank == 0");
     return ValueType{};
@@ -70,10 +70,10 @@ public:
   }
 
   ValueType mismatch(std::size_t dim, std::size_t rank) {
-    if (dim > this->_MaxDim || dim == 0)
+    if (dim > this->MaxDim_ || dim == 0)
       throw evaluation_error(
           "tensor_data_dcontract_wrapper: dim > MaxDim || dim == 0");
-    if (rank > this->_MaxRank || rank == 0)
+    if (rank > this->MaxRank_ || rank == 0)
       throw evaluation_error(
           "tensor_data_dcontract_wrapper: rank > MaxRank || rank == 0");
     return ValueType{};

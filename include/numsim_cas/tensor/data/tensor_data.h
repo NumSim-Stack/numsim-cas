@@ -42,11 +42,11 @@ public:
   explicit tensor_data(data_type const &data)
       : tensor_data_base<ValueType>(), m_data(data) {}
 
-  [[nodiscard]] virtual std::size_t dim() const noexcept final override {
+  [[nodiscard]] std::size_t dim() const noexcept final {
     return Dim;
   }
 
-  [[nodiscard]] virtual std::size_t rank() const noexcept final override {
+  [[nodiscard]] std::size_t rank() const noexcept final {
     return Rank;
   }
 
@@ -54,15 +54,15 @@ public:
 
   [[nodiscard]] auto &data() { return m_data; }
 
-  [[nodiscard]] const ValueType *raw_data() const noexcept final override {
+  [[nodiscard]] const ValueType *raw_data() const noexcept final {
     return m_data.raw_data();
   }
 
-  [[nodiscard]] ValueType *raw_data() noexcept final override {
+  [[nodiscard]] ValueType *raw_data() noexcept final {
     return m_data.raw_data();
   }
 
-  virtual void print(std::ostream &out) noexcept final override {
+  void print(std::ostream &out) noexcept final {
     out << m_data;
   }
 

@@ -12,9 +12,9 @@ public:
 
   using base::base;
   scalar_log(scalar_log const &expr) : base(static_cast<base const &>(expr)) {}
-  scalar_log(scalar_log &&expr) : base(std::move(static_cast<base &&>(expr))) {}
+  scalar_log(scalar_log &&expr) noexcept : base(std::move(static_cast<base &&>(expr))) {}
   scalar_log() = delete;
-  ~scalar_log() = default;
+  ~scalar_log() override = default;
   const scalar_log &operator=(scalar_log &&) = delete;
 
 private:

@@ -13,10 +13,10 @@ public:
   using base::base;
   scalar_sign(scalar_sign const &expr)
       : base(static_cast<base const &>(expr)) {}
-  scalar_sign(scalar_sign &&expr)
+  scalar_sign(scalar_sign &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
   scalar_sign() = delete;
-  ~scalar_sign() = default;
+  ~scalar_sign() override = default;
   const scalar_sign &operator=(scalar_sign &&) = delete;
 
 private:

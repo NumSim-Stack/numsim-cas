@@ -67,7 +67,7 @@ public:
    * @param visitable The tensor value to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(tensor const &visitable) { m_out << visitable.name(); }
+  void operator()(tensor const &visitable) override { m_out << visitable.name(); }
 
   /**
    * @brief Prints a identity tensor.
@@ -75,7 +75,7 @@ public:
    * @param visitable The idenity tensor to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()([[maybe_unused]] identity_tensor const &visitable) {
+  void operator()([[maybe_unused]] identity_tensor const &visitable) override {
     m_out << "I{" << visitable.rank() << "}";
   }
 
@@ -85,7 +85,7 @@ public:
    * @param visitable The projection tensor to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()([[maybe_unused]] tensor_projector const &visitable) {
+  void operator()([[maybe_unused]] tensor_projector const &visitable) override {
     tensor_trace_print_visitor perm_trace_printer(visitable);
     auto to_print{perm_trace_printer.apply()};
     m_out << to_print << "{" << visitable.rank() << "}";
@@ -97,7 +97,7 @@ public:
    * @param visitable The tensor addition expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(tensor_add const &visitable) {
+  void operator()(tensor_add const &visitable) override {
     constexpr auto precedence{Precedence::Addition};
     const auto parent_precedence{m_parent_precedence};
 
@@ -124,7 +124,7 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_mul const &visitable) {
+  void operator()(tensor_mul const &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
     const auto parent_precedence{m_parent_precedence};
 
@@ -149,7 +149,7 @@ public:
    * @param visitable The tensor negative expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(tensor_negative const &visitable) {
+  void operator()(tensor_negative const &visitable) override {
     constexpr auto precedence{Precedence::Negative};
     const auto parent_precedence{m_parent_precedence};
 
@@ -165,7 +165,7 @@ public:
    * @param visitable The inner product expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(inner_product_wrapper const &visitable) {
+  void operator()(inner_product_wrapper const &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
 
     const auto &indices_lhs{visitable.indices_lhs()};
@@ -243,8 +243,8 @@ public:
    * @param visitable The basis change expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(basis_change_imp const &visitable) {
-    auto indices_temp{visitable.indices()};
+  void operator()(basis_change_imp const &visitable) override {
+    auto const &indices_temp = visitable.indices();
     if (indices_temp == sequence{2, 1}) {
       m_out << "trans(";
       apply(visitable.expr(), m_parent_precedence);
@@ -264,9 +264,9 @@ public:
    * @param visitable The outer product expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(outer_product_wrapper const &visitable) {
-    auto indices_temp_lhs{visitable.indices_lhs()};
-    auto indices_temp_rhs{visitable.indices_rhs()};
+  void operator()(outer_product_wrapper const &visitable) override {
+    auto const &indices_temp_lhs = visitable.indices_lhs();
+    auto const &indices_temp_rhs = visitable.indices_rhs();
 
     if (indices_temp_lhs == sequence{1, 4} &&
         indices_temp_rhs == sequence{2, 3}) {
@@ -301,7 +301,7 @@ public:
     }
   }
 
-  void operator()([[maybe_unused]] simple_outer_product const &visitable) {
+  void operator()([[maybe_unused]] simple_outer_product const &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
     const auto parent_precedence{m_parent_precedence};
 
@@ -328,7 +328,7 @@ public:
    * @param visitable The Kronecker delta expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()([[maybe_unused]] kronecker_delta const &visitable) {
+  void operator()([[maybe_unused]] kronecker_delta const &visitable) override {
     m_out << "I";
   }
 
@@ -359,7 +359,7 @@ public:
    * @param visitable The tensor scalar multiplication expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(tensor_scalar_mul const &visitable) {
+  void operator()(tensor_scalar_mul const &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
     const auto parent_precedence{m_parent_precedence};
 
@@ -467,7 +467,7 @@ public:
   // }
 
   void operator()(
-      [[maybe_unused]] tensor_to_scalar_with_tensor_mul const &visitable) {
+      [[maybe_unused]] tensor_to_scalar_with_tensor_mul const &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
     const auto parent_precedence{m_parent_precedence};
 
@@ -492,7 +492,7 @@ public:
   //   end(precedence, parent_precedence);
   // }
 
-  void operator()(tensor_inv const &visitable) {
+  void operator()(tensor_inv const &visitable) override {
     print_unary("inv", visitable);
   }
 
@@ -502,11 +502,11 @@ public:
    * @param visitable The zero tensor to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()([[maybe_unused]] tensor_zero const &visitable) {
+  void operator()([[maybe_unused]] tensor_zero const &visitable) override {
     m_out << "0";
   }
 
-  void operator()(tensor_pow const &visitable) {
+  void operator()(tensor_pow const &visitable) override {
     m_out << "pow(";
     apply(visitable.expr_lhs(), m_parent_precedence);
     m_out << ",";

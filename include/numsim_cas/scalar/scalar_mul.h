@@ -19,8 +19,8 @@ public:
 
   scalar_mul() : base() {}
   scalar_mul(scalar_mul const &mul) : base(static_cast<base const &>(mul)) {}
-  scalar_mul(scalar_mul &&mul) : base(std::forward<base>(mul)) {}
-  ~scalar_mul() = default;
+  scalar_mul(scalar_mul &&mul) noexcept : base(std::forward<base>(mul)) {}
+  ~scalar_mul() override = default;
 
   const scalar_mul &operator=(scalar_mul &&) = delete;
 };

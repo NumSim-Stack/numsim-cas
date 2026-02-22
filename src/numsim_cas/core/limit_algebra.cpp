@@ -192,7 +192,7 @@ limit_result limit_algebra::apply_log(limit_result a) {
     return {dir::pos_infinity, {gtype::logarithmic, 1.0}};
   case dir::neg_infinity:
     // log(-inf) undefined in reals
-    return {dir::unknown};
+    [[fallthrough]];
   default:
     return {dir::unknown};
   }
@@ -239,7 +239,7 @@ limit_result limit_algebra::apply_pow(limit_result base,
       }
     case dir::neg_infinity:
       // (-inf)^c: sign depends on parity, treat as unknown
-      return {dir::unknown};
+      [[fallthrough]];
     default:
       return {dir::unknown};
     }
@@ -276,7 +276,8 @@ limit_result limit_algebra::apply_sqrt(limit_result a) {
     return {dir::pos_infinity, rate};
   }
   case dir::neg_infinity:
-    return {dir::unknown}; // sqrt of negative
+    // sqrt of negative
+    [[fallthrough]];
   default:
     return {dir::unknown};
   }
@@ -293,7 +294,6 @@ limit_result limit_algebra::apply_abs(limit_result a) {
   case dir::finite_negative:
     return {dir::finite_positive};
   case dir::pos_infinity:
-    return {dir::pos_infinity, a.rate};
   case dir::neg_infinity:
     return {dir::pos_infinity, a.rate};
   default:
@@ -314,10 +314,8 @@ limit_result limit_algebra::apply_reciprocal(limit_result a) {
   case dir::finite_negative:
     return {dir::finite_negative};
   case dir::pos_infinity:
-    // 1/inf = 0
-    return {dir::zero};
   case dir::neg_infinity:
-    // 1/(-inf) = 0
+    // 1/inf = 0
     return {dir::zero};
   default:
     return {dir::unknown};
@@ -331,7 +329,6 @@ limit_result limit_algebra::apply_exp(limit_result a) {
   switch (a.dir) {
   case dir::zero:
     // exp(0) = 1
-    return {dir::finite_positive};
   case dir::finite_positive:
   case dir::finite_negative:
     // exp(finite) = finite positive
