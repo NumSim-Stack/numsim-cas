@@ -2,7 +2,6 @@
 #define N_ARY_TREE_H
 
 #include <algorithm>
-#include <array>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/hash_functions.h>
@@ -108,29 +107,18 @@ protected:
     // otherwise we can not provide the order of the symbols
     hash_combine(this->m_hash_value, base_t::get_id());
 
-    // Stack buffer for typical small trees (2-8 children),
-    // heap fallback for unusually large ones
-    static constexpr std::size_t stack_max = 16;
-    const auto n = m_symbol_map.size();
-    std::array<std::size_t, stack_max> stack_buf;
-    std::vector<std::size_t> heap_buf;
-    auto *buf = stack_buf.data();
-    if (n > stack_max) {
-      heap_buf.resize(n);
-      buf = heap_buf.data();
-    }
-
+    std::vector<std::size_t> hashes(m_symbol_map.size());
     std::size_t i = 0;
     for (const auto &child : m_symbol_map | std::views::values) {
-      buf[i++] = child->hash_value();
+      hashes[i++] = child->hash_value();
     }
 
     // Sort for commutative operations like addition
-    std::sort(buf, buf + n);
+    std::sort(hashes.begin(), hashes.end());
 
     // Combine all child hashes
-    for (std::size_t j = 0; j < n; ++j) {
-      hash_combine(this->m_hash_value, buf[j]);
+    for (auto h : hashes) {
+      hash_combine(this->m_hash_value, h);
     }
   }
 
@@ -152,7 +140,6 @@ private:
           "n_ary_tree::insert_hash: duplicate child insertion");
     }
     m_symbol_map[expr] = expr;
-    update_hash_value();
   }
 
   void insert_hash(expression_holder<expr_t> &&expr) {
@@ -161,7 +148,6 @@ private:
           "n_ary_tree::insert_hash: duplicate child insertion");
     }
     m_symbol_map[expr] = std::move(expr);
-    update_hash_value();
   }
 };
 
