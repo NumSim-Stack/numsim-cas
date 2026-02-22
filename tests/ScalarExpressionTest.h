@@ -156,7 +156,7 @@ TEST_F(ScalarFixture, PRINT_DivisionFormat) {
   EXPECT_PRINT(z * pow(x * y, -_2), "z/pow(x*y,2)");
   EXPECT_PRINT(z * pow(x, -_1) * pow(y, -_1), "z/(x*y)");
   EXPECT_PRINT(z * pow(x, -1) * pow(y, -1), "z/(x*y)");
-  EXPECT_PRINT(_1 / _2, "pow(2,-1)");
+  EXPECT_PRINT(_1 / _2, "1/2");
   EXPECT_PRINT(pow(y, -_zero), "1");
   EXPECT_PRINT(pow(pow(y, -_1), -_1), "y");
   EXPECT_PRINT(pow(pow(y, -_2), -_2), "pow(y,4)");
@@ -184,6 +184,31 @@ TEST_F(ScalarFixture, PRINT_DivisionFormat) {
   auto &zero = this->_zero;
   EXPECT_PRINT(zero / x, "0");
   EXPECT_PRINT(zero / _2, "0");
+}
+
+//
+// PRINT_RATIONAL_ARITHMETIC — exact rational constant folding
+//
+TEST_F(ScalarFixture, PRINT_RationalArithmetic) {
+  auto &_1 = this->_1, &_2 = this->_2, &_3 = this->_3;
+
+  // basic fractions
+  EXPECT_PRINT(_1 / _3, "1/3");
+  EXPECT_PRINT(_2 / _3, "2/3");
+
+  // fraction addition
+  EXPECT_PRINT(_1 / _3 + _1 / _3, "2/3");
+  EXPECT_PRINT(_1 / _2 + _1 / _3, "5/6");
+
+  // fraction multiplication
+  EXPECT_PRINT((_1 / _2) * (_1 / _3), "1/6");
+
+  // integer / integer that reduces
+  EXPECT_PRINT(_2 / _2, "1");
+  EXPECT_PRINT(_3 / _3, "1");
+
+  // rational in multiplication context: parenthesized
+  EXPECT_PRINT(x * (_1 / _3), "(1/3)*x");
 }
 
 //

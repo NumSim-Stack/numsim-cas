@@ -51,6 +51,9 @@ public:
           using V = std::decay_t<decltype(v)>;
           if constexpr (std::is_same_v<V, std::complex<double>>) {
             return static_cast<ValueType>(v.real());
+          } else if constexpr (std::is_same_v<V, rational_t>) {
+            return static_cast<ValueType>(v.num) /
+                   static_cast<ValueType>(v.den);
           } else {
             return static_cast<ValueType>(v);
           }
@@ -87,10 +90,6 @@ public:
   void operator()(scalar_pow const &visitable) override {
     m_result =
         std::pow(apply(visitable.expr_lhs()), apply(visitable.expr_rhs()));
-  }
-
-  void operator()(scalar_rational const &visitable) override {
-    m_result = apply(visitable.expr_lhs()) / apply(visitable.expr_rhs());
   }
 
   void operator()(scalar_sin const &visitable) override {

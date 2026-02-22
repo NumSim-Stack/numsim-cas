@@ -43,7 +43,15 @@ template<typename Stream>
 template <typename Stream>
 void scalar_printer<Stream>::operator()(
     [[maybe_unused]] scalar_constant const &visitable) {
-  m_out << visitable.value();
+  if (auto *r = std::get_if<rational_t>(&visitable.value().raw())) {
+    constexpr auto precedence{Precedence::Division_LHS};
+    const auto parent_precedence{m_parent_precedence};
+    begin(precedence, parent_precedence);
+    m_out << r->num << "/" << r->den;
+    end(precedence, parent_precedence);
+  } else {
+    m_out << visitable.value();
+  }
 }
 
 template <typename Stream>
@@ -125,18 +133,6 @@ void scalar_printer<Stream>::operator()(scalar_add const &visitable) {
     apply(child, precedence);
     first = true;
   }
-  end(precedence, parent_precedence);
-}
-
-template <typename Stream>
-void scalar_printer<Stream>::operator()(scalar_rational const &visitable) {
-  constexpr auto precedence{Precedence::Multiplication};
-  const auto parent_precedence{m_parent_precedence};
-
-  begin(precedence, parent_precedence);
-  apply(visitable.expr_lhs(), Precedence::Division_LHS);
-  m_out << "/";
-  apply(visitable.expr_rhs(), Precedence::Division_RHS);
   end(precedence, parent_precedence);
 }
 

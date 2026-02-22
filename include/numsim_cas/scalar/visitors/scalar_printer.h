@@ -145,14 +145,6 @@ public:
   void operator()(scalar_add const &visitable);
 
   /**
-   * @brief Prints a rational number.
-   *
-   * @param visitable The scalar division expression to be printed.
-   * @param parent_precedence The precedence of the parent expression.
-   */
-  void operator()(scalar_rational const &visitable);
-
-  /**
    * @brief Prints a neative scalar expression.
    *
    * @param visitable The negative scalar expression to be printed.

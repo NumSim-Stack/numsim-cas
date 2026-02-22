@@ -65,6 +65,8 @@ void scalar_limit_visitor::operator()(scalar_constant const &v) {
         using V = std::decay_t<decltype(x)>;
         if constexpr (std::is_same_v<V, std::complex<double>>) {
           return x.real();
+        } else if constexpr (std::is_same_v<V, rational_t>) {
+          return static_cast<double>(x.num) / static_cast<double>(x.den);
         } else {
           return static_cast<double>(x);
         }
@@ -109,12 +111,6 @@ void scalar_limit_visitor::operator()(scalar_negative const &v) {
 
 void scalar_limit_visitor::operator()(scalar_pow const &v) {
   m_result = apply_pow(apply(v.expr_lhs()), apply(v.expr_rhs()));
-}
-
-void scalar_limit_visitor::operator()(scalar_rational const &v) {
-  auto num = apply(v.expr_lhs());
-  auto den = apply(v.expr_rhs());
-  m_result = combine_mul(num, apply_reciprocal(den));
 }
 
 // ─── Functions ────────────────────────────────────────────────────

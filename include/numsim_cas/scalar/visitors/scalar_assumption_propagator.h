@@ -23,8 +23,6 @@ public:
   void operator()(scalar_mul const &) override;
   void operator()(scalar_negative const &) override;
   void operator()(scalar_pow const &) override;
-  void operator()(scalar_rational const &) override;
-
   // Functions
   void operator()(scalar_sin const &) override;
   void operator()(scalar_cos const &) override;

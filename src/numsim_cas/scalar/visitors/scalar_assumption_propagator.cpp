@@ -59,6 +59,8 @@ void scalar_assumption_propagator::operator()(scalar_constant const &v) {
         using V = std::decay_t<decltype(x)>;
         if constexpr (std::is_same_v<V, std::complex<double>>) {
           return x.real();
+        } else if constexpr (std::is_same_v<V, rational_t>) {
+          return static_cast<double>(x.num) / static_cast<double>(x.den);
         } else {
           return static_cast<double>(x);
         }
@@ -217,34 +219,6 @@ void scalar_assumption_propagator::operator()(scalar_pow const &v) {
   }
   if (base_a.contains(real_tag{}) && exp_a.contains(real_tag{}))
     m_result.insert(real_tag{});
-}
-
-void scalar_assumption_propagator::operator()(scalar_rational const &v) {
-  auto num_a = apply(v.expr_lhs());
-  auto den_a = apply(v.expr_rhs());
-
-  m_result = {};
-  if (num_a.contains(real_tag{}) && den_a.contains(real_tag{}))
-    m_result.insert(real_tag{});
-
-  bool num_pos = num_a.contains(positive{});
-  bool num_neg = num_a.contains(negative{});
-  bool den_pos = den_a.contains(positive{});
-  bool den_neg = den_a.contains(negative{});
-
-  if ((num_pos && den_pos) || (num_neg && den_neg)) {
-    m_result.insert(positive{});
-    m_result.insert(nonnegative{});
-    m_result.insert(nonzero{});
-  } else if ((num_pos && den_neg) || (num_neg && den_pos)) {
-    m_result.insert(negative{});
-    m_result.insert(nonpositive{});
-    m_result.insert(nonzero{});
-  }
-  if (num_a.contains(nonnegative{}) && den_a.contains(positive{}))
-    m_result.insert(nonnegative{});
-  if (num_a.contains(nonpositive{}) && den_a.contains(positive{}))
-    m_result.insert(nonpositive{});
 }
 
 // ─── Functions ─────────────────────────────────────────────────────
@@ -409,6 +383,8 @@ public:
           using V = std::decay_t<decltype(x)>;
           if constexpr (std::is_same_v<V, std::complex<double>>)
             return x.real();
+          else if constexpr (std::is_same_v<V, rational_t>)
+            return static_cast<double>(x.num) / static_cast<double>(x.den);
           else
             return static_cast<double>(x);
         },
@@ -549,31 +525,6 @@ public:
     }
     if (base_a.contains(real_tag{}) && exp_a.contains(real_tag{}))
       m_result.insert(real_tag{});
-  }
-
-  void operator()(scalar_rational const &v) override {
-    auto const &num_a = ensure_assumptions(v.expr_lhs());
-    auto const &den_a = ensure_assumptions(v.expr_rhs());
-    m_result = {};
-    if (num_a.contains(real_tag{}) && den_a.contains(real_tag{}))
-      m_result.insert(real_tag{});
-    bool num_pos = num_a.contains(positive{});
-    bool num_neg = num_a.contains(negative{});
-    bool den_pos = den_a.contains(positive{});
-    bool den_neg = den_a.contains(negative{});
-    if ((num_pos && den_pos) || (num_neg && den_neg)) {
-      m_result.insert(positive{});
-      m_result.insert(nonnegative{});
-      m_result.insert(nonzero{});
-    } else if ((num_pos && den_neg) || (num_neg && den_pos)) {
-      m_result.insert(negative{});
-      m_result.insert(nonpositive{});
-      m_result.insert(nonzero{});
-    }
-    if (num_a.contains(nonnegative{}) && den_a.contains(positive{}))
-      m_result.insert(nonnegative{});
-    if (num_a.contains(nonpositive{}) && den_a.contains(positive{}))
-      m_result.insert(nonpositive{});
   }
 
   // Functions

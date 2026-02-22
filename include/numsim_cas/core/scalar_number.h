@@ -1,22 +1,41 @@
 #ifndef SCALAR_NUMBER_H
 #define SCALAR_NUMBER_H
 
+#include <numsim_cas/core/hash_functions.h>
+
 #include <complex>
 #include <cstdint>
 #include <iosfwd>
+#include <numeric>
 #include <type_traits>
 #include <variant>
 
 namespace numsim::cas {
 
+/// Exact rational number: always GCD-reduced with den > 0.
+struct rational_t {
+  std::int64_t num;
+  std::int64_t den;
+};
+
+inline void hash_combine(std::size_t &seed, rational_t const &value) {
+  hash_combine(seed, value.num);
+  hash_combine(seed, value.den);
+}
+
 class scalar_number {
 public:
-  using variant_t = std::variant<std::int64_t, double, std::complex<double>>;
+  using variant_t =
+      std::variant<std::int64_t, double, std::complex<double>, rational_t>;
 
   scalar_number() : v_(double{0}) {}
   scalar_number(std::int64_t v) : v_(v) {}
   scalar_number(double v) : v_(v) {}
   scalar_number(std::complex<double> v) : v_(v) {}
+
+  /// Construct a rational. Normalizes via GCD; den==1 stores as int64_t.
+  scalar_number(std::int64_t num, std::int64_t den);
+  scalar_number(rational_t r);
 
   template <class T>
   requires(std::is_integral_v<T> && !std::is_same_v<T, bool>)

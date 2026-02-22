@@ -18,7 +18,6 @@
 #include "scalar_negative.h"
 #include "scalar_one.h"
 #include "scalar_power.h"
-#include "scalar_rational.h"
 #include "scalar_sign.h"
 #include "scalar_sin.h"
 #include "scalar_sqrt.h"

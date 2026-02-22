@@ -33,8 +33,6 @@ public:
 
   void operator()(scalar_constant const &) override { m_result = m_current; }
 
-  void operator()(scalar_rational const &) override { m_result = m_current; }
-
   void operator()(scalar_add const &v) override {
     expr_holder_t result;
     if (v.coeff().is_valid())

@@ -63,11 +63,6 @@ public:
     if (!m_found)
       check(v.expr_rhs());
   }
-  void operator()(scalar_rational const &v) override {
-    check(v.expr_lhs());
-    if (!m_found)
-      check(v.expr_rhs());
-  }
   void operator()(scalar_sin const &v) override { check(v.expr()); }
   void operator()(scalar_cos const &v) override { check(v.expr()); }
   void operator()(scalar_tan const &v) override { check(v.expr()); }

@@ -75,9 +75,9 @@ TEST(ScalarEval, EvalScalarPow) {
 
 TEST(ScalarEval, EvalScalarRational) {
   scalar_evaluator<double> ev;
-  auto num = make_scalar_constant(1);
-  auto den = make_scalar_constant(3);
-  auto r = make_expression<scalar_rational>(num, den);
+  auto _1 = make_scalar_constant(1);
+  auto _3 = make_scalar_constant(3);
+  auto r = _1 / _3;
   EXPECT_NEAR(ev.apply(r), 1.0 / 3.0, 1e-12);
 }
 

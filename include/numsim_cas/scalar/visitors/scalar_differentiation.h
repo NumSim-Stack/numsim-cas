@@ -98,10 +98,6 @@ public:
     m_result = get_scalar_zero();
   }
 
-  void operator()([[maybe_unused]] scalar_rational const &visitable) override {
-    m_result = get_scalar_zero();
-  }
-
   // --- Complex nodes: declared here, defined in .cpp ---
 
   /**

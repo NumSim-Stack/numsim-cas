@@ -8,6 +8,7 @@
 
 #include <numsim_cas/scalar/scalar_binary_simplify_fwd.h>
 #include <numsim_cas/scalar/scalar_constant.h>
+#include <numsim_cas/scalar/scalar_domain_traits.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/scalar/scalar_functions_fwd.h>
 #include <numsim_cas/scalar/scalar_globals.h>
@@ -84,8 +85,19 @@ inline expression_holder<scalar_expression> tag_invoke(div_fn, L &&lhs,
   if (is_same<scalar_zero>(lhs)) {
     return lhs;
   }
+  // constant / constant → exact rational constant
+  using traits = domain_traits<scalar_expression>;
+  auto lhs_val = traits::try_numeric(lhs);
+  auto rhs_val = traits::try_numeric(rhs);
+  if (lhs_val && rhs_val && !(*rhs_val == scalar_number{0})) {
+    auto result = *lhs_val / *rhs_val;
+    if (result == scalar_number{0})
+      return get_scalar_zero();
+    if (result == scalar_number{1})
+      return get_scalar_one();
+    return traits::make_constant(result);
+  }
   return lhs * pow(rhs, -get_scalar_one());
-  // return binary_scalar_div_simplify(std::move(lhs), std::move(rhs));
 }
 
 } // namespace numsim::cas::detail
