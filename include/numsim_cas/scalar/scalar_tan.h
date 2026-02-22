@@ -11,12 +11,8 @@ public:
   using base = unary_op<scalar_node_base_t<scalar_tan>>;
   using base::base;
   scalar_tan(scalar_tan const &expr) : base(static_cast<base const &>(expr)) {}
-<<<<<<< HEAD
   scalar_tan(scalar_tan &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
-=======
-  scalar_tan(scalar_tan &&expr) noexcept : base(std::move(static_cast<base &&>(expr))) {}
->>>>>>> origin/move_to_virtual
   scalar_tan() = delete;
   ~scalar_tan() override = default;
   const scalar_tan &operator=(scalar_tan &&) = delete;

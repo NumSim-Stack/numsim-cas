@@ -17,12 +17,8 @@ public:
                scalar_expression>;
   using base::base;
 
-<<<<<<< HEAD
   tensor_to_scalar_scalar_wrapper(
       tensor_to_scalar_scalar_wrapper &&data) noexcept
-=======
-  tensor_to_scalar_scalar_wrapper(tensor_to_scalar_scalar_wrapper &&data) noexcept
->>>>>>> origin/move_to_virtual
       : base(std::move(static_cast<base &&>(data))) {}
   tensor_to_scalar_scalar_wrapper(tensor_to_scalar_scalar_wrapper const &data)
       : base(data) {}

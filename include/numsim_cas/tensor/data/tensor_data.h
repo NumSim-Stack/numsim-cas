@@ -42,19 +42,9 @@ public:
   explicit tensor_data(data_type const &data)
       : tensor_data_base<ValueType>(), m_data(data) {}
 
-<<<<<<< HEAD
   [[nodiscard]] std::size_t dim() const noexcept final { return Dim; }
 
   [[nodiscard]] std::size_t rank() const noexcept final { return Rank; }
-=======
-  [[nodiscard]] std::size_t dim() const noexcept final {
-    return Dim;
-  }
-
-  [[nodiscard]] std::size_t rank() const noexcept final {
-    return Rank;
-  }
->>>>>>> origin/move_to_virtual
 
   [[nodiscard]] const auto &data() const { return m_data; }
 
@@ -68,13 +58,7 @@ public:
     return m_data.raw_data();
   }
 
-<<<<<<< HEAD
   void print(std::ostream &out) noexcept final { out << m_data; }
-=======
-  void print(std::ostream &out) noexcept final {
-    out << m_data;
-  }
->>>>>>> origin/move_to_virtual
 
 private:
   data_type m_data;

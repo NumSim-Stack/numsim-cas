@@ -16,12 +16,8 @@ public:
 
   using base::base;
   tensor_dot(tensor_dot const &expr) : base(static_cast<base const &>(expr)) {}
-<<<<<<< HEAD
   tensor_dot(tensor_dot &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
-=======
-  tensor_dot(tensor_dot &&expr) noexcept : base(std::move(static_cast<base &&>(expr))) {}
->>>>>>> origin/move_to_virtual
   tensor_dot() = delete;
   ~tensor_dot() override = default;
   const tensor_dot &operator=(tensor_dot &&) = delete;

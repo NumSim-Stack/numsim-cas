@@ -12,12 +12,8 @@ public:
 
   using base::base;
   scalar_pow(scalar_pow const &expr) : base(static_cast<base const &>(expr)) {}
-<<<<<<< HEAD
   scalar_pow(scalar_pow &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
-=======
-  scalar_pow(scalar_pow &&expr) noexcept : base(std::move(static_cast<base &&>(expr))) {}
->>>>>>> origin/move_to_virtual
   scalar_pow() = delete;
   ~scalar_pow() override = default;
   const scalar_pow &operator=(scalar_pow &&) = delete;

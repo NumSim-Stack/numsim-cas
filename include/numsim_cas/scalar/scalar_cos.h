@@ -12,12 +12,8 @@ public:
 
   using base::base;
   scalar_cos(scalar_cos const &expr) : base(static_cast<base const &>(expr)) {}
-<<<<<<< HEAD
   scalar_cos(scalar_cos &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
-=======
-  scalar_cos(scalar_cos &&expr) noexcept : base(std::move(static_cast<base &&>(expr))) {}
->>>>>>> origin/move_to_virtual
   scalar_cos() = delete;
   ~scalar_cos() override = default;
   const scalar_cos &operator=(scalar_cos &&) = delete;
