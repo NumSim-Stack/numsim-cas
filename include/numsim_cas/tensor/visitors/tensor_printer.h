@@ -67,13 +67,9 @@ public:
    * @param visitable The tensor value to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-<<<<<<< HEAD
   void operator()(tensor const &visitable) override {
     m_out << visitable.name();
   }
-=======
-  void operator()(tensor const &visitable) override { m_out << visitable.name(); }
->>>>>>> origin/move_to_virtual
 
   /**
    * @brief Prints a identity tensor.
@@ -307,12 +303,8 @@ public:
     }
   }
 
-<<<<<<< HEAD
   void
   operator()([[maybe_unused]] simple_outer_product const &visitable) override {
-=======
-  void operator()([[maybe_unused]] simple_outer_product const &visitable) override {
->>>>>>> origin/move_to_virtual
     constexpr auto precedence{Precedence::Multiplication};
     const auto parent_precedence{m_parent_precedence};
 
@@ -477,13 +469,8 @@ public:
   //   end(precedence, parent_precedence);
   // }
 
-<<<<<<< HEAD
   void operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul const
                       &visitable) override {
-=======
-  void operator()(
-      [[maybe_unused]] tensor_to_scalar_with_tensor_mul const &visitable) override {
->>>>>>> origin/move_to_virtual
     constexpr auto precedence{Precedence::Multiplication};
     const auto parent_precedence{m_parent_precedence};
 
