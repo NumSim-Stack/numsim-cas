@@ -10,7 +10,6 @@
 #include <numsim_cas/scalar/scalar_atan.h>
 #include <numsim_cas/scalar/scalar_constant.h>
 #include <numsim_cas/scalar/scalar_cos.h>
-#include <numsim_cas/scalar/scalar_div.h>
 #include <numsim_cas/scalar/scalar_exp.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/scalar/scalar_functions.h>

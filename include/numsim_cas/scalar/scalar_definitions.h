@@ -9,7 +9,6 @@
 #include "scalar_atan.h"
 #include "scalar_constant.h"
 #include "scalar_cos.h"
-#include "scalar_div.h"
 #include "scalar_exp.h"
 #include "scalar_expression.h"
 #include "scalar_globals.h"

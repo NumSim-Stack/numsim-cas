@@ -5,8 +5,6 @@
 // FIRST_MACRO(T) expands the first element (no leading comma)
 // NEXT_MACRO(T) expands subsequent elements (with leading comma)
 
-// NEXT(scalar_div)
-
 #define NUMSIM_CAS_SCALAR_NODE_LIST(FIRST, NEXT)                               \
   FIRST(scalar)                                                                \
   NEXT(scalar_zero)                                                            \
