@@ -93,8 +93,9 @@ ctest --test-dir build
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `BUILD_TESTS` | `ON` | Build test suite |
-| `BUILD_EXAMPLES` | `OFF` | Build example programs |
+| `NUMSIM_CAS_BUILD_TESTS` | `ON` | Build test suite |
+| `NUMSIM_CAS_BUILD_EXAMPLES` | `OFF` | Build example programs |
+| `NUMSIM_CAS_BUILD_BENCHMARK` | `OFF` | Build benchmarks |
 | `NUMSIM_CAS_SANITIZERS` | `OFF` | Enable ASAN + UBSAN |
 
 ### Dependencies
