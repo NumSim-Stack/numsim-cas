@@ -2,6 +2,7 @@
 #define SCALAR_SIMPLIFIER_ADD_H
 
 #include <numsim_cas/core/simplifier/simplifier_add.h>
+#include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
 #include <numsim_cas/scalar/scalar_globals.h>
 
@@ -65,6 +66,10 @@ class n_ary_add final : public scalar_visitor_return_expr_t,
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
   using algo::algo;
+  using algo::dispatch;
+
+  // sin^2(x)+...+cos^2(x) → 1+...
+  expr_holder_t dispatch(scalar_pow const &rhs);
 
 #define NUMSIM_LOOP_OVER(T)                                                    \
   expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
@@ -118,6 +123,30 @@ public:
 #undef NUMSIM_LOOP_OVER
 };
 
+// Thin wrapper: LHS is pow (for Pythagorean identity)
+class pow_add final : public scalar_visitor_return_expr_t,
+                      public detail::add_dispatch<scalar_traits, void> {
+  using algo = detail::add_dispatch<scalar_traits, void>;
+
+public:
+  using expr_holder_t = expression_holder<scalar_expression>;
+  using algo::algo;
+  using algo::dispatch;
+
+  pow_add(expr_holder_t lhs, expr_holder_t rhs);
+
+  // sin^2(x) + cos^2(x) → 1
+  expr_holder_t dispatch(scalar_pow const &rhs);
+
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+
+private:
+  scalar_pow const &m_lhs_node;
+};
+
 // Dispatcher: analyzes LHS type and creates appropriate specialized visitor
 struct add_base final : public scalar_visitor_return_expr_t {
   using expr_holder_t = expression_holder<scalar_expression>;
@@ -146,6 +175,8 @@ private:
   expr_holder_t dispatch(scalar_negative const &);
 
   expr_holder_t dispatch(scalar_zero const &);
+
+  expr_holder_t dispatch(scalar_pow const &);
 
   template <typename Type> expr_holder_t dispatch(Type const &) {
     auto &_rhs{m_rhs.template get<scalar_visitable_t>()};

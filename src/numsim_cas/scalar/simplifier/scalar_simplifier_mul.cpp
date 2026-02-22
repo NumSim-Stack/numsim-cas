@@ -109,6 +109,56 @@ n_ary_mul::dispatch([[maybe_unused]] scalar_mul const &rhs) {
   return expr_mul;
 }
 
+// ------------------------------------------------------------
+// exp_mul
+// ------------------------------------------------------------
+exp_mul::exp_mul(expr_holder_t lhs, expr_holder_t rhs)
+    : base(std::move(lhs), std::move(rhs)),
+      m_lhs_node{base::m_lhs.template get<scalar_exp>()} {}
+
+// exp(a)*exp(b) --> exp(a+b)
+exp_mul::expr_holder_t exp_mul::dispatch(scalar_exp const &rhs) {
+  return exp(m_lhs_node.expr() + rhs.expr());
+}
+
+// exp(a)*(x*exp(b)*...) --> x*exp(a+b)*...
+exp_mul::expr_holder_t exp_mul::dispatch(scalar_mul const &rhs) {
+  auto expr_mul{make_expression<scalar_mul>(rhs)};
+  auto &mul{expr_mul.template get<scalar_mul>()};
+
+  const auto exps{get_all<scalar_exp>(rhs)};
+  for (const auto &e : exps) {
+    mul.symbol_map().erase(e);
+    expr_mul = std::move(expr_mul) * exp(m_lhs_node.expr() +
+                                         e.template get<scalar_exp>().expr());
+    return expr_mul;
+  }
+
+  mul.push_back(std::move(m_lhs));
+  return expr_mul;
+}
+
+// ------------------------------------------------------------
+// n_ary_mul::dispatch(scalar_exp)
+// ------------------------------------------------------------
+n_ary_mul::expr_holder_t
+n_ary_mul::dispatch([[maybe_unused]] scalar_exp const &rhs) {
+  auto expr_mul{make_expression<scalar_mul>(m_lhs_node)};
+  auto &mul{expr_mul.template get<scalar_mul>()};
+
+  const auto exps{get_all<scalar_exp>(m_lhs_node)};
+  for (const auto &e : exps) {
+    mul.symbol_map().erase(e);
+    expr_mul = std::move(expr_mul) *
+               exp(e.template get<scalar_exp>().expr() +
+                   rhs.expr());
+    return expr_mul;
+  }
+
+  mul.push_back(m_rhs);
+  return expr_mul;
+}
+
 scalar_pow_mul::scalar_pow_mul(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
       m_lhs_node{base::m_lhs.template get<scalar_pow>()} {}
@@ -247,6 +297,12 @@ mul_base::expr_holder_t mul_base::dispatch(scalar const &) {
 mul_base::expr_holder_t mul_base::dispatch(scalar_pow const &) {
   auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
   scalar_pow_mul visitor(std::move(m_lhs), std::move(m_rhs));
+  return _rhs.accept(visitor);
+}
+
+mul_base::expr_holder_t mul_base::dispatch(scalar_exp const &) {
+  auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
+  exp_mul visitor(std::move(m_lhs), std::move(m_rhs));
   return _rhs.accept(visitor);
 }
 

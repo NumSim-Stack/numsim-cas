@@ -93,6 +93,9 @@ public:
   // (x*y*z)*(x*y*z)
   expr_holder_t dispatch([[maybe_unused]] scalar_mul const &rhs);
 
+  // (x*y*z)*exp(a) --> scan for exp child, combine
+  expr_holder_t dispatch([[maybe_unused]] scalar_exp const &rhs);
+
   template <typename Expr>
   expr_holder_t dispatch([[maybe_unused]] Expr const &rhs) {
     auto expr_mul{make_expression<scalar_mul>(m_lhs_node)};
@@ -105,6 +108,29 @@ private:
   using base::m_lhs;
   using base::m_rhs;
   scalar_mul const &m_lhs_node;
+};
+
+class exp_mul final : public mul_default<exp_mul> {
+public:
+  using expr_holder_t = expression_holder<scalar_expression>;
+  using base = mul_default<exp_mul>;
+  using base::operator();
+  using base::dispatch;
+
+  using base::get_default;
+
+  exp_mul(expr_holder_t lhs, expr_holder_t rhs);
+
+  // exp(a)*exp(b) --> exp(a+b)
+  expr_holder_t dispatch(scalar_exp const &rhs);
+
+  // exp(a)*(x*exp(b)*...) --> x*exp(a+b)*...
+  expr_holder_t dispatch(scalar_mul const &rhs);
+
+private:
+  using base::m_lhs;
+  using base::m_rhs;
+  scalar_exp const &m_lhs_node;
 };
 
 class scalar_pow_mul final : public mul_default<scalar_pow_mul> {
@@ -181,6 +207,8 @@ struct mul_base final : public scalar_visitor_return_expr_t {
   expr_holder_t dispatch(scalar const &);
 
   expr_holder_t dispatch(scalar_pow const &);
+
+  expr_holder_t dispatch(scalar_exp const &);
 
   // zero * expr --> zero
   expr_holder_t dispatch(scalar_zero const &);

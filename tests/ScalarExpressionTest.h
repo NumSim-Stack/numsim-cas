@@ -541,4 +541,27 @@ TEST_F(ScalarFixture, SqrtSimplification) {
   EXPECT_PRINT(sqrt(_1), "1");
 }
 
+//
+// EXP product simplification — exp(x)*exp(y) → exp(x+y)
+//
+TEST_F(ScalarFixture, MUL_ExpCombine) {
+  EXPECT_PRINT(exp(x) * exp(y), "exp(x+y)");
+  EXPECT_PRINT(exp(x) * exp(x), "exp(2*x)");
+  EXPECT_PRINT(exp(x + y) * exp(z), "exp(x+y+z)");
+  // n_ary: 2*exp(x)*exp(y)
+  EXPECT_PRINT(_2 * exp(x) * exp(y), "2*exp(x+y)");
+  // exp in mul RHS: exp(x)*(z*exp(y))
+  EXPECT_PRINT(exp(x) * (z * exp(y)), "z*exp(x+y)");
+}
+
+//
+// Pythagorean identity — sin^2 + cos^2 → 1
+//
+TEST_F(ScalarFixture, ADD_TrigPythagorean) {
+  EXPECT_PRINT(pow(sin(x), _2) + pow(cos(x), _2), "1");
+  EXPECT_PRINT(pow(cos(x), _2) + pow(sin(x), _2), "1"); // order invariance
+  // n_ary: sin^2 + y + cos^2
+  EXPECT_PRINT(pow(sin(x), _2) + y + pow(cos(x), _2), "1+y");
+}
+
 #endif // SCALAREXPRESSIONTEST_H
