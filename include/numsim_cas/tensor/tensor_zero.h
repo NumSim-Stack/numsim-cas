@@ -12,11 +12,11 @@ public:
 
   tensor_zero() = delete;
   tensor_zero(std::size_t dim, std::size_t rank) : base(dim, rank) {}
-  tensor_zero(tensor_zero &&data)
+  tensor_zero(tensor_zero &&data) noexcept
       : base(static_cast<base &&>(data), data.dim(), data.rank()) {}
   tensor_zero(tensor_zero const &data)
       : base(static_cast<base const &>(data), data.dim(), data.rank()) {}
-  ~tensor_zero() = default;
+  ~tensor_zero() override = default;
   const tensor_zero &operator=(tensor_zero &&) = delete;
 
   friend inline bool operator<(tensor_zero const &lhs, tensor_zero const &rhs) {

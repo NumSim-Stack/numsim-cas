@@ -14,9 +14,9 @@ public:
   simple_outer_product(std::size_t dim, std::size_t rank) : base(dim, rank) {}
   simple_outer_product(simple_outer_product const &add)
       : base(static_cast<const base &>(add), add.dim(), add.rank()) {}
-  simple_outer_product(simple_outer_product &&add)
+  simple_outer_product(simple_outer_product &&add) noexcept
       : base(static_cast<base &&>(add), add.dim(), add.rank()) {}
-  ~simple_outer_product() = default;
+  ~simple_outer_product() override = default;
   const simple_outer_product &operator=(simple_outer_product &&) = delete;
 };
 

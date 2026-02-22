@@ -52,7 +52,7 @@ public:
     return !(lhs == rhs);
   }
 
-  virtual void update_hash_value() const override {
+  void update_hash_value() const override {
     base::m_hash_value = 0;
     hash_combine(base::m_hash_value, base::get_id());
     hash_combine(base::m_hash_value, this->dim());

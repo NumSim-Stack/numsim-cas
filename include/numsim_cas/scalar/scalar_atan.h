@@ -13,10 +13,10 @@ public:
   using base::base;
   scalar_atan(scalar_atan const &expr)
       : base(static_cast<base const &>(expr)) {}
-  scalar_atan(scalar_atan &&expr)
+  scalar_atan(scalar_atan &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
   scalar_atan() = delete;
-  ~scalar_atan() = default;
+  ~scalar_atan() override = default;
   const scalar_atan &operator=(scalar_atan &&) = delete;
 
 private:

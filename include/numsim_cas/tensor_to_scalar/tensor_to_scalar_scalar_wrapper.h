@@ -17,11 +17,12 @@ public:
                scalar_expression>;
   using base::base;
 
-  tensor_to_scalar_scalar_wrapper(tensor_to_scalar_scalar_wrapper &&data)
+  tensor_to_scalar_scalar_wrapper(
+      tensor_to_scalar_scalar_wrapper &&data) noexcept
       : base(std::move(static_cast<base &&>(data))) {}
   tensor_to_scalar_scalar_wrapper(tensor_to_scalar_scalar_wrapper const &data)
       : base(data) {}
-  ~tensor_to_scalar_scalar_wrapper() = default;
+  ~tensor_to_scalar_scalar_wrapper() override = default;
 
   const tensor_to_scalar_scalar_wrapper &
   operator=(tensor_to_scalar_scalar_wrapper &&) = delete;
@@ -46,7 +47,7 @@ public:
     return !(lhs == rhs);
   }
 
-  virtual void update_hash_value() const noexcept override {
+  void update_hash_value() const noexcept override {
     base::m_hash_value = 0;
     hash_combine(base::m_hash_value, base::get_id());
     if (this->expr().is_valid()) {

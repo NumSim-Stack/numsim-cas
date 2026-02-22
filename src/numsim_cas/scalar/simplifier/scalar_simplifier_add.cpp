@@ -55,8 +55,7 @@ pow_add::expr_holder_t pow_add::dispatch(scalar_pow const &rhs) {
 n_ary_add::expr_holder_t n_ary_add::dispatch(scalar_pow const &rhs) {
   const auto pows = get_all<scalar_pow>(lhs);
   for (const auto &e : pows) {
-    if (auto result =
-            try_trig_pythagorean(e.template get<scalar_pow>(), rhs)) {
+    if (auto result = try_trig_pythagorean(e.template get<scalar_pow>(), rhs)) {
       auto add_expr{make_expression<scalar_add>(lhs)};
       auto &add{add_expr.template get<scalar_add>()};
       add.symbol_map().erase(e);

@@ -15,8 +15,7 @@ tensor_pow_mul::expr_holder_t
 tensor_pow_mul::dispatch([[maybe_unused]] tensor const &rhs) {
   if (m_lhs_node.expr_lhs().get().hash_value() == rhs.hash_value()) {
     const auto rhs_expr{m_lhs_node.expr_rhs() + get_scalar_one()};
-    return make_expression<tensor_pow>(m_lhs_node.expr_lhs(),
-                                       std::move(rhs_expr));
+    return make_expression<tensor_pow>(m_lhs_node.expr_lhs(), rhs_expr);
   }
   return get_default();
 }
@@ -25,8 +24,7 @@ tensor_pow_mul::expr_holder_t
 tensor_pow_mul::dispatch([[maybe_unused]] tensor_pow const &rhs) {
   if (m_lhs_node.hash_value() == rhs.hash_value()) {
     const auto rhs_expr{m_lhs_node.expr_rhs() + rhs.expr_rhs()};
-    return make_expression<tensor_pow>(m_lhs_node.expr_lhs(),
-                                       std::move(rhs_expr));
+    return make_expression<tensor_pow>(m_lhs_node.expr_lhs(), rhs_expr);
   }
   return get_default();
 }

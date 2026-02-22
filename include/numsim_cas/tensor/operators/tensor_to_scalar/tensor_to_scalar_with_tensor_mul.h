@@ -17,7 +17,8 @@ public:
 
   tensor_to_scalar_with_tensor_mul(tensor_to_scalar_with_tensor_mul const &data)
       : base(static_cast<base const &>(data)) {}
-  tensor_to_scalar_with_tensor_mul(tensor_to_scalar_with_tensor_mul &&data)
+  tensor_to_scalar_with_tensor_mul(
+      tensor_to_scalar_with_tensor_mul &&data) noexcept
       : base(std::forward<base>(data)) {}
   const tensor_to_scalar_with_tensor_mul &
   operator=(tensor_to_scalar_with_tensor_mul &&) = delete;

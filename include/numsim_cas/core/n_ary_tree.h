@@ -43,7 +43,7 @@ public:
     this->m_hash_value = data.m_hash_value;
   }
 
-  virtual ~n_ary_tree() = default;
+  ~n_ary_tree() override = default;
 
   inline void push_back(expression_holder<expr_t> const &expr) {
     insert_hash(expr);
@@ -74,6 +74,9 @@ public:
   }
 
   inline auto set_coeff(expr_holder_t const &expr) noexcept { m_coeff = expr; }
+  inline auto set_coeff(expr_holder_t &&expr) noexcept {
+    m_coeff = std::move(expr);
+  }
 
   [[nodiscard]] inline auto const &coeff() const noexcept { return m_coeff; }
   [[nodiscard]] inline auto &coeff() noexcept { return m_coeff; }
@@ -101,7 +104,7 @@ public:
                          n_ary_tree<BaseRHS> const &rhs);
 
 protected:
-  virtual void update_hash_value() const noexcept override {
+  void update_hash_value() const noexcept override {
     this->m_hash_value = 0;
 
     // otherwise we can not provide the order of the symbols
@@ -155,7 +158,8 @@ template <typename BaseSymbol, typename BaseTree>
 bool operator<(symbol_base<BaseSymbol> const &lhs,
                n_ary_tree<BaseTree> const &rhs) {
   if (rhs.size() == 1) {
-    return lhs.hash_value() < rhs.symbol_map().begin()->second.get().hash_value();
+    return lhs.hash_value() <
+           rhs.symbol_map().begin()->second.get().hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
@@ -164,7 +168,8 @@ template <typename BaseSymbol, typename BaseTree>
 bool operator<(n_ary_tree<BaseTree> const &lhs,
                symbol_base<BaseSymbol> const &rhs) {
   if (lhs.size() == 1) {
-    return lhs.symbol_map().begin()->second.get().hash_value() < rhs.hash_value();
+    return lhs.symbol_map().begin()->second.get().hash_value() <
+           rhs.hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }

@@ -12,9 +12,10 @@ public:
 
   using base::base;
   scalar_pow(scalar_pow const &expr) : base(static_cast<base const &>(expr)) {}
-  scalar_pow(scalar_pow &&expr) : base(std::move(static_cast<base &&>(expr))) {}
+  scalar_pow(scalar_pow &&expr) noexcept
+      : base(std::move(static_cast<base &&>(expr))) {}
   scalar_pow() = delete;
-  ~scalar_pow() = default;
+  ~scalar_pow() override = default;
   const scalar_pow &operator=(scalar_pow &&) = delete;
 };
 

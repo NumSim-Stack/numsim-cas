@@ -30,11 +30,11 @@ public:
   tensor_expression(tensor_expression const &data)
       : expression(static_cast<expression const &>(data)), m_dim(data.m_dim),
         m_rank(data.m_rank), m_tensor_space(data.m_tensor_space) {}
-  tensor_expression(tensor_expression &&data)
+  tensor_expression(tensor_expression &&data) noexcept
       : expression(std::move(static_cast<expression &&>(data))),
         m_dim(data.m_dim), m_rank(data.m_rank),
         m_tensor_space(std::move(data.m_tensor_space)) {}
-  virtual ~tensor_expression() = default;
+  ~tensor_expression() override = default;
 
   const tensor_expression &operator=(tensor_expression const &) = delete;
 

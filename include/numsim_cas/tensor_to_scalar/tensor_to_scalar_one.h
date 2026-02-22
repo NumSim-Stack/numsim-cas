@@ -11,11 +11,11 @@ class tensor_to_scalar_one final
 public:
   using base = tensor_to_scalar_node_base_t<tensor_to_scalar_one>;
   tensor_to_scalar_one() {}
-  tensor_to_scalar_one(tensor_to_scalar_one &&data)
+  tensor_to_scalar_one(tensor_to_scalar_one &&data) noexcept
       : base(std::move(static_cast<base &&>(data))) {}
   tensor_to_scalar_one(tensor_to_scalar_one const &data)
       : base(static_cast<base const &>(data)) {}
-  ~tensor_to_scalar_one() = default;
+  ~tensor_to_scalar_one() override = default;
   const tensor_to_scalar_one &operator=(tensor_to_scalar_one &&) = delete;
 
   friend inline bool

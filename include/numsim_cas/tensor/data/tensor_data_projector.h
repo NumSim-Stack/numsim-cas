@@ -58,10 +58,9 @@ public:
   }
 
   void mismatch(std::size_t dim, std::size_t rank) {
-    if (dim > this->_MaxDim || dim == 0)
-      throw evaluation_error(
-          "tensor_data_projector: dim > MaxDim || dim == 0");
-    if (rank > this->_MaxRank || rank == 0)
+    if (dim > this->MaxDim_ || dim == 0)
+      throw evaluation_error("tensor_data_projector: dim > MaxDim || dim == 0");
+    if (rank > this->MaxRank_ || rank == 0)
       throw evaluation_error(
           "tensor_data_projector: rank > MaxRank || rank == 0");
   }

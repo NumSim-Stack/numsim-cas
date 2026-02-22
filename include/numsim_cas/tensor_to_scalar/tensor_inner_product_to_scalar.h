@@ -24,7 +24,7 @@ public:
         m_lhs_indices(std::forward<SeqLHS>(_lhs_indices)),
         m_rhs_indices(std::forward<SeqRHS>(_rhs_indices)) {}
 
-  tensor_inner_product_to_scalar(tensor_inner_product_to_scalar &&data)
+  tensor_inner_product_to_scalar(tensor_inner_product_to_scalar &&data) noexcept
       : base(std::move(static_cast<base &&>(data))),
         m_lhs_indices(std::move(data.m_lhs_indices)),
         m_rhs_indices(std::move(data.m_rhs_indices)) {}

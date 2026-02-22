@@ -69,23 +69,23 @@ public:
     }
   }
 
-  void operator()(tensor_trace const &visitable) {
+  void operator()(tensor_trace const &visitable) override {
     print_unary("tr", visitable);
   }
 
-  void operator()(tensor_dot const &visitable) {
+  void operator()(tensor_dot const &visitable) override {
     print_unary("dot", visitable);
   }
 
-  void operator()(tensor_norm const &visitable) {
+  void operator()(tensor_norm const &visitable) override {
     print_unary("norm", visitable);
   }
 
-  void operator()(tensor_det const &visitable) {
+  void operator()(tensor_det const &visitable) override {
     print_unary("det", visitable);
   }
 
-  void operator()(tensor_to_scalar_negative const &visitable) {
+  void operator()(tensor_to_scalar_negative const &visitable) override {
     constexpr auto precedence{Precedence::Unary};
     m_out << "-";
     // begin(precedence, m_parent_precedence);
@@ -93,7 +93,7 @@ public:
     // end(precedence, m_parent_precedence);
   }
 
-  void operator()(tensor_to_scalar_mul const &visitable) {
+  void operator()(tensor_to_scalar_mul const &visitable) override {
     using traits = domain_traits<tensor_to_scalar_expression>;
     constexpr auto precedence{Precedence::Multiplication};
     const auto parent_precedence{m_parent_precedence};
@@ -147,19 +147,19 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_to_scalar_log const &visitable) {
+  void operator()(tensor_to_scalar_log const &visitable) override {
     print_unary("log", visitable);
   }
 
-  void operator()(tensor_to_scalar_exp const &visitable) {
+  void operator()(tensor_to_scalar_exp const &visitable) override {
     print_unary("exp", visitable);
   }
 
-  void operator()(tensor_to_scalar_sqrt const &visitable) {
+  void operator()(tensor_to_scalar_sqrt const &visitable) override {
     print_unary("sqrt", visitable);
   }
 
-  void operator()(tensor_to_scalar_add const &visitable) {
+  void operator()(tensor_to_scalar_add const &visitable) override {
     constexpr auto precedence{Precedence::Addition};
     const auto parent_precedence{m_parent_precedence};
     begin(precedence, parent_precedence);
@@ -200,7 +200,7 @@ public:
   //   end(precedence, m_parent_precedence);
   // }
 
-  void operator()(tensor_to_scalar_pow const &visitable) {
+  void operator()(tensor_to_scalar_pow const &visitable) override {
     m_out << "pow(";
     m_out << visitable.expr_lhs();
     m_out << ",";
@@ -253,7 +253,7 @@ public:
   //   end(precedence, m_parent_precedence);
   // }
 
-  void operator()(tensor_inner_product_to_scalar const &visitable) {
+  void operator()(tensor_inner_product_to_scalar const &visitable) override {
     const auto &indices_lhs{visitable.indices_lhs()};
     const auto &indices_rhs{visitable.indices_rhs()};
     const auto parent_precedence{m_parent_precedence};
@@ -289,7 +289,8 @@ public:
    *
    * @note Will be set to zero in apply function
    */
-  void operator()([[maybe_unused]] tensor_to_scalar_one const &visitable) {
+  void
+  operator()([[maybe_unused]] tensor_to_scalar_one const &visitable) override {
     m_out << "1";
   }
 
@@ -298,7 +299,8 @@ public:
    *
    * @note Will be set to zero in apply function
    */
-  void operator()([[maybe_unused]] tensor_to_scalar_zero const &visitable) {
+  void
+  operator()([[maybe_unused]] tensor_to_scalar_zero const &visitable) override {
     m_out << "0";
   }
 
@@ -306,8 +308,8 @@ public:
    * @brief Scalar expression converted to tensor_to_scalar
    *
    */
-  void operator()(
-      [[maybe_unused]] tensor_to_scalar_scalar_wrapper const &visitable) {
+  void operator()([[maybe_unused]] tensor_to_scalar_scalar_wrapper const
+                      &visitable) override {
     apply(visitable.expr(), m_parent_precedence);
   }
 

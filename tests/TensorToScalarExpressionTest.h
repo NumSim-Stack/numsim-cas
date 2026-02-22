@@ -613,16 +613,14 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_DetScaling) {
   if constexpr (Dim == 1) {
     EXPECT_PRINT(det(_2 * X), "2*det(X)");
   } else {
-    EXPECT_PRINT(det(_2 * X),
-                 "pow(2," + std::to_string(Dim) + ")*det(X)");
+    EXPECT_PRINT(det(_2 * X), "pow(2," + std::to_string(Dim) + ")*det(X)");
   }
 
   // det(x*A) → pow(x, dim) * det(A)
   if constexpr (Dim == 1) {
     EXPECT_PRINT(det(x * X), "x*det(X)");
   } else {
-    EXPECT_PRINT(det(x * X),
-                 "pow(x," + std::to_string(Dim) + ")*det(X)");
+    EXPECT_PRINT(det(x * X), "pow(x," + std::to_string(Dim) + ")*det(X)");
   }
 }
 

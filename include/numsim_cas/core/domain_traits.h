@@ -1,9 +1,9 @@
 #ifndef DOMAIN_TRAITS_H
 #define DOMAIN_TRAITS_H
 
+#include <concepts>
 #include <numsim_cas/core/scalar_number.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
-#include <concepts>
 #include <optional>
 
 namespace numsim::cas {
@@ -30,39 +30,44 @@ template <typename Domain> struct domain_traits;
 /// All three domains (scalar, tensor_to_scalar, tensor) satisfy this.
 template <typename Domain>
 concept basic_expression_domain = requires {
-    typename domain_traits<Domain>::expression_type;
-    typename domain_traits<Domain>::expr_holder_t;
-    typename domain_traits<Domain>::add_type;
-    typename domain_traits<Domain>::mul_type;
-    typename domain_traits<Domain>::negative_type;
-    typename domain_traits<Domain>::zero_type;
-    typename domain_traits<Domain>::one_type;
-    typename domain_traits<Domain>::constant_type;
-    typename domain_traits<Domain>::pow_type;
-    typename domain_traits<Domain>::symbol_type;
-    typename domain_traits<Domain>::visitable_t;
-    typename domain_traits<Domain>::visitor_return_expr_t;
+  typename domain_traits<Domain>::expression_type;
+  typename domain_traits<Domain>::expr_holder_t;
+  typename domain_traits<Domain>::add_type;
+  typename domain_traits<Domain>::mul_type;
+  typename domain_traits<Domain>::negative_type;
+  typename domain_traits<Domain>::zero_type;
+  typename domain_traits<Domain>::one_type;
+  typename domain_traits<Domain>::constant_type;
+  typename domain_traits<Domain>::pow_type;
+  typename domain_traits<Domain>::symbol_type;
+  typename domain_traits<Domain>::visitable_t;
+  typename domain_traits<Domain>::visitor_return_expr_t;
 } && requires(typename domain_traits<Domain>::expr_holder_t const &expr) {
-    { domain_traits<Domain>::try_numeric(expr) }
-        -> std::same_as<std::optional<scalar_number>>;
-    { domain_traits<Domain>::zero(expr) }
-        -> std::same_as<typename domain_traits<Domain>::expr_holder_t>;
+  {
+    domain_traits<Domain>::try_numeric(expr)
+  } -> std::same_as<std::optional<scalar_number>>;
+  {
+    domain_traits<Domain>::zero(expr)
+  } -> std::same_as<typename domain_traits<Domain>::expr_holder_t>;
 };
 
 /// Scalar and tensor_to_scalar satisfy this; tensor does not.
 template <typename Domain>
-concept arithmetic_expression_domain = basic_expression_domain<Domain>
-    && !std::is_void_v<typename domain_traits<Domain>::mul_type>
-    && !std::is_void_v<typename domain_traits<Domain>::one_type>
-    && !std::is_void_v<typename domain_traits<Domain>::constant_type>
-    && requires {
-        { domain_traits<Domain>::zero() }
-            -> std::same_as<typename domain_traits<Domain>::expr_holder_t>;
-        { domain_traits<Domain>::one() }
-            -> std::same_as<typename domain_traits<Domain>::expr_holder_t>;
+concept arithmetic_expression_domain =
+    basic_expression_domain<Domain> &&
+    !std::is_void_v<typename domain_traits<Domain>::mul_type> &&
+    !std::is_void_v<typename domain_traits<Domain>::one_type> &&
+    !std::is_void_v<typename domain_traits<Domain>::constant_type> && requires {
+      {
+        domain_traits<Domain>::zero()
+      } -> std::same_as<typename domain_traits<Domain>::expr_holder_t>;
+      {
+        domain_traits<Domain>::one()
+      } -> std::same_as<typename domain_traits<Domain>::expr_holder_t>;
     } && requires(scalar_number const &val) {
-        { domain_traits<Domain>::make_constant(val) }
-            -> std::same_as<typename domain_traits<Domain>::expr_holder_t>;
+      {
+        domain_traits<Domain>::make_constant(val)
+      } -> std::same_as<typename domain_traits<Domain>::expr_holder_t>;
     };
 
 template <typename Traits, typename ExprT, typename ValueTypeT>

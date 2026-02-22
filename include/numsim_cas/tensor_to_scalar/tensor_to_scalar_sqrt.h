@@ -14,10 +14,10 @@ public:
   using base::base;
   tensor_to_scalar_sqrt(tensor_to_scalar_sqrt const &expr)
       : base(static_cast<base const &>(expr)) {}
-  tensor_to_scalar_sqrt(tensor_to_scalar_sqrt &&expr)
+  tensor_to_scalar_sqrt(tensor_to_scalar_sqrt &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
   tensor_to_scalar_sqrt() = delete;
-  ~tensor_to_scalar_sqrt() = default;
+  ~tensor_to_scalar_sqrt() override = default;
   const tensor_to_scalar_sqrt &operator=(tensor_to_scalar_sqrt &&) = delete;
 
 private:

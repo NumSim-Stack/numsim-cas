@@ -25,7 +25,7 @@ class visitor_return<ReturnT, T, Types...>
 public:
   using return_type = ReturnT;
   using visitor_return<ReturnT, Types...>::operator();
-  virtual ~visitor_return() = default;
+  ~visitor_return() override = default;
   virtual return_type operator()(T const &visitable) = 0;
 };
 
@@ -42,7 +42,7 @@ template <typename T, typename... Types>
 class visitor<T, Types...> : public visitor<Types...> {
 public:
   using visitor<Types...>::operator();
-  virtual ~visitor() = default;
+  ~visitor() override = default;
   virtual void operator()(T &visitable) = 0;
 };
 
@@ -59,7 +59,7 @@ template <typename T, typename... Types>
 class visitor_const<T, Types...> : public visitor_const<Types...> {
 public:
   using visitor_const<Types...>::operator();
-  virtual ~visitor_const() = default;
+  ~visitor_const() override = default;
   virtual void operator()(T const &visitable) = 0;
 };
 
@@ -72,7 +72,7 @@ public:
   template <typename... Args>
   visitable(Args &&...args) : Base(std::forward<Args>(args)...) {}
   visitable() {}
-  virtual ~visitable() = default;
+  ~visitable() override = default;
 
   virtual void accept(visitor<Types...> &v) = 0;
   virtual void accept(visitor_const<Types...> &v) const = 0;
@@ -93,7 +93,7 @@ public:
       : visitable<Base, Types...>(std::forward<Args>(args)...) {}
   visitable_impl() = default;
   using visitable<Base, Types...>::visitable;
-  virtual ~visitable_impl() = default;
+  ~visitable_impl() override = default;
 
   void accept(visitor<Types...> &v) override {
     v(static_cast<Derived &>(*this));

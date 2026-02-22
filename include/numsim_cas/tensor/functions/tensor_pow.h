@@ -33,12 +33,12 @@ public:
     }
   }
   tensor_pow(tensor_pow const &expr) : base(static_cast<base const &>(expr)) {}
-  tensor_pow(tensor_pow &&expr) : base(static_cast<base &&>(expr)) {}
+  tensor_pow(tensor_pow &&expr) noexcept : base(static_cast<base &&>(expr)) {}
   tensor_pow() = delete;
-  ~tensor_pow() = default;
+  ~tensor_pow() override = default;
   const tensor_pow &operator=(tensor_pow &&) = delete;
 
-  virtual void update_hash_value() const noexcept override {
+  void update_hash_value() const noexcept override {
     if (is_same<scalar_constant>(this->m_rhs)) {
       base::m_hash_value = this->m_lhs.get().hash_value();
     } else {

@@ -12,12 +12,12 @@ public:
   using base = unary_op<scalar_node_base_t<scalar_negative>>;
 
   using base::base;
-  scalar_negative(scalar_negative &&data)
+  scalar_negative(scalar_negative &&data) noexcept
       : base(std::move(static_cast<base &&>(data))) {}
   scalar_negative(scalar_negative const &data)
       : base(static_cast<base const &>(data)) {}
   scalar_negative() = delete;
-  ~scalar_negative() = default;
+  ~scalar_negative() override = default;
   const scalar_negative &operator=(scalar_negative &&) = delete;
 };
 

@@ -103,16 +103,16 @@ public:
   }
 
   void mismatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
-    if (dim > this->_MaxDim || dim == 0) {
+    if (dim > this->MaxDim_ || dim == 0) {
       throw evaluation_error("tensor_data_inner_product::evaluate(dim, "
                              "rankLHS, rankRHS) dim > MaxDim || dim == 0");
     }
-    if (rankLHS > this->_MaxRank || rankLHS == 0) {
+    if (rankLHS > this->MaxRank_ || rankLHS == 0) {
       throw evaluation_error(
           "tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) rankLHS "
           "> MaxRank || rankLHS == 0");
     }
-    if (rankRHS > this->_MaxRank || rankRHS == 0) {
+    if (rankRHS > this->MaxRank_ || rankRHS == 0) {
       throw evaluation_error(
           "tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) rankRHS "
           "> MaxRank || rankRHS == 0");

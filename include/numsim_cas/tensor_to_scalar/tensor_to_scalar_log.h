@@ -14,10 +14,10 @@ public:
   using base::base;
   tensor_to_scalar_log(tensor_to_scalar_log const &expr)
       : base(static_cast<base const &>(expr)) {}
-  tensor_to_scalar_log(tensor_to_scalar_log &&expr)
+  tensor_to_scalar_log(tensor_to_scalar_log &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
   tensor_to_scalar_log() = delete;
-  ~tensor_to_scalar_log() = default;
+  ~tensor_to_scalar_log() override = default;
   const tensor_to_scalar_log &operator=(tensor_to_scalar_log &&) = delete;
 
 private:

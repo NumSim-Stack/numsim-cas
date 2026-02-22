@@ -56,7 +56,7 @@ public:
    * @brief Move constructor.
    * @param data The binary_op object to move from.
    */
-  binary_op(binary_op &&data)
+  binary_op(binary_op &&data) noexcept
       : base(std::forward<base_expr>(data)), m_lhs(std::move(data.m_lhs)),
         m_rhs(std::move(data.m_rhs)) {}
 
@@ -71,7 +71,7 @@ public:
   /**
    * @brief Virtual destructor.
    */
-  virtual ~binary_op() {}
+  ~binary_op() override {}
 
   /**
    * @brief Deleted default constructor.
@@ -121,7 +121,7 @@ public:
                          binary_op<B, L, R> const &rhs);
 
 protected:
-  virtual void update_hash_value() const noexcept override {
+  void update_hash_value() const noexcept override {
     base::m_hash_value =
         update_hash<binary_op<ThisBase, BaseLHS, BaseRHS>>()(*this);
   }

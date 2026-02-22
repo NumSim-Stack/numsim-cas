@@ -12,9 +12,9 @@ public:
   tensor_mul(std::size_t dim, std::size_t rank) : base(dim, rank) {}
   tensor_mul(tensor_mul const &add)
       : base(static_cast<const base &>(add), add.dim(), add.rank()) {}
-  tensor_mul(tensor_mul &&add)
+  tensor_mul(tensor_mul &&add) noexcept
       : base(static_cast<base &&>(add), add.dim(), add.rank()) {}
-  ~tensor_mul() = default;
+  ~tensor_mul() override = default;
   const tensor_mul &operator=(tensor_mul &&) = delete;
 };
 

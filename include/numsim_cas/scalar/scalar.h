@@ -15,7 +15,7 @@ public:
 
   explicit scalar(scalar const &data) = delete;
 
-  explicit scalar(scalar &&data)
+  explicit scalar(scalar &&data) noexcept
       : base_t(std::move(static_cast<base_t &&>(data))) {}
 
   using base_t::operator=;
@@ -25,7 +25,7 @@ public:
     return *this;
   }
 
-  const scalar &operator=(scalar &&data) {
+  const scalar &operator=(scalar &&data) noexcept {
     this->m_name = data.name();
     return *this;
   }

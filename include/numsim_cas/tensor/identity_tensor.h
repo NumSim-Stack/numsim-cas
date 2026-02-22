@@ -11,11 +11,11 @@ public:
 
   identity_tensor() = delete;
   identity_tensor(std::size_t dim, std::size_t rank) : base(dim, rank) {}
-  identity_tensor(identity_tensor &&data)
+  identity_tensor(identity_tensor &&data) noexcept
       : base(static_cast<base &&>(data), data.dim(), data.rank()) {}
   identity_tensor(identity_tensor const &data)
       : base(static_cast<base const &>(data), data.dim(), data.rank()) {}
-  ~identity_tensor() = default;
+  ~identity_tensor() override = default;
   const identity_tensor &operator=(identity_tensor &&) = delete;
 
   friend bool operator<(identity_tensor const &lhs, identity_tensor const &rhs);
@@ -25,7 +25,7 @@ public:
   friend bool operator!=(identity_tensor const &lhs,
                          identity_tensor const &rhs);
 
-  virtual void update_hash_value() const override {
+  void update_hash_value() const override {
     base::m_hash_value = 0;
     hash_combine(base::m_hash_value, base::get_id());
     hash_combine(base::m_hash_value, this->dim());

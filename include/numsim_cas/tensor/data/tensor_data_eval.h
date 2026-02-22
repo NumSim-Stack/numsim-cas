@@ -26,8 +26,8 @@ public:
   }
 
 protected:
-  static constexpr auto _MaxDim{MaxDim};
-  static constexpr auto _MaxRank{MaxRank};
+  static constexpr auto MaxDim_{MaxDim};
+  static constexpr auto MaxRank_{MaxRank};
 
 private:
   template <std::size_t Dim, std::size_t RankIter, std::size_t... Ranks,

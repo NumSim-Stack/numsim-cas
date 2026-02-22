@@ -53,9 +53,8 @@ template <class T> std::complex<double> to_complex(T const &v) {
   if constexpr (is_cplx_v<T>) {
     return v;
   } else if constexpr (is_rat_v<T>) {
-    return std::complex<double>(static_cast<double>(v.num) /
-                                    static_cast<double>(v.den),
-                                0.0);
+    return std::complex<double>(
+        static_cast<double>(v.num) / static_cast<double>(v.den), 0.0);
   } else {
     return std::complex<double>(static_cast<double>(v), 0.0);
   }
@@ -111,8 +110,7 @@ scalar_number::variant_t promote_binary(scalar_number::variant_t const &a,
         }
         // both int64
         else {
-          return op(static_cast<std::int64_t>(x),
-                    static_cast<std::int64_t>(y));
+          return op(static_cast<std::int64_t>(x), static_cast<std::int64_t>(y));
         }
       },
       a, b);

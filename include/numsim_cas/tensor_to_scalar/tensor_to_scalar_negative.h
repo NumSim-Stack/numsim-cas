@@ -13,12 +13,12 @@ public:
       unary_op<tensor_to_scalar_node_base_t<tensor_to_scalar_negative>>;
 
   using base::base;
-  tensor_to_scalar_negative(tensor_to_scalar_negative &&data)
+  tensor_to_scalar_negative(tensor_to_scalar_negative &&data) noexcept
       : base(std::move(static_cast<base &&>(data))) {}
   tensor_to_scalar_negative(tensor_to_scalar_negative const &data)
       : base(static_cast<base const &>(data)) {}
   tensor_to_scalar_negative() = delete;
-  ~tensor_to_scalar_negative() = default;
+  ~tensor_to_scalar_negative() override = default;
   const tensor_to_scalar_negative &
   operator=(tensor_to_scalar_negative &&) = delete;
 };

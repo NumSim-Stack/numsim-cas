@@ -16,9 +16,9 @@ public:
   tensor_to_scalar_expression() = default;
   tensor_to_scalar_expression(tensor_to_scalar_expression const &data)
       : expression(static_cast<expression const &>(data)) {}
-  tensor_to_scalar_expression(tensor_to_scalar_expression &&data)
+  tensor_to_scalar_expression(tensor_to_scalar_expression &&data) noexcept
       : expression(std::move(static_cast<expression &&>(data))) {}
-  virtual ~tensor_to_scalar_expression() = default;
+  ~tensor_to_scalar_expression() override = default;
 
   const tensor_to_scalar_expression &
   operator=(tensor_to_scalar_expression const &) = delete;

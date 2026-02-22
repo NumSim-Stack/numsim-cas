@@ -165,8 +165,8 @@ void tensor_to_scalar_differentiation::operator()(
     return;
   }
   // exp(g) * dg -> t2s * tensor
-  m_result = make_expression<tensor_to_scalar_with_tensor_mul>(std::move(dg),
-                                                               m_expr);
+  m_result =
+      make_expression<tensor_to_scalar_with_tensor_mul>(std::move(dg), m_expr);
 }
 
 // Sqrt: d(sqrt(g))/dX = 1/(2*sqrt(g)) * dg/dX
@@ -263,8 +263,8 @@ void tensor_to_scalar_differentiation::operator()(
   auto dB = diff(visitable.expr_rhs(), m_arg);
 
   // Stored indices are already 0-based; inner_product passes them through
-  sequence seq_lhs(visitable.indices_lhs());
-  sequence seq_rhs(visitable.indices_rhs());
+  sequence const &seq_lhs = visitable.indices_lhs();
+  sequence const &seq_rhs = visitable.indices_rhs();
 
   tensor_holder_t result;
 

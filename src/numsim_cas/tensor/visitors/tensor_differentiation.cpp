@@ -181,12 +181,18 @@ void tensor_differentiation::operator()(
       std::size_t new_rank = free_lhs + m_rank_arg + free_rhs;
       sequence reorder(new_rank);
       // free_lhs slots: 0..free_lhs-1
-      std::iota(reorder.begin(), reorder.begin() + free_lhs, std::size_t{0});
+      std::iota(reorder.begin(),
+                reorder.begin() + static_cast<std::ptrdiff_t>(free_lhs),
+                std::size_t{0});
       // free_rhs slots
-      std::iota(reorder.begin() + free_lhs,
-                reorder.begin() + free_lhs + free_rhs, free_lhs + m_rank_arg);
+      std::iota(reorder.begin() + static_cast<std::ptrdiff_t>(free_lhs),
+                reorder.begin() +
+                    static_cast<std::ptrdiff_t>(free_lhs + free_rhs),
+                free_lhs + m_rank_arg);
       // rank_arg slots at end
-      std::iota(reorder.begin() + free_lhs + free_rhs, reorder.end(), free_lhs);
+      std::iota(reorder.begin() +
+                    static_cast<std::ptrdiff_t>(free_lhs + free_rhs),
+                reorder.end(), free_lhs);
       term_lhs = permute_indices(std::move(term_lhs), std::move(reorder));
     }
 
@@ -224,7 +230,8 @@ void tensor_differentiation::operator()(basis_change_imp const &visitable) {
   for (std::size_t i = 0; i < indices.size(); ++i) {
     extended[i] = indices[i];
   }
-  std::iota(extended.begin() + indices.size(), extended.end(), indices.size());
+  std::iota(extended.begin() + static_cast<std::ptrdiff_t>(indices.size()),
+            extended.end(), indices.size());
 
   m_result = permute_indices(std::move(dA), std::move(extended));
 }
@@ -253,8 +260,8 @@ void tensor_differentiation::operator()(
       new_lhs_idx[i] = seq_lhs[i];
     }
     // Append derivative indices
-    std::iota(new_lhs_idx.begin() + seq_lhs.size(), new_lhs_idx.end(),
-              rank_lhs + rank_rhs);
+    std::iota(new_lhs_idx.begin() + static_cast<std::ptrdiff_t>(seq_lhs.size()),
+              new_lhs_idx.end(), rank_lhs + rank_rhs);
     result = otimes(std::move(dA), std::move(new_lhs_idx), expr_rhs,
                     sequence(seq_rhs));
   }
@@ -265,8 +272,8 @@ void tensor_differentiation::operator()(
     for (std::size_t i = 0; i < seq_rhs.size(); ++i) {
       new_rhs_idx[i] = seq_rhs[i];
     }
-    std::iota(new_rhs_idx.begin() + seq_rhs.size(), new_rhs_idx.end(),
-              rank_lhs + rank_rhs);
+    std::iota(new_rhs_idx.begin() + static_cast<std::ptrdiff_t>(seq_rhs.size()),
+              new_rhs_idx.end(), rank_lhs + rank_rhs);
     auto term = otimes(expr_lhs, sequence(seq_lhs), std::move(dB),
                        std::move(new_rhs_idx));
     if (result.is_valid()) {

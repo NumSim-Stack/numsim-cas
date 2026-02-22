@@ -354,8 +354,8 @@ private:
 } // namespace numsim::cas
 
 // Break circular include: tensor_to_scalar_evaluator includes tensor_evaluator,
-// so we include it here (after tensor_evaluator is fully defined) and provide the
-// out-of-line implementation of the cross-domain operator.
+// so we include it here (after tensor_evaluator is fully defined) and provide
+// the out-of-line implementation of the cross-domain operator.
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_evaluator.h>
 
 namespace numsim::cas {

@@ -14,7 +14,7 @@ namespace detail {
 // sub_dispatch<Traits, Derived> — Base algorithm for A - B
 //==============================================================================
 template <typename Traits, typename Derived = void>
-  requires arithmetic_expression_domain<typename Traits::expression_type>
+requires arithmetic_expression_domain<typename Traits::expression_type>
 class sub_dispatch {
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
@@ -79,7 +79,7 @@ protected:
 // negative_sub_dispatch<Traits> — LHS is negative
 //==============================================================================
 template <typename Traits>
-  requires arithmetic_expression_domain<typename Traits::expression_type>
+requires arithmetic_expression_domain<typename Traits::expression_type>
 class negative_sub_dispatch
     : public sub_dispatch<Traits, negative_sub_dispatch<Traits>> {
   using base = sub_dispatch<Traits, negative_sub_dispatch<Traits>>;
@@ -118,7 +118,7 @@ private:
 // constant_sub_dispatch<Traits> — LHS is a constant
 //==============================================================================
 template <typename Traits>
-  requires arithmetic_expression_domain<typename Traits::expression_type>
+requires arithmetic_expression_domain<typename Traits::expression_type>
 class constant_sub_dispatch
     : public sub_dispatch<Traits, constant_sub_dispatch<Traits>> {
   using base = sub_dispatch<Traits, constant_sub_dispatch<Traits>>;
@@ -173,7 +173,7 @@ public:
 // n_ary_sub_dispatch<Traits> — LHS is add (n-ary sum)
 //==============================================================================
 template <typename Traits>
-  requires arithmetic_expression_domain<typename Traits::expression_type>
+requires arithmetic_expression_domain<typename Traits::expression_type>
 class n_ary_sub_dispatch
     : public sub_dispatch<Traits, n_ary_sub_dispatch<Traits>> {
   using base = sub_dispatch<Traits, n_ary_sub_dispatch<Traits>>;
@@ -267,7 +267,7 @@ protected:
 // n_ary_mul_sub_dispatch<Traits> — LHS is mul
 //==============================================================================
 template <typename Traits>
-  requires arithmetic_expression_domain<typename Traits::expression_type>
+requires arithmetic_expression_domain<typename Traits::expression_type>
 class n_ary_mul_sub_dispatch
     : public sub_dispatch<Traits, n_ary_mul_sub_dispatch<Traits>> {
   using base = sub_dispatch<Traits, n_ary_mul_sub_dispatch<Traits>>;
@@ -344,7 +344,7 @@ private:
 // symbol_sub_dispatch<Traits> — LHS is a symbol (only for non-void symbol_type)
 //==============================================================================
 template <typename Traits>
-  requires arithmetic_expression_domain<typename Traits::expression_type>
+requires arithmetic_expression_domain<typename Traits::expression_type>
 class symbol_sub_dispatch
     : public sub_dispatch<Traits, symbol_sub_dispatch<Traits>> {
   using base = sub_dispatch<Traits, symbol_sub_dispatch<Traits>>;
@@ -395,7 +395,7 @@ private:
 // one_sub_dispatch<Traits> — LHS is one
 //==============================================================================
 template <typename Traits>
-  requires arithmetic_expression_domain<typename Traits::expression_type>
+requires arithmetic_expression_domain<typename Traits::expression_type>
 class one_sub_dispatch : public sub_dispatch<Traits, one_sub_dispatch<Traits>> {
   using base = sub_dispatch<Traits, one_sub_dispatch<Traits>>;
 

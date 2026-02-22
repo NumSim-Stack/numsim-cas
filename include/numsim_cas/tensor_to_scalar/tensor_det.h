@@ -16,9 +16,10 @@ public:
 
   using base::base;
   tensor_det(tensor_det const &expr) : base(static_cast<base const &>(expr)) {}
-  tensor_det(tensor_det &&expr) : base(std::move(static_cast<base &&>(expr))) {}
+  tensor_det(tensor_det &&expr) noexcept
+      : base(std::move(static_cast<base &&>(expr))) {}
   tensor_det() = delete;
-  ~tensor_det() = default;
+  ~tensor_det() override = default;
   const tensor_det &operator=(tensor_det &&) = delete;
 
 private:

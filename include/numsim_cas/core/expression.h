@@ -35,7 +35,7 @@ public:
    * @brief Move constructor.
    * @param data The expression object to move from.
    */
-  expression(expression &&data) : m_hash_value(data.m_hash_value) {}
+  expression(expression &&data) noexcept : m_hash_value(data.m_hash_value) {}
 
   /**
    * @brief Virtual destructor.

@@ -39,7 +39,7 @@ public:
     //    }
   }
 
-  inner_product_wrapper(inner_product_wrapper &&data)
+  inner_product_wrapper(inner_product_wrapper &&data) noexcept
       : base(std::move(static_cast<base &&>(data))),
         m_lhs_indices(std::move(data.m_lhs_indices)),
         m_rhs_indices(std::move(data.m_rhs_indices)) {}

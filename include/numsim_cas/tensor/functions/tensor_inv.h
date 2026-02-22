@@ -10,7 +10,8 @@ public:
   using base = unary_op<tensor_node_base_t<tensor_inv>>;
 
   template <typename Expr>
-  explicit tensor_inv(Expr &&_expr)
+  explicit tensor_inv(
+      Expr &&_expr) // NOLINT(bugprone-forwarding-reference-overload)
       : base(std::forward<Expr>(_expr), _expr.get().dim(), _expr.get().rank()) {
     // inv preserves Symmetric, Volumetric, and Skew spaces.
     // Deviatoric/Harmonic are NOT preserved (tr(A^{-1}) ≠ 0 in general),

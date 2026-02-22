@@ -12,11 +12,11 @@ public:
   using base = tensor_to_scalar_node_base_t<tensor_to_scalar_zero>;
 
   tensor_to_scalar_zero() = default;
-  tensor_to_scalar_zero(tensor_to_scalar_zero &&data)
+  tensor_to_scalar_zero(tensor_to_scalar_zero &&data) noexcept
       : base(static_cast<base &&>(data)) {}
   tensor_to_scalar_zero(tensor_to_scalar_zero const &data)
       : base(static_cast<base const &>(data)) {}
-  ~tensor_to_scalar_zero() = default;
+  ~tensor_to_scalar_zero() override = default;
   const tensor_to_scalar_zero &operator=(tensor_to_scalar_zero &&) = delete;
 
   friend inline bool operator<(tensor_to_scalar_zero const &lhs,

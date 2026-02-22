@@ -16,7 +16,7 @@ public:
   tensor(std::string const &name, std::size_t dim, std::size_t rank)
       : base(name, dim, rank) {}
 
-  tensor(tensor &&data) : base(data.m_name, data.m_dim, data.m_rank) {}
+  tensor(tensor &&data) noexcept : base(data.m_name, data.m_dim, data.m_rank) {}
 
   // const tensor &operator=(expression_holder<tensor_expression> &&data) {
   //   this->m_expr = std::move(data);

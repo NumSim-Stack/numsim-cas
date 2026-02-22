@@ -14,10 +14,10 @@ public:
   using base::base;
   tensor_to_scalar_pow(tensor_to_scalar_pow const &expr)
       : base(static_cast<base const &>(expr)) {}
-  tensor_to_scalar_pow(tensor_to_scalar_pow &&expr)
+  tensor_to_scalar_pow(tensor_to_scalar_pow &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
   tensor_to_scalar_pow() = delete;
-  ~tensor_to_scalar_pow() = default;
+  ~tensor_to_scalar_pow() override = default;
   const tensor_to_scalar_pow &operator=(tensor_to_scalar_pow &&) = delete;
 };
 

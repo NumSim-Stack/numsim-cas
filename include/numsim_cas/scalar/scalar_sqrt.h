@@ -13,10 +13,10 @@ public:
   using base::base;
   scalar_sqrt(scalar_sqrt const &expr)
       : base(static_cast<base const &>(expr)) {}
-  scalar_sqrt(scalar_sqrt &&expr)
+  scalar_sqrt(scalar_sqrt &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
   scalar_sqrt() = delete;
-  ~scalar_sqrt() = default;
+  ~scalar_sqrt() override = default;
   const scalar_sqrt &operator=(scalar_sqrt &&) = delete;
 
 private:
