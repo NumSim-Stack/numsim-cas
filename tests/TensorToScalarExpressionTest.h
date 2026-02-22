@@ -580,4 +580,76 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_NormSimplification) {
   EXPECT_PRINT(norm(X), "norm(X)");
 }
 
+// ---------- trace() linearity ----------
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceLinearity) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Z = this->Z;
+  auto &_2 = this->_2;
+
+  using numsim::cas::trace;
+
+  // trace(A+B) → trace(A) + trace(B)
+  EXPECT_SAME_PRINT(trace(X + Y), trace(X) + trace(Y));
+
+  // trace(A+B+C) → trace(A) + trace(B) + trace(C)
+  EXPECT_SAME_PRINT(trace(X + Y + Z), trace(X) + trace(Y) + trace(Z));
+
+  // trace(2*A + B) → 2*trace(A) + trace(B) (scalar pull-through composes)
+  EXPECT_SAME_PRINT(trace(_2 * X + Y), _2 * trace(X) + trace(Y));
+}
+
+// ---------- det() scaling ----------
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_DetScaling) {
+  auto &X = this->X;
+  auto &x = this->x;
+  auto &_2 = this->_2;
+
+  using numsim::cas::det;
+
+  constexpr auto Dim = TestFixture::Dim;
+
+  // det(2*A) → pow(2,dim) * det(A)
+  if constexpr (Dim == 1) {
+    EXPECT_PRINT(det(_2 * X), "2*det(X)");
+  } else {
+    EXPECT_PRINT(det(_2 * X),
+                 "pow(2," + std::to_string(Dim) + ")*det(X)");
+  }
+
+  // det(x*A) → pow(x, dim) * det(A)
+  if constexpr (Dim == 1) {
+    EXPECT_PRINT(det(x * X), "x*det(X)");
+  } else {
+    EXPECT_PRINT(det(x * X),
+                 "pow(x," + std::to_string(Dim) + ")*det(X)");
+  }
+}
+
+// ---------- det() multiplicativity ----------
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_DetMultiplicativity) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+
+  using numsim::cas::det;
+
+  // det(A*B) → det(A)*det(B)
+  EXPECT_SAME_PRINT(det(X * Y), det(X) * det(Y));
+}
+
+// ---------- norm() scaling ----------
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_NormScaling) {
+  auto &X = this->X;
+  auto &x = this->x;
+  auto &_2 = this->_2;
+
+  using numsim::cas::norm;
+
+  // norm(2*A) → 2*norm(A)  (abs(2)=2 since 2 is positive)
+  EXPECT_PRINT(norm(_2 * X), "2*norm(X)");
+
+  // norm(x*A) → abs(x)*norm(A)
+  EXPECT_PRINT(norm(x * X), "abs(x)*norm(X)");
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H
