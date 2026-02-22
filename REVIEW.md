@@ -2,7 +2,7 @@
 
 > **Date**: 2026-02-22
 > **Branch**: `move_to_virtual`
-> **Codebase Stats**: 192 headers, 38 source files, 22 test files, ~21,400 LOC (library), ~6,100 LOC (tests), 384 test cases (519 after typed-test expansion), 3 expression domains
+> **Codebase Stats**: 191 headers, 38 source files, 22 test files, ~21,400 LOC (library), ~6,100 LOC (tests), 386 test cases (520 after typed-test expansion), 3 expression domains
 
 ---
 
@@ -55,7 +55,7 @@ numsim-cas is a well-engineered C++23 computer algebra system targeting continuu
 
 | Domain | Nodes | Purpose | Base Class |
 |--------|-------|---------|------------|
-| Scalar | 21 | Symbolic scalar algebra | `scalar_expression` |
+| Scalar | 20 | Symbolic scalar algebra | `scalar_expression` |
 | Tensor | 17 | Symbolic tensor algebra | `tensor_expression` |
 | Tensor-to-Scalar | 15 | Cross-domain operations (trace, det, norm, dot, exp, sqrt) | `tensor_to_scalar_expression` |
 
@@ -197,8 +197,8 @@ Tensor-to-scalar nodes bridge tensor and scalar domains. The `tensor_to_scalar_s
 ### 3.10 Other Core Components
 
 #### scalar_number.h
-- `std::variant<int64_t, double, complex<double>>` -- clean type-erasing numeric wrapper
-- **Issue**: No rational number support. `1/3` becomes `0.333...` as double, losing exactness.
+- `std::variant<int64_t, double, complex<double>, rational_t>` -- clean type-erasing numeric wrapper with exact rational arithmetic
+- ~~**Issue**: No rational number support. `1/3` becomes `0.333...` as double, losing exactness.~~ [RESOLVED — `rational_t` added with GCD normalization, full arithmetic, and type promotion hierarchy]
 
 #### assumptions.h
 - Rich assumption system (positive, negative, integer, etc.)
@@ -219,18 +219,18 @@ Tensor-to-scalar nodes bridge tensor and scalar domains. The `tensor_to_scalar_s
 
 ## 4. Scalar Domain Review
 
-### 4.1 Node Types (21)
+### 4.1 Node Types (20)
 
 All node types are well-defined with consistent patterns:
 - Constants: `scalar_zero`, `scalar_one`, `scalar_constant`
 - Symbol: `scalar`
 - Arithmetic: `scalar_add`, `scalar_mul`, `scalar_negative`, `scalar_pow`
 - Functions: `scalar_sin`, `scalar_cos`, `scalar_tan`, `scalar_asin`, `scalar_acos`, `scalar_atan`, `scalar_sqrt`, `scalar_exp`, `scalar_log`, `scalar_abs`, `scalar_sign`
-- Other: `scalar_named_expression`, `scalar_rational`
+- Other: `scalar_named_expression`
 
 **Issues**:
 - ~~**`scalar_div` is commented out** in the node list but `scalar_div.h` exists and is included in `numsim_cas.h`. Division is implemented as `x * pow(y, -1)`. The header file should either be removed or the div node re-enabled.~~ [RESOLVED — removed]
-- **`scalar_rational`** exists but is rarely used. Its relationship to `scalar_pow` with negative exponents is unclear.
+- ~~**`scalar_rational`** exists but is rarely used. Its relationship to `scalar_pow` with negative exponents is unclear.~~ [RESOLVED — removed; exact rational arithmetic now handled by `rational_t` in `scalar_number`, constant division folded in `div_fn`]
 - **No `scalar_min`/`scalar_max`**: Common operations in optimization contexts are missing.
 
 ### 4.2 Operators
@@ -628,7 +628,7 @@ The `benchmarks/` directory exists with a `poly_verse_variant` benchmark but:
 |---|-------|----------|--------|
 | ~~m1~~ | ~~`scalar_one` vs `scalar_zero` hash initialization inconsistency~~ | ~~`scalar_one.h`, `scalar_zero.h`~~ | ~~Style inconsistency~~ [RESOLVED] |
 | ~~m2~~ | ~~No `operator bool()` on `expression_holder`~~ | ~~`expression_holder.h`~~ | ~~Must use `is_valid()`~~ [RESOLVED] |
-| m3 | `scalar_rational` node exists but is rarely used | `scalar/` | Symbolic numerator/denominator node; division currently implemented as `x * pow(y, -1)` instead |
+| ~~m3~~ | ~~`scalar_rational` node exists but is rarely used~~ | ~~`scalar/`~~ | ~~Symbolic numerator/denominator node; division currently implemented as `x * pow(y, -1)` instead~~ [RESOLVED — removed; exact rationals in `scalar_number`] |
 | ~~m4~~ | ~~No `swap()` on `expression_holder`~~ | ~~`expression_holder.h`~~ | ~~Missing standard utility~~ [RESOLVED] |
 | ~~m5~~ | ~~No `CMAKE_EXPORT_COMPILE_COMMANDS`~~ | ~~`CMakeLists.txt`~~ | ~~Poor IDE integration~~ [RESOLVED] |
 | m6 | Young tableau space variant unused | `tensor_space.h` | Dead code path |
@@ -661,13 +661,8 @@ Replace `mutable std::size_t m_hash_value` with `mutable std::atomic<std::size_t
 #### ~~E3: Remove Dead Code~~ [RESOLVED]
 ~~Delete `compare_equal_visitor.h`, `symTM_test.h`, `symTM_print_test.h`, `symTM_diff_test.h`, `scalar_div.h`.~~ All removed.
 
-#### E4: Add Rational Number Type
-Extend `scalar_number` with an exact rational type (`std::pair<int64_t, int64_t>` or a proper rational class). This would enable:
-- `1/3 + 1/3 = 2/3` (exact)
-- `pow(x, 1/2)` as exact half-power
-- Cleaner symbolic coefficient handling
-
-> **Note**: A `scalar_rational` *node* already exists as a symbolic `binary_op` (numerator/denominator), with printer, evaluator, limit, and assumption visitor support. However, the division operator currently bypasses it (`x / y` → `x * pow(y, -1)`), and `scalar_number` itself has no rational variant — only `int64_t | double | complex<double>`. E4 is about adding exact rational arithmetic at the `scalar_number` level and routing division through `scalar_rational` where appropriate, not creating a new node type.
+#### ~~E4: Add Rational Number Type~~ [RESOLVED]
+~~Extend `scalar_number` with an exact rational type.~~ Added `rational_t` struct to `scalar_number` variant (`int64_t | double | complex<double> | rational_t`). GCD-normalized with den>0 invariant, den==1 collapses to int64. Full rational arithmetic (add/sub/mul/div) with type promotion hierarchy (int→rational→double→complex). `div_fn` constant-folds numeric divisions to exact rationals. Printer uses `Precedence::Division_LHS` for parenthesization. The now-redundant `scalar_rational` node was removed.
 
 ### 12.2 Medium Priority
 
@@ -804,4 +799,4 @@ Add a test that generates many random expressions and measures hash collision ra
 
 ## Summary
 
-numsim-cas is a well-architected CAS library with a solid foundation. The three-domain design, projection tensor algebra, and domain traits pattern are notable strengths. Since the initial review, significant progress has been made: all test files are now wired into the build (C2, E2), dead code has been removed (M1-M3, E3), README corrected (C3), `expression_holder` API improved (m1, m2, m4), n_ary_tree stack buffer and naming issues fixed (m8, M7), build system improved (m5, M5), and many simplification rules added (exp·exp, sin²+cos², trace linearity, det scaling/multiplicativity, norm scaling). The T2S domain was expanded with `tensor_to_scalar_exp` and `tensor_to_scalar_sqrt` nodes. The remaining areas for improvement are: thread safety (C1), expanded simplification rules, and developer-facing documentation. The enhancement proposals range from the remaining quick fix (E1) to medium-term improvements (E5-E10) that would significantly improve usability, to longer-term features (E11-E23) that would make the library competitive with established CAS systems for continuum mechanics applications.
+numsim-cas is a well-architected CAS library with a solid foundation. The three-domain design, projection tensor algebra, and domain traits pattern are notable strengths. Since the initial review, significant progress has been made: all test files are now wired into the build (C2, E2), dead code has been removed (M1-M3, E3), README corrected (C3), `expression_holder` API improved (m1, m2, m4), n_ary_tree stack buffer and naming issues fixed (m8, M7), build system improved (m5, M5), and many simplification rules added (exp·exp, sin²+cos², trace linearity, det scaling/multiplicativity, norm scaling). The T2S domain was expanded with `tensor_to_scalar_exp` and `tensor_to_scalar_sqrt` nodes. Exact rational arithmetic was added to `scalar_number` (E4) with GCD normalization and constant-folding in division, and the redundant `scalar_rational` node was removed (m3). The remaining areas for improvement are: thread safety (C1), expanded simplification rules, and developer-facing documentation. The enhancement proposals range from the remaining quick fix (E1) to medium-term improvements (E5-E10) that would significantly improve usability, to longer-term features (E11-E23) that would make the library competitive with established CAS systems for continuum mechanics applications.
