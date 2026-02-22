@@ -123,7 +123,7 @@ Tensor-to-scalar nodes bridge tensor and scalar domains. The `tensor_to_scalar_s
 
 **Issues**:
 - **No default visitor**: If a visitor doesn't override `operator()` for a node type, it gets a pure virtual call at runtime (crash), not a compile-time error. A default handler that throws or asserts would be safer.
-- **Visitor interface size**: Each new node adds a pure virtual to all visitors. With 51 total node types across domains, visitors have very wide interfaces.
+- **Visitor interface size**: Each new node adds a pure virtual to all visitors. With 52 total node types across domains, visitors have very wide interfaces.
 
 ### 3.4 Hash System
 
@@ -147,7 +147,7 @@ Tensor-to-scalar nodes bridge tensor and scalar domains. The `tensor_to_scalar_s
 **Issues**:
 - **O(n log n) hash update**: Every call to `update_hash_value()` sorts all child hashes. For incrementally built trees, this means O(n^2 log n) total cost. An incremental hash (XOR of child hashes) would be O(n) but lose ordering sensitivity.
 - **No iterator invalidation guarantee**: The hash_map is rebuilt on every push_back. If client code holds iterators, they're invalidated silently.
-- **Ordered map vs unordered map**: The name `hash_map` suggests unordered, but the implementation uses `expr_ordered_map` which is ordered. This naming is misleading.
+- ~~**Ordered map vs unordered map**: The name `hash_map` suggests unordered, but the implementation uses `expr_ordered_map` which is ordered. This naming is misleading.~~ [RESOLVED — renamed to `symbol_map()`]
 
 ### 3.6 n_ary_vector.h
 
@@ -236,7 +236,7 @@ All node types are well-defined with consistent patterns:
 ### 4.2 Operators
 
 **Good**:
-- Division correctly converts to `x * pow(y, -1)` for uniform handling
+- Division constant-folds numeric operands to exact rationals; symbolic division converts to `x * pow(y, -1)` for uniform handling
 - Negation detects double negation: `-(-x)` -> `x`
 - Zero/one special cases handled in operators before reaching simplifiers
 
