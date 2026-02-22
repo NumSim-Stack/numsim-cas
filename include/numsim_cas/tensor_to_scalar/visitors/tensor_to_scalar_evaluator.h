@@ -74,6 +74,14 @@ public:
     m_result = std::log(apply(v.expr()));
   }
 
+  void operator()(tensor_to_scalar_exp const &v) override {
+    m_result = std::exp(apply(v.expr()));
+  }
+
+  void operator()(tensor_to_scalar_sqrt const &v) override {
+    m_result = std::sqrt(apply(v.expr()));
+  }
+
   void operator()(tensor_to_scalar_add const &v) override {
     ValueType result{0};
     if (v.coeff().is_valid()) {

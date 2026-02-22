@@ -239,6 +239,12 @@ public:
   void operator()(tensor_to_scalar_log const &v) override {
     check_t2s(v.expr());
   }
+  void operator()(tensor_to_scalar_exp const &v) override {
+    check_t2s(v.expr());
+  }
+  void operator()(tensor_to_scalar_sqrt const &v) override {
+    check_t2s(v.expr());
+  }
 
   // Constants / scalar wrapper: no tensor dependency
   void operator()(tensor_to_scalar_zero const &) override {}

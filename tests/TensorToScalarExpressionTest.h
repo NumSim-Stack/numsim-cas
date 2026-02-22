@@ -652,4 +652,52 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_NormScaling) {
   EXPECT_PRINT(norm(x * X), "abs(x)*norm(X)");
 }
 
+// ---------- exp() simplification ----------
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_ExpSimplification) {
+  auto &X = this->X;
+
+  using numsim::cas::exp;
+  using numsim::cas::log;
+  using numsim::cas::trace;
+
+  auto trX = trace(X);
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+
+  // exp(0) → 1
+  EXPECT_PRINT(exp(t2s_zero), "1");
+
+  // exp(log(tr(X))) → tr(X) (inverse pair)
+  EXPECT_PRINT(exp(log(trX)), "tr(X)");
+
+  // normal case unchanged
+  EXPECT_PRINT(exp(trX), "exp(tr(X))");
+
+  // exp(tr(X)) + exp(tr(X)) → 2*exp(tr(X))
+  EXPECT_PRINT(exp(trX) + exp(trX), "2*exp(tr(X))");
+}
+
+// ---------- sqrt() simplification ----------
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_SqrtSimplification) {
+  auto &X = this->X;
+
+  using numsim::cas::sqrt;
+  using numsim::cas::trace;
+
+  auto trX = trace(X);
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+
+  // sqrt(0) → 0
+  EXPECT_PRINT(sqrt(t2s_zero), "0");
+
+  // sqrt(1) → 1
+  EXPECT_PRINT(sqrt(t2s_one), "1");
+
+  // normal case unchanged
+  EXPECT_PRINT(sqrt(trX), "sqrt(tr(X))");
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H

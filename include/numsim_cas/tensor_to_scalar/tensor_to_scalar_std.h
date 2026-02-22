@@ -108,6 +108,48 @@ template <
   return make_expression<tensor_to_scalar_log>(std::forward<Expr>(expr));
 }
 
+template <
+    typename Expr,
+    std::enable_if_t<std::is_same_v<typename std::decay_t<Expr>::expr_type,
+                                    tensor_to_scalar_expression>,
+                     bool> = true>
+[[nodiscard]] auto exp(Expr &&expr) {
+  // exp(0) → 1
+  if (is_same<tensor_to_scalar_zero>(expr))
+    return make_expression<tensor_to_scalar_one>();
+
+  // exp(log(x)) → x (inverse pair)
+  if (is_same<tensor_to_scalar_log>(expr))
+    return expr.template get<tensor_to_scalar_log>().expr();
+
+  return make_expression<tensor_to_scalar_exp>(std::forward<Expr>(expr));
+}
+
+template <
+    typename Expr,
+    std::enable_if_t<std::is_same_v<typename std::decay_t<Expr>::expr_type,
+                                    tensor_to_scalar_expression>,
+                     bool> = true>
+[[nodiscard]] auto sqrt(Expr &&expr) {
+  // sqrt(0) → 0
+  if (is_same<tensor_to_scalar_zero>(expr))
+    return make_expression<tensor_to_scalar_zero>();
+
+  // sqrt(1) → 1
+  if (is_same<tensor_to_scalar_one>(expr))
+    return make_expression<tensor_to_scalar_one>();
+
+  // sqrt(scalar_wrapper(1)) → 1
+  {
+    using traits = domain_traits<tensor_to_scalar_expression>;
+    auto val = traits::try_numeric(expr);
+    if (val && *val == scalar_number{1})
+      return make_expression<tensor_to_scalar_one>();
+  }
+
+  return make_expression<tensor_to_scalar_sqrt>(std::forward<Expr>(expr));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSOR_TO_SCALAR_STD_H

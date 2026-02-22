@@ -157,6 +157,33 @@ void tensor_to_scalar_differentiation::operator()(
                                                                one_over_g);
 }
 
+// Exp: d(exp(g))/dX = exp(g) * dg/dX
+void tensor_to_scalar_differentiation::operator()(
+    tensor_to_scalar_exp const &visitable) {
+  auto dg = diff(visitable.expr(), m_arg);
+  if (is_same<tensor_zero>(dg)) {
+    return;
+  }
+  // exp(g) * dg -> t2s * tensor
+  m_result = make_expression<tensor_to_scalar_with_tensor_mul>(std::move(dg),
+                                                               m_expr);
+}
+
+// Sqrt: d(sqrt(g))/dX = 1/(2*sqrt(g)) * dg/dX
+void tensor_to_scalar_differentiation::operator()(
+    tensor_to_scalar_sqrt const &visitable) {
+  auto dg = diff(visitable.expr(), m_arg);
+  if (is_same<tensor_zero>(dg)) {
+    return;
+  }
+  // 1/(2*sqrt(g)) * dg -> t2s * tensor
+  auto two = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar_constant>(2));
+  auto inv_2sqrt = pow(two * m_expr, -get_scalar_one());
+  m_result = make_expression<tensor_to_scalar_with_tensor_mul>(std::move(dg),
+                                                               inv_2sqrt);
+}
+
 // Trace: d(tr(A))/dX = I : dA/dX = inner(I, {1,2}, dA, {1,2})
 void tensor_to_scalar_differentiation::operator()(
     tensor_trace const &visitable) {

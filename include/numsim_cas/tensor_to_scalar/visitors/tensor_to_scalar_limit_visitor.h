@@ -41,6 +41,8 @@ public:
   void operator()(tensor_to_scalar_negative const &) override;
   void operator()(tensor_to_scalar_pow const &) override;
   void operator()(tensor_to_scalar_log const &) override;
+  void operator()(tensor_to_scalar_exp const &) override;
+  void operator()(tensor_to_scalar_sqrt const &) override;
 
   // Constants
   void operator()(tensor_to_scalar_zero const &) override;

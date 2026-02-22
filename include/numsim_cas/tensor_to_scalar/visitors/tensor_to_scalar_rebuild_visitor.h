@@ -55,6 +55,14 @@ public:
     m_result = log(apply(v.expr()));
   }
 
+  void operator()(tensor_to_scalar_exp const &v) override {
+    m_result = exp(apply(v.expr()));
+  }
+
+  void operator()(tensor_to_scalar_sqrt const &v) override {
+    m_result = sqrt(apply(v.expr()));
+  }
+
   // Unary scalar -> t2s (cross-domain!)
   void operator()(tensor_to_scalar_scalar_wrapper const &v) override {
     m_result = make_expression<tensor_to_scalar_scalar_wrapper>(

@@ -172,6 +172,15 @@ void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_log const &v) {
   m_result = apply_log(apply(v.expr()));
 }
 
+void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_exp const &v) {
+  m_result = apply_exp(apply(v.expr()));
+}
+
+void tensor_to_scalar_limit_visitor::operator()(
+    tensor_to_scalar_sqrt const &v) {
+  m_result = apply_sqrt(apply(v.expr()));
+}
+
 // ─── Constants ────────────────────────────────────────────────────
 
 void tensor_to_scalar_limit_visitor::operator()(

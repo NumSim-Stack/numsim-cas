@@ -5,7 +5,9 @@
 #include <numsim_cas/tensor_to_scalar/tensor_dot.h>
 #include <numsim_cas/tensor_to_scalar/tensor_inner_product_to_scalar.h>
 #include <numsim_cas/tensor_to_scalar/tensor_norm.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_exp.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_log.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_sqrt.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_negative.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_one.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_pow.h>

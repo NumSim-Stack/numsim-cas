@@ -68,6 +68,8 @@ public:
   void operator()(tensor_to_scalar_mul const &visitable) override;
   void operator()(tensor_to_scalar_pow const &visitable) override;
   void operator()(tensor_to_scalar_log const &visitable) override;
+  void operator()(tensor_to_scalar_exp const &visitable) override;
+  void operator()(tensor_to_scalar_sqrt const &visitable) override;
   void operator()(tensor_trace const &visitable) override;
   void operator()(tensor_dot const &visitable) override;
   void operator()(tensor_norm const &visitable) override;

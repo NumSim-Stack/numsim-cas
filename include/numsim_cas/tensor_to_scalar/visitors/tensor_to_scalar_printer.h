@@ -151,6 +151,14 @@ public:
     print_unary("log", visitable);
   }
 
+  void operator()(tensor_to_scalar_exp const &visitable) {
+    print_unary("exp", visitable);
+  }
+
+  void operator()(tensor_to_scalar_sqrt const &visitable) {
+    print_unary("sqrt", visitable);
+  }
+
   void operator()(tensor_to_scalar_add const &visitable) {
     constexpr auto precedence{Precedence::Addition};
     const auto parent_precedence{m_parent_precedence};

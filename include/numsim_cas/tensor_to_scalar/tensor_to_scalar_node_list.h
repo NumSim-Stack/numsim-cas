@@ -14,6 +14,8 @@
   NEXT(tensor_to_scalar_zero)                                                  \
   NEXT(tensor_to_scalar_one)                                                   \
   NEXT(tensor_to_scalar_log)                                                   \
+  NEXT(tensor_to_scalar_exp)                                                   \
+  NEXT(tensor_to_scalar_sqrt)                                                  \
   NEXT(tensor_to_scalar_scalar_wrapper)
 
 #endif // TENSOR_TO_SCALAR_NODE_LIST_H
