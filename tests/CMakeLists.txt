@@ -48,6 +48,9 @@ add_numsim_cas_test(numsim_cas_test
     TensorToScalarEvaluatorTest.h
     TensorToScalarExpressionTest.h
     TensorToScalarSubstitutionTest.h
+    ScalarLatexPrinterTest.h
+    TensorLatexPrinterTest.h
+    TensorToScalarLatexPrinterTest.h
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
