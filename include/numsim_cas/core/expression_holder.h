@@ -96,8 +96,6 @@ public:
   constexpr inline bool is_valid() const { return static_cast<bool>(m_expr); }
   constexpr explicit inline operator bool() const { return is_valid(); }
 
-  constexpr inline expression_holder operator-() { return detail::neg(*this); }
-
   constexpr inline expression_holder operator-() const {
     return detail::neg(*this);
   }
