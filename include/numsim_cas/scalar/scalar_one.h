@@ -9,7 +9,7 @@ namespace numsim::cas {
 class scalar_one final : public scalar_node_base_t<scalar_one> {
 public:
   using base = scalar_node_base_t<scalar_one>;
-  scalar_one() { hash_combine(this->m_hash_value, base::get_id()); }
+  scalar_one() {}
   scalar_one(scalar_one &&data) : base(std::move(static_cast<base &&>(data))) {}
   scalar_one(scalar_one const &data) : base(static_cast<base const &>(data)) {}
   ~scalar_one() = default;
