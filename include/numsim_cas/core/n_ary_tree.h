@@ -74,9 +74,13 @@ public:
   }
 
   inline auto set_coeff(expr_holder_t const &expr) noexcept { m_coeff = expr; }
+<<<<<<< HEAD
   inline auto set_coeff(expr_holder_t &&expr) noexcept {
     m_coeff = std::move(expr);
   }
+=======
+  inline auto set_coeff(expr_holder_t &&expr) noexcept { m_coeff = std::move(expr); }
+>>>>>>> origin/move_to_virtual
 
   [[nodiscard]] inline auto const &coeff() const noexcept { return m_coeff; }
   [[nodiscard]] inline auto &coeff() noexcept { return m_coeff; }

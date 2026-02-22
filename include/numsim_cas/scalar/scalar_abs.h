@@ -10,8 +10,12 @@ public:
   using base = unary_op<scalar_node_base_t<scalar_abs>>;
   using base::base;
   scalar_abs(scalar_abs const &expr) : base(static_cast<base const &>(expr)) {}
+<<<<<<< HEAD
   scalar_abs(scalar_abs &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
+=======
+  scalar_abs(scalar_abs &&expr) noexcept : base(std::move(static_cast<base &&>(expr))) {}
+>>>>>>> origin/move_to_virtual
   scalar_abs() = delete;
   ~scalar_abs() override = default;
   const scalar_abs &operator=(scalar_abs &&) = delete;

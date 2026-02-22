@@ -289,8 +289,12 @@ public:
    *
    * @note Will be set to zero in apply function
    */
+<<<<<<< HEAD
   void
   operator()([[maybe_unused]] tensor_to_scalar_one const &visitable) override {
+=======
+  void operator()([[maybe_unused]] tensor_to_scalar_one const &visitable) override {
+>>>>>>> origin/move_to_virtual
     m_out << "1";
   }
 
@@ -299,8 +303,12 @@ public:
    *
    * @note Will be set to zero in apply function
    */
+<<<<<<< HEAD
   void
   operator()([[maybe_unused]] tensor_to_scalar_zero const &visitable) override {
+=======
+  void operator()([[maybe_unused]] tensor_to_scalar_zero const &visitable) override {
+>>>>>>> origin/move_to_virtual
     m_out << "0";
   }
 
@@ -308,8 +316,13 @@ public:
    * @brief Scalar expression converted to tensor_to_scalar
    *
    */
+<<<<<<< HEAD
   void operator()([[maybe_unused]] tensor_to_scalar_scalar_wrapper const
                       &visitable) override {
+=======
+  void operator()(
+      [[maybe_unused]] tensor_to_scalar_scalar_wrapper const &visitable) override {
+>>>>>>> origin/move_to_virtual
     apply(visitable.expr(), m_parent_precedence);
   }
 

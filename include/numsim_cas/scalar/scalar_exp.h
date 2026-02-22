@@ -12,8 +12,12 @@ public:
 
   using base::base;
   scalar_exp(scalar_exp const &expr) : base(static_cast<base const &>(expr)) {}
+<<<<<<< HEAD
   scalar_exp(scalar_exp &&expr) noexcept
       : base(std::move(static_cast<base &&>(expr))) {}
+=======
+  scalar_exp(scalar_exp &&expr) noexcept : base(std::move(static_cast<base &&>(expr))) {}
+>>>>>>> origin/move_to_virtual
   scalar_exp() = delete;
   ~scalar_exp() override = default;
   const scalar_exp &operator=(scalar_exp &&) = delete;

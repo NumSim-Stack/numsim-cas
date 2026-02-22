@@ -10,8 +10,12 @@ class scalar_one final : public scalar_node_base_t<scalar_one> {
 public:
   using base = scalar_node_base_t<scalar_one>;
   scalar_one() {}
+<<<<<<< HEAD
   scalar_one(scalar_one &&data) noexcept
       : base(std::move(static_cast<base &&>(data))) {}
+=======
+  scalar_one(scalar_one &&data) noexcept : base(std::move(static_cast<base &&>(data))) {}
+>>>>>>> origin/move_to_virtual
   scalar_one(scalar_one const &data) : base(static_cast<base const &>(data)) {}
   ~scalar_one() override = default;
   const scalar_one &operator=(scalar_one &&) = delete;
