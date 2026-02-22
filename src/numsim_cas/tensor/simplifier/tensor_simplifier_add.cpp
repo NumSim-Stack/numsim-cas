@@ -21,9 +21,9 @@ template <typename Expr>
 n_ary_add::dispatch([[maybe_unused]] Expr const &rhs) {
   auto expr_add{make_expression<tensor_add>(m_lhs_node)};
   auto &add{expr_add.template get<tensor_add>()};
-  auto pos{m_lhs_node.hash_map().find(m_rhs)};
-  if (pos != m_lhs_node.hash_map().end()) {
-    add.hash_map().erase(m_rhs);
+  auto pos{m_lhs_node.symbol_map().find(m_rhs)};
+  if (pos != m_lhs_node.symbol_map().end()) {
+    add.symbol_map().erase(m_rhs);
     add.push_back(pos->second + m_rhs);
     return expr_add;
   }
@@ -42,11 +42,11 @@ n_ary_add::dispatch(tensor_add const &rhs) {
 [[nodiscard]] n_ary_add::expr_holder_t
 n_ary_add::dispatch(tensor_negative const &rhs) {
   const auto &expr_rhs{rhs.expr()};
-  const auto pos{m_lhs_node.hash_map().find(expr_rhs)};
-  if (pos != m_lhs_node.hash_map().end()) {
+  const auto pos{m_lhs_node.symbol_map().find(expr_rhs)};
+  if (pos != m_lhs_node.symbol_map().end()) {
     auto expr{make_expression<tensor_add>(m_lhs_node)};
     auto &add{expr.template get<tensor_add>()};
-    add.hash_map().erase(expr_rhs);
+    add.symbol_map().erase(expr_rhs);
     return expr;
   }
   return get_default();

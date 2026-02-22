@@ -66,7 +66,7 @@ void scalar_printer<Stream>::operator()(scalar_mul const &visitable) {
 
   begin(precedence, parent_precedence);
 
-  auto [num, denom] = partition_mul_fractions<traits>(visitable.hash_map());
+  auto [num, denom] = partition_mul_fractions<traits>(visitable.symbol_map());
 
   std::map<expr_t, expr_t, detail::scalar_pretty_printer> sorted_map;
   for (auto &child : num) {
@@ -107,7 +107,7 @@ void scalar_printer<Stream>::operator()(scalar_add const &visitable) {
   constexpr auto precedence{Precedence::Addition};
   const auto parent_precedence{m_parent_precedence};
   begin(precedence, parent_precedence);
-  const auto values{visitable.hash_map_values()};
+  const auto values{visitable.symbol_map_values()};
   std::map<expr_t, expr_t, detail::scalar_pretty_printer> sorted_map;
   std::for_each(std::begin(values), std::end(values),
                 [&](const auto &expr) { sorted_map[expr] = expr; });
@@ -127,24 +127,6 @@ void scalar_printer<Stream>::operator()(scalar_add const &visitable) {
   }
   end(precedence, parent_precedence);
 }
-
-// /**
-//  * @brief Prints a scalar division expression.
-//  *
-//  * @param visitable The scalar division expression to be printed.
-//  * @param parent_precedence The precedence of the parent expression.
-//  */
-// void scalar_printer<Stream>::operator()(scalar_div const &visitable/*,
-//                 Precedence parent_precedence*/) {
-//   constexpr auto precedence{Precedence::Multiplication};
-//   const auto parent_precedence{m_parent_precedence};
-
-//   begin(precedence, parent_precedence);
-//   apply(visitable.expr_lhs(), Precedence::Division_LHS);
-//   m_out << "/";
-//   apply(visitable.expr_rhs(), Precedence::Division_RHS);
-//   end(precedence, parent_precedence);
-// }
 
 template <typename Stream>
 void scalar_printer<Stream>::operator()(scalar_rational const &visitable) {

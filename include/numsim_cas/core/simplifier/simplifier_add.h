@@ -286,10 +286,10 @@ public:
   expr_holder_t dispatch(SymbolType const &) {
     auto expr_add{make_expression<typename Traits::add_type>(lhs)};
     auto &add{expr_add.template get<typename Traits::add_type>()};
-    auto pos{add.hash_map().find(base::m_rhs)};
-    if (pos != add.hash_map().end()) {
+    auto pos{add.symbol_map().find(base::m_rhs)};
+    if (pos != add.symbol_map().end()) {
       auto expr{pos->second + base::m_rhs};
-      add.hash_map().erase(pos);
+      add.symbol_map().erase(pos);
       add.push_back(std::move(expr));
       return expr_add;
     }
@@ -307,11 +307,11 @@ public:
 
   // (coeff + terms) + (-expr)
   expr_holder_t dispatch(typename Traits::negative_type const &rhs) {
-    const auto pos{lhs.hash_map().find(rhs.expr())};
-    if (pos != lhs.hash_map().end()) {
+    const auto pos{lhs.symbol_map().find(rhs.expr())};
+    if (pos != lhs.symbol_map().end()) {
       auto expr{make_expression<typename Traits::add_type>(lhs)};
       auto &add{expr.template get<typename Traits::add_type>()};
-      add.hash_map().erase(rhs.expr());
+      add.symbol_map().erase(rhs.expr());
       return expr;
     }
 
@@ -358,8 +358,8 @@ public:
   template <typename SymbolType = typename Traits::symbol_type>
   requires(!std::is_void_v<SymbolType>)
   expr_holder_t dispatch(SymbolType const &) {
-    const auto pos{lhs.hash_map().find(base::m_rhs)};
-    if (pos != lhs.hash_map().end() && lhs.hash_map().size() == 1) {
+    const auto pos{lhs.symbol_map().find(base::m_rhs)};
+    if (pos != lhs.symbol_map().end() && lhs.symbol_map().size() == 1) {
       auto expr{make_expression<typename Traits::mul_type>(lhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
       mul.set_coeff(Traits::make_constant(get_coefficient<Traits>(lhs, 1) + 1));
@@ -421,8 +421,8 @@ public:
 
   // x + c*x --> (c+1)*x
   expr_holder_t dispatch(typename Traits::mul_type const &rhs) {
-    const auto pos{rhs.hash_map().find(base::m_lhs)};
-    if (pos != rhs.hash_map().end() && rhs.hash_map().size() == 1) {
+    const auto pos{rhs.symbol_map().find(base::m_lhs)};
+    if (pos != rhs.symbol_map().end() && rhs.symbol_map().size() == 1) {
       auto expr{make_expression<typename Traits::mul_type>(rhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
       mul.set_coeff(Traits::make_constant(get_coefficient<Traits>(rhs, 1) + 1));

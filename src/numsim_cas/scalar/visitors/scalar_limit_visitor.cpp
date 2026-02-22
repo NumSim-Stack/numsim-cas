@@ -86,7 +86,7 @@ void scalar_limit_visitor::operator()(scalar_add const &v) {
   if (v.coeff().is_valid()) {
     result = apply(v.coeff());
   }
-  for (auto const &child : v.hash_map() | std::views::values) {
+  for (auto const &child : v.symbol_map() | std::views::values) {
     result = combine_add(result, apply(child));
   }
   m_result = result;
@@ -97,7 +97,7 @@ void scalar_limit_visitor::operator()(scalar_mul const &v) {
   if (v.coeff().is_valid()) {
     result = apply(v.coeff());
   }
-  for (auto const &child : v.hash_map() | std::views::values) {
+  for (auto const &child : v.symbol_map() | std::views::values) {
     result = combine_mul(result, apply(child));
   }
   m_result = result;

@@ -97,7 +97,7 @@ void tensor_projector_simplifier::operator()(tensor_add const &v) {
   std::vector<tensor_holder_t> simplified_children;
   if (v.coeff().is_valid())
     simplified_children.push_back(apply(v.coeff()));
-  for (auto const &child : v.hash_map() | std::views::values)
+  for (auto const &child : v.symbol_map() | std::views::values)
     simplified_children.push_back(apply(child));
 
   // Scan for projector contractions and group by argument hash.

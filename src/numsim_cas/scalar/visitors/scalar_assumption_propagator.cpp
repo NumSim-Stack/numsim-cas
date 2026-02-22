@@ -97,7 +97,7 @@ void scalar_assumption_propagator::operator()(scalar_add const &v) {
     all_nonpos &= ca.contains(nonpositive{});
   }
 
-  for (auto const &child : v.hash_map() | std::views::values) {
+  for (auto const &child : v.symbol_map() | std::views::values) {
     auto ca = apply(child);
     all_pos &= ca.contains(positive{});
     all_neg &= ca.contains(negative{});
@@ -136,7 +136,7 @@ void scalar_assumption_propagator::operator()(scalar_mul const &v) {
     all_real &= ca.contains(real_tag{});
   }
 
-  for (auto const &child : v.hash_map() | std::views::values) {
+  for (auto const &child : v.symbol_map() | std::views::values) {
     auto ca = apply(child);
     if (ca.contains(negative{}))
       ++neg_count;
@@ -445,7 +445,7 @@ public:
       all_nonneg &= ca.contains(nonnegative{});
       all_nonpos &= ca.contains(nonpositive{});
     }
-    for (auto const &child : v.hash_map() | std::views::values) {
+    for (auto const &child : v.symbol_map() | std::views::values) {
       auto const &ca = ensure_assumptions(child);
       all_pos &= ca.contains(positive{});
       all_neg &= ca.contains(negative{});
@@ -479,7 +479,7 @@ public:
       all_nonzero &= ca.contains(nonzero{});
       all_real &= ca.contains(real_tag{});
     }
-    for (auto const &child : v.hash_map() | std::views::values) {
+    for (auto const &child : v.symbol_map() | std::views::values) {
       auto const &ca = ensure_assumptions(child);
       if (ca.contains(negative{}))
         ++neg_count;

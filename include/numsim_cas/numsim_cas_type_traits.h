@@ -224,7 +224,7 @@ template <typename Type, typename... Arguments>
 using has_coefficient = decltype(std::declval<Type>().coeff());
 
 template <typename Type, typename... Arguments>
-using has_hash_map = decltype(std::declval<Type>().hash_map());
+using has_symbol_map = decltype(std::declval<Type>().symbol_map());
 
 template <typename Type, typename... Arguments>
 using has_update_hash = decltype(std::declval<Type>().update_hash());

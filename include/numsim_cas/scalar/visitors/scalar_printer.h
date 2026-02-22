@@ -15,15 +15,15 @@ struct scalar_pretty_printer {
     auto get_expr{[](expr_holder_t const &expr) noexcept {
       if (is_same<scalar_add>(expr)) {
         const auto &add{expr.get<scalar_add>()};
-        if (add.hash_map().size() == 1) {
-          return add.hash_map().begin()->second;
+        if (add.symbol_map().size() == 1) {
+          return add.symbol_map().begin()->second;
         }
       }
 
       if (is_same<scalar_mul>(expr)) {
         const auto &add{expr.get<scalar_mul>()};
-        if (add.hash_map().size() == 1) {
-          return add.hash_map().begin()->second;
+        if (add.symbol_map().size() == 1) {
+          return add.symbol_map().begin()->second;
         }
       }
 
@@ -143,24 +143,6 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(scalar_add const &visitable);
-
-  // /**
-  //  * @brief Prints a scalar division expression.
-  //  *
-  //  * @param visitable The scalar division expression to be printed.
-  //  * @param parent_precedence The precedence of the parent expression.
-  //  */
-  // void operator()(scalar_div const &visitable/*,
-  //                 Precedence parent_precedence*/) noexcept {
-  //   constexpr auto precedence{Precedence::Multiplication};
-  //   const auto parent_precedence{m_parent_precedence};
-
-  //   begin(precedence, parent_precedence);
-  //   apply(visitable.expr_lhs(), Precedence::Division_LHS);
-  //   m_out << "/";
-  //   apply(visitable.expr_rhs(), Precedence::Division_RHS);
-  //   end(precedence, parent_precedence);
-  // }
 
   /**
    * @brief Prints a rational number.

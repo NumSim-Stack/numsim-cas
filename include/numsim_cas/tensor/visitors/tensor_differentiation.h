@@ -115,7 +115,7 @@ public:
 
   void operator()(tensor_add const &visitable) override {
     tensor_holder_t sum;
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    for (auto &child : visitable.symbol_map() | std::views::values) {
       auto d = diff(child, m_arg);
       if (d.is_valid()) {
         sum += d;

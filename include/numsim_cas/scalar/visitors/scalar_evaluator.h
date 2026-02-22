@@ -63,7 +63,7 @@ public:
     if (visitable.coeff().is_valid()) {
       result += apply(visitable.coeff());
     }
-    for (auto const &child : visitable.hash_map() | std::views::values) {
+    for (auto const &child : visitable.symbol_map() | std::views::values) {
       result += apply(child);
     }
     m_result = result;
@@ -74,7 +74,7 @@ public:
     if (visitable.coeff().is_valid()) {
       result = apply(visitable.coeff());
     }
-    for (auto const &child : visitable.hash_map() | std::views::values) {
+    for (auto const &child : visitable.symbol_map() | std::views::values) {
       result *= apply(child);
     }
     m_result = result;

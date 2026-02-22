@@ -33,10 +33,10 @@ template <typename T> n_ary_sub::expr_holder_t n_ary_sub::dispatch(T const &) {
   auto expr_add{make_expression<tensor_to_scalar_add>(this->lhs)};
   auto &add{expr_add.template get<tensor_to_scalar_add>()};
   // Direct match: (sum with expr) - expr → combine
-  auto pos{add.hash_map().find(this->m_rhs)};
-  if (pos != add.hash_map().end()) {
+  auto pos{add.symbol_map().find(this->m_rhs)};
+  if (pos != add.symbol_map().end()) {
     auto combined{pos->second - this->m_rhs};
-    add.hash_map().erase(pos);
+    add.symbol_map().erase(pos);
     add.push_back(std::move(combined));
     return expr_add;
   }
@@ -70,7 +70,7 @@ n_ary_sub::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
     auto &existing_w = wrappers[0].get<tensor_to_scalar_scalar_wrapper>();
     auto &rhs_w = m_rhs.get<tensor_to_scalar_scalar_wrapper>();
     auto merged = existing_w.expr() - rhs_w.expr();
-    add.hash_map().erase(wrappers[0]);
+    add.symbol_map().erase(wrappers[0]);
     auto wrapper =
         make_expression<tensor_to_scalar_scalar_wrapper>(std::move(merged));
     auto val = Traits::try_numeric(wrapper);

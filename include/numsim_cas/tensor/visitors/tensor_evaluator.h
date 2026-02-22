@@ -81,7 +81,7 @@ public:
       tensor_data_add<ValueType> add(*result, *temp);
       add.evaluate(visitable.dim(), visitable.rank());
     }
-    for (auto const &child : visitable.hash_map() | std::views::values) {
+    for (auto const &child : visitable.symbol_map() | std::views::values) {
       auto temp = apply(child);
       tensor_data_add<ValueType> add(*result, *temp);
       add.evaluate(visitable.dim(), visitable.rank());

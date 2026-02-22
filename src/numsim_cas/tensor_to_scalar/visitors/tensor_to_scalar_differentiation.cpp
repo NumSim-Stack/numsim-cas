@@ -45,7 +45,7 @@ void tensor_to_scalar_differentiation::operator()(
 void tensor_to_scalar_differentiation::operator()(
     tensor_to_scalar_add const &visitable) {
   tensor_holder_t sum;
-  for (auto &child : visitable.hash_map() | std::views::values) {
+  for (auto &child : visitable.symbol_map() | std::views::values) {
     auto d = diff(child, m_arg);
     if (!is_same<tensor_zero>(d)) {
       sum += d;
@@ -58,7 +58,7 @@ void tensor_to_scalar_differentiation::operator()(
 // d(c * prod ai)/dX = c * sum_j (d(aj)/dX * prod_{i!=j} ai)
 void tensor_to_scalar_differentiation::operator()(
     tensor_to_scalar_mul const &visitable) {
-  auto const &factors = visitable.hash_map();
+  auto const &factors = visitable.symbol_map();
 
   tensor_holder_t sum;
 

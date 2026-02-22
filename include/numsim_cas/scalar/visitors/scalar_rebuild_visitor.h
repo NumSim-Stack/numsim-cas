@@ -39,7 +39,7 @@ public:
     expr_holder_t result;
     if (v.coeff().is_valid())
       result += apply(v.coeff());
-    for (auto &child : v.hash_map() | std::views::values)
+    for (auto &child : v.symbol_map() | std::views::values)
       result += apply(child);
     m_result = std::move(result);
   }
@@ -48,7 +48,7 @@ public:
     expr_holder_t result;
     if (v.coeff().is_valid())
       result *= apply(v.coeff());
-    for (auto &child : v.hash_map() | std::views::values)
+    for (auto &child : v.symbol_map() | std::views::values)
       result *= apply(child);
     m_result = std::move(result);
   }

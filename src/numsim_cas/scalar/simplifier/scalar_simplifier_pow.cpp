@@ -26,12 +26,12 @@ mul_pow::mul_pow(expr_holder_t lhs, expr_holder_t rhs)
 
 // pow(scalar_mul, -rhs)
 mul_pow::expr_holder_t mul_pow::dispatch(scalar_negative const &rhs) {
-  auto pos{m_lhs_node.hash_map().find(rhs.expr())};
+  auto pos{m_lhs_node.symbol_map().find(rhs.expr())};
   auto mul_expr{make_expression<scalar_mul>(m_lhs_node)};
   auto &mul{mul_expr.template get<scalar_mul>()};
   // x*y*z / x --> y*z
-  if (pos != m_lhs_node.hash_map().end()) {
-    mul.hash_map().erase(rhs.expr());
+  if (pos != m_lhs_node.symbol_map().end()) {
+    mul.symbol_map().erase(rhs.expr());
     return mul_expr;
   }
 
@@ -41,7 +41,7 @@ mul_pow::expr_holder_t mul_pow::dispatch(scalar_negative const &rhs) {
     expr_holder_t result;
     for (const auto &expr : pows) {
       const auto &pow_expr{expr.get<scalar_pow>()};
-      mul.hash_map().erase(expr);
+      mul.symbol_map().erase(expr);
       auto pow_n{pow(pow_expr.expr_lhs(), pow_expr.expr_rhs() * m_rhs)};
       if (!result.is_valid()) {
         result = std::move(pow_n);
@@ -66,7 +66,7 @@ mul_pow::expr_holder_t mul_pow::dispatch([[maybe_unused]] Expr const &rhs) {
     expr_holder_t result;
     for (const auto &expr : pows) {
       const auto &pow_expr{expr.get<scalar_pow>()};
-      mul.hash_map().erase(expr);
+      mul.symbol_map().erase(expr);
       auto pow_n{pow(pow_expr.expr_lhs(), pow_expr.expr_rhs() * m_rhs)};
       if (!result.is_valid()) {
         result = std::move(pow_n);

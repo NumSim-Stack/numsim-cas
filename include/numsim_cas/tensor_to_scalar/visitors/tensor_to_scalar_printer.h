@@ -27,7 +27,7 @@ is_scalar_like(expression_holder<tensor_to_scalar_expression> const &expr) {
     return true;
   if (is_same<tensor_to_scalar_mul>(expr)) {
     auto const &mul = expr.template get<tensor_to_scalar_mul>();
-    for (auto const &[k, v] : mul.hash_map()) {
+    for (auto const &[k, v] : mul.symbol_map()) {
       if (!is_scalar_like(v))
         return false;
     }
@@ -99,7 +99,7 @@ public:
     const auto parent_precedence{m_parent_precedence};
     begin(precedence, parent_precedence);
 
-    auto [num, denom] = partition_mul_fractions<traits>(visitable.hash_map());
+    auto [num, denom] = partition_mul_fractions<traits>(visitable.symbol_map());
 
     // scalar-like children first for consistent ordering
     std::stable_partition(num.begin(), num.end(), [](auto const &c) {
@@ -159,8 +159,8 @@ public:
     // collect children, scalar_wrapper first for consistent ordering
     using expr_t = expression_holder<tensor_to_scalar_expression>;
     std::vector<expr_t> children;
-    children.reserve(visitable.hash_map().size());
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    children.reserve(visitable.symbol_map().size());
+    for (auto &child : visitable.symbol_map() | std::views::values) {
       children.push_back(child);
     }
     std::stable_partition(children.begin(), children.end(), [](auto const &c) {

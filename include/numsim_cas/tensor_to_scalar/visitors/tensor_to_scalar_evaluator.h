@@ -79,7 +79,7 @@ public:
     if (v.coeff().is_valid()) {
       result += apply(v.coeff());
     }
-    for (auto const &child : v.hash_map() | std::views::values) {
+    for (auto const &child : v.symbol_map() | std::views::values) {
       result += apply(child);
     }
     m_result = result;
@@ -90,7 +90,7 @@ public:
     if (v.coeff().is_valid()) {
       result = apply(v.coeff());
     }
-    for (auto const &child : v.hash_map() | std::views::values) {
+    for (auto const &child : v.symbol_map() | std::views::values) {
       result *= apply(child);
     }
     m_result = result;

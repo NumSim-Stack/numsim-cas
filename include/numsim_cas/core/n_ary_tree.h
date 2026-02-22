@@ -62,15 +62,15 @@ public:
     return m_symbol_map.size();
   }
 
-  [[nodiscard]] inline auto const &hash_map() const noexcept {
+  [[nodiscard]] inline auto const &symbol_map() const noexcept {
     return m_symbol_map;
   }
 
-  [[nodiscard]] inline auto &hash_map() noexcept { return m_symbol_map; }
-  [[nodiscard]] inline auto hash_map_values() noexcept {
+  [[nodiscard]] inline auto &symbol_map() noexcept { return m_symbol_map; }
+  [[nodiscard]] inline auto symbol_map_values() noexcept {
     return m_symbol_map | std::views::values;
   }
-  [[nodiscard]] inline auto hash_map_values() const noexcept {
+  [[nodiscard]] inline auto symbol_map_values() const noexcept {
     return m_symbol_map | std::views::values;
   }
 
@@ -169,7 +169,7 @@ template <typename BaseSymbol, typename BaseTree>
 bool operator<(symbol_base<BaseSymbol> const &lhs,
                n_ary_tree<BaseTree> const &rhs) {
   if (rhs.size() == 1) {
-    return lhs.hash_value() < rhs.hash_map().begin()->second.get().hash_value();
+    return lhs.hash_value() < rhs.symbol_map().begin()->second.get().hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
@@ -178,7 +178,7 @@ template <typename BaseSymbol, typename BaseTree>
 bool operator<(n_ary_tree<BaseTree> const &lhs,
                symbol_base<BaseSymbol> const &rhs) {
   if (lhs.size() == 1) {
-    return lhs.hash_map().begin()->second.get().hash_value() < rhs.hash_value();
+    return lhs.symbol_map().begin()->second.get().hash_value() < rhs.hash_value();
   }
   return lhs.hash_value() < rhs.hash_value();
 }
@@ -189,9 +189,9 @@ bool operator<(n_ary_tree<BaseLHS> const &lhs, n_ary_tree<BaseRHS> const &rhs) {
     return lhs.hash_value() < rhs.hash_value();
   if (lhs.size() != rhs.size())
     return lhs.size() < rhs.size();
-  auto lit = lhs.hash_map().begin();
-  auto rit = rhs.hash_map().begin();
-  for (; lit != lhs.hash_map().end(); ++lit, ++rit) {
+  auto lit = lhs.symbol_map().begin();
+  auto rit = rhs.symbol_map().begin();
+  for (; lit != lhs.symbol_map().end(); ++lit, ++rit) {
     if (lit->second < rit->second)
       return true;
     if (rit->second < lit->second)
@@ -214,9 +214,9 @@ bool operator==(n_ary_tree<BaseLHS> const &lhs,
     return false;
   if (lhs.size() != rhs.size())
     return false;
-  auto it_l = lhs.hash_map().begin();
-  auto it_r = rhs.hash_map().begin();
-  for (; it_l != lhs.hash_map().end(); ++it_l, ++it_r) {
+  auto it_l = lhs.symbol_map().begin();
+  auto it_r = rhs.symbol_map().begin();
+  for (; it_l != lhs.symbol_map().end(); ++it_l, ++it_r) {
     if (it_l->second != it_r->second)
       return false;
   }

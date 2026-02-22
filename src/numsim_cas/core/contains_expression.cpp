@@ -40,7 +40,7 @@ public:
   void operator()(scalar_add const &v) override {
     if (v.coeff().is_valid())
       check(v.coeff());
-    for (auto const &child : v.hash_map() | std::views::values) {
+    for (auto const &child : v.symbol_map() | std::views::values) {
       if (m_found)
         return;
       check(child);
@@ -50,7 +50,7 @@ public:
   void operator()(scalar_mul const &v) override {
     if (v.coeff().is_valid())
       check(v.coeff());
-    for (auto const &child : v.hash_map() | std::views::values) {
+    for (auto const &child : v.symbol_map() | std::views::values) {
       if (m_found)
         return;
       check(child);
@@ -121,7 +121,7 @@ public:
   void operator()(tensor_add const &v) override {
     if (v.coeff().is_valid())
       check(v.coeff());
-    for (auto const &child : v.hash_map() | std::views::values) {
+    for (auto const &child : v.symbol_map() | std::views::values) {
       if (m_found)
         return;
       check(child);
@@ -215,7 +215,7 @@ public:
   void operator()(tensor_to_scalar_add const &v) override {
     if (v.coeff().is_valid())
       check_t2s(v.coeff());
-    for (auto const &child : v.hash_map() | std::views::values) {
+    for (auto const &child : v.symbol_map() | std::views::values) {
       if (m_found)
         return;
       check_t2s(child);
@@ -224,7 +224,7 @@ public:
   void operator()(tensor_to_scalar_mul const &v) override {
     if (v.coeff().is_valid())
       check_t2s(v.coeff());
-    for (auto const &child : v.hash_map() | std::views::values) {
+    for (auto const &child : v.symbol_map() | std::views::values) {
       if (m_found)
         return;
       check_t2s(child);

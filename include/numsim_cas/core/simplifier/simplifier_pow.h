@@ -30,11 +30,11 @@ public:
 
       // expr*x / x --> expr; for x /= 0
       if (is_same<mul_type>(m_lhs)) {
-        const auto &map{m_lhs.template get<mul_type>().hash_map()};
+        const auto &map{m_lhs.template get<mul_type>().symbol_map()};
         auto pos{map.find(expr)};
         if (pos != map.end()) {
           auto copy{make_expression<mul_type>(m_lhs.template get<mul_type>())};
-          copy.template get<mul_type>().hash_map().erase(expr);
+          copy.template get<mul_type>().symbol_map().erase(expr);
           return copy;
         }
       }
@@ -103,12 +103,12 @@ public:
 
   // pow(mul, -rhs)
   expr_holder_t dispatch(typename Traits::negative_type const &rhs) {
-    auto pos{lhs.hash_map().find(rhs.expr())};
+    auto pos{lhs.symbol_map().find(rhs.expr())};
     auto mul_expr{make_expression<typename Traits::mul_type>(lhs)};
     auto &mul{mul_expr.template get<typename Traits::mul_type>()};
     // x*y*z / x --> y*z
-    if (pos != lhs.hash_map().end()) {
-      mul.hash_map().erase(rhs.expr());
+    if (pos != lhs.symbol_map().end()) {
+      mul.symbol_map().erase(rhs.expr());
       return mul_expr;
     }
 
@@ -118,7 +118,7 @@ public:
       expr_holder_t result;
       for (const auto &expr : pows) {
         const auto &pow_expr{expr.template get<typename Traits::pow_type>()};
-        mul.hash_map().erase(expr);
+        mul.symbol_map().erase(expr);
         auto pow_n{pow(pow_expr.expr_lhs(), pow_expr.expr_rhs() * this->m_rhs)};
         if (!result.is_valid()) {
           result = std::move(pow_n);
@@ -127,7 +127,7 @@ public:
         }
       }
       // If mul has only coeff left (no children), collapse to coeff
-      if (mul.hash_map().empty()) {
+      if (mul.symbol_map().empty()) {
         if (mul.coeff().is_valid())
           return pow(mul.coeff(), this->m_rhs) * result;
         return result;
@@ -149,7 +149,7 @@ public:
       expr_holder_t result;
       for (const auto &expr : pows) {
         const auto &pow_expr{expr.template get<typename Traits::pow_type>()};
-        mul.hash_map().erase(expr);
+        mul.symbol_map().erase(expr);
         auto pow_n{pow(pow_expr.expr_lhs(), pow_expr.expr_rhs() * this->m_rhs)};
         if (!result.is_valid()) {
           result = std::move(pow_n);
@@ -158,7 +158,7 @@ public:
         }
       }
       // If mul has only coeff left (no children), collapse to coeff
-      if (mul.hash_map().empty()) {
+      if (mul.symbol_map().empty()) {
         if (mul.coeff().is_valid())
           return pow(mul.coeff(), this->m_rhs) * result;
         return result;

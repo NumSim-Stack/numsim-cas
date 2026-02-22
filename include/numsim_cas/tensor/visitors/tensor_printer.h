@@ -102,7 +102,7 @@ public:
     const auto parent_precedence{m_parent_precedence};
 
     begin(precedence, parent_precedence);
-    const auto values{visitable.hash_map() | std::views::values};
+    const auto values{visitable.symbol_map() | std::views::values};
     std::map<expr_t, expr_t> sorted_map;
     std::for_each(std::begin(values), std::end(values),
                   [&](auto &expr) { sorted_map[expr] = expr; });

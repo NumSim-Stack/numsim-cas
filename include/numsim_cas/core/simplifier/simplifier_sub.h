@@ -94,10 +94,10 @@ public:
     auto add_expr{make_expression<typename Traits::add_type>(rhs)};
     auto &add{add_expr.template get<typename Traits::add_type>()};
     auto inner = lhs.expr();
-    auto pos = add.hash_map().find(inner);
-    if (pos != add.hash_map().end()) {
+    auto pos = add.symbol_map().find(inner);
+    if (pos != add.symbol_map().end()) {
       auto combined = pos->second + inner;
-      add.hash_map().erase(pos);
+      add.symbol_map().erase(pos);
       add.push_back(combined);
     } else {
       add.push_back(inner);
@@ -146,7 +146,7 @@ public:
     auto &add{add_expr.template get<typename Traits::add_type>()};
     auto coeff{base::m_lhs - rhs.coeff()};
     add.set_coeff(std::move(coeff));
-    for (auto &child : rhs.hash_map() | std::views::values) {
+    for (auto &child : rhs.symbol_map() | std::views::values) {
       add.push_back(-child);
     }
     return add_expr;
@@ -216,9 +216,9 @@ public:
     auto &add{expr.template get<typename Traits::add_type>()};
     add.set_coeff(lhs.coeff() + rhs.coeff());
     std::set<expr_holder_t> used_expr;
-    for (auto &child : lhs.hash_map() | std::views::values) {
-      auto pos{rhs.hash_map().find(child)};
-      if (pos != rhs.hash_map().end()) {
+    for (auto &child : lhs.symbol_map() | std::views::values) {
+      auto pos{rhs.symbol_map().find(child)};
+      if (pos != rhs.symbol_map().end()) {
         used_expr.insert(pos->second);
         add.push_back(child + pos->second);
       } else {
@@ -226,7 +226,7 @@ public:
       }
     }
     if (used_expr.size() != rhs.size()) {
-      for (auto &child : rhs.hash_map() | std::views::values) {
+      for (auto &child : rhs.symbol_map() | std::views::values) {
         if (!used_expr.count(child)) {
           add.push_back(child);
         }
@@ -241,10 +241,10 @@ public:
   expr_holder_t dispatch(SymbolType const &) {
     auto expr_add{make_expression<typename Traits::add_type>(lhs)};
     auto &add{expr_add.template get<typename Traits::add_type>()};
-    auto pos{add.hash_map().find(base::m_rhs)};
-    if (pos != add.hash_map().end()) {
+    auto pos{add.symbol_map().find(base::m_rhs)};
+    if (pos != add.symbol_map().end()) {
       auto expr{pos->second - base::m_rhs};
-      add.hash_map().erase(pos);
+      add.symbol_map().erase(pos);
       add.push_back(expr);
       return expr_add;
     }
@@ -280,9 +280,9 @@ public:
   template <typename SymbolType = typename Traits::symbol_type>
   requires(!std::is_void_v<SymbolType>)
   expr_holder_t dispatch(SymbolType const &) {
-    if (lhs.hash_map().size() == 1) {
-      auto pos{lhs.hash_map().find(base::m_rhs)};
-      if (lhs.hash_map().end() != pos) {
+    if (lhs.symbol_map().size() == 1) {
+      auto pos{lhs.symbol_map().find(base::m_rhs)};
+      if (lhs.symbol_map().end() != pos) {
         const auto value{get_coefficient<Traits>(lhs, 0) - 1};
         if (value == 0) {
           return Traits::zero();
@@ -311,7 +311,7 @@ public:
         return Traits::zero();
       const auto abs_result{result.abs()};
       if (abs_result == scalar_number{1} && lhs.size() == 1) {
-        auto child = lhs.hash_map().begin()->second;
+        auto child = lhs.symbol_map().begin()->second;
         if (result < 0)
           return make_expression<typename Traits::negative_type>(
               std::move(child));

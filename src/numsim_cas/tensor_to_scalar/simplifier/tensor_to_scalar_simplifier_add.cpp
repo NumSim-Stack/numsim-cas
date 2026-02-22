@@ -17,18 +17,18 @@ template <typename T> n_ary_add::expr_holder_t n_ary_add::dispatch(T const &) {
   auto expr_add{make_expression<tensor_to_scalar_add>(this->lhs)};
   auto &add{expr_add.template get<tensor_to_scalar_add>()};
   // Direct match: (sum with expr) + expr → combine
-  auto pos{add.hash_map().find(this->m_rhs)};
-  if (pos != add.hash_map().end()) {
+  auto pos{add.symbol_map().find(this->m_rhs)};
+  if (pos != add.symbol_map().end()) {
     auto combined{pos->second + this->m_rhs};
-    add.hash_map().erase(pos);
+    add.symbol_map().erase(pos);
     add.push_back(std::move(combined));
     return expr_add;
   }
   // Reverse-negative: (sum with -expr) + expr → cancel
   auto neg_rhs{make_expression<tensor_to_scalar_negative>(this->m_rhs)};
-  auto pos_neg{add.hash_map().find(neg_rhs)};
-  if (pos_neg != add.hash_map().end()) {
-    add.hash_map().erase(pos_neg);
+  auto pos_neg{add.symbol_map().find(neg_rhs)};
+  if (pos_neg != add.symbol_map().end()) {
+    add.symbol_map().erase(pos_neg);
     return expr_add;
   }
   add.push_back(this->m_rhs);
@@ -81,7 +81,7 @@ n_ary_add::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
     auto &existing_w = wrappers[0].get<tensor_to_scalar_scalar_wrapper>();
     auto &rhs_w = m_rhs.get<tensor_to_scalar_scalar_wrapper>();
     auto merged = existing_w.expr() + rhs_w.expr();
-    add.hash_map().erase(wrappers[0]);
+    add.symbol_map().erase(wrappers[0]);
     auto wrapper =
         make_expression<tensor_to_scalar_scalar_wrapper>(std::move(merged));
     auto val = Traits::try_numeric(wrapper);

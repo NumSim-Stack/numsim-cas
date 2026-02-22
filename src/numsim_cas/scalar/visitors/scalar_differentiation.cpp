@@ -20,9 +20,9 @@ void scalar_differentiation::operator()(
 
 void scalar_differentiation::operator()(scalar_mul const &visitable) {
   expr_holder_t expr_result;
-  for (auto &expr_out : visitable.hash_map() | std::views::values) {
+  for (auto &expr_out : visitable.symbol_map() | std::views::values) {
     expr_holder_t expr_result_in;
-    for (auto &expr_in : visitable.hash_map() | std::views::values) {
+    for (auto &expr_in : visitable.symbol_map() | std::views::values) {
       if (expr_out == expr_in) {
         scalar_differentiation d(m_arg);
         expr_result_in *= d.apply(expr_in);
@@ -43,7 +43,7 @@ void scalar_differentiation::operator()(scalar_mul const &visitable) {
 
 void scalar_differentiation::operator()(scalar_add const &visitable) {
   expr_holder_t expr_result;
-  for (auto &child : visitable.hash_map() | std::views::values) {
+  for (auto &child : visitable.symbol_map() | std::views::values) {
     scalar_differentiation d(m_arg);
     expr_result += d.apply(child);
   }

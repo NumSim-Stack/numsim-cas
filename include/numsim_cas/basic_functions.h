@@ -29,7 +29,7 @@ template <typename Type, typename Base>
 inline auto get_all(n_ary_tree<Base> const &tree) {
   using expr_holder_t = typename Base::expr_holder_t;
   std::vector<expr_holder_t> result;
-  for (const auto &expr : tree.hash_map() | std::views::values) {
+  for (const auto &expr : tree.symbol_map() | std::views::values) {
     if (is_same<Type>(expr)) {
       result.push_back(expr);
     }

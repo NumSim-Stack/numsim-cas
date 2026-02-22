@@ -46,10 +46,10 @@ n_ary_mul::dispatch([[maybe_unused]] scalar const &rhs) {
   auto expr_mul{make_expression<scalar_mul>(m_lhs_node)};
   auto &mul{expr_mul.template get<scalar_mul>()};
   /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
-  auto pos{m_lhs_node.hash_map().find(m_rhs)};
-  if (pos != m_lhs_node.hash_map().end()) {
+  auto pos{m_lhs_node.symbol_map().find(m_rhs)};
+  if (pos != m_lhs_node.symbol_map().end()) {
     auto expr{pos->second * m_rhs};
-    mul.hash_map().erase(m_rhs);
+    mul.symbol_map().erase(m_rhs);
     mul.push_back(expr);
     return expr_mul;
   }
@@ -57,7 +57,7 @@ n_ary_mul::dispatch([[maybe_unused]] scalar const &rhs) {
   const auto pows{get_all<scalar_pow>(m_lhs_node)};
   for (const auto &expr : pows) {
     if (expr.get<scalar_pow>().expr_lhs() == m_rhs) {
-      mul.hash_map().erase(expr);
+      mul.symbol_map().erase(expr);
       expr_mul = std::move(expr_mul) * (expr * m_rhs);
       return expr_mul;
     }
@@ -73,9 +73,9 @@ n_ary_mul::dispatch([[maybe_unused]] scalar_pow const &rhs) {
   auto expr_mul{make_expression<scalar_mul>(m_lhs_node)};
   auto &mul{expr_mul.template get<scalar_mul>()};
 
-  const auto &hash_map{m_lhs_node.hash_map()};
-  if (hash_map.contains(rhs.expr_lhs())) {
-    mul.hash_map().erase(rhs.expr_lhs());
+  const auto &smap{m_lhs_node.symbol_map()};
+  if (smap.contains(rhs.expr_lhs())) {
+    mul.symbol_map().erase(rhs.expr_lhs());
     expr_mul = std::move(expr_mul) *
                pow(rhs.expr_lhs(), rhs.expr_rhs() + get_scalar_one());
     return expr_mul;
@@ -85,7 +85,7 @@ n_ary_mul::dispatch([[maybe_unused]] scalar_pow const &rhs) {
   for (const auto &expr : pows) {
     if (auto pow{simplify_scalar_pow_pow_mul(expr.template get<scalar_pow>(),
                                              rhs)}) {
-      mul.hash_map().erase(expr);
+      mul.symbol_map().erase(expr);
       expr_mul = std::move(expr_mul) * std::move(*pow);
       return expr_mul;
     }
@@ -103,7 +103,7 @@ n_ary_mul::dispatch([[maybe_unused]] scalar_mul const &rhs) {
   if (rhs.coeff().is_valid())
     expr_mul *= rhs.coeff();
 
-  for (const auto &expr : rhs.hash_map() | std::views::values) {
+  for (const auto &expr : rhs.symbol_map() | std::views::values) {
     expr_mul = expr_mul * expr;
   }
   return expr_mul;
@@ -154,9 +154,9 @@ scalar_pow_mul::dispatch([[maybe_unused]] scalar_mul const &rhs) {
   auto expr_mul{make_expression<scalar_mul>(rhs)};
   auto &mul{expr_mul.template get<scalar_mul>()};
 
-  const auto &hash_map{rhs.hash_map()};
-  if (hash_map.contains(m_lhs_node.expr_lhs())) {
-    mul.hash_map().erase(m_lhs_node.expr_lhs());
+  const auto &smap{rhs.symbol_map()};
+  if (smap.contains(m_lhs_node.expr_lhs())) {
+    mul.symbol_map().erase(m_lhs_node.expr_lhs());
     expr_mul =
         std::move(expr_mul) *
         pow(m_lhs_node.expr_lhs(), m_lhs_node.expr_rhs() + get_scalar_one());
@@ -167,7 +167,7 @@ scalar_pow_mul::dispatch([[maybe_unused]] scalar_mul const &rhs) {
   for (const auto &expr : pows) {
     if (auto pow{simplify_scalar_pow_pow_mul(
             m_lhs_node, expr.template get<scalar_pow>())}) {
-      mul.hash_map().erase(expr);
+      mul.symbol_map().erase(expr);
       expr_mul = std::move(expr_mul) * std::move(*pow);
       return expr_mul;
     }
@@ -196,11 +196,11 @@ symbol_mul::dispatch([[maybe_unused]] scalar_mul const &rhs) {
   auto expr_mul{make_expression<scalar_mul>(rhs)};
   auto &mul{expr_mul.template get<scalar_mul>()};
   /// check if sub_exp == expr_rhs for sub_exp \in expr_lhs
-  auto pos{rhs.hash_map().find(m_lhs)};
-  if (pos != rhs.hash_map().end()) {
+  auto pos{rhs.symbol_map().find(m_lhs)};
+  if (pos != rhs.symbol_map().end()) {
     // auto expr{binary_scalar_mul_simplify(pos->second, m_lhs)};
     auto expr{pos->second * m_lhs};
-    mul.hash_map().erase(m_lhs);
+    mul.symbol_map().erase(m_lhs);
     mul.push_back(expr);
     return expr_mul;
   }

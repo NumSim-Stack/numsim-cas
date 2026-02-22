@@ -28,9 +28,9 @@ constexpr inline void merge_add(n_ary_tree<Derived> const &lhs,
   }
 
   expr_set<expression_holder<expr_t>> used_expr;
-  for (auto &child : lhs.hash_map() | std::views::values) {
-    auto pos{rhs.hash_map().find(child)};
-    if (pos != rhs.hash_map().end()) {
+  for (auto &child : lhs.symbol_map() | std::views::values) {
+    auto pos{rhs.symbol_map().find(child)};
+    if (pos != rhs.symbol_map().end()) {
       used_expr.insert(pos->second);
       result.push_back(child + pos->second);
     } else {
@@ -38,7 +38,7 @@ constexpr inline void merge_add(n_ary_tree<Derived> const &lhs,
     }
   }
   if (used_expr.size() != rhs.size()) {
-    for (auto &child : rhs.hash_map() | std::views::values) {
+    for (auto &child : rhs.symbol_map() | std::views::values) {
       if (!used_expr.count(child)) {
         result.push_back(child);
       }

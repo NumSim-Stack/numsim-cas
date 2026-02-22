@@ -165,7 +165,7 @@
 // //     std::vector<std::size_t> child_hashes;
 // //     child_hashes.reserve(visitor.size());
 
-// //    for (const auto& child : visitor.hash_map() | std::views::values) {
+// //    for (const auto& child : visitor.symbol_map() | std::views::values) {
 // //      // Assuming each child is wrapped in a variant and supports
 // std::visit
 // //      child_hashes.push_back(std::visit(*this, *child));

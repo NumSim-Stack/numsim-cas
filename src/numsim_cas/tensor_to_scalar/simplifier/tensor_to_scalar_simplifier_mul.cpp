@@ -56,7 +56,7 @@ static bool try_fold_numeric_pow(tensor_to_scalar_mul &mul,
   auto child_exp_val = t2s_traits::try_numeric(pow_node.expr_rhs());
   if (!child_base_val || !child_exp_val)
     return false;
-  for (auto it = mul.hash_map().begin(); it != mul.hash_map().end(); ++it) {
+  for (auto it = mul.symbol_map().begin(); it != mul.symbol_map().end(); ++it) {
     if (!is_same<tensor_to_scalar_pow>(it->second))
       continue;
     auto const &existing = it->second.template get<tensor_to_scalar_pow>();
@@ -68,7 +68,7 @@ static bool try_fold_numeric_pow(tensor_to_scalar_mul &mul,
           t2s_traits::make_constant(*existing_base_val * *child_base_val);
       auto combined = make_expression<tensor_to_scalar_pow>(
           std::move(combined_base), pow_node.expr_rhs());
-      mul.hash_map().erase(it);
+      mul.symbol_map().erase(it);
       mul.push_back(std::move(combined));
       return true;
     }
@@ -81,10 +81,10 @@ static void push_or_combine(tensor_to_scalar_mul &mul,
                             mul_base::expr_holder_t const &child) {
   if (try_fold_numeric_pow(mul, child))
     return;
-  auto pos = mul.hash_map().find(child);
-  if (pos != mul.hash_map().end()) {
+  auto pos = mul.symbol_map().find(child);
+  if (pos != mul.symbol_map().end()) {
     auto combined = pos->second * child;
-    mul.hash_map().erase(pos);
+    mul.symbol_map().erase(pos);
     mul.push_back(std::move(combined));
     return;
   }
@@ -111,7 +111,7 @@ mul_base::dispatch(tensor_to_scalar_mul const &lhs) {
         mul.set_coeff(rhs_mul.coeff());
       }
     }
-    for (auto const &[k, v] : rhs_mul.hash_map()) {
+    for (auto const &[k, v] : rhs_mul.symbol_map()) {
       push_or_combine(mul, v);
     }
     return new_mul;

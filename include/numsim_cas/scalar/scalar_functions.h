@@ -71,7 +71,7 @@ bool is_constant(expression_holder<scalar_expression> const &expr);
 //   template <typename Derived>
 //   constexpr inline bool operator()(
 //       n_ary_tree<scalar_expression<ValueType>, Derived> const &visitable) {
-//     for (auto &child : visitable.hash_map() | std::views::values) {
+//     for (auto &child : visitable.symbol_map() | std::views::values) {
 //       if (std::visit(*this, child.get())) {
 //         return true;
 //       }
