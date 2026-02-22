@@ -102,6 +102,10 @@ public:
     return detail::neg(*this);
   }
 
+  constexpr inline void swap(expression_holder &other) noexcept {
+    m_expr.swap(other.m_expr);
+  }
+
   constexpr inline auto free() { return m_expr.reset(); }
 
   template <typename ExprBaseT>
