@@ -589,4 +589,23 @@ TEST_F(ScalarFixture, ADD_TrigPythagorean) {
   EXPECT_PRINT(pow(sin(x), _2) + y + pow(cos(x), _2), "1+y");
 }
 
+//
+// ODD/EVEN function simplification — sin(-x) → -sin(x), cos(-x) → cos(x)
+//
+TEST_F(ScalarFixture, Scalar_OddEvenFunctions) {
+  EXPECT_PRINT(sin(-x), "-sin(x)");
+  EXPECT_PRINT(cos(-x), "cos(x)");
+  EXPECT_PRINT(sin(-sin(x)), "-sin(sin(x))");
+  EXPECT_PRINT(cos(-cos(x)), "cos(cos(x))");
+}
+
+//
+// EXP pow simplification — exp(a)^n → exp(n*a)
+//
+TEST_F(ScalarFixture, Scalar_ExpPowSimplification) {
+  EXPECT_PRINT(pow(exp(x), _2), "exp(2*x)");
+  EXPECT_PRINT(pow(exp(x), _3), "exp(3*x)");
+  EXPECT_PRINT(pow(exp(x + y), _2), "exp(2*(x+y))");
+}
+
 #endif // SCALAREXPRESSIONTEST_H

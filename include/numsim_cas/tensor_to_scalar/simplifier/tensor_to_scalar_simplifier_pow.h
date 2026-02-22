@@ -82,6 +82,8 @@ struct pow_base final : public tensor_to_scalar_visitor_return_expr_t {
 
   expr_holder_t dispatch(tensor_to_scalar_mul const &);
 
+  expr_holder_t dispatch(tensor_to_scalar_exp const &);
+
   template <typename Type> expr_holder_t dispatch(Type const &) {
     auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
     pow_default_visitor visitor(std::move(m_lhs), std::move(m_rhs));

@@ -81,15 +81,21 @@ template <scalar_expr_holder E> [[nodiscard]] auto sin(E &&e) {
     return get_scalar_zero();
   if (is_same<scalar_asin>(e))
     return e.template get<scalar_asin>().expr();
+  if (is_same<scalar_negative>(e))
+    return -sin(e.template get<scalar_negative>().expr());
   return make_expression<scalar_sin>(std::forward<E>(e));
 }
+
 template <scalar_expr_holder E> [[nodiscard]] auto cos(E &&e) {
   if (is_same<scalar_zero>(e))
     return get_scalar_one();
   if (is_same<scalar_acos>(e))
     return e.template get<scalar_acos>().expr();
+  if (is_same<scalar_negative>(e))
+    return cos(e.template get<scalar_negative>().expr());
   return make_expression<scalar_cos>(std::forward<E>(e));
 }
+
 template <scalar_expr_holder E> [[nodiscard]] auto tan(E &&e) {
   if (is_same<scalar_zero>(e))
     return get_scalar_zero();
@@ -97,11 +103,13 @@ template <scalar_expr_holder E> [[nodiscard]] auto tan(E &&e) {
     return e.template get<scalar_atan>().expr();
   return make_expression<scalar_tan>(std::forward<E>(e));
 }
+
 template <scalar_expr_holder E> [[nodiscard]] auto asin(E &&e) {
   if (is_same<scalar_zero>(e))
     return get_scalar_zero();
   return make_expression<scalar_asin>(std::forward<E>(e));
 }
+
 template <scalar_expr_holder E> [[nodiscard]] auto acos(E &&e) {
   if (is_same<scalar_one>(e) ||
       (is_same<scalar_constant>(e) &&
@@ -109,11 +117,13 @@ template <scalar_expr_holder E> [[nodiscard]] auto acos(E &&e) {
     return get_scalar_zero();
   return make_expression<scalar_acos>(std::forward<E>(e));
 }
+
 template <scalar_expr_holder E> [[nodiscard]] auto atan(E &&e) {
   if (is_same<scalar_zero>(e))
     return get_scalar_zero();
   return make_expression<scalar_atan>(std::forward<E>(e));
 }
+
 template <scalar_expr_holder E> [[nodiscard]] auto exp(E &&e) {
   if (is_same<scalar_zero>(e))
     return get_scalar_one();
@@ -121,6 +131,7 @@ template <scalar_expr_holder E> [[nodiscard]] auto exp(E &&e) {
     return e.template get<scalar_log>().expr();
   return make_expression<scalar_exp>(std::forward<E>(e));
 }
+
 template <scalar_expr_holder E> [[nodiscard]] auto abs(E &&e) {
   if (is_positive(e) || is_nonnegative(e))
     return std::forward<E>(e);
@@ -128,6 +139,7 @@ template <scalar_expr_holder E> [[nodiscard]] auto abs(E &&e) {
     return -std::forward<E>(e);
   return make_expression<scalar_abs>(std::forward<E>(e));
 }
+
 template <scalar_expr_holder E> [[nodiscard]] auto sqrt(E &&e) {
   if (is_same<scalar_zero>(e))
     return get_scalar_zero();
@@ -146,6 +158,7 @@ template <scalar_expr_holder E> [[nodiscard]] auto sqrt(E &&e) {
   }
   return make_expression<scalar_sqrt>(std::forward<E>(e));
 }
+
 template <scalar_expr_holder E> [[nodiscard]] auto sign(E &&e) {
   if (is_positive(e))
     return get_scalar_one();
@@ -153,6 +166,7 @@ template <scalar_expr_holder E> [[nodiscard]] auto sign(E &&e) {
     return -get_scalar_one();
   return make_expression<scalar_sign>(std::forward<E>(e));
 }
+
 template <scalar_expr_holder E> [[nodiscard]] auto log(E &&e) {
   if (is_same<scalar_one>(e) ||
       (is_same<scalar_constant>(e) &&

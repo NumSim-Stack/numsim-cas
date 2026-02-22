@@ -700,4 +700,17 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_SqrtSimplification) {
   EXPECT_PRINT(sqrt(trX), "sqrt(tr(X))");
 }
 
+// ---------- exp(a)^n → exp(n*a) ----------
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_ExpPowSimplification) {
+  auto &X = this->X;
+  auto &_2 = this->_2;
+
+  using numsim::cas::exp;
+  using numsim::cas::trace;
+
+  auto trX = trace(X);
+
+  EXPECT_PRINT(numsim::cas::pow(exp(trX), _2), "exp(2*tr(X))");
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H

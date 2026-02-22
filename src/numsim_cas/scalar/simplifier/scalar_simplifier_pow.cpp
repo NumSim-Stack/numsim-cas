@@ -83,6 +83,10 @@ mul_pow::expr_holder_t mul_pow::dispatch([[maybe_unused]] Expr const &rhs) {
 pow_base::pow_base(expr_holder_t lhs, expr_holder_t rhs)
     : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
 
+pow_base::expr_holder_t pow_base::dispatch(scalar_exp const &) {
+  return exp(m_lhs.template get<scalar_exp>().expr() * m_rhs);
+}
+
 pow_base::expr_holder_t pow_base::dispatch(scalar_pow const &) {
   auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
   pow_pow visitor(std::move(m_lhs), std::move(m_rhs));

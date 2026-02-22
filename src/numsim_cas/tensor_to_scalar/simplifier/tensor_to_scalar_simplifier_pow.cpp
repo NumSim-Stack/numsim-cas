@@ -34,6 +34,10 @@ pow_base::expr_holder_t pow_base::dispatch(tensor_to_scalar_pow const &) {
   return _rhs.accept(visitor);
 }
 
+pow_base::expr_holder_t pow_base::dispatch(tensor_to_scalar_exp const &) {
+  return exp(m_lhs.template get<tensor_to_scalar_exp>().expr() * m_rhs);
+}
+
 pow_base::expr_holder_t pow_base::dispatch(tensor_to_scalar_mul const &) {
   auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
   mul_pow_visitor visitor(std::move(m_lhs), std::move(m_rhs));
