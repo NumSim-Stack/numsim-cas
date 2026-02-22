@@ -2,7 +2,7 @@
 
 > **Date**: 2026-02-22
 > **Branch**: `move_to_virtual`
-> **Codebase Stats**: 191 headers, 38 source files, 22 test files, ~21,400 LOC (library), ~6,100 LOC (tests), 386 test cases (520 after typed-test expansion), 3 expression domains
+> **Codebase Stats**: 191 headers, 38 source files, 22 test files, ~21,400 LOC (library), ~6,100 LOC (tests), 386 test cases (525 after typed-test expansion), 3 expression domains
 
 ---
 
@@ -43,7 +43,7 @@ numsim-cas is a well-engineered C++23 computer algebra system targeting continuu
 - Thread safety not addressed (lazy hash caching)
 - ~~Several dead/commented-out code sections~~ [RESOLVED — compare_equal_visitor.h, scalar_div.h, symTM_*.h removed]
 - ~~Some test files not wired into the build~~ [RESOLVED]
-- ~~Missing simplification rules for common algebraic identities~~ [PARTIALLY RESOLVED — trace linearity, det scaling/multiplicativity, norm scaling, exp·exp, sin²+cos² added]
+- ~~Missing simplification rules for common algebraic identities~~ [PARTIALLY RESOLVED — trace linearity, det scaling/multiplicativity, norm scaling, exp·exp, sin²+cos², sin(-x), cos(-x), exp(a)^n added]
 - No public API documentation (doc comments, Doxygen)
 - No benchmarking infrastructure despite existing benchmark directory
 
@@ -169,7 +169,7 @@ Tensor-to-scalar nodes bridge tensor and scalar domains. The `tensor_to_scalar_s
 
 **Issues**:
 - **Inconsistent constant types**: Scalar's `constant_type` has `.value()`, T2S's wraps a scalar expression. The `if constexpr` guard works but is fragile -- adding a fourth domain with yet another constant representation would require updating all generic algorithms.
-- **No concept checking**: Domain traits don't use C++20 concepts to enforce the required interface. A domain that forgets to define `add_type` would get a cryptic template error.
+- ~~**No concept checking**: Domain traits don't use C++20 concepts to enforce the required interface. A domain that forgets to define `add_type` would get a cryptic template error.~~ [RESOLVED — `basic_expression_domain` and `arithmetic_expression_domain` concepts added with `static_assert` in each domain traits specialization and `requires` clauses on all generic simplifier algorithms]
 
 ### 3.8 CPO Infrastructure (tag_invoke)
 
@@ -258,6 +258,9 @@ All node types are well-defined with consistent patterns:
 - `exp(x+y) -> exp(x)*exp(y)` (not always valid, needs assumptions)
 - ~~`sin(x)^2 + cos(x)^2 -> 1`~~ [RESOLVED]
 - ~~`exp(x)*exp(y) -> exp(x+y)`~~ [RESOLVED]
+- ~~`sin(-x) -> -sin(x)` (odd function)~~ [RESOLVED — construction-time guard in `scalar_std.h`]
+- ~~`cos(-x) -> cos(x)` (even function)~~ [RESOLVED — construction-time guard in `scalar_std.h`]
+- ~~`exp(a)^n -> exp(n*a)`~~ [RESOLVED — pow simplifier dispatch in scalar and T2S domains]
 - `log(exp(x)) -> x` only at construction time, not when exp(x) arrives via simplification
 - `x^a * x^b -> x^(a+b)` when a,b are non-integer (needs assumptions about x > 0)
 - `pow(x*y, n) -> pow(x, n) * pow(y, n)` (needs assumptions)
@@ -685,12 +688,12 @@ log(1/x) -> -log(x)                 (requires x > 0)
 // Exponential
 exp(log(x)) -> x                    (already at construction)
 exp(a) * exp(b) -> exp(a+b)         [RESOLVED]
-exp(a)^n -> exp(n*a)                (always valid)
+exp(a)^n -> exp(n*a)                [RESOLVED — scalar + T2S pow simplifiers]
 
 // Trigonometric
 sin(x)^2 + cos(x)^2 -> 1           [RESOLVED]
-sin(-x) -> -sin(x)                  (odd function)
-cos(-x) -> cos(x)                   (even function)
+sin(-x) -> -sin(x)                  [RESOLVED — construction-time in scalar_std.h]
+cos(-x) -> cos(x)                   [RESOLVED — construction-time in scalar_std.h]
 sin(pi - x) -> sin(x)
 cos(pi/2 - x) -> sin(x)
 
@@ -710,17 +713,16 @@ Add save/load capability for expression trees (JSON, binary, or S-expression for
 #### E8: Common Subexpression Elimination (CSE) in Evaluator
 Before evaluating, walk the expression tree and identify shared subexpressions. Evaluate each unique subtree once, store the result, and reuse it. This is standard in code generation from CAS systems.
 
-#### E9: Concept-Checked Domain Traits
-```cpp
-template <typename Domain>
-concept ExpressionDomain = requires {
-    typename domain_traits<Domain>::expr_holder_t;
-    typename domain_traits<Domain>::add_type;
-    typename domain_traits<Domain>::mul_type;
-    typename domain_traits<Domain>::zero_type;
-    { domain_traits<Domain>::zero() } -> std::same_as<typename domain_traits<Domain>::expr_holder_t>;
-};
-```
+#### ~~E9: Concept-Checked Domain Traits~~ [RESOLVED]
+~~Add C++20 concepts to enforce domain traits interface.~~
+
+**Problem**: Domain traits specializations had no compile-time interface validation. A domain that forgot to define a required type alias (e.g. `add_type`) or misspelled a static method (e.g. `try_numeric`) would produce a cryptic template error deep inside a generic simplifier algorithm — often hundreds of lines of template backtrace pointing at the wrong location.
+
+**Solution**: Added a two-level C++20 concept hierarchy in `core/domain_traits.h`:
+- `basic_expression_domain` (all three domains satisfy) — checks 12 type aliases + `try_numeric`/`zero(expr)` static methods. Used by `add_dispatch` (the only generic simplifier tensor needs) and `partition_mul_fractions`.
+- `arithmetic_expression_domain` (scalar + T2S; tensor does not) — additionally requires non-void `mul_type`/`one_type`/`constant_type` + no-arg `zero()`/`one()`/`make_constant()`. Used by all other generic simplifier dispatch classes (`constant_add`, `one_add`, `n_ary_add`, `n_ary_mul_add`, `symbol_add`, `negative_add`, all `sub` dispatches, `mul_dispatch`, all `pow` dispatches).
+
+Each domain traits specialization has a `static_assert` that verifies its concept at definition time, so errors are caught immediately rather than when a simplifier is first instantiated.
 
 #### E10: Static Analysis in CI
 Add clang-tidy with a `.clang-tidy` configuration to catch:
@@ -799,4 +801,4 @@ Add a test that generates many random expressions and measures hash collision ra
 
 ## Summary
 
-numsim-cas is a well-architected CAS library with a solid foundation. The three-domain design, projection tensor algebra, and domain traits pattern are notable strengths. Since the initial review, significant progress has been made: all test files are now wired into the build (C2, E2), dead code has been removed (M1-M3, E3), README corrected (C3), `expression_holder` API improved (m1, m2, m4), n_ary_tree stack buffer and naming issues fixed (m8, M7), build system improved (m5, M5), and many simplification rules added (exp·exp, sin²+cos², trace linearity, det scaling/multiplicativity, norm scaling). The T2S domain was expanded with `tensor_to_scalar_exp` and `tensor_to_scalar_sqrt` nodes. Exact rational arithmetic was added to `scalar_number` (E4) with GCD normalization and constant-folding in division, and the redundant `scalar_rational` node was removed (m3). The remaining areas for improvement are: thread safety (C1), expanded simplification rules, and developer-facing documentation. The enhancement proposals range from the remaining quick fix (E1) to medium-term improvements (E5-E10) that would significantly improve usability, to longer-term features (E11-E23) that would make the library competitive with established CAS systems for continuum mechanics applications.
+numsim-cas is a well-architected CAS library with a solid foundation. The three-domain design, projection tensor algebra, and domain traits pattern are notable strengths. Since the initial review, significant progress has been made: all test files are now wired into the build (C2, E2), dead code has been removed (M1-M3, E3), README corrected (C3), `expression_holder` API improved (m1, m2, m4), n_ary_tree stack buffer and naming issues fixed (m8, M7), build system improved (m5, M5), and many simplification rules added (exp·exp, sin²+cos², trace linearity, det scaling/multiplicativity, norm scaling, sin(-x)→-sin(x), cos(-x)→cos(x), exp(a)^n→exp(n*a)). The T2S domain was expanded with `tensor_to_scalar_exp` and `tensor_to_scalar_sqrt` nodes. Exact rational arithmetic was added to `scalar_number` (E4) with GCD normalization and constant-folding in division, and the redundant `scalar_rational` node was removed (m3). The remaining areas for improvement are: thread safety (C1), expanded simplification rules, and developer-facing documentation. The enhancement proposals range from the remaining quick fix (E1) to medium-term improvements (E5-E10) that would significantly improve usability, to longer-term features (E11-E23) that would make the library competitive with established CAS systems for continuum mechanics applications.

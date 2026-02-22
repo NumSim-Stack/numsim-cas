@@ -31,6 +31,8 @@ template <> struct domain_traits<tensor_expression> {
   }
 };
 
+static_assert(basic_expression_domain<tensor_expression>);
+
 } // namespace numsim::cas
 
 #endif // TENSOR_DOMAIN_TRAITS_H

@@ -48,6 +48,8 @@ template <> struct domain_traits<scalar_expression> {
   }
 };
 
+static_assert(arithmetic_expression_domain<scalar_expression>);
+
 } // namespace numsim::cas
 
 #endif // SCALAR_DOMAIN_TRAITS_H

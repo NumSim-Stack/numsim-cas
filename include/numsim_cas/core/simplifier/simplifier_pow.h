@@ -2,6 +2,7 @@
 #define SIMPLIFIER_POW_H
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/domain_traits.h>
 
 namespace numsim::cas {
 namespace detail {
@@ -9,7 +10,9 @@ namespace detail {
 //==============================================================================
 // pow_dispatch<Traits, Derived> — Base algorithm for pow(A, B)
 //==============================================================================
-template <typename Traits, typename Derived = void> class pow_dispatch {
+template <typename Traits, typename Derived = void>
+  requires arithmetic_expression_domain<typename Traits::expression_type>
+class pow_dispatch {
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
 
@@ -60,6 +63,7 @@ protected:
 // pow_pow_dispatch<Traits> — LHS is pow: pow(pow(x,a),b) → pow(x,a*b)
 //==============================================================================
 template <typename Traits>
+  requires arithmetic_expression_domain<typename Traits::expression_type>
 class pow_pow_dispatch : public pow_dispatch<Traits, pow_pow_dispatch<Traits>> {
   using base = pow_dispatch<Traits, pow_pow_dispatch<Traits>>;
 
@@ -89,6 +93,7 @@ protected:
 // mul_pow_dispatch<Traits> — LHS is mul
 //==============================================================================
 template <typename Traits>
+  requires arithmetic_expression_domain<typename Traits::expression_type>
 class mul_pow_dispatch : public pow_dispatch<Traits, mul_pow_dispatch<Traits>> {
   using base = pow_dispatch<Traits, mul_pow_dispatch<Traits>>;
 

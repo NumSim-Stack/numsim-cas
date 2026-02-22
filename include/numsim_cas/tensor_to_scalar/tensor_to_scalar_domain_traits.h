@@ -54,6 +54,8 @@ template <> struct domain_traits<tensor_to_scalar_expression> {
   }
 };
 
+static_assert(arithmetic_expression_domain<tensor_to_scalar_expression>);
+
 } // namespace numsim::cas
 
 #endif // TENSOR_TO_SCALAR_DOMAIN_TRAITS_H

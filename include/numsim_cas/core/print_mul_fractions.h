@@ -2,6 +2,7 @@
 #define PRINT_MUL_FRACTIONS_H
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/domain_traits.h>
 #include <numsim_cas/core/scalar_number.h>
 #include <utility>
 #include <vector>
@@ -14,6 +15,7 @@ template <typename ExprHolder> struct fraction_entry {
 };
 
 template <typename Traits, typename HashMap>
+  requires basic_expression_domain<typename Traits::expression_type>
 auto partition_mul_fractions(HashMap const &hash_map)
     -> std::pair<std::vector<typename Traits::expr_holder_t>,
                  std::vector<fraction_entry<typename Traits::expr_holder_t>>> {

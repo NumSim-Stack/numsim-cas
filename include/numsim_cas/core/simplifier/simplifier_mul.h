@@ -11,7 +11,9 @@ namespace detail {
 //==============================================================================
 // mul_dispatch<Traits, Derived> — Base algorithm for A * B
 //==============================================================================
-template <typename Traits, typename Derived = void> class mul_dispatch {
+template <typename Traits, typename Derived = void>
+  requires arithmetic_expression_domain<typename Traits::expression_type>
+class mul_dispatch {
 public:
   using expr_holder_t = typename Traits::expr_holder_t;
 
