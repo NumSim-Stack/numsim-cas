@@ -29,6 +29,7 @@
 
 #include <numsim_cas/scalar/scalar_diff.h>
 #include <numsim_cas/scalar/scalar_operators.h>
+#include <numsim_cas/scalar/scalar_solve.h>
 #include <numsim_cas/scalar/scalar_std.h>
 #include <numsim_cas/scalar/visitors/scalar_differentiation.h>
 #include <numsim_cas/scalar/visitors/scalar_evaluator.h>
@@ -48,6 +49,7 @@
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_io.h>
+#include <numsim_cas/tensor/tensor_solve.h>
 
 // tensor based scalar expression
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>

@@ -316,6 +316,14 @@ template <typename Expr>
 template <typename Expr> [[nodiscard]] constexpr inline auto inv(Expr &&expr) {
   if (is_same<tensor_inv>(expr))
     return expr.template get<tensor_inv>().expr();
+  // identity_tensor and kronecker_delta are self-inverse. This also avoids
+  // creating symbolic inv() nodes that tmech::inv cannot evaluate for rank-4
+  // tensors lacking minor symmetry (e.g., the minor identity delta_ik
+  // delta_jl).
+  if (is_same<identity_tensor>(expr))
+    return std::forward<Expr>(expr);
+  if (is_same<kronecker_delta>(expr))
+    return std::forward<Expr>(expr);
   return make_expression<tensor_inv>(std::forward<Expr>(expr));
 }
 

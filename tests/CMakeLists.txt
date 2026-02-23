@@ -32,6 +32,7 @@ add_numsim_cas_test(numsim_cas_test
     main.cpp
     cas_test_helpers.h
     CoreBugFixTest.h
+    SolveTest.h
     LimitVisitorTest.h
     ScalarAssumptionTest.h
     ScalarDifferentiationTest.h
