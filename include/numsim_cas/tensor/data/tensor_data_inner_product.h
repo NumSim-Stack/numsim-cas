@@ -4,6 +4,7 @@
 #include "tensor_data.h"
 #include "tensor_data_basis_change.h"
 #include <cstdlib>
+#include <numsim_cas/core/cas_error.h>
 #include <vector>
 
 namespace numsim::cas {
@@ -101,18 +102,18 @@ public:
     }
   }
 
-  void missmatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
-    if (dim > this->_MaxDim || dim == 0) {
-      throw std::runtime_error("tensor_data_inner_product::evaluate(dim, "
-                               "rankLHS, rankRHS) dim > MaxDim || dim == 0");
+  void mismatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
+    if (dim > this->MaxDim_ || dim == 0) {
+      throw evaluation_error("tensor_data_inner_product::evaluate(dim, "
+                             "rankLHS, rankRHS) dim > MaxDim || dim == 0");
     }
-    if (rankLHS > this->_MaxRank || rankLHS == 0) {
-      throw std::runtime_error(
+    if (rankLHS > this->MaxRank_ || rankLHS == 0) {
+      throw evaluation_error(
           "tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) rankLHS "
           "> MaxRank || rankLHS == 0");
     }
-    if (rankRHS > this->_MaxRank || rankRHS == 0) {
-      throw std::runtime_error(
+    if (rankRHS > this->MaxRank_ || rankRHS == 0) {
+      throw evaluation_error(
           "tensor_data_inner_product::evaluate(dim, rankLHS, rankRHS) rankRHS "
           "> MaxRank || rankRHS == 0");
     }

@@ -1,152 +1,377 @@
 #ifndef TENSOR_EVALUATOR_H
 #define TENSOR_EVALUATOR_H
 
-#include "../../functions.h"
-#include "../../numsim_cas_type_traits.h"
-#include "../data/tensor_data.h"
-#include "../data/tensor_data_add.h"
-#include "../data/tensor_data_basis_change.h"
-#include "../data/tensor_data_inner_product.h"
-#include "../data/tensor_data_outer_product.h"
-#include "../data/tensor_data_sub.h"
+#include <algorithm>
+#include <cstring>
+#include <map>
+#include <memory>
+#include <numeric>
+#include <ranges>
+
+#include <numsim_cas/core/cas_error.h>
+#include <numsim_cas/core/expression.h>
+#include <numsim_cas/core/expression_holder.h>
+#include <numsim_cas/scalar/visitors/scalar_evaluator.h>
+#include <numsim_cas/tensor/data/tensor_data.h>
+#include <numsim_cas/tensor/data/tensor_data_add.h>
+#include <numsim_cas/tensor/data/tensor_data_basis_change.h>
+#include <numsim_cas/tensor/data/tensor_data_inner_product.h>
+#include <numsim_cas/tensor/data/tensor_data_outer_product.h>
+#include <numsim_cas/tensor/data/tensor_data_projector.h>
+#include <numsim_cas/tensor/data/tensor_data_scalar_mul.h>
+#include <numsim_cas/tensor/data/tensor_data_sub.h>
+#include <numsim_cas/tensor/data/tensor_data_unary_wrapper.h>
+#include <numsim_cas/tensor/tensor_definitions.h>
+#include <numsim_cas/tensor/tensor_functions.h>
 
 namespace numsim::cas {
 
-template <typename ValueType> class tensor_evaluator {
+template <typename ValueType>
+class tensor_evaluator final : public tensor_visitor_const_t {
 public:
-  tensor_evaluator() : dim(0), rank(0), m_data() {}
+  using expr_holder_t = expression_holder<tensor_expression>;
+  using data_ptr = std::unique_ptr<tensor_data_base<ValueType>>;
+
+  tensor_evaluator() = default;
   tensor_evaluator(tensor_evaluator const &) = delete;
   tensor_evaluator(tensor_evaluator &&) = delete;
-  const tensor_evaluator &operator=(tensor_evaluator const &) = delete;
+  tensor_evaluator &operator=(tensor_evaluator const &) = delete;
 
-  std::unique_ptr<tensor_data_base<ValueType>>
-  apply([[maybe_unused]] expression &expr) {
-    //    auto &expr_ = static_cast<VisitableTensor_t<ValueType> &>(expr);
-    //    auto &tensor_expr = static_cast<tensor_expression<ValueType> &>(expr);
-    //    dim = tensor_expr.dim();
-    //    rank = tensor_expr.rank();
-    //    m_data = make_tensor_data<ValueType>(dim, rank);
-    //    expr_.accept(*this);
-    return std::move(m_data);
+  template <typename ExprBase>
+  void set(expression_holder<ExprBase> const &symbol,
+           std::shared_ptr<tensor_data_base<ValueType>> val) {
+    m_tensor_values[to_base_holder(symbol)] = std::move(val);
   }
 
-  std::unique_ptr<tensor_data_base<ValueType>>
-  apply([[maybe_unused]] expression_holder<tensor_expression<ValueType>> expr) {
-    //    auto &expr_ = static_cast<VisitableTensor_t<ValueType> &>(expr.get());
-    //    auto &tensor_expr = expr.get();
-    //    dim = tensor_expr.dim();
-    //    rank = tensor_expr.rank();
-    //    m_data = make_tensor_data<ValueType>(dim, rank);
-    //    expr_.accept(*this);
-    return std::move(m_data);
+  template <typename ExprBase>
+  void set_scalar(expression_holder<ExprBase> const &symbol, ValueType val) {
+    m_scalar_eval.set(symbol, val);
   }
 
-  void operator()(tensor<ValueType> &visitable) {
-    if (visitable) {
-      tensor_evaluator ev;
-      auto &expr = visitable.expr();
-      auto temp = ev.apply(expr);
-      tensor_data_add<ValueType> add(*m_data.get(), *temp.get());
-      add.evaluate(dim, rank);
-    } else {
-      tensor_data_add<ValueType> add(*m_data.get(), visitable.data());
-      add.evaluate(dim, rank);
+  data_ptr apply(expr_holder_t const &expr) {
+    if (expr.is_valid()) {
+      m_current_expr = to_base_holder(expr);
+      expr.template get<tensor_visitable_t>().accept(*this);
+      return std::move(m_result);
     }
+    return nullptr;
   }
 
-  void operator()(tensor_add<ValueType> &visitable) {
-    for (auto &child : visitable) {
-      tensor_evaluator ev;
-      auto temp = ev.apply(*child);
-      tensor_data_add<ValueType> add(*m_data.get(), *temp.get());
-      add.evaluate(dim, rank);
+  // ─── Symbol ──────────────────────────────────────────────────
+
+  void operator()(tensor const &) override { dispatch_tensor(); }
+
+  // ─── Constants ───────────────────────────────────────────────
+
+  void operator()([[maybe_unused]] tensor_zero const &v) override {
+    m_result = make_tensor_data<ValueType>(v.dim(), v.rank());
+  }
+
+  void operator()(kronecker_delta const &v) override { eval_identity(v); }
+
+  void operator()(identity_tensor const &v) override { eval_identity(v); }
+
+  // ─── Arithmetic ──────────────────────────────────────────────
+
+  void operator()(tensor_add const &visitable) override {
+    auto result =
+        make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    if (visitable.coeff().is_valid()) {
+      auto temp = apply(visitable.coeff());
+      tensor_data_add<ValueType> add(*result, *temp);
+      add.evaluate(visitable.dim(), visitable.rank());
     }
+    for (auto const &child : visitable.symbol_map() | std::views::values) {
+      auto temp = apply(child);
+      tensor_data_add<ValueType> add(*result, *temp);
+      add.evaluate(visitable.dim(), visitable.rank());
+    }
+    m_result = std::move(result);
   }
 
-  void operator()(tensor_negative<ValueType> &visitable) {
-    tensor_evaluator ev;
-    auto temp = ev.apply(visitable.expr());
-    tensor_data_sub<ValueType> sub(*m_data.get(), *temp.get());
-    sub.evaluate(dim, rank);
+  void operator()(tensor_negative const &v) override {
+    eval_unary_tmech<tmech_ops::neg>(v);
   }
 
-  void operator()(inner_product_wrapper<ValueType> &visitable) {
-    tensor_evaluator ev;
-    auto result_lhs{ev.apply(visitable.expr_lhs())};
-    auto result_rhs{ev.apply(visitable.expr_rhs())};
-    tensor_data_inner_product<ValueType> ip(
-        *m_data.get(), *result_lhs.get(), *result_rhs.get(),
-        visitable.sequence_lhs(), visitable.sequence_rhs());
-    // reverse the input parameter due to template call
-    // TODO reverse arguments in tensor_data
-    ip.evaluate(dim, result_rhs->rank(), result_lhs->rank());
+  void operator()(tensor_scalar_mul const &visitable) override {
+    const auto scalar_val = m_scalar_eval.apply(visitable.expr_lhs());
+    auto src = apply(visitable.expr_rhs());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_scalar_mul<ValueType> op(*m_result, *src, scalar_val);
+    op.evaluate(visitable.dim(), visitable.rank());
   }
 
-  void operator()(basis_change_imp<ValueType> &visitable) {
-    tensor_evaluator ev;
-    auto temp = ev.apply(visitable.expr());
-    tensor_data_basis_change<ValueType> imp(*m_data.get(), *temp.get(),
-                                            visitable.indices());
-    imp.evaluate(dim, rank);
+  // ─── Products ────────────────────────────────────────────────
+
+  void operator()(inner_product_wrapper const &visitable) override {
+    // Short-circuit: detect P:A where P is a known rank-2 projector and A is
+    // rank-2
+    if (visitable.indices_lhs() == sequence{3, 4} &&
+        visitable.indices_rhs() == sequence{1, 2} &&
+        visitable.expr_rhs().get().rank() == 2 &&
+        is_same<tensor_projector>(visitable.expr_lhs())) {
+      auto const &proj = visitable.expr_lhs().template get<tensor_projector>();
+      if (proj.acts_on_rank() == 2) {
+        auto const &sp = proj.space();
+        // Dispatch on known projector types
+        if (std::holds_alternative<Symmetric>(sp.perm) &&
+            std::holds_alternative<AnyTraceTag>(sp.trace)) {
+          eval_projector_unary<tmech_ops::sym>(visitable);
+          return;
+        }
+        if (std::holds_alternative<Skew>(sp.perm) &&
+            std::holds_alternative<AnyTraceTag>(sp.trace)) {
+          eval_projector_unary<tmech_ops::skew>(visitable);
+          return;
+        }
+        if (std::holds_alternative<Symmetric>(sp.perm) &&
+            std::holds_alternative<VolumetricTag>(sp.trace)) {
+          eval_projector_unary<tmech_ops::vol>(visitable);
+          return;
+        }
+        if (std::holds_alternative<Symmetric>(sp.perm) &&
+            std::holds_alternative<DeviatoricTag>(sp.trace)) {
+          eval_projector_unary<tmech_ops::dev>(visitable);
+          return;
+        }
+      }
+    }
+    // Generic inner product
+    auto lhs_data = apply(visitable.expr_lhs());
+    auto rhs_data = apply(visitable.expr_rhs());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_inner_product<ValueType> ip(*m_result, *lhs_data, *rhs_data,
+                                            visitable.indices_lhs().indices(),
+                                            visitable.indices_rhs().indices());
+    ip.evaluate(visitable.dim(), rhs_data->rank(), lhs_data->rank());
   }
 
-  void operator()(outer_product_wrapper<ValueType> &visitable) {
-    tensor_evaluator ev;
-    auto result_lhs{ev.apply((visitable.expr_lhs()))};
-    auto result_rhs{ev.apply((visitable.expr_rhs()))};
-    tensor_data_outer_product<ValueType> op(
-        *m_data.get(), *result_lhs.get(), *result_rhs.get(),
-        visitable.sequence_lhs(), visitable.sequence_rhs());
-    // reverse the input parameter due to template call
-    // TODO reverse arguments in tensor_data
-    op.evaluate(dim, result_rhs->rank(), result_lhs->rank());
+  void operator()(outer_product_wrapper const &visitable) override {
+    auto lhs_data = apply(visitable.expr_lhs());
+    auto rhs_data = apply(visitable.expr_rhs());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_outer_product<ValueType> op(*m_result, *lhs_data, *rhs_data,
+                                            visitable.indices_lhs().indices(),
+                                            visitable.indices_rhs().indices());
+    op.evaluate(visitable.dim(), rhs_data->rank(), lhs_data->rank());
   }
 
-  void operator()([[maybe_unused]] kronecker_delta<ValueType> &visitable) {}
-
-  //  void operator()(simple_outer_product<ValueType> &visitable){
-
-  //  }
-
-  void operator()(tensor_scalar_mul<ValueType> &visitable) {
-    auto &rhs = visitable.expr_rhs();
-    auto &lhs = visitable.expr_lhs();
-
-    //  scalar_evaluator ev_scalar;
-    //  const auto scalar = ev_scalar.apply(*lhs);
-    //  evaluator_tensor ev_tensor;
-    //  const auto tensor = ev_tensor.apply(*rhs);
-    //  scalar_tensor_mul_op op(*m_data, scalar, *tensor);
-    //  op.evaluate(dim, rank);
+  void operator()(basis_change_imp const &visitable) override {
+    auto temp = apply(visitable.expr());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_basis_change<ValueType> bc(*m_result, *temp,
+                                           visitable.indices().indices());
+    bc.evaluate(visitable.dim(), visitable.rank());
   }
 
-  void operator()(tensor_scalar_div<ValueType> &visitable) {
-    auto &rhs = visitable.expr_rhs();
-    auto &lhs = visitable.expr_lhs();
-
-    //  scalar_evaluator ev_scalar;
-    //  const auto scalar = ev_scalar.apply(*lhs);
-    //  evaluator_tensor ev_tensor;
-    //  const auto tensor = ev_tensor.apply(*rhs);
-    //  scalar_tensor_mul_op op(*m_data, scalar, *tensor);
-    //  op.evaluate(dim, rank);
+  void operator()(simple_outer_product const &visitable) override {
+    const auto &children = visitable.data();
+    if (children.empty()) {
+      m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+      return;
+    }
+    auto accumulated = apply(children.front());
+    for (std::size_t i = 1; i < children.size(); ++i) {
+      auto rhs_data = apply(children[i]);
+      const auto lhs_rank = accumulated->rank();
+      const auto rhs_rank = rhs_data->rank();
+      const auto result_rank = lhs_rank + rhs_rank;
+      auto result = make_tensor_data<ValueType>(visitable.dim(), result_rank);
+      sequence lhs_seq(lhs_rank), rhs_seq(rhs_rank);
+      std::iota(lhs_seq.begin(), lhs_seq.end(), 0);
+      std::iota(rhs_seq.begin(), rhs_seq.end(), lhs_rank);
+      tensor_data_outer_product<ValueType> op(*result, *accumulated, *rhs_data,
+                                              lhs_seq.indices(),
+                                              rhs_seq.indices());
+      op.evaluate(visitable.dim(), rhs_rank, lhs_rank);
+      accumulated = std::move(result);
+    }
+    m_result = std::move(accumulated);
   }
 
-  void operator()(tensor_to_scalar_with_tensor_mul<ValueType> const &) {}
+  void operator()(tensor_mul const &visitable) override {
+    const auto &children = visitable.data();
+    if (children.empty()) {
+      m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+      return;
+    }
+    auto accumulated = apply(children.front());
+    for (std::size_t i = 1; i < children.size(); ++i) {
+      auto rhs_data = apply(children[i]);
+      const auto lhs_rank = accumulated->rank();
+      const auto rhs_rank = rhs_data->rank();
+      const auto result_rank = lhs_rank + rhs_rank - 2; // single contraction
+      auto result = make_tensor_data<ValueType>(visitable.dim(), result_rank);
+      // contract last index of LHS with first index of RHS
+      std::vector<std::size_t> lhs_idx{lhs_rank - 1};
+      std::vector<std::size_t> rhs_idx{0};
+      tensor_data_inner_product<ValueType> ip(*result, *accumulated, *rhs_data,
+                                              lhs_idx, rhs_idx);
+      ip.evaluate(visitable.dim(), rhs_rank, lhs_rank);
+      accumulated = std::move(result);
+    }
+    if (visitable.coeff().is_valid()) {
+      auto coeff_data = apply(visitable.coeff());
+      auto temp =
+          make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+      const auto size = compute_size(visitable.dim(), visitable.rank());
+      auto *dst = temp->raw_data();
+      const auto *lhs = accumulated->raw_data();
+      const auto *rhs = coeff_data->raw_data();
+      for (std::size_t i = 0; i < size; ++i) {
+        dst[i] = lhs[i] * rhs[i];
+      }
+      accumulated = std::move(temp);
+    }
+    m_result = std::move(accumulated);
+  }
 
-  void operator()(tensor_to_scalar_with_tensor_div<ValueType> const &) {}
+  // ─── Tensor functions (tmech wrappers) ─────────────────────
 
-  void operator()(tensor_symmetry<ValueType> const &) {}
+  void operator()(tensor_pow const &visitable) override {
+    auto base_data = apply(visitable.expr_lhs());
+    const auto exp_val = m_scalar_eval.apply(visitable.expr_rhs());
+    const auto n = static_cast<int>(exp_val);
+    const auto d = visitable.dim();
+    const auto r = visitable.rank();
 
-  void operator()(tensor_deviatoric<ValueType> const &) {}
-  void operator()(tensor_volumetric<ValueType> const &) {}
-  void operator()(tensor_inv<ValueType> const &) {}
+    if (n == 0) {
+      m_result = make_tensor_data<ValueType>(d, r);
+      tensor_data_identity<ValueType> id(*m_result);
+      id.evaluate(d, r);
+      return;
+    }
+    if (n == 1) {
+      m_result = std::move(base_data);
+      return;
+    }
+    // Repeated contraction for positive integer exponents
+    auto accumulated = make_tensor_data<ValueType>(d, r);
+    std::memcpy(accumulated->raw_data(), base_data->raw_data(),
+                compute_size(d, r) * sizeof(ValueType));
+    for (int k = 1; k < std::abs(n); ++k) {
+      auto temp = make_tensor_data<ValueType>(d, r);
+      std::vector<std::size_t> lhs_idx{r - 1};
+      std::vector<std::size_t> rhs_idx{0};
+      tensor_data_inner_product<ValueType> ip(*temp, *accumulated, *base_data,
+                                              lhs_idx, rhs_idx);
+      ip.evaluate(d, r, r);
+      accumulated = std::move(temp);
+    }
+    m_result = std::move(accumulated);
+  }
 
-protected:
-  std::size_t dim;
-  std::size_t rank;
-  std::unique_ptr<tensor_data_base<ValueType>> m_data;
+  void operator()(tensor_inv const &v) override {
+    eval_unary_tmech<tmech_ops::inv>(v);
+  }
+
+  void operator()(tensor_projector const &visitable) override {
+    const auto d = visitable.dim();
+    const auto r = visitable.rank(); // 2 * acts_on_rank
+    m_result = make_tensor_data<ValueType>(d, r);
+    tensor_data_projector<ValueType> proj(*m_result, visitable.space());
+    proj.evaluate(d, r);
+  }
+
+  // ─── Cross-domain ────────────────────────────────────────────
+
+  // f * A where f is tensor_to_scalar (scalar-valued), A is tensor
+  // Defined out-of-line after tensor_to_scalar_evaluator is available.
+  void operator()(tensor_to_scalar_with_tensor_mul const &visitable) override;
+
+  template <class T> void operator()([[maybe_unused]] T const &) noexcept {
+    static_assert(sizeof(T) == 0,
+                  "tensor_evaluator: missing overload for this node type");
+  }
+
+private:
+  // ─── Projector short-circuit: apply tmech op to RHS of inner_product ───
+
+  template <typename Op>
+  void eval_projector_unary(inner_product_wrapper const &visitable) {
+    auto rhs_data = apply(visitable.expr_rhs());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_unary_wrapper<Op, ValueType> op(*m_result, *rhs_data);
+    op.evaluate(visitable.dim(), visitable.rank());
+  }
+
+  // ─── Generic unary tmech dispatch ───────────────────────────
+
+  template <typename Op, typename Visitable>
+  void eval_unary_tmech(Visitable const &visitable) {
+    auto temp = apply(visitable.expr());
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_unary_wrapper<Op, ValueType> op(*m_result, *temp);
+    op.evaluate(visitable.dim(), visitable.rank());
+  }
+
+  // ─── Identity dispatch via tmech::eye ───────────────────────
+
+  template <typename Visitable> void eval_identity(Visitable const &visitable) {
+    m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
+    tensor_data_identity<ValueType> id(*m_result);
+    id.evaluate(visitable.dim(), visitable.rank());
+  }
+
+  // ─── Symbol dispatch ─────────────────────────────────────────
+
+  void dispatch_tensor() {
+    auto it = m_tensor_values.find(m_current_expr);
+    if (it == m_tensor_values.end()) {
+      throw evaluation_error("tensor_evaluator: symbol not found");
+    }
+    auto &src = it->second;
+    m_result = make_tensor_data<ValueType>(src->dim(), src->rank());
+    tensor_data_add<ValueType> add(*m_result, *src);
+    add.evaluate(src->dim(), src->rank());
+  }
+
+  template <typename ExprBase>
+  static expression_holder<expression>
+  to_base_holder(expression_holder<ExprBase> const &h) {
+    return expression_holder<expression>(
+        std::static_pointer_cast<expression>(h.data()));
+  }
+
+  static constexpr std::size_t compute_size(std::size_t d,
+                                            std::size_t r) noexcept {
+    std::size_t size{1};
+    for (std::size_t i{0}; i < r; ++i)
+      size *= d;
+    return size;
+  }
+
+  // ─── State ───────────────────────────────────────────────────
+
+  std::map<expression_holder<expression>,
+           std::shared_ptr<tensor_data_base<ValueType>>>
+      m_tensor_values;
+  scalar_evaluator<ValueType> m_scalar_eval;
+  data_ptr m_result;
+  expression_holder<expression> m_current_expr;
 };
+
+} // namespace numsim::cas
+
+namespace numsim::cas {
+
+template <typename ValueType> class tensor_to_scalar_evaluator;
+
+template <typename ValueType>
+void tensor_evaluator<ValueType>::operator()(
+    tensor_to_scalar_with_tensor_mul const &visitable) {
+  tensor_to_scalar_evaluator<ValueType> t2s_eval;
+  for (auto const &[key, val] : m_tensor_values) {
+    t2s_eval.set(key, val);
+  }
+  const auto scalar_val = t2s_eval.apply(visitable.expr_rhs());
+  auto src = apply(visitable.expr_lhs());
+  const auto dim = src->dim();
+  const auto rank = src->rank();
+  m_result = make_tensor_data<ValueType>(dim, rank);
+  tensor_data_scalar_mul<ValueType> op(*m_result, *src, scalar_val);
+  op.evaluate(dim, rank);
+}
 
 } // namespace numsim::cas
 

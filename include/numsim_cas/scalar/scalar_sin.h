@@ -1,22 +1,21 @@
 #ifndef SCALAR_SIN_H
 #define SCALAR_SIN_H
 
-#include "../scalar/scalar_expression.h"
-#include "../unary_op.h"
+#include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class scalar_sin final
-    : public unary_op<scalar_sin<ValueType>, scalar_expression<ValueType>> {
+class scalar_sin final : public unary_op<scalar_node_base_t<scalar_sin>> {
 public:
-  using base = unary_op<scalar_sin<ValueType>, scalar_expression<ValueType>>;
+  using base = unary_op<scalar_node_base_t<scalar_sin>>;
 
   using base::base;
   scalar_sin(scalar_sin const &expr) : base(static_cast<base const &>(expr)) {}
-  scalar_sin(scalar_sin &&expr) : base(std::move(static_cast<base &&>(expr))) {}
+  scalar_sin(scalar_sin &&expr) noexcept
+      : base(std::move(static_cast<base &&>(expr))) {}
   scalar_sin() = delete;
-  ~scalar_sin() = default;
+  ~scalar_sin() override = default;
   const scalar_sin &operator=(scalar_sin &&) = delete;
 
 private:

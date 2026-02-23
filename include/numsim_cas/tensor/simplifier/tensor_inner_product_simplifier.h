@@ -5,26 +5,25 @@
 
 namespace numsim::cas {
 namespace detail {
-template <typename ValueType, template <typename> class TypeLHS,
-          template <typename> class TypeRHS>
-struct otimes_check {
-  using lhs_type = TypeLHS<ValueType>;
-  using rhs_type = TypeRHS<ValueType>;
+
+template <template TypeLHS, template TypeRHS> struct otimes_check {
+  using lhs_type = TypeLHS;
+  using rhs_type = TypeRHS;
 
   otimes_check(sequence &&lhs, sequence &&rhs)
       : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
 
   constexpr inline auto
-  check(expression_holder<tensor_expression<ValueType>> const &expr) const {
-    if (is_same<outer_product_wrapper<ValueType>>(expr)) {
+  check(expression_holder<tensor_expression> const &expr) const {
+    if (is_same<outer_product_wrapper>(expr)) {
       return inner_check(expr);
     }
     return false;
   }
 
-  constexpr inline auto inner_check(
-      expression_holder<tensor_expression<ValueType>> const &expr) const {
-    const auto &type{expr.template get<outer_product_wrapper<ValueType>>()};
+  constexpr inline auto
+  inner_check(expression_holder<tensor_expression> const &expr) const {
+    const auto &type{expr.template get<outer_product_wrapper>()};
     if (type.indices_lhs() == m_lhs && type.indices_rhs() == m_rhs) {
       if (is_same<lhs_type>(type.expr_lhs()) &&
           is_same<rhs_type>(type.expr_rhs())) {
@@ -45,9 +44,7 @@ namespace numsim::cas {
 template <typename ExprLHS, typename ExprRHS>
 class inner_product_simplifier_default {
 public:
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<tensor_expression<value_type>>;
+  using expr_type = expression_holder<tensor_expression>;
 
   inner_product_simplifier_default(ExprLHS &&lhs, sequence &&sequence_lhs,
                                    ExprRHS &&rhs, sequence &&sequence_rhs)
@@ -56,7 +53,7 @@ public:
   }
 
   // expr * I
-  constexpr inline auto operator()(kronecker_delta<value_type> const &) {
+  constexpr inline auto operator()(kronecker_delta const &) {
     if (m_lhs.get().rank() == 2 && sequence{2} == m_seq_lhs &&
         sequence{1} == m_seq_rhs) {
       return std::forward<ExprLHS>(m_lhs);
@@ -65,9 +62,9 @@ public:
   }
 
   // expr [*] otimesu(I,I)
-  constexpr inline auto operator()(outer_product_wrapper<value_type> const &) {
-    const detail::otimes_check<value_type, kronecker_delta, kronecker_delta>
-        check(sequence{0, 2}, sequence{1, 3});
+  constexpr inline auto operator()(outer_product_wrapper const &) {
+    const detail::otimes_check<kronecker_delta, kronecker_delta> check(
+        sequence{0, 2}, sequence{1, 3});
     if (((m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{1, 2}) ||
          (m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{3, 4})) &&
         m_lhs.get().rank() == 2 && check.inner_check(m_rhs)) {
@@ -76,13 +73,52 @@ public:
     return get_default();
   }
 
+  constexpr inline auto operator()(identity_tensor const &rhs) {
+    // expr{2}*Identity{2}
+    if (rhs.rank() == 2 && sequence{2} == m_seq_lhs &&
+        sequence{1} == m_seq_rhs) {
+      return std::forward<ExprLHS>(m_lhs);
+    }
+    // expr{rank_lhs} * Identity{rank_rhs}
+    const std::size_t rank_lhs{m_lhs.get().rank()};
+    sequence ilhs(rank_lhs), irhs(rank_lhs);
+    const auto start{m_rhs.get().rank() - rank_lhs + 1};
+    std::iota(ilhs.begin(), ilhs.end(), start);
+    std::iota(irhs.begin(), irhs.end(), 1);
+
+    // expr_kl * I_ijkl --> expr_ij
+    if (irhs == m_seq_lhs && ilhs == m_seq_rhs) {
+      return std::forward<ExprLHS>(m_lhs);
+    }
+
+    // expr_ij * I_ijkl --> expr_kl
+    if (irhs == m_seq_lhs && irhs == m_seq_rhs) {
+      return std::forward<ExprLHS>(m_lhs);
+    }
+    return get_default();
+  }
+
+  // inner(lhs, scalar*rhs) --> scalar*inner(lhs,rhs)
+  constexpr inline auto operator()(tensor_scalar_mul const &rhs) {
+    return rhs.expr_lhs() * inner_product(std::forward<ExprLHS>(m_lhs),
+                                          std::move(m_seq_lhs), rhs.expr_rhs(),
+                                          std::move(m_seq_rhs));
+  }
+
+  constexpr inline auto operator()(tensor_zero const &visitable) {
+    const auto &rhs{m_rhs.get()};
+    const auto rank{visitable.rank() - m_seq_lhs.size() + rhs.rank() -
+                    m_seq_rhs.size()};
+    return make_expression<tensor_zero>(visitable.dim(), rank);
+  }
+
   template <typename T> constexpr inline auto operator()(T const &) {
     return get_default();
   }
 
 protected:
   constexpr inline auto get_default() {
-    return make_expression<inner_product_wrapper<value_type>>(
+    return make_expression<inner_product_wrapper>(
         std::forward<ExprLHS>(m_lhs), std::move(m_seq_lhs),
         std::forward<ExprRHS>(m_rhs), std::move(m_seq_rhs));
   }
@@ -97,8 +133,6 @@ template <typename ExprLHS, typename ExprRHS>
 class inner_product_simplifier_kronecker_delta final
     : public inner_product_simplifier_default<ExprLHS, ExprRHS> {
 public:
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
   using base = inner_product_simplifier_default<ExprLHS, ExprRHS>;
   using base::operator();
   using base::get_default;
@@ -119,8 +153,7 @@ public:
     return get_default();
   }
 
-  constexpr inline auto
-  operator()(outer_product_wrapper<value_type> const &rhs) {
+  constexpr inline auto operator()(outer_product_wrapper const &) {
     // I:otimes(epxr, expr) = I_ij (expr_ij, expr_kl) = trace(expr)*expr
     // if(rhs.expr_lhs().get().rank() == 2 && m_seq_lhs == sequence{1,2} &&
     // m_seq_lhs == sequence{1,2}){
@@ -138,19 +171,67 @@ public:
 };
 
 template <typename ExprLHS, typename ExprRHS>
+class inner_product_simplifier_identity_tensor final
+    : public inner_product_simplifier_default<ExprLHS, ExprRHS> {
+public:
+  using base = inner_product_simplifier_default<ExprLHS, ExprRHS>;
+  using base::operator();
+  using base::get_default;
+
+  inner_product_simplifier_identity_tensor(ExprLHS &&lhs,
+                                           sequence &&sequence_lhs,
+                                           ExprRHS &&rhs,
+                                           sequence &&sequence_rhs)
+      : base(std::forward<ExprLHS>(lhs), std::move(sequence_lhs),
+             std::forward<ExprRHS>(rhs), std::move(sequence_rhs)) {}
+
+  // Identity [*] expr --> expr
+  template <typename Expr> constexpr inline auto operator()(Expr const &rhs) {
+    // Identity{2} * expr{2}
+    if (rhs.rank() == 2 && sequence{2} == m_seq_lhs &&
+        sequence{1} == m_seq_rhs) {
+      return std::forward<ExprRHS>(m_rhs);
+    }
+    // Identity{rank_lhs} * expr{rank_rhs}
+
+    sequence ilhs(rhs.rank()), irhs(rhs.rank());
+    const auto start{m_lhs.get().rank() - rhs.rank() + 1};
+    std::iota(ilhs.begin(), ilhs.end(), start);
+    std::iota(irhs.begin(), irhs.end(), 1);
+
+    // I_ijkl * expr_kl --> expr_ij
+    if (ilhs == m_seq_lhs && irhs == m_seq_rhs) {
+      return std::forward<ExprRHS>(m_rhs);
+    }
+
+    // I_ijkl * expr_ij --> expr_kl
+    if (irhs == m_seq_lhs && irhs == m_seq_rhs) {
+      return std::forward<ExprRHS>(m_rhs);
+    }
+    return get_default();
+  }
+
+  // A_ij A_kl e_i e_j e_k e_l
+  //
+  using base::m_lhs;
+  using base::m_rhs;
+  using base::m_seq_lhs;
+  using base::m_seq_rhs;
+};
+
+template <typename ExprLHS, typename ExprRHS>
 class inner_product_simplifier_otimes final
     : public inner_product_simplifier_default<ExprLHS, ExprRHS> {
 public:
   using base = inner_product_simplifier_default<ExprLHS, ExprRHS>;
   using base::operator();
   using base::get_default;
-  using value_type = base::value_type;
 
   inner_product_simplifier_otimes(ExprLHS &&lhs, sequence &&sequence_lhs,
                                   ExprRHS &&rhs, sequence &&sequence_rhs)
       : base(std::forward<ExprLHS>(lhs), std::move(sequence_lhs),
              std::forward<ExprRHS>(rhs), std::move(sequence_rhs)),
-        m_lhs_expr(lhs.template get<outer_product_wrapper<value_type>>()) {}
+        m_lhs_expr(lhs.template get<outer_product_wrapper>()) {}
 
   template <typename Expr> constexpr inline auto operator()(Expr const &rhs) {
     // otimesu(I,I) : expr --> expr
@@ -168,14 +249,44 @@ public:
   using base::m_rhs;
   using base::m_seq_lhs;
   using base::m_seq_rhs;
-  outer_product_wrapper<value_type> const &m_lhs_expr;
+  outer_product_wrapper const &m_lhs_expr;
+};
+
+template <typename ExprLHS, typename ExprRHS>
+class inner_product_simplifier_scalar_mul final
+    : public inner_product_simplifier_default<ExprLHS, ExprRHS> {
+public:
+  using base = inner_product_simplifier_default<ExprLHS, ExprRHS>;
+  using base::operator();
+  using base::get_default;
+
+  inner_product_simplifier_scalar_mul(ExprLHS &&lhs, sequence &&sequence_lhs,
+                                      ExprRHS &&rhs, sequence &&sequence_rhs)
+      : base(std::forward<ExprLHS>(lhs), std::move(sequence_lhs),
+             std::forward<ExprRHS>(rhs), std::move(sequence_rhs)),
+        m_lhs_expr(lhs.template get<tensor_scalar_mul>()) {}
+
+  template <typename Expr> constexpr inline auto operator()(Expr const &) {
+    return m_lhs_expr.expr_lhs() *
+           inner_product(m_lhs_expr.expr_rhs(), std::move(m_seq_lhs),
+                         std::forward<ExprRHS>(m_rhs), std::move(m_seq_rhs));
+  }
+
+  constexpr inline auto operator()(tensor_scalar_mul const &rhs) {
+    return m_lhs_expr.expr_lhs() * rhs.expr_lhs() *
+           inner_product(m_lhs_expr.expr_rhs(), std::move(m_seq_lhs),
+                         rhs.expr_rhs(), std::move(m_seq_rhs));
+  }
+
+  using base::m_lhs;
+  using base::m_rhs;
+  using base::m_seq_lhs;
+  using base::m_seq_rhs;
+  tensor_scalar_mul const &m_lhs_expr;
 };
 
 template <typename ExprLHS, typename ExprRHS> class inner_product_simplifier {
 public:
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-
   inner_product_simplifier(ExprLHS &&lhs, sequence &&sequence_lhs,
                            ExprRHS &&rhs, sequence &&sequence_rhs)
       : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)),
@@ -188,7 +299,7 @@ public:
         m_seq_lhs(sequence_lhs), m_seq_rhs(sequence_rhs) {}
 
   // I [*] expr
-  constexpr inline auto operator()(kronecker_delta<value_type> const &) {
+  constexpr inline auto operator()(kronecker_delta const &) {
     return std::visit(
         inner_product_simplifier_kronecker_delta<ExprLHS, ExprRHS>(
             std::forward<ExprLHS>(m_lhs), std::move(m_seq_lhs),
@@ -196,16 +307,40 @@ public:
         *m_rhs);
   }
 
+  // Identoty [*] expr
+  constexpr inline auto operator()(identity_tensor const &) {
+    return std::visit(
+        inner_product_simplifier_identity_tensor<ExprLHS, ExprRHS>(
+            std::forward<ExprLHS>(m_lhs), std::move(m_seq_lhs),
+            std::forward<ExprRHS>(m_rhs), std::move(m_seq_rhs)),
+        *m_rhs);
+  }
+
   // otimesu(I,I) [*] expr --> outer_product
-  constexpr inline auto operator()(outer_product_wrapper<value_type> const &) {
+  constexpr inline auto operator()(outer_product_wrapper const &) {
     return std::visit(inner_product_simplifier_otimes<ExprLHS, ExprRHS>(
                           std::forward<ExprLHS>(m_lhs), std::move(m_seq_lhs),
                           std::forward<ExprRHS>(m_rhs), std::move(m_seq_rhs)),
                       *m_rhs);
   }
 
-  // 0.5*(otimeso(I,I) + otimesl(I,I)) [*] expr --> tensor_with_scalar_mul
+  // inner(scalar*lhs, rhs) --> scalar*inner(lhs,rhs)
+  constexpr inline auto operator()(tensor_scalar_mul const &) {
+    const auto &rhs{*m_rhs};
+    inner_product_simplifier_scalar_mul<ExprLHS, ExprRHS> visitor(
+        std::forward<ExprLHS>(m_lhs), std::move(m_seq_lhs),
+        std::forward<ExprRHS>(m_rhs), std::move(m_seq_rhs));
+    return std::visit(visitor, rhs);
+  }
 
+  constexpr inline auto operator()(tensor_zero const &visitable) {
+    const auto &rhs{m_rhs.get()};
+    const auto rank{visitable.rank() - m_seq_lhs.size() + rhs.rank() -
+                    m_seq_rhs.size()};
+    return make_expression<tensor_zero>(visitable.dim(), rank);
+  }
+
+  // 0.5*(otimeso(I,I) + otimesl(I,I)) [*] expr --> tensor_with_scalar_mul
   template <typename T> constexpr inline auto operator()(T const &) {
     const auto &rhs{*m_rhs};
     inner_product_simplifier_default<ExprLHS, ExprRHS> visitor(

@@ -1,169 +1,168 @@
 #ifndef TENSOR_TO_SCALAR_SIMPLIFIER_ADD_H
 #define TENSOR_TO_SCALAR_SIMPLIFIER_ADD_H
 
-#include "../../functions.h"
-#include "../operators/tensor_to_scalar/tensor_to_scalar_add.h"
-#include "../operators/tensor_to_scalar_with_scalar/tensor_to_scalar_with_scalar_mul.h"
-#include "../tensor_to_scalar_expression.h"
+#include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/simplifier/simplifier_add.h>
+#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_add.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_domain_traits.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
 namespace numsim::cas {
+
+using tensor_to_scalar_traits = domain_traits<tensor_to_scalar_expression>;
+
 namespace tensor_to_scalar_detail {
 namespace simplifier {
-template <typename ExprLHS, typename ExprRHS> struct add_default {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
 
-  add_default(ExprLHS &&lhs, ExprRHS &&rhs)
-      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
+// Thin wrapper: fallback dispatch (no LHS specialization)
+class add_default_visitor final
+    : public tensor_to_scalar_visitor_return_expr_t,
+      public detail::add_dispatch<tensor_to_scalar_traits, void> {
+  using algo = detail::add_dispatch<tensor_to_scalar_traits, void>;
 
-  template <typename Expr>
-  [[nodiscard]] constexpr inline auto operator()(Expr const &) noexcept {
-    return get_default();
-  }
-
-  // tensor_to_scalar + tensor_scalar_with_scalar_add -->
-  // tensor_scalar_with_scalar_add
-  [[nodiscard]] constexpr inline auto
-  operator()(tensor_to_scalar_with_scalar_add<value_type> const &rhs) noexcept {
-    return make_expression<tensor_to_scalar_with_scalar_add<value_type>>(
-        rhs.expr_lhs(), rhs.expr_rhs() + m_lhs);
-  }
-
-protected:
-  [[nodiscard]] constexpr inline auto get_default() noexcept {
-    if (m_rhs == m_lhs) {
-      return get_default_same();
-    }
-    return get_default_imp();
-  }
-
-  [[nodiscard]] constexpr inline auto get_default_same() noexcept {
-    auto coef{make_expression<scalar_constant<value_type>>(2)};
-    return make_expression<tensor_to_scalar_with_scalar_mul<value_type>>(
-        std::move(coef), m_rhs);
-  }
-
-  [[nodiscard]] constexpr inline auto get_default_imp() noexcept {
-    auto add_new{make_expression<tensor_to_scalar_add<value_type>>()};
-    auto &add{add_new.template get<tensor_to_scalar_add<value_type>>()};
-    add.push_back(m_lhs);
-    add.push_back(m_rhs);
-    return std::move(add_new);
-  }
-
-  ExprLHS &&m_lhs;
-  ExprRHS &&m_rhs;
-};
-
-template <typename ExprLHS, typename ExprRHS>
-class n_ary_add final : public add_default<ExprLHS, ExprRHS> {
 public:
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
-  using base = add_default<ExprLHS, ExprRHS>;
-  using base::operator();
-  // using base::get_coefficient;
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using algo::algo;
 
-  n_ary_add(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs.template get<tensor_to_scalar_add<value_type>>()} {}
-
-  // merge two expression
-  auto operator()(tensor_to_scalar_add<value_type> const &rhs) {
-    auto expr{make_expression<tensor_to_scalar_add<value_type>>()};
-    auto &add{expr.template get<tensor_to_scalar_add<value_type>>()};
-    merge_add(lhs, rhs, add);
-    return expr;
-  }
-
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  tensor_to_scalar_add<value_type> const &lhs;
+// Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
+#define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
 };
 
-// tensor_scalar_with_scalar_add + tensor_to_scalar -->
-// tensor_to_scalar_with_scalar_add tensor_to_scalar +
-// tensor_to_scalar_with_scalar_add --> tensor_to_scalar_with_scalar_add
-// tensor_scalar_with_scalar_add + tensor_scalar_with_scalar_add -->
-// tensor_to_scalar_with_scalar_add
-template <typename ExprLHS, typename ExprRHS>
-class wrapper_tensor_to_scalar_add_add final
-    : public add_default<ExprLHS, ExprRHS> {
+// Thin wrapper: LHS is add — with domain-specific scalar_wrapper override
+class n_ary_add final
+    : public tensor_to_scalar_visitor_return_expr_t,
+      public detail::n_ary_add_dispatch<tensor_to_scalar_traits> {
+  using algo = detail::n_ary_add_dispatch<tensor_to_scalar_traits>;
+
 public:
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
-  using base = add_default<ExprLHS, ExprRHS>;
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using algo::algo;
+  using algo::dispatch;
 
-  wrapper_tensor_to_scalar_add_add(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs
-                .template get<tensor_to_scalar_with_scalar_add<value_type>>()} {
-  }
+  // domain-specific: scalar_wrapper dispatch (numeric → base, else find/merge)
+  expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &rhs);
 
-  // tensor_scalar_with_scalar_add + tensor_scalar_with_scalar_add -->
-  // tensor_scalar_with_scalar_add
-  constexpr inline expr_type
-  operator()(tensor_to_scalar_with_scalar_add<value_type> const &rhs) {
-    return make_expression<tensor_to_scalar_with_scalar_add<value_type>>(
-        lhs.expr_lhs() + rhs.expr_lhs(), lhs.expr_rhs() + rhs.expr_rhs());
-  }
+  // Generic fallback: find in hash_map, combine or push_back
+  // (symbol_type is void for t2s, so the base symbol dispatch is disabled)
+  // Body defined in .cpp to keep operator+ ADL in that TU.
+  template <typename T> expr_holder_t dispatch(T const &);
 
-  // tensor_scalar_with_scalar_add + tensor_to_scalar -->
-  // tensor_scalar_with_scalar_add
-  template <typename Expr> constexpr inline expr_type operator()(Expr const &) {
-    return make_expression<tensor_to_scalar_with_scalar_add<value_type>>(
-        lhs.expr_lhs(), m_rhs + lhs.expr_rhs());
-  }
-
-private:
-  using base::m_lhs;
-  using base::m_rhs;
-  tensor_to_scalar_with_scalar_add<value_type> const &lhs;
+// Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
+#define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
 };
 
-template <typename ExprLHS, typename ExprRHS> struct add_base {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
+// Thin wrapper: LHS is negative
+class negative_add final
+    : public tensor_to_scalar_visitor_return_expr_t,
+      public detail::negative_add_dispatch<tensor_to_scalar_traits> {
+  using algo = detail::negative_add_dispatch<tensor_to_scalar_traits>;
 
-  add_base(ExprLHS &&lhs, ExprRHS &&rhs)
-      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using algo::algo;
 
-  template <typename Type> constexpr inline expr_type operator()(Type const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(add_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                               std::forward<ExprRHS>(m_rhs)),
-                 expr_rhs);
-  }
-
-  constexpr inline expr_type
-  operator()(tensor_to_scalar_add<value_type> const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(n_ary_add<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                             std::forward<ExprRHS>(m_rhs)),
-                 expr_rhs);
-  }
-
-  // tensor_scalar_with_scalar_add + tensor_scalar -->
-  // tensor_scalar_with_scalar_add
-  constexpr inline expr_type
-  operator()(tensor_to_scalar_with_scalar_add<value_type> const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(
-        wrapper_tensor_to_scalar_add_add<ExprLHS, ExprRHS>(
-            std::forward<ExprLHS>(m_lhs), std::forward<ExprRHS>(m_rhs)),
-        expr_rhs);
-  }
-
-  ExprLHS &&m_lhs;
-  ExprRHS &&m_rhs;
+// Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
+#define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
 };
+
+// Thin wrapper: LHS is constant (scalar_wrapper)
+class constant_add final
+    : public tensor_to_scalar_visitor_return_expr_t,
+      public detail::constant_add_dispatch<tensor_to_scalar_traits> {
+  using algo = detail::constant_add_dispatch<tensor_to_scalar_traits>;
+
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using algo::algo;
+  using algo::dispatch;
+
+  // domain-specific: wrapper + wrapper → unwrap, add in scalar domain, re-wrap
+  expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &);
+
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+};
+
+// Thin wrapper: LHS is one
+class one_add final : public tensor_to_scalar_visitor_return_expr_t,
+                      public detail::one_add_dispatch<tensor_to_scalar_traits> {
+  using algo = detail::one_add_dispatch<tensor_to_scalar_traits>;
+
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using algo::algo;
+
+#define NUMSIM_LOOP_OVER(T)                                                    \
+  expr_holder_t operator()(T const &n) override { return this->dispatch(n); }
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+};
+
+// Thin wrapper: LHS is mul
+class n_ary_mul_add final
+    : public tensor_to_scalar_visitor_return_expr_t,
+      public detail::n_ary_mul_add_dispatch<tensor_to_scalar_traits> {
+  using algo = detail::n_ary_mul_add_dispatch<tensor_to_scalar_traits>;
+
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using algo::algo;
+
+// Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
+#define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
+#undef NUMSIM_LOOP_OVER
+};
+
+// Dispatcher: analyzes LHS type and creates appropriate specialized visitor
+class add_base final : public tensor_to_scalar_visitor_return_expr_t {
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+
+  add_base(expr_holder_t lhs, expr_holder_t rhs);
+
+#define NUMSIM_ADD_OVR_FIRST(T)                                                \
+  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+#define NUMSIM_ADD_OVR_NEXT(T)                                                 \
+  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST,
+                                        NUMSIM_ADD_OVR_NEXT)
+#undef NUMSIM_ADD_OVR_FIRST
+#undef NUMSIM_ADD_OVR_NEXT
+
+  expr_holder_t dispatch(tensor_to_scalar_zero const &);
+
+  expr_holder_t dispatch(tensor_to_scalar_add const &);
+
+  expr_holder_t dispatch(tensor_to_scalar_negative const &);
+
+  expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &);
+
+  expr_holder_t dispatch(tensor_to_scalar_one const &);
+
+  expr_holder_t dispatch(tensor_to_scalar_mul const &);
+
+  template <typename Type> expr_holder_t dispatch(Type const &) {
+    auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
+    add_default_visitor visitor(std::move(m_lhs), std::move(m_rhs));
+    return _rhs.accept(visitor);
+  }
+
+  expr_holder_t m_lhs;
+  expr_holder_t m_rhs;
+};
+
 } // namespace simplifier
 } // namespace tensor_to_scalar_detail
 } // namespace numsim::cas
 
-#endif // TENSOR_SCALAR_SIMPLIFIER_ADD_H
+#endif // TENSOR_TO_SCALAR_SIMPLIFIER_ADD_H

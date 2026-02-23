@@ -1,16 +1,15 @@
 #ifndef TENSOR_PRINTER_H
 #define TENSOR_PRINTER_H
 
-#include "../../numsim_cas_type_traits.h"
-#include "../../printer_base.h"
-#include "../../scalar/visitors/scalar_printer.h"
-#include "../../tensor_to_scalar/visitors/tensor_to_scalar_printer.h"
+#include <numsim_cas/printer_base.h>
+#include <numsim_cas/scalar/scalar_functions.h>
+#include <numsim_cas/scalar/visitors/scalar_printer.h>
+#include <numsim_cas/tensor/tensor_definitions.h>
+#include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_io.h>
 
 #include <algorithm>
-#include <functional>
-#include <iostream>
 #include <string>
-#include <variant>
 #include <vector>
 
 namespace numsim::cas {
@@ -22,12 +21,14 @@ namespace numsim::cas {
  * @tparam ValueType The type of the scalar values.
  * @tparam StreamType The type of the output stream.
  */
-template <typename ValueType, typename StreamType>
+template <typename StreamType>
 class tensor_printer final
-    : public printer_base<tensor_printer<ValueType, StreamType>, StreamType> {
+    : public tensor_visitor_const_t,
+      public printer_base<tensor_printer<StreamType>, StreamType> {
 public:
-  using base = printer_base<tensor_printer<ValueType, StreamType>, StreamType>;
-  using expr_t = expression_holder<tensor_expression<ValueType>>;
+  using base = printer_base<tensor_printer<StreamType>, StreamType>;
+  using expr_t = expression_holder<tensor_expression>;
+  using base_visitor = tensor_visitor_const_t;
   using base::begin;
   using base::end;
   using base::print_unary;
@@ -50,12 +51,13 @@ public:
    * @param expr The tensor expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  auto apply(expression_holder<tensor_expression<ValueType>> const &expr,
-             Precedence parent_precedence = Precedence::None) {
+  auto apply(expression_holder<tensor_expression> const &expr,
+             [[maybe_unused]] Precedence parent_precedence = Precedence::None) {
     if (expr.is_valid()) {
-      std::visit([this, parent_precedence](
-                     auto &&arg) { (*this)(arg, parent_precedence); },
-                 *expr);
+      m_parent_precedence = parent_precedence;
+      static_cast<const tensor_visitable_t &>(expr.get())
+          .accept(static_cast<base_visitor &>(*this));
+      // m_first_term = false;
     }
   }
 
@@ -65,15 +67,30 @@ public:
    * @param visitable The tensor value to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(tensor<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+  void operator()(tensor const &visitable) override {
     m_out << visitable.name();
   }
 
-  void operator()([[maybe_unused]] tensor_identity<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
-    m_out << "tensor_identity{" << visitable.dim() << " " << visitable.rank()
-          << "}";
+  /**
+   * @brief Prints a identity tensor.
+   *
+   * @param visitable The idenity tensor to be printed.
+   * @param parent_precedence The precedence of the parent expression.
+   */
+  void operator()([[maybe_unused]] identity_tensor const &visitable) override {
+    m_out << "I{" << visitable.rank() << "}";
+  }
+
+  /**
+   * @brief Prints a projection tensor.
+   *
+   * @param visitable The projection tensor to be printed.
+   * @param parent_precedence The precedence of the parent expression.
+   */
+  void operator()([[maybe_unused]] tensor_projector const &visitable) override {
+    tensor_trace_print_visitor perm_trace_printer(visitable);
+    auto to_print{perm_trace_printer.apply()};
+    m_out << to_print << "{" << visitable.rank() << "}";
   }
 
   /**
@@ -82,11 +99,12 @@ public:
    * @param visitable The tensor addition expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(tensor_add<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+  void operator()(tensor_add const &visitable) override {
     constexpr auto precedence{Precedence::Addition};
+    const auto parent_precedence{m_parent_precedence};
+
     begin(precedence, parent_precedence);
-    const auto values{visitable.hash_map() | std::views::values};
+    const auto values{visitable.symbol_map() | std::views::values};
     std::map<expr_t, expr_t> sorted_map;
     std::for_each(std::begin(values), std::end(values),
                   [&](auto &expr) { sorted_map[expr] = expr; });
@@ -98,7 +116,7 @@ public:
     }
 
     for (auto &child : sorted_map | std::views::values) {
-      if (first && !is_same<tensor_negative<ValueType>>(child)) {
+      if (first && !is_same<tensor_negative>(child)) {
         m_out << "+";
       }
       apply(child, precedence);
@@ -108,9 +126,10 @@ public:
     end(precedence, parent_precedence);
   }
 
-  void operator()(tensor_mul<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+  void operator()(tensor_mul const &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
+    const auto parent_precedence{m_parent_precedence};
+
     begin(precedence, parent_precedence);
     bool first = true;
     if (visitable.coeff().is_valid()) {
@@ -132,9 +151,10 @@ public:
    * @param visitable The tensor negative expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(tensor_negative<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+  void operator()(tensor_negative const &visitable) override {
     constexpr auto precedence{Precedence::Negative};
+    const auto parent_precedence{m_parent_precedence};
+
     m_out << "-";
     begin(precedence, parent_precedence);
     apply(visitable.expr(), precedence);
@@ -147,60 +167,75 @@ public:
    * @param visitable The inner product expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(inner_product_wrapper<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+  void operator()(inner_product_wrapper const &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
-    auto indices_temp_lhs{visitable.indices_lhs()};
-    std::for_each(std::begin(indices_temp_lhs), std::end(indices_temp_lhs),
-                  [](auto &el) { el += 1; });
-    auto indices_temp_rhs{visitable.indices_rhs()};
-    std::for_each(std::begin(indices_temp_rhs), std::end(indices_temp_rhs),
-                  [](auto &el) { el += 1; });
-    // single contraction
-    if (indices_temp_lhs.size() == 1 && indices_temp_rhs.size() == 1) {
-      const auto rank_lhs{call_tensor::rank(visitable.expr_lhs())};
-      if (indices_temp_lhs[0] == rank_lhs && indices_temp_rhs[0] == 1) {
-        apply(visitable.expr_lhs(), precedence);
-        m_out << "*";
-        apply(visitable.expr_rhs(), precedence);
-        return;
-      }
-    }
-    // double contraction
-    if (indices_temp_lhs.size() == 2 && indices_temp_rhs.size() == 2) {
-      const auto rank_lhs{call_tensor::rank(visitable.expr_lhs())};
-      if (indices_temp_lhs == sequence{rank_lhs - 1, rank_lhs} &&
-          indices_temp_rhs == sequence{1, 2}) {
-        apply(visitable.expr_lhs(), precedence);
-        m_out << ":";
-        apply(visitable.expr_rhs(), precedence);
-        return;
+
+    const auto &indices_lhs{visitable.indices_lhs()};
+    const auto &indices_rhs{visitable.indices_rhs()};
+
+    // Projector function notation: P:A → dev(A), sym(A), vol(A), skew(A)
+    if (indices_lhs == sequence{3, 4} && indices_rhs == sequence{1, 2} &&
+        is_same<tensor_projector>(visitable.expr_lhs())) {
+      auto const &proj = visitable.expr_lhs().template get<tensor_projector>();
+      if (proj.acts_on_rank() == 2) {
+        auto const &sp = proj.space();
+        const char *fn = nullptr;
+        if (std::holds_alternative<Symmetric>(sp.perm) &&
+            std::holds_alternative<DeviatoricTag>(sp.trace))
+          fn = "dev";
+        else if (std::holds_alternative<Symmetric>(sp.perm) &&
+                 std::holds_alternative<AnyTraceTag>(sp.trace))
+          fn = "sym";
+        else if (std::holds_alternative<Symmetric>(sp.perm) &&
+                 std::holds_alternative<VolumetricTag>(sp.trace))
+          fn = "vol";
+        else if (std::holds_alternative<Skew>(sp.perm) &&
+                 std::holds_alternative<AnyTraceTag>(sp.trace))
+          fn = "skew";
+        if (fn) {
+          m_out << fn << "(";
+          apply(visitable.expr_rhs(), Precedence::None);
+          m_out << ")";
+          return;
+        }
       }
     }
 
+    // single contraction
+    const auto rank_lhs{call_tensor::rank(visitable.expr_lhs())};
+    if (indices_lhs == sequence{rank_lhs} && indices_rhs == sequence{1}) {
+      apply(visitable.expr_lhs(), precedence);
+      m_out << "*";
+      apply(visitable.expr_rhs(), precedence);
+      return;
+    }
+
+    // double contraction
+    if (indices_lhs == sequence{rank_lhs - 1, rank_lhs} &&
+        indices_rhs == sequence{1, 2}) {
+      apply(visitable.expr_lhs(), precedence);
+      m_out << ":";
+      apply(visitable.expr_rhs(), precedence);
+      return;
+    }
+
     // fourth contraction
-    if (indices_temp_lhs.size() == 4 && indices_temp_rhs.size() == 4) {
-      const auto rank_lhs{call_tensor::rank(visitable.expr_lhs())};
-      if (indices_temp_lhs ==
-              sequence{rank_lhs - 3, rank_lhs - 2, rank_lhs - 1, rank_lhs} &&
-          indices_temp_rhs == sequence{1, 2, 3, 4}) {
-        apply(visitable.expr_lhs(), precedence);
-        m_out << "::";
-        apply(visitable.expr_rhs(), precedence);
-        return;
-      }
+    if (indices_lhs ==
+            sequence{rank_lhs - 3, rank_lhs - 2, rank_lhs - 1, rank_lhs} &&
+        indices_rhs == sequence{1, 2, 3, 4}) {
+      apply(visitable.expr_lhs(), precedence);
+      m_out << "::";
+      apply(visitable.expr_rhs(), precedence);
+      return;
     }
 
     m_out << "inner(";
     apply(visitable.expr_lhs(), precedence);
-    m_out << ", [";
-    base::print_sequence(m_out, indices_temp_lhs, ',');
-    m_out << "]";
+    m_out << indices_lhs;
     m_out << ", ";
     apply(visitable.expr_rhs(), precedence);
-    m_out << ", [";
-    base::print_sequence(m_out, indices_temp_rhs, ',');
-    m_out << "]";
+    m_out << ", ";
+    m_out << indices_rhs;
     m_out << ")";
   }
 
@@ -210,21 +245,17 @@ public:
    * @param visitable The basis change expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(basis_change_imp<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
-    auto indices_temp{visitable.indices()};
-    std::for_each(std::begin(indices_temp), std::end(indices_temp),
-                  [](auto &el) { el += 1; });
-    if (indices_temp == std::vector<std::size_t>{2, 1}) {
+  void operator()(basis_change_imp const &visitable) override {
+    auto const &indices_temp = visitable.indices();
+    if (indices_temp == sequence{2, 1}) {
       m_out << "trans(";
-      apply(visitable.expr(), parent_precedence);
+      apply(visitable.expr(), m_parent_precedence);
       m_out << ")";
     } else {
       m_out << "permute_indices(";
-      apply(visitable.expr(), parent_precedence);
-      m_out << ", [";
-      base::print_sequence(m_out, indices_temp, ',');
-      m_out << "]";
+      apply(visitable.expr(), m_parent_precedence);
+      m_out << ", ";
+      m_out << visitable.indices();
       m_out << ")";
     }
   }
@@ -235,14 +266,9 @@ public:
    * @param visitable The outer product expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(outer_product_wrapper<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
-    auto indices_temp_lhs{visitable.indices_lhs()};
-    std::for_each(std::begin(indices_temp_lhs), std::end(indices_temp_lhs),
-                  [](auto &el) { el += 1; });
-    auto indices_temp_rhs{visitable.indices_rhs()};
-    std::for_each(std::begin(indices_temp_rhs), std::end(indices_temp_rhs),
-                  [](auto &el) { el += 1; });
+  void operator()(outer_product_wrapper const &visitable) override {
+    auto const &indices_temp_lhs = visitable.indices_lhs();
+    auto const &indices_temp_rhs = visitable.indices_rhs();
 
     if (indices_temp_lhs == sequence{1, 4} &&
         indices_temp_rhs == sequence{2, 3}) {
@@ -261,22 +287,27 @@ public:
     } else {
       m_out << "outer(";
       apply(visitable.expr_lhs(), Precedence::None);
-      m_out << ", [";
-      base::print_sequence(m_out, indices_temp_lhs, ',');
-      m_out << "]";
+      m_out << ", ";
+      m_out << indices_temp_lhs;
+      // m_out << ", [";
+      // base::print_sequence(m_out, indices_temp_lhs, ',');
+      // m_out << "]";
       m_out << ", ";
       apply(visitable.expr_rhs(), Precedence::None);
-      m_out << ", [";
-      base::print_sequence(m_out, indices_temp_rhs, ',');
-      m_out << "]";
+      m_out << ", ";
+      m_out << indices_temp_rhs;
+      // m_out << ", [";
+      // base::print_sequence(m_out, indices_temp_rhs, ',');
+      // m_out << "]";
       m_out << ")";
     }
   }
 
   void
-  operator()([[maybe_unused]] simple_outer_product<ValueType> const &visitable,
-             [[maybe_unused]] Precedence parent_precedence) {
+  operator()([[maybe_unused]] simple_outer_product const &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
+    const auto parent_precedence{m_parent_precedence};
+
     begin(precedence, parent_precedence);
     bool first = true;
     if (visitable.coeff().is_valid()) {
@@ -284,12 +315,13 @@ public:
       m_out << "*";
     }
     m_out << "outer(";
-    for (auto &child : visitable.hash_map() | std::views::values) {
+    for (auto &child : visitable.data()) {
       if (!first)
         m_out << ",";
       apply(child, precedence);
       first = false;
     }
+    m_out << ")";
     end(precedence, parent_precedence);
   }
 
@@ -299,8 +331,7 @@ public:
    * @param visitable The Kronecker delta expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()([[maybe_unused]] kronecker_delta<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+  void operator()([[maybe_unused]] kronecker_delta const &visitable) override {
     m_out << "I";
   }
 
@@ -310,7 +341,7 @@ public:
   //   * @param visitable The simple outer product expression to be printed.
   //   * @param parent_precedence The precedence of the parent expression.
   //   */
-  //  void operator()(simple_outer_product<ValueType> &visitable, Precedence
+  //  void operator()(simple_outer_product &visitable, Precedence
   //  parent_precedence) {
   //    //constexpr auto precedence{Precedence::Multiplication};
   //    m_out << "simple_outer(";
@@ -331,17 +362,95 @@ public:
    * @param visitable The tensor scalar multiplication expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void
-  operator()([[maybe_unused]] tensor_scalar_mul<ValueType> const &visitable,
-             [[maybe_unused]] Precedence parent_precedence) {
+  void operator()(tensor_scalar_mul const &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
+    const auto parent_precedence{m_parent_precedence};
+
     begin(precedence, parent_precedence);
-    scalar_printer<ValueType, StreamType> scalar_printer(m_out);
-    scalar_printer.apply(visitable.expr_lhs(), precedence);
+
+    using scalar_expr_t = expression_holder<scalar_expression>;
+    scalar_printer<StreamType> sp(m_out);
+
+    // Special case: tensor * pow(base, -exp)  ->  tensor / pow(base, exp)
+    if (auto pow_e = is_same_r<scalar_pow>(visitable.expr_lhs())) {
+      const auto &p = pow_e->get();
+
+      if (auto neg_e = is_same_r<scalar_negative>(p.expr_rhs())) {
+        const auto &neg = neg_e->get();
+        const scalar_expr_t &exp_pos = neg.expr();
+        // positive exponent expression
+
+        // numerator: tensor
+        apply(visitable.expr_rhs(), precedence);
+        m_out << "/";
+
+        // denominator
+        if (const auto number = get_scalar_number(exp_pos)) {
+          if (*number == 1) {
+            // pow(base,1) -> base
+            sp.apply(p.expr_lhs(), Precedence::Division_RHS);
+          } else {
+            m_out << "pow(";
+            sp.apply(p.expr_lhs());
+            m_out << ",";
+            m_out << *number;
+            m_out << ")";
+          }
+        } else {
+          m_out << "pow(";
+          sp.apply(p.expr_lhs());
+          m_out << ",";
+          sp.apply(exp_pos);
+          m_out << ")";
+        }
+
+        end(precedence, parent_precedence);
+        return;
+      }
+    }
+
+    // scalar
+    apply(visitable.expr_lhs(), precedence);
     m_out << "*";
+    // tensor
     apply(visitable.expr_rhs(), precedence);
+
     end(precedence, parent_precedence);
   }
+
+  // void
+  // operator()([[maybe_unused]] tensor_scalar_mul const &visitable) {
+  //   constexpr auto precedence{Precedence::Multiplication};
+  //   const auto parent_precedence{m_parent_precedence};
+
+  //   begin(precedence, parent_precedence);
+  //   if(auto expr_pow{is_same_r<scalar_pow>(visitable.expr_lhs())}){
+  //     if(auto
+  //     expr_neg{is_same_r<scalar_negative>(expr_pow->get().expr_rhs())}){
+  //       apply(visitable.expr_rhs(), precedence);
+  //       m_out<<"/";
+  //       if (const auto number{get_scalar_number(expr_neg->get().expr())}) {
+  //         if ((*number) != 1) {
+  //           m_out<<"pow(";
+  //           apply(expr_pow->get().expr_lhs());
+  //           m_out<<", " << (*number) << ")";
+  //         }
+  //       }else{
+  //         scalar_printer<StreamType> scalar_printer(m_out);
+  //         scalar_printer.apply(expr_pow->get().expr_lhs(),
+  //         Precedence::Division_RHS);
+  //       }
+  //       end(precedence, parent_precedence);
+  //       return;
+  //     }
+  //   }
+
+  //   scalar_printer<StreamType> scalar_printer(m_out);
+  //   scalar_printer.apply(visitable.expr_lhs(), precedence);
+  //   m_out << "*";
+  //   apply(visitable.expr_rhs(), precedence);
+  //   end(precedence, parent_precedence);
+  // }
 
   /**
    * @brief Prints a tensor scalar division expression.
@@ -349,73 +458,44 @@ public:
    * @param visitable The tensor scalar division expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void
-  operator()([[maybe_unused]] tensor_scalar_div<ValueType> const &visitable,
-             [[maybe_unused]] Precedence parent_precedence) {
-    constexpr auto precedence{Precedence::Multiplication};
-    begin(precedence, parent_precedence);
-    scalar_printer<ValueType, StreamType> scalar_printer(m_out);
-    apply(visitable.expr_lhs(), Precedence::Division_LHS);
-    m_out << "/";
-    scalar_printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
-    end(precedence, parent_precedence);
-  }
+  // void operator()([[maybe_unused]] tensor_scalar_div const &visitable,
+  //                 [[maybe_unused]] Precedence parent_precedence) {
+  //   constexpr auto precedence{Precedence::Multiplication};
+  //   begin(precedence, parent_precedence);
+  //   scalar_printer<StreamType> scalar_printer(m_out);
+  //   apply(visitable.expr_lhs(), Precedence::Division_LHS);
+  //   m_out << "/";
+  //   scalar_printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
+  //   end(precedence, parent_precedence);
+  // }
 
-  void
-  operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul<ValueType> const
-                 &visitable,
-             [[maybe_unused]] Precedence parent_precedence) {
+  void operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul const
+                      &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
+    const auto parent_precedence{m_parent_precedence};
+
     begin(precedence, parent_precedence);
-    tensor_to_scalar_printer<ValueType, StreamType> printer(m_out);
-    printer.apply(visitable.expr_lhs(), precedence);
+    m_out << visitable.expr_rhs();
     m_out << "*";
-    apply(visitable.expr_rhs(), precedence);
+    apply(visitable.expr_lhs(), precedence);
     end(precedence, parent_precedence);
   }
 
-  void
-  operator()([[maybe_unused]] tensor_to_scalar_with_tensor_div<ValueType> const
-                 &visitable,
-             [[maybe_unused]] Precedence parent_precedence) {
-    constexpr auto precedence{Precedence::Multiplication};
-    tensor_to_scalar_printer<ValueType, StreamType> printer(m_out);
-    begin(precedence, parent_precedence);
-    apply(visitable.expr_lhs(), Precedence::Division_LHS);
-    m_out << "/";
-    printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
-    end(precedence, parent_precedence);
-  }
+  // void
+  // operator()([[maybe_unused]] tensor_to_scalar_with_tensor_div const
+  // &visitable,
+  //            [[maybe_unused]] Precedence parent_precedence) {
+  //   constexpr auto precedence{Precedence::Multiplication};
+  //       const auto parent_precedence{m_parent_precedence};
+  //   tensor_to_scalar_printer<StreamType> printer(m_out);
+  //   begin(precedence, parent_precedence);
+  //   apply(visitable.expr_lhs(), Precedence::Division_LHS);
+  //   m_out << "/";
+  //   printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
+  //   end(precedence, parent_precedence);
+  // }
 
-  /**
-   * @brief Prints a tensor deviatoric expression.
-   *
-   * @param visitable The tensor deviatoric expression to be printed.
-   * @param parent_precedence The precedence of the parent expression.
-   */
-  void operator()(tensor_deviatoric<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
-    print_unary("dev", visitable);
-  }
-
-  void operator()(tensor_volumetric<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
-    print_unary("vol", visitable);
-  }
-
-  /**
-   * @brief Prints a tensor symmetry expression.
-   *
-   * @param visitable The tensor symmetry expression to be printed.
-   * @param parent_precedence The precedence of the parent expression.
-   */
-  void operator()(tensor_symmetry<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
-    print_unary("sym", visitable);
-  }
-
-  void operator()(tensor_inv<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+  void operator()(tensor_inv const &visitable) override {
     print_unary("inv", visitable);
   }
 
@@ -425,28 +505,35 @@ public:
    * @param visitable The zero tensor to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()([[maybe_unused]] tensor_zero<ValueType> const &visitable,
-                  [[maybe_unused]] Precedence parent_precedence) {
+  void operator()([[maybe_unused]] tensor_zero const &visitable) override {
     m_out << "0";
   }
 
-  void operator()(tensor_pow<ValueType> const &visitable,
-                  Precedence parent_precedence) {
+  void operator()(tensor_pow const &visitable) override {
     m_out << "pow(";
-    apply(visitable.expr_lhs(), parent_precedence);
+    apply(visitable.expr_lhs(), m_parent_precedence);
     m_out << ",";
-    apply(visitable.expr_rhs(), parent_precedence);
+    apply(visitable.expr_rhs(), m_parent_precedence);
     m_out << ")";
   }
 
+  /**
+   * @brief Default overload for safty reasons.
+   */
+  template <class T> void operator()([[maybe_unused]] T const &visitable) {
+    static_assert(sizeof(T) == 0,
+                  "tensor_printer: missing overload for this node type");
+  }
+
 private:
-  auto apply(expression_holder<scalar_expression<ValueType>> const &expr,
+  auto apply(expression_holder<scalar_expression> const &expr,
              [[maybe_unused]] Precedence parent_precedence = Precedence::None) {
-    scalar_printer<ValueType, StreamType> printer(m_out);
+    scalar_printer<StreamType> printer(m_out);
     printer.apply(expr, parent_precedence);
   }
 
   using base::m_out; ///< The output stream used for printing.
+  Precedence m_parent_precedence;
 };
 
 } // namespace numsim::cas

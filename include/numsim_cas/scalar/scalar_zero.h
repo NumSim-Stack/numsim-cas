@@ -1,66 +1,42 @@
 #ifndef SCALAR_ZERO_H
 #define SCALAR_ZERO_H
 
-#include "../expression_crtp.h"
-#include "scalar_expression.h"
+#include <numsim_cas/core/hash_functions.h>
+#include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class scalar_zero final : public expression_crtp<scalar_zero<ValueType>,
-                                                 scalar_expression<ValueType>> {
+class scalar_zero final : public scalar_node_base_t<scalar_zero> {
 public:
-  using base =
-      expression_crtp<scalar_zero<ValueType>, scalar_expression<ValueType>>;
+  using base = scalar_node_base_t<scalar_zero>;
 
-  scalar_zero() = default;
-  scalar_zero(scalar_zero &&data) : base(static_cast<base &&>(data)) {}
+  scalar_zero() {}
+  scalar_zero(scalar_zero &&data) noexcept : base(static_cast<base &&>(data)) {}
   scalar_zero(scalar_zero const &data)
       : base(static_cast<base const &>(data)) {}
-  ~scalar_zero() = default;
+  ~scalar_zero() override = default;
   const scalar_zero &operator=(scalar_zero &&) = delete;
 
-  template <typename _ValueType>
-  friend bool operator<(scalar_zero<_ValueType> const &lhs,
-                        scalar_zero<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator>(scalar_zero<_ValueType> const &lhs,
-                        scalar_zero<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator==(scalar_zero<_ValueType> const &lhs,
-                         scalar_zero<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator!=(scalar_zero<_ValueType> const &lhs,
-                         scalar_zero<_ValueType> const &rhs);
+  friend inline bool operator<(scalar_zero const &lhs, scalar_zero const &rhs) {
+    return lhs.hash_value() < rhs.hash_value();
+  }
+  friend inline bool operator>(scalar_zero const &lhs, scalar_zero const &rhs) {
+    return rhs < lhs;
+  }
+  friend inline bool operator==(scalar_zero const &lhs,
+                                scalar_zero const &rhs) {
+    return lhs.hash_value() == rhs.hash_value();
+  }
+  friend inline bool operator!=(scalar_zero const &lhs,
+                                scalar_zero const &rhs) {
+    return !(lhs == rhs);
+  }
 
-  virtual void update_hash_value() const override {
+private:
+  void update_hash_value() const override {
     hash_combine(base::m_hash_value, base::get_id());
   }
 };
-
-template <typename ValueType>
-bool operator<(scalar_zero<ValueType> const &lhs,
-               scalar_zero<ValueType> const &rhs) {
-  return lhs.hash_value() < rhs.hash_value();
-}
-
-template <typename ValueType>
-bool operator>(scalar_zero<ValueType> const &lhs,
-               scalar_zero<ValueType> const &rhs) {
-  return !(lhs < rhs);
-}
-
-template <typename ValueType>
-bool operator==(scalar_zero<ValueType> const &lhs,
-                scalar_zero<ValueType> const &rhs) {
-  return lhs.hash_value() == rhs.hash_value();
-}
-
-template <typename ValueType>
-bool operator!=(scalar_zero<ValueType> const &lhs,
-                scalar_zero<ValueType> const &rhs) {
-  return !(lhs == rhs);
-}
 
 } // namespace numsim::cas
 

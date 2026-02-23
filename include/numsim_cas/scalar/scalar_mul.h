@@ -1,29 +1,26 @@
 #ifndef SCALAR_MUL_H
 #define SCALAR_MUL_H
 
-#include "../n_ary_tree.h"
-#include "../numsim_cas_type_traits.h"
-#include "../scalar/scalar_expression.h"
+#include <numsim_cas/core/n_ary_tree.h>
+#include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class scalar_mul final : public n_ary_tree<scalar_expression<ValueType>,
-                                           scalar_mul<ValueType>> /*,
-public expression_crtp<scalar_mul<ValueType>, scalar_expression<ValueType>>*/
+class scalar_mul final : public n_ary_tree<scalar_node_base_t<scalar_mul>> /*,
+public expression_crtp<scalar_mul, scalar_expression>*/
 {
 public:
-  using base = n_ary_tree<scalar_expression<ValueType>, scalar_mul<ValueType>>;
-  // using base_op = n_ary_tree<scalar_expression<ValueType>,
-  // scalar_mul<ValueType>>; using base_expr =
-  // expression_crtp<scalar_mul<ValueType>, scalar_expression<ValueType>>;
+  using base = n_ary_tree<scalar_node_base_t<scalar_mul>>;
+  // using base_op = n_ary_tree<scalar_expression,
+  // scalar_mul>; using base_expr =
+  // expression_crtp<scalar_mul, scalar_expression>;
 
   using base::base;
 
   scalar_mul() : base() {}
   scalar_mul(scalar_mul const &mul) : base(static_cast<base const &>(mul)) {}
-  scalar_mul(scalar_mul &&mul) : base(std::forward<base>(mul)) {}
-  ~scalar_mul() = default;
+  scalar_mul(scalar_mul &&mul) noexcept : base(std::forward<base>(mul)) {}
+  ~scalar_mul() override = default;
 
   const scalar_mul &operator=(scalar_mul &&) = delete;
 };

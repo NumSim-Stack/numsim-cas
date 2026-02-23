@@ -1,87 +1,55 @@
 #ifndef SCALAR_CONSTANT_H
 #define SCALAR_CONSTANT_H
 
-#include "../numsim_cas_type_traits.h"
-#include "../utility_func.h"
+#include <numsim_cas/core/hash_functions.h>
+#include <numsim_cas/core/scalar_number.h>
+#include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class scalar_constant final
-    : public expression_crtp<scalar_constant<ValueType>,
-                             scalar_expression<ValueType>> {
+class scalar_constant final : public scalar_node_base_t<scalar_constant> {
 public:
-  using base =
-      expression_crtp<scalar_constant<ValueType>, scalar_expression<ValueType>>;
-
+  using base = scalar_node_base_t<scalar_constant>;
   scalar_constant() = delete;
-  explicit scalar_constant(ValueType const &data) : m_data(data) {
-    hash_combine(this->m_hash_value, base::get_id());
-    hash_combine(this->m_hash_value, data);
+  template <typename T>
+  explicit scalar_constant(T const &v) : base(), m_value(v) {}
+  scalar_constant(scalar_constant const &) = default;
+  scalar_constant(scalar_constant &&) noexcept = default;
+  scalar_constant &operator=(scalar_constant const &) = delete;
+  scalar_constant &operator=(scalar_constant &&) noexcept = delete;
+  ~scalar_constant() override = default;
+
+  auto const &value() const noexcept { return m_value; }
+
+  friend inline bool operator==(scalar_constant const &a,
+                                scalar_constant const &b) {
+    return a.value() == b.value();
   }
-  explicit scalar_constant(scalar_constant const &data)
-      : base(static_cast<base const &>(data)), m_data(data.m_data) {}
-  explicit scalar_constant(scalar_constant &&data)
-      : base(static_cast<base &&>(data)),
-        m_data(std::forward<ValueType>(data.m_data)) {}
-
-  //  template<typename T, std::enable_if_t<std::is_same_v<ValueType,
-  //  std::remove_cvref_t<T>>, bool> = true> constexpr inline const auto&
-  //  operator=(T && value){
-  //    m_data = value;
-  //    return *this;
-  //  }
-
-  constexpr inline const auto &operator()() const { return m_data; }
-
-  //  constexpr inline auto& operator()(){
-  //    return m_data;
-  //  }
-
-  virtual void update_hash_value() const override {
-    hash_combine(base::m_hash_value, base::get_id());
+  friend inline bool operator!=(scalar_constant const &a,
+                                scalar_constant const &b) {
+    return !(a == b);
+  }
+  friend inline bool operator<(scalar_constant const &a,
+                               scalar_constant const &b) {
+    return a.value() < b.value();
+  }
+  friend inline bool operator>(scalar_constant const &a,
+                               scalar_constant const &b) {
+    return b < a;
   }
 
-  template <typename _ValueType>
-  friend bool operator<(scalar_constant<_ValueType> const &lhs,
-                        scalar_constant<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator>(scalar_constant<_ValueType> const &lhs,
-                        scalar_constant<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator==(scalar_constant<_ValueType> const &lhs,
-                         scalar_constant<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator!=(scalar_constant<_ValueType> const &lhs,
-                         scalar_constant<_ValueType> const &rhs);
+protected:
+  void update_hash_value() const noexcept override {
+    this->m_hash_value = 0;
+    hash_combine(this->m_hash_value, this->id());
+    std::visit([&](auto const &x) { hash_combine(this->m_hash_value, x); },
+               m_value.raw());
+  }
 
 private:
-  ValueType m_data;
+  scalar_number m_value;
 };
 
-template <typename _ValueType>
-bool operator<(scalar_constant<_ValueType> const &lhs,
-               scalar_constant<_ValueType> const &rhs) {
-  return lhs.m_data < rhs.m_data;
-}
-
-template <typename _ValueType>
-bool operator>(scalar_constant<_ValueType> const &lhs,
-               scalar_constant<_ValueType> const &rhs) {
-  return !(lhs < rhs);
-}
-
-template <typename _ValueType>
-bool operator==(scalar_constant<_ValueType> const &lhs,
-                scalar_constant<_ValueType> const &rhs) {
-  return lhs.m_data == rhs.m_data;
-}
-
-template <typename _ValueType>
-bool operator!=(scalar_constant<_ValueType> const &lhs,
-                scalar_constant<_ValueType> const &rhs) {
-  return !(lhs == rhs);
-}
-
 } // namespace numsim::cas
+
 #endif // SCALAR_CONSTANT_H

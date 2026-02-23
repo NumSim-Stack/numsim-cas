@@ -1,67 +1,44 @@
 #ifndef TENSOR_ZERO_H
 #define TENSOR_ZERO_H
 
-#include "../expression_crtp.h"
-#include "tensor_expression.h"
+#include <numsim_cas/core/hash_functions.h>
+#include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
-template <typename ValueType>
-class tensor_zero final : public expression_crtp<tensor_zero<ValueType>,
-                                                 tensor_expression<ValueType>> {
+
+class tensor_zero final : public tensor_node_base_t<tensor_zero> {
 public:
-  using base =
-      expression_crtp<tensor_zero<ValueType>, tensor_expression<ValueType>>;
+  using base = tensor_node_base_t<tensor_zero>;
 
   tensor_zero() = delete;
   tensor_zero(std::size_t dim, std::size_t rank) : base(dim, rank) {}
-  tensor_zero(tensor_zero &&data)
+  tensor_zero(tensor_zero &&data) noexcept
       : base(static_cast<base &&>(data), data.dim(), data.rank()) {}
   tensor_zero(tensor_zero const &data)
       : base(static_cast<base const &>(data), data.dim(), data.rank()) {}
-  ~tensor_zero() = default;
+  ~tensor_zero() override = default;
   const tensor_zero &operator=(tensor_zero &&) = delete;
 
-  template <typename _ValueType>
-  friend bool operator<(tensor_zero<_ValueType> const &lhs,
-                        tensor_zero<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator>(tensor_zero<_ValueType> const &lhs,
-                        tensor_zero<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator==(tensor_zero<_ValueType> const &lhs,
-                         tensor_zero<_ValueType> const &rhs);
-  template <typename _ValueType>
-  friend bool operator!=(tensor_zero<_ValueType> const &lhs,
-                         tensor_zero<_ValueType> const &rhs);
+  friend inline bool operator<(tensor_zero const &lhs, tensor_zero const &rhs) {
+    return lhs.hash_value() < rhs.hash_value();
+  }
+  friend inline bool operator>(tensor_zero const &lhs, tensor_zero const &rhs) {
+    return rhs < lhs;
+  }
+  friend inline bool operator==(tensor_zero const &lhs,
+                                tensor_zero const &rhs) {
+    return lhs.hash_value() == rhs.hash_value();
+  }
+  friend inline bool operator!=(tensor_zero const &lhs,
+                                tensor_zero const &rhs) {
+    return !(lhs == rhs);
+  }
 
-  virtual void update_hash_value() const override {
+  void update_hash_value() const override {
     hash_combine(base::m_hash_value, base::get_id());
   }
 };
 
-template <typename ValueType>
-bool operator<(tensor_zero<ValueType> const &lhs,
-               tensor_zero<ValueType> const &rhs) {
-  return lhs.hash_value() < rhs.hash_value();
-}
-
-template <typename ValueType>
-bool operator>(tensor_zero<ValueType> const &lhs,
-               tensor_zero<ValueType> const &rhs) {
-  return !(lhs < rhs);
-}
-
-template <typename ValueType>
-bool operator==(tensor_zero<ValueType> const &lhs,
-                tensor_zero<ValueType> const &rhs) {
-  return lhs.hash_value() == rhs.hash_value();
-}
-
-template <typename ValueType>
-bool operator!=(tensor_zero<ValueType> const &lhs,
-                tensor_zero<ValueType> const &rhs) {
-  return !(lhs == rhs);
-}
 } // namespace numsim::cas
 
 #endif // TENSOR_ZERO_H

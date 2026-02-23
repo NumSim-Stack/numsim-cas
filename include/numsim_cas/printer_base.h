@@ -1,8 +1,8 @@
 #ifndef PRINTER_BASE_H
 #define PRINTER_BASE_H
 
-#include "numsim_cas_forward.h"
 #include <algorithm>
+#include <numsim_cas/core/expression_holder.h>
 #include <string_view>
 
 namespace numsim::cas {
@@ -19,17 +19,20 @@ enum class Precedence {
 
 template <typename Derived, typename StreamType> class printer_base {
 public:
+  friend Derived;
+
   printer_base(StreamType &out) : m_out(out) {}
 
   template <typename ExprType>
   auto apply(expression_holder<ExprType> const &expr,
-             Precedence parent_precedence = Precedence::None) {
+             Precedence parent_precedence = Precedence::None) noexcept {
     static_cast<Derived &>(*this).apply(expr, parent_precedence);
   }
 
 protected:
   template <typename Stream, typename Container>
-  void print_sequence(Stream &out, Container const &data, char spacer) {
+  static void print_sequence(Stream &out, Container const &data,
+                             char spacer) noexcept {
     bool first{false};
     std::for_each(std::begin(data), std::end(data), [&](auto const &el) {
       if (first)
@@ -39,12 +42,26 @@ protected:
     });
   }
 
-  void begin(Precedence current_precedence, Precedence parent_precedence) {
+  template <typename Stream, typename Container, typename AdditionalCheck>
+  static void print_sequence(Stream &out, Container const &data, char spacer,
+                             AdditionalCheck check) noexcept {
+    bool first{false};
+    std::for_each(std::begin(data), std::end(data), [&](auto const &el) {
+      if (first && check(el))
+        out << spacer;
+      out << el;
+      first = true;
+    });
+  }
+
+  void begin(Precedence current_precedence,
+             Precedence parent_precedence) noexcept {
     if (current_precedence < parent_precedence)
       m_out << "(";
   }
 
-  void end(Precedence current_precedence, Precedence parent_precedence) {
+  void end(Precedence current_precedence,
+           Precedence parent_precedence) noexcept {
     if (current_precedence < parent_precedence)
       m_out << ")";
   }
@@ -58,13 +75,14 @@ protected:
    * @param parent_precedence The precedence of the parent expression.
    */
   template <typename Visitable>
-  void print_unary(std::string_view name, Visitable const &visitable) {
+  void print_unary(std::string_view name, Visitable const &visitable) noexcept {
     m_out << name << "(";
-    print(m_out, visitable.expr());
+    static_cast<Derived &>(*this).apply(visitable.expr());
     m_out << ")";
   }
 
   StreamType &m_out;
+  bool m_first_term{true};
 };
 
 } // namespace numsim::cas

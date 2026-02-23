@@ -1,150 +1,111 @@
 #ifndef TENSOR_TO_SCALAR_SIMPLIFIER_MUL_H
 #define TENSOR_TO_SCALAR_SIMPLIFIER_MUL_H
 
-#include "../../operators.h"
-#include "../operators/tensor_to_scalar/tensor_to_scalar_mul.h"
-#include "../tensor_to_scalar_expression.h"
-#include "../tensor_to_scalar_pow.h"
+#include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/simplifier/simplifier_mul.h>
+#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_div.h>
+#include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_mul.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_domain_traits.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
 namespace numsim::cas {
+
+using tensor_to_scalar_traits = domain_traits<tensor_to_scalar_expression>;
+
 namespace tensor_to_scalar_detail {
 namespace simplifier {
 
-template <typename ExprLHS, typename ExprRHS> struct mul_default {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
+template <typename Derived>
+class mul_default
+    : public tensor_to_scalar_visitor_return_expr_t,
+      public detail::mul_dispatch<tensor_to_scalar_traits, Derived> {
+  using algo = detail::mul_dispatch<tensor_to_scalar_traits, Derived>;
 
-  mul_default(ExprLHS &&lhs, ExprRHS &&rhs)
-      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
-
-  [[nodiscard]] constexpr inline expr_type get_default() {
-    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
-      return get_default_same();
-    }
-    return get_default_imp();
-  }
-
-  template <typename Expr>
-  [[nodiscard]] constexpr inline expr_type operator()(Expr const &) {
-    return get_default();
-  }
-
-  // tensor_to_scalar * tensor_to_scalar_with_scalar_mul -->
-  // tensor_to_scalar_with_scalar_mul
-  [[nodiscard]] constexpr inline expr_type
-  operator()(tensor_to_scalar_with_scalar_mul<value_type> const &rhs) noexcept {
-    return make_expression<tensor_to_scalar_with_scalar_mul<value_type>>(
-        rhs.expr_lhs(), rhs.expr_rhs() * m_lhs);
-  }
+public:
+  using expr_holder_t = typename algo::expr_holder_t;
+  using algo::algo;
+  using algo::dispatch;
+  using algo::get_default;
 
 protected:
-  [[nodiscard]] constexpr inline expr_type get_default_same() {
-    auto coeff{make_expression<scalar_constant<value_type>>(2)};
-    return make_expression<
-        tensor_to_scalar_pow_with_scalar_exponent<value_type>>(
-        m_rhs, std::move(coeff));
+#define NUMSIM_ADD_OVR(T)                                                      \
+  expr_holder_t operator()(T const &n) override {                              \
+    if constexpr (std::is_void_v<Derived>) {                                   \
+      return dispatch(n);                                                      \
+    } else {                                                                   \
+      return static_cast<Derived *>(this)->dispatch(n);                        \
+    }                                                                          \
   }
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_ADD_OVR, NUMSIM_ADD_OVR)
+#undef NUMSIM_ADD_OVR
 
-  [[nodiscard]] constexpr inline expr_type get_default_imp() {
-    auto mul_new{make_expression<tensor_to_scalar_mul<value_type>>()};
-    auto &mul{mul_new.template get<tensor_to_scalar_mul<value_type>>()};
-    mul.push_back(m_lhs);
-    mul.push_back(m_rhs);
-    return std::move(mul_new);
-  }
-
-  ExprLHS &&m_lhs;
-  ExprRHS &&m_rhs;
+  using algo::m_lhs;
+  using algo::m_rhs;
 };
 
-// tensor_scalar_with_scalar_add + tensor_to_scalar -->
-// tensor_to_scalar_with_scalar_add tensor_to_scalar +
-// tensor_to_scalar_with_scalar_add --> tensor_to_scalar_with_scalar_add
-// tensor_scalar_with_scalar_add + tensor_scalar_with_scalar_add -->
-// tensor_to_scalar_with_scalar_add
-template <typename ExprLHS, typename ExprRHS>
-class wrapper_tensor_to_scalar_mul_mul final
-    : public mul_default<ExprLHS, ExprRHS> {
+class constant_mul final : public mul_default<constant_mul> {
 public:
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
-  using base = mul_default<ExprLHS, ExprRHS>;
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
+  using base = mul_default<constant_mul>;
+  using base::operator();
+  using base::dispatch;
+  using base::m_rhs;
 
-  wrapper_tensor_to_scalar_mul_mul(ExprLHS &&lhs, ExprRHS &&rhs)
-      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs)),
-        lhs{base::m_lhs
-                .template get<tensor_to_scalar_with_scalar_mul<value_type>>()} {
-  }
+  constant_mul(expr_holder_t lhs, expr_holder_t rhs);
 
-  // tensor_to_scalar_with_scalar_mul * tensor_to_scalar_with_scalar_mul -->
-  // tensor_to_scalar_with_scalar_mul
-  [[nodiscard]] constexpr inline expr_type
-  operator()(tensor_to_scalar_with_scalar_mul<value_type> const &rhs) {
-    return make_expression<tensor_to_scalar_with_scalar_mul<value_type>>(
-        lhs.expr_lhs() * rhs.expr_lhs(), lhs.expr_rhs() * rhs.expr_rhs());
-  }
+  // scalar_wrapper * scalar_wrapper → numeric multiply
+  expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &rhs);
 
-  // tensor_to_scalar_with_scalar_mul * tensor_to_scalar -->
-  // tensor_to_scalar_with_scalar_mul
-  template <typename Expr>
-  [[nodiscard]] constexpr inline expr_type operator()(Expr const &) {
-    return make_expression<tensor_to_scalar_with_scalar_mul<value_type>>(
-        lhs.expr_lhs(), m_rhs * lhs.expr_rhs());
+  // scalar_wrapper * mul → merge coefficient
+  expr_holder_t dispatch(tensor_to_scalar_mul const &rhs);
+
+  template <typename ExprType>
+  expr_holder_t dispatch([[maybe_unused]] ExprType const &) {
+    if (lhs_val && *lhs_val == scalar_number{1}) {
+      return std::move(m_rhs);
+    }
+    return base::get_default();
   }
 
 private:
-  using base::m_lhs;
-  using base::m_rhs;
-  tensor_to_scalar_with_scalar_mul<value_type> const &lhs;
+  std::optional<scalar_number> lhs_val;
 };
 
-template <typename ExprLHS, typename ExprRHS> struct mul_base {
-  using value_type = typename std::remove_reference_t<
-      std::remove_const_t<ExprLHS>>::value_type;
-  using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
+class mul_base final : public tensor_to_scalar_visitor_return_expr_t {
+public:
+  using expr_holder_t = expression_holder<tensor_to_scalar_expression>;
 
-  mul_base(ExprLHS &&lhs, ExprRHS &&rhs)
-      : m_lhs(std::forward<ExprLHS>(lhs)), m_rhs(std::forward<ExprRHS>(rhs)) {}
+  mul_base(expr_holder_t lhs, expr_holder_t rhs);
 
-  [[nodiscard]] constexpr inline expr_type
-  operator()(tensor_to_scalar_mul<value_type> const &) {
-    auto new_mul{copy_expression<tensor_to_scalar_mul<value_type>>(
-        std::forward<ExprLHS>(m_lhs))};
-    auto &mul{new_mul.template get<tensor_to_scalar_mul<value_type>>()};
-    auto pos{mul.hash_map().find(m_rhs.get().hash_value())};
-    if (pos != mul.hash_map().end()) {
-      auto expr{pos->second * m_rhs};
-      mul.hash_map().erase(pos);
-      mul.push_back(std::move(expr));
-      return new_mul;
-    }
-    mul.push_back(m_rhs);
-    return new_mul;
+protected:
+#define NUMSIM_ADD_OVR_FIRST(T)                                                \
+  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+#define NUMSIM_ADD_OVR_NEXT(T)                                                 \
+  expr_holder_t operator()(T const &lhs) override { return dispatch(lhs); }
+  NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_ADD_OVR_FIRST,
+                                        NUMSIM_ADD_OVR_NEXT)
+#undef NUMSIM_ADD_OVR_FIRST
+#undef NUMSIM_ADD_OVR_NEXT
+
+  [[nodiscard]] expr_holder_t dispatch(tensor_to_scalar_mul const &);
+
+  [[nodiscard]] expr_holder_t dispatch(tensor_to_scalar_zero const &);
+
+  [[nodiscard]] expr_holder_t dispatch(tensor_to_scalar_one const &);
+
+  [[nodiscard]] expr_holder_t dispatch(tensor_to_scalar_negative const &);
+
+  [[nodiscard]] expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &);
+
+  template <typename Type> [[nodiscard]] expr_holder_t dispatch(Type const &) {
+    auto &_rhs{m_rhs.template get<tensor_to_scalar_visitable_t>()};
+    mul_default<void> visitor(std::move(m_lhs), std::move(m_rhs));
+    return _rhs.accept(visitor);
   }
 
-  template <typename Type>
-  [[nodiscard]] constexpr inline expr_type operator()(Type const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(mul_default<ExprLHS, ExprRHS>(std::forward<ExprLHS>(m_lhs),
-                                               std::forward<ExprRHS>(m_rhs)),
-                 expr_rhs);
-  }
-
-  // tensor_scalar_with_scalar_mul * tensor_scalar -->
-  // tensor_scalar_with_scalar_mul
-  [[nodiscard]] constexpr inline expr_type
-  operator()(tensor_to_scalar_with_scalar_mul<value_type> const &) {
-    auto &expr_rhs{*m_rhs};
-    return visit(
-        wrapper_tensor_to_scalar_mul_mul<ExprLHS, ExprRHS>(
-            std::forward<ExprLHS>(m_lhs), std::forward<ExprRHS>(m_rhs)),
-        expr_rhs);
-  }
-
-  ExprLHS &&m_lhs;
-  ExprRHS &&m_rhs;
+  expr_holder_t m_lhs;
+  expr_holder_t m_rhs;
 };
 
 } // namespace simplifier

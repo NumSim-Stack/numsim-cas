@@ -2,6 +2,7 @@
 #define TENSOR_DATA_ADD_H
 
 #include "tensor_data.h"
+#include <numsim_cas/core/cas_error.h>
 
 namespace numsim::cas {
 
@@ -21,14 +22,14 @@ public:
         static_cast<const Tensor &>(m_rhs).data();
   }
 
-  inline void missmatch(std::size_t dim, std::size_t rank) {
-    if (dim > this->_MaxDim || dim == 0) {
-      throw std::runtime_error(
+  inline void mismatch(std::size_t dim, std::size_t rank) {
+    if (dim > this->MaxDim_ || dim == 0) {
+      throw evaluation_error(
           "tensor_data_add::evaluate(dim, rank) dim > MaxDim || dim == 0");
     }
-    if (rank > this->_MaxRank || rank == 0) {
-      throw std::runtime_error("tensor_data_add::evaluate(dim, rank) rank "
-                               "> MaxRank || rank == 0");
+    if (rank > this->MaxRank_ || rank == 0) {
+      throw evaluation_error("tensor_data_add::evaluate(dim, rank) rank "
+                             "> MaxRank || rank == 0");
     }
   }
 

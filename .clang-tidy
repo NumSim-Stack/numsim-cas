@@ -1,0 +1,14 @@
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  modernize-use-override,
+  modernize-use-nullptr,
+  modernize-use-auto,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  -bugprone-unchecked-optional-access,
+  -performance-enum-size,
+  -bugprone-macro-parentheses,
+WarningsAsErrors: ''
+HeaderFilterRegex: 'include/numsim_cas/.*'

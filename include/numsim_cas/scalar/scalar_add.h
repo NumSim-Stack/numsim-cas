@@ -1,27 +1,23 @@
 #ifndef SCALAR_ADD_H
 #define SCALAR_ADD_H
 
-#include "../n_ary_tree.h"
-#include "../numsim_cas_type_traits.h"
-#include "../scalar/scalar_expression.h"
+#include <numsim_cas/core/n_ary_tree.h>
+#include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
 
-template <typename ValueType>
-class scalar_add final
-    : // public expression_crtp<scalar_add<ValueType>,
-      // scalar_expression<ValueType>>,
-      public n_ary_tree<scalar_expression<ValueType>, scalar_add<ValueType>> {
+class scalar_add final : public n_ary_tree<scalar_node_base_t<scalar_add>> {
 public:
-  using base = n_ary_tree<scalar_expression<ValueType>, scalar_add<ValueType>>;
-  using base_expr =
-      expression_crtp<scalar_add<ValueType>, scalar_expression<ValueType>>;
+  using base = n_ary_tree<scalar_node_base_t<scalar_add>>;
   using base::base;
+  using base::expr_t;
 
   scalar_add() : base() {}
-  ~scalar_add() = default;
+  template <typename... Expr>
+  scalar_add(Expr &&...expr) : base(std::forward<Expr>(expr)...) {}
+  ~scalar_add() override = default;
   scalar_add(scalar_add const &add) : base(static_cast<base const &>(add)) {}
-  scalar_add(scalar_add &&add) : base(std::forward<base>(add)) {}
+  scalar_add(scalar_add &&add) noexcept : base(std::forward<base>(add)) {}
   const scalar_add &operator=(scalar_add &&) = delete;
 };
 } // namespace numsim::cas

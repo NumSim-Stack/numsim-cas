@@ -3,6 +3,7 @@
 
 #include "../../numsim_cas_type_traits.h"
 #include "tensor_data.h"
+#include <numsim_cas/core/cas_error.h>
 
 namespace numsim::cas {
 
@@ -39,18 +40,18 @@ public:
     tmech::detail::for_loop_t<RankLHS + RankRHS - 1, Dim>::for_loop(func);
   }
 
-  void missmatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
-    if (dim > this->_MaxDim || dim == 0) {
-      throw std::runtime_error("tensor_data_outer_product::evaluate(dim, "
-                               "rankLHS, rankRHS) dim > MaxDim || dim == 0");
+  void mismatch(std::size_t dim, std::size_t rankLHS, std::size_t rankRHS) {
+    if (dim > this->MaxDim_ || dim == 0) {
+      throw evaluation_error("tensor_data_outer_product::evaluate(dim, "
+                             "rankLHS, rankRHS) dim > MaxDim || dim == 0");
     }
-    if (rankLHS > this->_MaxRank || rankLHS == 0) {
-      throw std::runtime_error(
+    if (rankLHS > this->MaxRank_ || rankLHS == 0) {
+      throw evaluation_error(
           "tensor_data_outer_product::evaluate(dim, rankLHS, rankRHS) rankLHS "
           "> MaxRank || rankLHS == 0");
     }
-    if (rankRHS > this->_MaxRank || rankRHS == 0) {
-      throw std::runtime_error(
+    if (rankRHS > this->MaxRank_ || rankRHS == 0) {
+      throw evaluation_error(
           "tensor_data_outer_product::evaluate(dim, rankLHS, rankRHS) rankRHS "
           "> MaxRank || rankRHS == 0");
     }

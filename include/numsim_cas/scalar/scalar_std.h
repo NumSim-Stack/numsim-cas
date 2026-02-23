@@ -1,238 +1,182 @@
 #ifndef SCALAR_STD_H
 #define SCALAR_STD_H
 
-#include "../functions.h"
-#include "../numsim_cas_forward.h"
-#include "../numsim_cas_type_traits.h"
-#include "scalar_expression.h"
-#include "visitors/scalar_printer.h"
+#include <cassert>
 #include <sstream>
+#include <string>
+#include <type_traits>
 
-namespace std {
+#include <numsim_cas/basic_functions.h>
+#include <numsim_cas/scalar/scalar_abs.h>
+#include <numsim_cas/scalar/scalar_acos.h>
+#include <numsim_cas/scalar/scalar_asin.h>
+#include <numsim_cas/scalar/scalar_assume.h>
+#include <numsim_cas/scalar/scalar_atan.h>
+#include <numsim_cas/scalar/scalar_binary_simplify_fwd.h>
+#include <numsim_cas/scalar/scalar_constant.h>
+#include <numsim_cas/scalar/scalar_cos.h>
+#include <numsim_cas/scalar/scalar_exp.h>
+#include <numsim_cas/scalar/scalar_expression.h>
+#include <numsim_cas/scalar/scalar_globals.h>
+#include <numsim_cas/scalar/scalar_io.h>
+#include <numsim_cas/scalar/scalar_log.h>
+#include <numsim_cas/scalar/scalar_make_constant.h>
+#include <numsim_cas/scalar/scalar_one.h>
+#include <numsim_cas/scalar/scalar_power.h>
+#include <numsim_cas/scalar/scalar_sign.h>
+#include <numsim_cas/scalar/scalar_sin.h>
+#include <numsim_cas/scalar/scalar_sqrt.h>
+#include <numsim_cas/scalar/scalar_tan.h>
 
-template <typename ValueType>
-auto to_string(
-    numsim::cas::expression_holder<numsim::cas::scalar_expression<ValueType>>
-        &&expr) {
-  std::stringstream ss;
-  numsim::cas::scalar_printer<ValueType, std::stringstream> printer(ss);
-  printer.apply(expr);
-  return ss.str();
+namespace numsim::cas {
+
+template <class T> using decay_t = std::remove_cvref_t<T>;
+
+template <class T>
+concept scalar_expr_holder = requires {
+  typename decay_t<T>::expr_type;
+} && std::is_base_of_v<scalar_expression, typename decay_t<T>::expr_type>;
+
+[[nodiscard]] std::string
+to_string(expression_holder<scalar_expression> const &expr);
+
+template <scalar_expr_holder L, scalar_expr_holder R>
+[[nodiscard]] auto pow(L &&expr_lhs, R &&expr_rhs) {
+  assert(expr_rhs.is_valid());
+  assert(expr_lhs.is_valid());
+
+  if (is_same<scalar_one>(expr_lhs) ||
+      (is_same<scalar_constant>(expr_lhs) &&
+       expr_lhs.template get<scalar_constant>().value() == 1)) {
+    return get_scalar_one();
+  }
+
+  if (is_same<scalar_zero>(expr_rhs))
+    return get_scalar_one();
+
+  if (is_same<scalar_one>(expr_rhs))
+    return std::forward<L>(expr_lhs);
+
+  if (is_same<scalar_constant>(expr_rhs) &&
+      expr_rhs.template get<scalar_constant>().value() == 1) {
+    return std::forward<L>(expr_lhs);
+  }
+
+  return binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
+                                    std::forward<R>(expr_rhs));
 }
 
-template <typename ValueType>
-auto to_string(
-    numsim::cas::expression_holder<numsim::cas::scalar_expression<ValueType>>
-        &expr) {
-  std::stringstream ss;
-  numsim::cas::scalar_printer<ValueType, std::stringstream> printer(ss);
-  printer.apply(expr);
-  return ss.str();
+template <scalar_expr_holder L, typename R>
+requires std::is_arithmetic_v<std::remove_cvref_t<R>>
+[[nodiscard]] auto pow(L &&expr_lhs, R expr_rhs) {
+  auto constant{detail::tag_invoke(detail::make_constant_fn{},
+                                   std::type_identity<scalar_expression>{},
+                                   expr_rhs)};
+  return binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
+                                    std::move(constant));
 }
 
-template <
-    typename ExprLHS, typename ExprRHS,
-    std::enable_if_t<
-        std::is_base_of_v<
-            numsim::cas::scalar_expression<
-                typename numsim::cas::remove_cvref_t<ExprLHS>::value_type>,
-            typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type>,
-        bool> = true,
-    std::enable_if_t<
-        std::is_base_of_v<
-            numsim::cas::scalar_expression<
-                typename numsim::cas::remove_cvref_t<ExprRHS>::value_type>,
-            typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type>,
-        bool> = true>
-auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
-  using value_type = std::common_type_t<
-      typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
-      typename numsim::cas::remove_cvref_t<ExprRHS>::expr_type::value_type>;
-
-  return numsim::cas::make_expression<numsim::cas::scalar_pow<value_type>>(
-      std::forward<ExprLHS>(expr_lhs), std::forward<ExprRHS>(expr_rhs));
+template <scalar_expr_holder E> [[nodiscard]] auto sin(E &&e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
+  if (is_same<scalar_asin>(e))
+    return e.template get<scalar_asin>().expr();
+  if (is_same<scalar_negative>(e))
+    return -sin(e.template get<scalar_negative>().expr());
+  return make_expression<scalar_sin>(std::forward<E>(e));
 }
 
-template <
-    typename ExprLHS, typename ExprRHS,
-    std::enable_if_t<
-        std::is_base_of_v<
-            numsim::cas::scalar_expression<
-                typename numsim::cas::remove_cvref_t<ExprLHS>::value_type>,
-            typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type>,
-        bool> = true,
-    std::enable_if_t<std::is_arithmetic_v<ExprRHS>, bool> = true>
-auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
-  using value_type = std::common_type_t<
-      typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
-      ExprRHS>;
-  auto constant{
-      numsim::cas::make_expression<numsim::cas::scalar_constant<value_type>>(
-          expr_rhs)};
-  return numsim::cas::make_expression<numsim::cas::scalar_pow<value_type>>(
-      std::forward<ExprLHS>(expr_lhs), std::move(constant));
+template <scalar_expr_holder E> [[nodiscard]] auto cos(E &&e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_one();
+  if (is_same<scalar_acos>(e))
+    return e.template get<scalar_acos>().expr();
+  if (is_same<scalar_negative>(e))
+    return cos(e.template get<scalar_negative>().expr());
+  return make_expression<scalar_cos>(std::forward<E>(e));
 }
 
-template <
-    typename ExprLHS, typename ExprRHS,
-    std::enable_if_t<
-        std::is_base_of_v<
-            numsim::cas::scalar_expression<
-                typename numsim::cas::remove_cvref_t<ExprLHS>::value_type>,
-            typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type>,
-        bool> = true,
-    std::enable_if_t<std::is_fundamental_v<ExprRHS>, bool> = true>
-auto pow(ExprLHS const &expr_lhs, ExprRHS &&expr_rhs) {
-  using value_type = std::common_type_t<
-      typename numsim::cas::remove_cvref_t<ExprLHS>::expr_type::value_type,
-      ExprRHS>;
-  auto constant{
-      numsim::cas::make_expression<numsim::cas::scalar_constant<value_type>>(
-          expr_rhs)};
-  return numsim::cas::make_expression<numsim::cas::scalar_pow<value_type>>(
-      expr_lhs, std::move(constant));
+template <scalar_expr_holder E> [[nodiscard]] auto tan(E &&e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
+  if (is_same<scalar_atan>(e))
+    return e.template get<scalar_atan>().expr();
+  return make_expression<scalar_tan>(std::forward<E>(e));
 }
 
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto sin(Expr &&expr) {
-  using value_type = typename std::decay_t<Expr>::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_sin<value_type>>(
-      std::forward<Expr>(expr));
+template <scalar_expr_holder E> [[nodiscard]] auto asin(E &&e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
+  return make_expression<scalar_asin>(std::forward<E>(e));
 }
 
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto cos(Expr &&expr) {
-  using value_type =
-      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_cos<value_type>>(
-      std::forward<Expr>(expr));
+template <scalar_expr_holder E> [[nodiscard]] auto acos(E &&e) {
+  if (is_same<scalar_one>(e) ||
+      (is_same<scalar_constant>(e) &&
+       e.template get<scalar_constant>().value() == scalar_number{1}))
+    return get_scalar_zero();
+  return make_expression<scalar_acos>(std::forward<E>(e));
 }
 
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto tan(Expr &&expr) {
-  using value_type =
-      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_tan<value_type>>(
-      std::forward<Expr>(expr));
+template <scalar_expr_holder E> [[nodiscard]] auto atan(E &&e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
+  return make_expression<scalar_atan>(std::forward<E>(e));
 }
 
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto asin(Expr &&expr) {
-  using value_type = typename std::decay_t<Expr>::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_asin<value_type>>(
-      std::forward<Expr>(expr));
+template <scalar_expr_holder E> [[nodiscard]] auto exp(E &&e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_one();
+  if (is_same<scalar_log>(e))
+    return e.template get<scalar_log>().expr();
+  return make_expression<scalar_exp>(std::forward<E>(e));
 }
 
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto acos(Expr &&expr) {
-  using value_type =
-      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_acos<value_type>>(
-      std::forward<Expr>(expr));
+template <scalar_expr_holder E> [[nodiscard]] auto abs(E &&e) {
+  if (is_positive(e) || is_nonnegative(e))
+    return std::forward<E>(e);
+  if (is_negative(e) || is_nonpositive(e))
+    return -std::forward<E>(e);
+  return make_expression<scalar_abs>(std::forward<E>(e));
 }
 
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto atan(Expr &&expr) {
-  using value_type =
-      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_atan<value_type>>(
-      std::forward<Expr>(expr));
+template <scalar_expr_holder E> [[nodiscard]] auto sqrt(E &&e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
+  if (is_same<scalar_one>(e) ||
+      (is_same<scalar_constant>(e) &&
+       e.template get<scalar_constant>().value() == scalar_number{1}))
+    return get_scalar_one();
+  if (is_same<scalar_pow>(e)) {
+    auto const &p = e.template get<scalar_pow>();
+    if (is_same<scalar_constant>(p.expr_rhs()) &&
+        p.expr_rhs().template get<scalar_constant>().value() ==
+            scalar_number{2}) {
+      if (is_nonnegative(p.expr_lhs()) || is_positive(p.expr_lhs()))
+        return p.expr_lhs();
+    }
+  }
+  return make_expression<scalar_sqrt>(std::forward<E>(e));
 }
 
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto exp(Expr &&expr) {
-  using value_type =
-      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_exp<value_type>>(
-      std::forward<Expr>(expr));
+template <scalar_expr_holder E> [[nodiscard]] auto sign(E &&e) {
+  if (is_positive(e))
+    return get_scalar_one();
+  if (is_negative(e))
+    return -get_scalar_one();
+  return make_expression<scalar_sign>(std::forward<E>(e));
 }
 
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto abs(Expr &&expr) {
-  using value_type =
-      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_abs<value_type>>(
-      std::forward<Expr>(expr));
+template <scalar_expr_holder E> [[nodiscard]] auto log(E &&e) {
+  if (is_same<scalar_one>(e) ||
+      (is_same<scalar_constant>(e) &&
+       e.template get<scalar_constant>().value() == scalar_number{1}))
+    return get_scalar_zero();
+  if (is_same<scalar_exp>(e))
+    return e.template get<scalar_exp>().expr();
+  return make_expression<scalar_log>(std::forward<E>(e));
 }
 
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto sqrt(Expr &&expr) {
-  using value_type =
-      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_sqrt<value_type>>(
-      std::forward<Expr>(expr));
-}
-
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto sign(Expr &&expr) {
-  using value_type =
-      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_sign<value_type>>(
-      std::forward<Expr>(expr));
-}
-
-template <typename Expr,
-          std::enable_if_t<
-              std::is_same_v<typename std::decay_t<Expr>::expr_type,
-                             numsim::cas::scalar_expression<
-                                 typename std::decay_t<Expr>::value_type>>,
-              bool> = true>
-auto log(Expr &&expr) {
-  using value_type =
-      typename numsim::cas::remove_cvref_t<Expr>::expr_type::value_type;
-  return numsim::cas::make_expression<numsim::cas::scalar_log<value_type>>(
-      std::forward<Expr>(expr));
-}
-} // namespace std
+} // namespace numsim::cas
 
 #endif // SCALAR_STD_H

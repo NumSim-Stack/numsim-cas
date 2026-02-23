@@ -1,50 +1,42 @@
 #ifndef TENSOR_SCALAR_MUL_H
 #define TENSOR_SCALAR_MUL_H
 
-#include "../../../binary_op.h"
-#include "../../../numsim_cas_type_traits.h"
-#include <stdexcept>
+#include <numsim_cas/core/binary_op.h>
+#include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
 
-template <typename ValueType>
 class tensor_scalar_mul final
-    : public binary_op<
-          tensor_scalar_mul<ValueType>, tensor_expression<ValueType>,
-          scalar_expression<ValueType>, tensor_expression<ValueType>> {
+    : public binary_op<tensor_node_base_t<tensor_scalar_mul>, scalar_expression,
+                       tensor_expression> {
 public:
-  using base =
-      binary_op<tensor_scalar_mul<ValueType>, tensor_expression<ValueType>,
-                scalar_expression<ValueType>, tensor_expression<ValueType>>;
+  using base = binary_op<tensor_node_base_t<tensor_scalar_mul>,
+                         scalar_expression, tensor_expression>;
 
   template <typename LHS, typename RHS>
   tensor_scalar_mul(LHS &&lhs, RHS &&rhs)
       : base(std::forward<LHS>(lhs), std::forward<RHS>(rhs), rhs.get().dim(),
-             rhs.get().rank()),
-        m_constant(is_same<scalar_constant<ValueType>>(this->m_lhs)) {
-    update_hash();
+             rhs.get().rank()) {
+    if (auto const &sp = this->m_rhs.get().space())
+      this->set_space(*sp);
   }
 
   template <typename LHS, typename RHS>
   tensor_scalar_mul(LHS const &lhs, RHS const &rhs)
-      : base(lhs, rhs, rhs.get().dim(), rhs.get().rank()),
-        m_constant(is_same<scalar_constant<ValueType>>(this->m_lhs)) {
-    update_hash();
+      : base(lhs, rhs, rhs.get().dim(), rhs.get().rank()) {
+    if (auto const &sp = this->m_rhs.get().space())
+      this->set_space(*sp);
   }
 
-  inline void update_hash() {
-    // static const auto id{base::get_id()};
-    base::m_hash_value = 0;
-    // hash_combine(base::m_hash_value, id);
-    if (!m_constant) {
+  void update_hash_value() const noexcept override {
+    if (is_same<scalar_constant>(this->m_lhs)) {
+      base::m_hash_value = this->m_rhs.get().hash_value();
+    } else {
+      base::m_hash_value = 0;
       hash_combine(base::m_hash_value, this->m_lhs.get().hash_value());
+      hash_combine(base::m_hash_value, this->m_rhs.get().hash_value());
     }
-    hash_combine(base::m_hash_value, this->m_rhs.get().hash_value());
-    base::m_hash_value = this->m_rhs.get().hash_value();
   }
-
-private:
-  bool m_constant;
 };
 
 } // namespace numsim::cas

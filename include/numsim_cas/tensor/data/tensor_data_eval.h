@@ -26,8 +26,8 @@ public:
   }
 
 protected:
-  static constexpr auto _MaxDim{MaxDim};
-  static constexpr auto _MaxRank{MaxRank};
+  static constexpr auto MaxDim_{MaxDim};
+  static constexpr auto MaxRank_{MaxRank};
 
 private:
   template <std::size_t Dim, std::size_t RankIter, std::size_t... Ranks,
@@ -45,7 +45,7 @@ private:
         return rank_loop<Dim, RankIter + 1, Ranks...>(rank, args...);
       }
     } else {
-      return convert().missmatch(Dim, RankIter, Ranks..., args...);
+      return convert().mismatch(Dim, RankIter, Ranks..., args...);
     }
   }
 
@@ -63,7 +63,7 @@ private:
         return eval_dim<DimIter + 1>(dim, args...);
       }
     } else {
-      return convert().missmatch(dim, args...);
+      return convert().mismatch(dim, args...);
     }
   }
 };

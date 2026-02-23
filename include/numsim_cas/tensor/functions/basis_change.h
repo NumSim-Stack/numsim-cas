@@ -1,10 +1,8 @@
 #ifndef BASIS_CHANGE_H
 #define BASIS_CHANGE_H
 
-#include "../../numsim_cas_type_traits.h"
-#include "../../unary_op.h"
-#include <algorithm>
-#include <stdexcept>
+#include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/tensor/tensor_expression.h>
 #include <vector>
 
 namespace numsim::cas {
@@ -17,12 +15,10 @@ namespace numsim::cas {
  *
  * @tparam ValueType The type of the tensor expression.
  */
-template <typename ValueType>
-class basis_change_imp final : public unary_op<basis_change_imp<ValueType>,
-                                               tensor_expression<ValueType>> {
+class basis_change_imp final
+    : public unary_op<tensor_node_base_t<basis_change_imp>> {
 public:
-  using base =
-      unary_op<basis_change_imp<ValueType>, tensor_expression<ValueType>>;
+  using base = unary_op<tensor_node_base_t<basis_change_imp>>;
 
   /**
    * @brief Constructs a basis_change_imp object.
@@ -33,20 +29,15 @@ public:
    */
   template <typename Expr, typename Indices>
   basis_change_imp(Expr &&expr, Indices &&indices)
-      : base(std::forward<Expr>(expr), call_tensor::dim(expr),
-             call_tensor::rank(expr)),
-        m_indices(std::forward<Indices>(indices)) {
-    std::for_each(std::begin(m_indices), std::end(m_indices),
-                  [](auto &index) { index -= 1ul; });
-  }
+      : base(std::forward<Expr>(expr), expr.get().dim(), expr.get().rank()),
+        m_indices(std::forward<Indices>(indices)) {}
 
   /**
    * @brief Move constructor.
    * @param data The basis_change_imp object to move from.
    */
-  explicit basis_change_imp(basis_change_imp &&data)
-      : base(std::move(static_cast<base &&>(data)), data.dim(), data.rank()),
-        m_indices(std::move(data.m_indices)) {}
+  explicit basis_change_imp(basis_change_imp &&data) noexcept
+      : base(static_cast<base>(data)), m_indices(std::move(data.m_indices)) {}
 
   /**
    * @brief Retrieves the transformation indices.
@@ -60,7 +51,7 @@ protected:
   /**
    * @brief Stores the transformation indices.
    */
-  std::vector<std::size_t> m_indices;
+  sequence m_indices;
 };
 
 } // namespace numsim::cas

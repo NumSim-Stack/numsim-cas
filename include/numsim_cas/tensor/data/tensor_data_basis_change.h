@@ -2,6 +2,7 @@
 #define TENSOR_DATA_BASIS_CHANGE_H
 
 #include "tensor_data.h"
+#include <numsim_cas/core/cas_error.h>
 
 namespace numsim::cas {
 
@@ -34,13 +35,13 @@ public:
     tmech::detail::for_loop_t<Rank - 1, Dim>::for_loop(func);
   }
 
-  inline void missmatch(std::size_t dim, std::size_t rank) {
-    if (dim > this->_MaxDim || dim == 0) {
-      throw std::runtime_error("tensor_data_basis_change::evaluate(dim, rank) "
-                               "dim > MaxDim || dim == 0");
+  inline void mismatch(std::size_t dim, std::size_t rank) {
+    if (dim > this->MaxDim_ || dim == 0) {
+      throw evaluation_error("tensor_data_basis_change::evaluate(dim, rank) "
+                             "dim > MaxDim || dim == 0");
     }
-    if (rank > this->_MaxRank || rank == 0) {
-      throw std::runtime_error(
+    if (rank > this->MaxRank_ || rank == 0) {
+      throw evaluation_error(
           "tensor_data_basis_change::evaluate(dim, rank) rank "
           "> MaxRank || rank == 0");
     }

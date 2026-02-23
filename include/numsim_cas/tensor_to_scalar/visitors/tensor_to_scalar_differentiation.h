@@ -1,31 +1,45 @@
 #ifndef TENSOR_TO_SCALAR_DIFFERENTIATION_H
 #define TENSOR_TO_SCALAR_DIFFERENTIATION_H
 
-#include "../../numsim_cas_type_traits.h"
-#include "../../operators.h"
-#include "../../printer_base.h"
-#include "../../scalar/visitors/scalar_printer.h"
-#include "../../tensor/tensor_functions_fwd.h"
-#include "../../tensor/visitors/tensor_printer.h"
-#include <algorithm>
-#include <functional>
-#include <iostream>
-#include <string>
-#include <variant>
-#include <vector>
+#include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/diff.h>
+#include <numsim_cas/tensor/kronecker_delta.h>
+#include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_zero.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
 namespace numsim::cas {
 
-template <typename ValueType> class tensor_to_scalar_differentiation {
-public:
-  using value_type = ValueType;
-  using expr_type = expression_holder<tensor_to_scalar_expression<value_type>>;
-  using result_expr_type = expression_holder<tensor_expression<value_type>>;
+// Forward declare the diff CPOs used recursively
+expression_holder<tensor_expression>
+tag_invoke(detail::diff_fn, std::type_identity<tensor_expression>,
+           std::type_identity<tensor_expression>,
+           expression_holder<tensor_expression> const &,
+           expression_holder<tensor_expression> const &);
 
-  explicit tensor_to_scalar_differentiation(result_expr_type const &arg)
+expression_holder<tensor_expression>
+tag_invoke(detail::diff_fn, std::type_identity<tensor_to_scalar_expression>,
+           std::type_identity<tensor_expression>,
+           expression_holder<tensor_to_scalar_expression> const &,
+           expression_holder<tensor_expression> const &);
+
+} // namespace numsim::cas
+
+namespace numsim::cas {
+
+class tensor_to_scalar_differentiation final
+    : public tensor_to_scalar_visitor_const_t {
+public:
+  using tensor_holder_t = expression_holder<tensor_expression>;
+  using t2s_holder_t = expression_holder<tensor_to_scalar_expression>;
+
+  explicit tensor_to_scalar_differentiation(tensor_holder_t const &arg)
       : m_arg(arg) {
-    I = make_expression<kronecker_delta<ValueType>>(arg.get().dim());
+    m_dim = arg.get().dim();
+    m_rank_arg = arg.get().rank();
+    m_I = make_expression<kronecker_delta>(m_dim);
   }
+
   tensor_to_scalar_differentiation(tensor_to_scalar_differentiation const &) =
       delete;
   tensor_to_scalar_differentiation(tensor_to_scalar_differentiation &&) =
@@ -33,163 +47,42 @@ public:
   const tensor_to_scalar_differentiation &
   operator=(tensor_to_scalar_differentiation const &) = delete;
 
-  auto apply(expr_type const &expr) {
+  [[nodiscard]] tensor_holder_t apply(t2s_holder_t const &expr) {
+    m_result = tensor_holder_t{};
     if (expr.is_valid()) {
       m_expr = expr;
-      std::visit([this](auto &&arg) { (*this)(arg); }, *expr);
+      expr.get<tensor_to_scalar_visitable_t>().accept(*this);
     }
     if (!m_result.is_valid()) {
-      return make_expression<tensor_zero<value_type>>(m_arg.get().dim(),
-                                                      m_arg.get().rank());
+      return make_expression<tensor_zero>(m_dim, m_rank_arg);
     }
     return m_result;
   }
 
-  // trace(expr) = I:expr = expr_ii
-  // dtrace(expr)/dX = dtrace(expr)/dexpr:dexpr/dX
-  //                 = I:dexpr
-  void operator()([[maybe_unused]] tensor_trace<ValueType> const &visitable) {
-    auto result{diff(visitable.expr(), m_arg)};
-    m_result = inner_product(I, sequence{1, 2}, result, sequence{1, 2});
-  }
-
-  // d(expr_ij expr_ij)/dx_k = dexpr_ij/dx_k*expr_ij + expr_ij*dexpr_ij/dx_k
-  //                         = 2*expr [*] dexpr/dx
-  void operator()(tensor_dot<ValueType> const &visitable) {
-    auto result{diff(visitable.expr(), m_arg)};
-    if (result.is_valid()) {
-      if (visitable.expr().get().rank() == 1) {
-        m_result = visitable.expr() * std::move(result);
-      }
-      sequence indices(visitable.expr().get().rank());
-      std::iota(indices.begin(), indices.end(), 1);
-      m_result =
-          static_cast<value_type>(2) *
-          inner_product(visitable.expr(), indices, std::move(result), indices);
-    }
-  }
-
-  // dnorm(expr)/dX = dsqrt(dot(expr,expr))/dX
-  //                = dnorm(expr)/dexpr : dexpr/dX
-  //                = expr/norm(expr) : dexpr/dX
-  void operator()([[maybe_unused]] tensor_norm<ValueType> const &visitable) {
-    auto result{diff(visitable.expr(), m_arg)};
-    if (result.is_valid()) {
-      m_result = inner_product(visitable.expr(), sequence{1, 2}, result,
-                               sequence{1, 2}) /
-                 m_expr;
-    }
-  }
-
-  // ddet(expr)/dX = ddet(expr)/dexpr:dexpr/dX
-  //               = det(expr)*inv(trans(expr)):dexpr/dX
-  void operator()([[maybe_unused]] tensor_det<ValueType> const &visitable) {
-    auto result{diff(visitable.expr(), m_arg)};
-    if (result.is_valid()) {
-      m_result = m_expr * inner_product(inv(trans(visitable.expr())),
-                                        sequence{1, 2}, result, sequence{1, 2});
-    }
-  }
-
-  // d(-expr) = -dexpr
-  void operator()(tensor_to_scalar_negative<ValueType> const &visitable) {
-    m_result = -diff(visitable.expr(), m_arg);
-  }
-
-  /// product rule
-  /// f(x)  = c * prod_i^n a_i(x)
-  /// f'(x)  = c * sum_j^n a_j(x) prod_i^{n, i\neq j} a_i(x)
-  void operator()(
-      [[maybe_unused]] tensor_to_scalar_mul<ValueType> const &visitable) {
-    result_expr_type expr_result;
-    for (auto &expr_out : visitable.hash_map() | std::views::values) {
-      result_expr_type expr_result_in;
-      // first get the diff
-      for (auto &expr_in : visitable.hash_map() | std::views::values) {
-        if (expr_out == expr_in) {
-          expr_result_in *= diff(expr_in, m_arg);
-          break;
-        }
-      }
-
-      // now check if the diff is valid and not zero
-      if (expr_result_in.is_valid() &&
-          is_same<tensor_zero<value_type>>(expr_result_in)) {
-        for (auto &expr_in : visitable.hash_map() | std::views::values) {
-          expr_result_in = std::move(std::move(expr_result_in) * expr_in);
-        }
-      }
-      expr_result += expr_result_in;
-    }
-    m_result = std::move(expr_result);
-  }
-
-  /// summation rule
-  /// f(x)  = c + sum_i^n a_i(x)
-  /// f'(x) = sum_i^n a_i'(x)
-  void operator()(
-      [[maybe_unused]] tensor_to_scalar_add<ValueType> const &visitable) {
-    result_expr_type expr_result;
-    for (auto &child : visitable.hash_map() | std::views::values) {
-      expr_result += diff(child, m_arg);
-    }
-    m_result = std::move(expr_result);
-  }
-
-  void operator()(
-      [[maybe_unused]] tensor_to_scalar_sub<ValueType> const &visitable) {}
-
-  /// f(x) = g(x)/h(x)
-  /// f(x) = (g(x)'*h(x) - g(x)*h(x)')/(h(x)*h(x)))
-  /// g(x) := 0
-  /// f(x) = (h(x) - g(x)*h(x)')/(h(x)*h(x)))
-  /// h(x) := 0
-  /// f(x) = (g(x)'*h(x) - g(x))/(h(x)*h(x)))
-  void operator()(tensor_to_scalar_div<ValueType> const &visitable) {
-    auto g{visitable.expr_lhs()};
-    auto h{visitable.expr_rhs()};
-    auto dg{diff(visitable.expr_lhs(), m_arg)};
-    auto dh{diff(visitable.expr_rhs(), m_arg)};
-    m_result = (dg * h - g * dh) / (h * h);
-  }
-
-  void operator()(
-      [[maybe_unused]] tensor_to_scalar_pow<ValueType> const &visitable) {}
-
-  void operator()([[maybe_unused]] tensor_to_scalar_pow_with_scalar_exponent<
-                  ValueType> const &visitable) {}
-
-  void
-  operator()(tensor_to_scalar_with_scalar_mul<ValueType> const &visitable) {
-    m_result = visitable.expr_lhs() * diff(visitable.expr_rhs(), m_arg);
-  }
-
-  void
-  operator()(tensor_to_scalar_with_scalar_add<ValueType> const &visitable) {
-    m_result = diff(visitable.expr_rhs(), m_arg);
-  }
-
-  void
-  operator()(tensor_to_scalar_with_scalar_div<ValueType> const &visitable) {
-    m_result = diff(visitable.expr_lhs(), m_arg) / visitable.expr_rhs();
-  }
-
-  void
-  operator()([[maybe_unused]] scalar_with_tensor_to_scalar_div<ValueType> const
-                 &visitable) {}
-
-  void
-  operator()([[maybe_unused]] tensor_inner_product_to_scalar<ValueType> const
-                 &visitable) {}
-
-  template <typename Expr>
-  void operator()([[maybe_unused]] Expr const &visitable) {}
+  // All operator() methods declared here, defined in .cpp
+  void operator()(tensor_to_scalar_zero const &visitable) override;
+  void operator()(tensor_to_scalar_one const &visitable) override;
+  void operator()(tensor_to_scalar_scalar_wrapper const &visitable) override;
+  void operator()(tensor_to_scalar_negative const &visitable) override;
+  void operator()(tensor_to_scalar_add const &visitable) override;
+  void operator()(tensor_to_scalar_mul const &visitable) override;
+  void operator()(tensor_to_scalar_pow const &visitable) override;
+  void operator()(tensor_to_scalar_log const &visitable) override;
+  void operator()(tensor_to_scalar_exp const &visitable) override;
+  void operator()(tensor_to_scalar_sqrt const &visitable) override;
+  void operator()(tensor_trace const &visitable) override;
+  void operator()(tensor_dot const &visitable) override;
+  void operator()(tensor_norm const &visitable) override;
+  void operator()(tensor_det const &visitable) override;
+  void operator()(tensor_inner_product_to_scalar const &visitable) override;
 
 private:
-  result_expr_type const &m_arg;
-  result_expr_type m_result{nullptr};
-  expr_type m_expr;
-  result_expr_type I;
+  tensor_holder_t const &m_arg;
+  std::size_t m_dim{0};
+  std::size_t m_rank_arg{0};
+  tensor_holder_t m_result;
+  t2s_holder_t m_expr;
+  tensor_holder_t m_I;
 };
 
 } // namespace numsim::cas

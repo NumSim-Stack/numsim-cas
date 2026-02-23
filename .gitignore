@@ -37,3 +37,6 @@
 # build folder
 **/.build*
 **/build*
+
+**/.qtcreator
+**/.claude
