@@ -1,8 +1,8 @@
 # numsim-cas: Comprehensive Critical Review
 
-> **Date**: 2026-02-22
+> **Date**: 2026-02-23
 > **Branch**: `move_to_virtual`
-> **Codebase Stats**: 191 headers, 38 source files, 22 test files, ~21,400 LOC (library), ~6,100 LOC (tests), 386 test cases (525 after typed-test expansion), 3 expression domains
+> **Codebase Stats**: 199 headers, 43 source files, 22 test files, ~23,000 LOC (library), ~6,100 LOC (tests), 569 test cases (34 test suites), 3 expression domains
 
 ---
 
@@ -298,7 +298,7 @@ All node types are well-defined with consistent patterns:
 **Good**: Precedence-aware, produces clean canonical forms.
 
 **Issues**:
-- **No LaTeX output** format
+- ~~**No LaTeX output** format~~ [RESOLVED — `to_latex()` added for all three domains]
 - **No MathML output** format
 - **Power printed as `pow(x, 2)`** instead of `x^2` -- functional notation is unambiguous but less readable
 
@@ -540,8 +540,8 @@ auto [A, B] = make_tensor_variable(
 **Good**: `to_string()` and `operator<<` both available.
 
 **Issues**:
-- **No configurable print format** (infix vs prefix, LaTeX, etc.)
-- **Pow always printed as function call**: `pow(x,2)` not `x^2` or `x**2`
+- ~~**No configurable print format** (infix vs prefix, LaTeX, etc.)~~ [PARTIALLY RESOLVED — `to_latex()` added with configurable `latex_config`]
+- **Pow always printed as function call**: `pow(x,2)` not `x^2` or `x**2` (LaTeX printer uses `{x}^{2}`)
 - **No pretty-printing** for matrices or tensors (component-wise output)
 
 ### 9.4 Differentiation
@@ -573,7 +573,11 @@ double result = ev.apply(f);
 - **No batch evaluation**: Evaluating the same expression at many points requires repeated `.set()` + `.apply()` calls.
 - **No compiled evaluation**: Expression could be JIT-compiled or code-generated for performance.
 
-### 9.6 Public API Surface
+### 9.6 Missing Classic CAS Operations
+
+**Architectural gap**: Simplification is fire-and-forget at construction time. There is no explicit `simplify()` the user can call, and no way to apply new rules to an existing expression. Standard CAS operations like `expand()`, `factor()`, `collect()`, `cancel()`, `trigsimp()`, `series()`, and `solve()` are absent. See section 12.3 for detailed proposals (E11-E18).
+
+### 9.7 Public API Surface
 
 **Issue**: No public API header beyond `numsim_cas.h`. The umbrella header includes 55+ individual headers. Users must know internal structure to include specific features.
 
@@ -669,13 +673,8 @@ The `benchmarks/` directory exists with a `poly_verse_variant` benchmark but:
 
 ### 12.2 Medium Priority
 
-#### E5: LaTeX Printer
-Add a `latex_printer` visitor that outputs:
-- `\frac{a}{b}` for division
-- `x^{2}` for powers
-- `\sin`, `\cos`, etc. for functions
-- `\mathbf{A}` for tensors
-- `\text{tr}(\mathbf{A})` for trace
+#### ~~E5: LaTeX Printer~~ [RESOLVED]
+~~Add a `latex_printer` visitor.~~ Added `to_latex()` for all three domains (scalar, tensor, tensor-to-scalar) with configurable tensor font formatting via `latex_config` (rank-based: rank 4 → `\mathbb`, others → `\boldsymbol`, user-overridable). Built on `latex_printer_base` CRTP inheriting `printer_base`. Outputs proper LaTeX: `\frac{a}{b}`, `{x}^{2}`, `\sin\left(x\right)`, `\boldsymbol{A}`, `\operatorname{tr}\left(\boldsymbol{A}\right)`, `\det`, `\left\|\cdot\right\|`, `\bar{\otimes}`, `\underline{\otimes}`, etc. 16 new files, 45 new tests.
 
 #### E6: Additional Simplification Rules
 ```
@@ -727,27 +726,97 @@ Each domain traits specialization has a `static_assert` that verifies its concep
 #### ~~E10: Static Analysis in CI~~ [RESOLVED]
 ~~Add clang-tidy with a `.clang-tidy` configuration.~~ Added `.clang-tidy` config (bugprone-*, performance-*, select modernize checks, with noisy checks excluded) and `.github/workflows/clang-tidy-check.yml` CI workflow (Ubuntu 24.04, clang-tidy-18, advisory warnings only). `HeaderFilterRegex` scoped to `include/numsim_cas/.*` to avoid third-party noise.
 
-### 12.3 Lower Priority
+### 12.3 Classic CAS Operations
 
-#### E11: Code Generation Backend
-Generate C/C++/CUDA code from simplified expressions for high-performance numerical evaluation. This is the standard path for production CAS use in simulation.
+Currently, simplification only happens at construction time (in operators and function constructors). There is no way to re-simplify or transform an existing expression. The following standard CAS operations are missing:
 
-#### E12: Pattern Matching Engine
+#### E11: `simplify(expr)` — Explicit Simplification
+Add an explicit `simplify()` that re-traverses an expression and applies all known rules. Currently, if rules are added after an expression is built, there's no way to apply them retroactively. A `simplify()` pass would:
+- Re-run all construction-time guards
+- Apply cross-node rules (e.g., `log(exp(x))` when `exp(x)` was built separately)
+- Optionally accept a strategy/ruleset argument
+```cpp
+auto f = log(g);    // g was built earlier, later simplified to exp(x)
+auto s = simplify(f);  // now sees log(exp(x)) -> x
+```
+
+#### E12: `expand(expr)` — Distribution / Expansion
+Distribute products over sums and expand powers:
+```cpp
+expand(a * (b + c))         // -> a*b + a*c
+expand(pow(x + y, 2))       // -> x^2 + 2*x*y + y^2
+expand((A + B) * C)          // -> A*C + B*C  (tensor)
+```
+The n-ary tree structure stores sums and products flat, but there is no operation to actively distribute a product into a sum.
+
+#### E13: `factor(expr)` / `collect(expr, x)` — Factorization & Collection
+Extract common factors or group by powers of a variable:
+```cpp
+factor(a*x + a*y)           // -> a*(x + y)
+collect(a*x^2 + b*x + c*x^2, x)  // -> (a+c)*x^2 + b*x
+coeff(expr, x, 2)           // -> a+c  (coefficient of x^2)
+```
+Essential for producing compact output from differentiation (derivatives often contain redundant factors).
+
+#### E14: `cancel(expr)` — Rational Simplification
+Cancel common factors in fractions and combine rational expressions:
+```cpp
+cancel((x^2 - 1) / (x - 1))    // -> x + 1
+cancel(a/b + c/b)               // -> (a + c) / b
+```
+
+#### E15: `trigsimp(expr)` — Trigonometric Simplification
+Dedicated trig simplification pass beyond construction-time rules:
+```cpp
+trigsimp(sin(x)^2 + cos(x)^2)  // -> 1  (already works at construction)
+trigsimp(sin(2*x))               // -> 2*sin(x)*cos(x)  (not yet)
+trigsimp(cos(x)^2 - sin(x)^2)   // -> cos(2*x)          (not yet)
+```
+The sin²+cos²=1 rule currently only fires when both terms meet at the same n-ary add. A dedicated pass could find these across nested expressions.
+
+#### E16: `complexity(expr)` — Expression Complexity Metric
+Count nodes, depth, and operation types:
+```cpp
+auto c = complexity(expr);
+c.node_count;   // total nodes in DAG
+c.depth;        // max depth
+c.op_counts;    // map: {add: 3, mul: 5, sin: 1, ...}
+```
+Useful for choosing between equivalent forms, performance estimation, and simplification progress tracking.
+
+#### E17: `series(expr, x, x0, n)` — Taylor/Laurent Series
+Compute series expansion around a point:
+```cpp
+series(sin(x), x, 0, 5)  // -> x - x^3/6 + x^5/120
+series(exp(x), x, 0, 3)  // -> 1 + x + x^2/2 + x^3/6
+```
+Useful for linearization in continuum mechanics (small strain approximations).
+
+#### E18: `solve(expr, x)` — Equation Solving
+Solve scalar equations for a variable (at minimum: linear and polynomial):
+```cpp
+solve(a*x + b, x)           // -> -b/a
+solve(a*x^2 + b*x + c, x)  // -> {(-b+sqrt(b^2-4ac))/(2a), ...}
+```
+
+### 12.4 Lower Priority
+
+#### E19: Pattern Matching Engine
 Replace hard-coded simplifier visitor methods with a declarative rule system:
 ```cpp
 register_rule(pow(sin(X_), 2) + pow(cos(X_), 2), one());
 register_rule(exp(log(X_)), X_);
 register_rule(log(exp(X_)), X_);
 ```
-This would make adding new simplification rules trivial.
+This would make adding new simplification rules trivial and would underpin `simplify()` (E11).
 
-#### E13: Expression Complexity Metric
-Add a `complexity(expr)` function that counts nodes, depth, and operation types. Useful for:
-- Choosing between equivalent forms (simplify to minimum complexity)
-- Performance estimation
-- Progress tracking during simplification
+#### E20: Code Generation Backend
+Generate C/C++/CUDA code from simplified expressions for high-performance numerical evaluation. This is the standard path for production CAS use in simulation.
 
-#### E14: Lazy/Deferred Simplification Mode
+#### E21: C Code Generation for Finite Elements
+Generate optimized C code for evaluating material tangent tensors. This is the primary use case for CAS in continuum mechanics -- derive the tangent symbolically, simplify, then generate code for the finite element solver.
+
+#### E22: Lazy/Deferred Simplification Mode
 Allow building expressions without immediate simplification, then simplify on demand:
 ```cpp
 auto f = build_raw(x + y + x);   // stores unsimplified
@@ -755,13 +824,13 @@ auto g = simplify(f);             // applies all rules
 ```
 This would improve performance for expression construction in tight loops.
 
-#### E15: Parallel Simplification
+#### E23: Parallel Simplification
 For large expressions with independent subtrees, simplify subtrees in parallel using a thread pool. The immutable DAG structure makes this naturally safe (once hash caching is thread-safe).
 
-#### E16: Expression Diff/Patch
+#### E24: Expression Diff/Patch
 Given two expressions, compute a structural diff showing what changed. Useful for debugging simplification and for version-control-like expression tracking.
 
-#### E17: Interactive Simplification Stepper
+#### E25: Interactive Simplification Stepper
 A debug tool that shows each simplification step applied:
 ```
 Input: (x + y) + (x - y)
@@ -772,29 +841,26 @@ Step 4: remove 0 -> 2*x
 Result: 2*x
 ```
 
-#### E18: Support for Piecewise Functions
+#### E26: Support for Piecewise Functions
 Add a `piecewise(condition, expr_true, expr_false)` node for conditional expressions. Needed for real-world mechanics (yield conditions, contact, etc.).
 
-#### E19: Matrix-Level Operations
+#### E27: Matrix-Level Operations
 Add `eigenvalues(A)`, `eigenvectors(A)`, `svd(A)` as symbolic operations. These produce vectors/matrices of scalar eigenvalues.
 
-#### E20: Assumption Propagation
+#### E28: Assumption Propagation
 Extend the assumption system so that:
 - `assume_positive(x); assume_positive(y);` implies `x*y` is positive
 - `assume_symmetric(A);` implies `trace(A*B) = trace(B*A)` always holds
 - Assumptions propagate through operations automatically
 
-#### E21: C Code Generation for Finite Elements
-Generate optimized C code for evaluating material tangent tensors. This is the primary use case for CAS in continuum mechanics -- derive the tangent symbolically, simplify, then generate code for the finite element solver.
-
-#### E22: API Documentation (Doxygen)
+#### E29: API Documentation (Doxygen)
 Add doc-comments to all public API classes and functions. Generate HTML documentation with Doxygen. The existing `docs/` markdown files are a good start but lack API-level detail.
 
-#### E23: Expression Hashing Quality Metrics
+#### E30: Expression Hashing Quality Metrics
 Add a test that generates many random expressions and measures hash collision rates. This would validate the hash function quality and detect regressions.
 
 ---
 
 ## Summary
 
-numsim-cas is a well-architected CAS library with a solid foundation. The three-domain design, projection tensor algebra, and domain traits pattern are notable strengths. Since the initial review, significant progress has been made: all test files are now wired into the build (C2, E2), dead code has been removed (M1-M3, E3), README corrected (C3), `expression_holder` API improved (m1, m2, m4), n_ary_tree stack buffer and naming issues fixed (m8, M7), build system improved (m5, M5), and many simplification rules added (exp·exp, sin²+cos², trace linearity, det scaling/multiplicativity, norm scaling, sin(-x)→-sin(x), cos(-x)→cos(x), exp(a)^n→exp(n*a)). The T2S domain was expanded with `tensor_to_scalar_exp` and `tensor_to_scalar_sqrt` nodes. Exact rational arithmetic was added to `scalar_number` (E4) with GCD normalization and constant-folding in division, and the redundant `scalar_rational` node was removed (m3). The remaining areas for improvement are: thread safety (C1), expanded simplification rules, and developer-facing documentation. The enhancement proposals range from the remaining quick fix (E1) to medium-term improvements (E5-E10) that would significantly improve usability, to longer-term features (E11-E23) that would make the library competitive with established CAS systems for continuum mechanics applications.
+numsim-cas is a well-architected CAS library with a solid foundation. The three-domain design, projection tensor algebra, and domain traits pattern are notable strengths. Since the initial review, significant progress has been made: all test files are now wired into the build (C2, E2), dead code has been removed (M1-M3, E3), README corrected (C3), `expression_holder` API improved (m1, m2, m4), n_ary_tree stack buffer and naming issues fixed (m8, M7), build system improved (m5, M5), and many simplification rules added (exp·exp, sin²+cos², trace linearity, det scaling/multiplicativity, norm scaling, sin(-x)→-sin(x), cos(-x)→cos(x), exp(a)^n→exp(n*a)). The T2S domain was expanded with `tensor_to_scalar_exp` and `tensor_to_scalar_sqrt` nodes. Exact rational arithmetic was added to `scalar_number` (E4) with GCD normalization and constant-folding in division, and the redundant `scalar_rational` node was removed (m3). Concept-checked domain traits (E9) and clang-tidy CI (E10) were added. A full LaTeX printer (E5) was implemented for all three domains with configurable tensor font formatting, adding 16 new files and 45 new tests (569 total). The remaining areas for improvement are: expanded simplification rules (E6), classic CAS operations (E11-E18: simplify, expand, factor, collect, cancel, trigsimp, complexity, series, solve), and developer-facing documentation (E29). The enhancement proposals range from medium-term improvements (E6-E8, E11-E18) that would significantly improve usability, to longer-term features (E19-E30) that would make the library competitive with established CAS systems for continuum mechanics applications.
