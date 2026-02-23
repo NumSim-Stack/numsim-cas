@@ -54,5 +54,6 @@
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_io.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
+#include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_evaluator.h>
 
 #endif // NUMSIM_CAS_H
