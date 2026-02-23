@@ -40,6 +40,12 @@ jobs:
             c_compiler: clang
             cpp_compiler: clang++
             build_type: Release
+          # ── Ubuntu: GCC-14 + ASAN/UBSAN ────────────────
+          - os: ubuntu-24.04
+            c_compiler: gcc-14
+            cpp_compiler: g++-14
+            build_type: Debug
+            sanitizers: ON
           # ── Windows: MSVC ──────────────────────────────
           - os: windows-latest
             c_compiler: cl
@@ -63,6 +69,7 @@ jobs:
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -DNUMSIM_CAS_BUILD_EXAMPLES=ON
+        -DNUMSIM_CAS_SANITIZERS=${{ matrix.sanitizers || 'OFF' }}
         -S ${{ github.workspace }}
     - name: Build
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
