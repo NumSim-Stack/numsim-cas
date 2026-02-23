@@ -140,6 +140,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(${PROJECT_NAME} PRIVATE -O3)
     endif()
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    target_compile_options(${PROJECT_NAME} PUBLIC /bigobj)
     target_compile_options(${PROJECT_NAME} PRIVATE
         /W4 /EHsc /utf-8 /permissive-)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
