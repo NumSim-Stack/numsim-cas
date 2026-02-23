@@ -119,6 +119,6 @@ Each domain follows the same pattern: expression base class, node types, a virtu
 NumSim-CAS is available under a dual-license model:
 
 - **Open Source:** GNU General Public License v3.0 (GPL-3.0-only) — see [LICENSE](LICENSE)
-- **Commercial:** A separate commercial license is available for proprietary/closed-source use — contact <YOUR_EMAIL>.
+- **Commercial:** A separate commercial license is available for proprietary/closed-source use.
 
 If you want to use NumSim-CAS in a closed-source product, you must obtain a commercial license.
