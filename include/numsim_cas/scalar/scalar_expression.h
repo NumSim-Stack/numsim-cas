@@ -25,6 +25,12 @@ public:
   const scalar_expression &operator=(scalar_expression const &) = delete;
 };
 
+template <class T>
+concept scalar_expr_holder =
+    requires { typename std::remove_cvref_t<T>::expr_type; } &&
+    std::is_base_of_v<scalar_expression,
+                      typename std::remove_cvref_t<T>::expr_type>;
+
 expression_holder<scalar_expression>
 tag_invoke(detail::neg_fn, std::type_identity<scalar_expression>,
            expression_holder<scalar_expression> const &e);
