@@ -41,6 +41,9 @@ protected:
     return add_new;
   }
 
+  // expr - 0 --> expr
+  expr_holder_t dispatch(tensor_zero const &) { return m_lhs; }
+
   template <typename Expr> expr_holder_t dispatch(Expr const &) {
     return get_default();
   }

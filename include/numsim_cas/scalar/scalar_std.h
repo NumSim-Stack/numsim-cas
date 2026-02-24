@@ -153,6 +153,8 @@ template <scalar_expr_holder E> [[nodiscard]] auto sqrt(E &&e) {
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto sign(E &&e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
   if (is_positive(e))
     return get_scalar_one();
   if (is_negative(e))

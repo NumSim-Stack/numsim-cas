@@ -75,6 +75,8 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<scalar_expression>>
 inline expression_holder<tensor_expression> tag_invoke(mul_fn, L &&lhs,
                                                        R &&rhs) {
+  if (is_same<scalar_zero>(rhs))
+    return make_expression<tensor_zero>(lhs.get().dim(), lhs.get().rank());
   if (is_same<scalar_one>(rhs) ||
       (is_same<scalar_constant>(rhs) &&
        rhs.template get<scalar_constant>().value() == 1)) {
@@ -94,6 +96,8 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>>
 inline expression_holder<tensor_expression> tag_invoke(mul_fn, L &&lhs,
                                                        R &&rhs) {
+  if (is_same<scalar_zero>(lhs))
+    return make_expression<tensor_zero>(rhs.get().dim(), rhs.get().rank());
   if (is_same<scalar_one>(lhs) ||
       (is_same<scalar_constant>(lhs) &&
        lhs.template get<scalar_constant>().value() == 1)) {

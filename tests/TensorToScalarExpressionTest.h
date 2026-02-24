@@ -711,4 +711,45 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_ExpPowSimplification) {
   EXPECT_PRINT(numsim::cas::pow(exp(trX), _2), "exp(2*tr(X))");
 }
 
+// ---------- Operator early-exit coverage: zero/one for +,-,*,/,neg ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_OperatorEarlyExit_MulRhsZeroAndOne) {
+  auto &X = this->X;
+
+  using numsim::cas::trace;
+  auto trX = trace(X);
+
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+
+  // expr * 0 → 0
+  EXPECT_PRINT(trX * t2s_zero, "0");
+  // expr * 1 → expr
+  EXPECT_PRINT(trX * t2s_one, "tr(X)");
+}
+
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_OperatorEarlyExit_NegZero) {
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+
+  // -0 → 0
+  auto result = -t2s_zero;
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_to_scalar_zero>(result));
+  EXPECT_PRINT(result, "0");
+}
+
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_OperatorEarlyExit_NegNeg) {
+  auto &X = this->X;
+
+  using numsim::cas::trace;
+  auto trX = trace(X);
+
+  // -(-tr(X)) → tr(X)
+  EXPECT_PRINT(-(-trX), "tr(X)");
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H
