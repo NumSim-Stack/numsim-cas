@@ -24,6 +24,12 @@ public:
   operator=(tensor_to_scalar_expression const &) = delete;
 };
 
+template <class T>
+concept tensor_to_scalar_expr_holder =
+    requires { typename std::remove_cvref_t<T>::expr_type; } &&
+    std::is_base_of_v<tensor_to_scalar_expression,
+                      typename std::remove_cvref_t<T>::expr_type>;
+
 expression_holder<tensor_to_scalar_expression>
 tag_invoke(detail::neg_fn, std::type_identity<tensor_to_scalar_expression>,
            expression_holder<tensor_to_scalar_expression> const &e);

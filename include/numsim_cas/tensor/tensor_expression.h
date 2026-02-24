@@ -65,6 +65,12 @@ protected:
 //   return os;
 // }
 
+template <class T>
+concept tensor_expr_holder =
+    requires { typename std::remove_cvref_t<T>::expr_type; } &&
+    std::is_base_of_v<tensor_expression,
+                      typename std::remove_cvref_t<T>::expr_type>;
+
 expression_holder<tensor_expression>
 tag_invoke(detail::neg_fn, std::type_identity<tensor_expression>,
            expression_holder<tensor_expression> const &e);

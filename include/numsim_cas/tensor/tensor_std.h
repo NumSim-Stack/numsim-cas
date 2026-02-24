@@ -31,16 +31,7 @@ namespace numsim::cas {
   return ss.str();
 }
 
-template <
-    typename ExprLHS, typename ExprRHS,
-    std::enable_if_t<
-        std::is_base_of_v<numsim::cas::tensor_expression,
-                          typename std::remove_cvref_t<ExprLHS>::expr_type>,
-        bool> = true,
-    std::enable_if_t<
-        std::is_base_of_v<numsim::cas::scalar_expression,
-                          typename std::remove_cvref_t<ExprRHS>::expr_type>,
-        bool> = true>
+template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
 [[nodiscard]] auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
   // pow(A, 0) → identity
   if (is_same<scalar_zero>(expr_rhs) ||
@@ -66,13 +57,8 @@ template <
       std::forward<ExprLHS>(expr_lhs), std::forward<ExprRHS>(expr_rhs));
 }
 
-template <
-    typename ExprLHS, typename ExprRHS,
-    std::enable_if_t<
-        std::is_base_of_v<numsim::cas::tensor_expression,
-                          typename std::remove_cvref_t<ExprLHS>::expr_type>,
-        bool> = true,
-    std::enable_if_t<std::is_integral_v<ExprRHS>, bool> = true>
+template <tensor_expr_holder ExprLHS, typename ExprRHS>
+requires std::is_integral_v<std::remove_cvref_t<ExprRHS>>
 [[nodiscard]] auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
   auto constant{
       numsim::cas::make_expression<numsim::cas::scalar_constant>(expr_rhs)};

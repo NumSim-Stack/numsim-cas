@@ -21,7 +21,7 @@ constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {
   return make_tensor_data_imp<T>().evaluate(dim, rank);
 }
 
-template <typename Expr>
+template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> dev(Expr &&expr) {
   if (is_same<kronecker_delta>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
@@ -58,7 +58,7 @@ template <typename Expr>
   return result;
 }
 
-template <typename Expr>
+template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> sym(Expr &&expr) {
   if (is_same<kronecker_delta>(expr))
     return expr;
@@ -94,7 +94,7 @@ template <typename Expr>
   return result;
 }
 
-template <typename Expr>
+template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> vol(Expr &&expr) {
   if (is_same<kronecker_delta>(expr))
     return expr;
@@ -130,7 +130,7 @@ template <typename Expr>
   return result;
 }
 
-template <typename Expr>
+template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> skew(Expr &&expr) {
   if (is_same<kronecker_delta>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
@@ -169,7 +169,7 @@ template <typename Expr>
 namespace detail_ip {
 /// If RHS is a rank-2 projector and both index sets are {1,2},
 /// normalize X:{1,2} P:{1,2} → sym/dev/vol/skew(X).
-template <typename ExprLHS, typename ExprRHS>
+template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 inline std::optional<expression_holder<tensor_expression>>
 try_normalize_reversed_projector(ExprLHS &&lhs, sequence const &lhs_indices,
                                  ExprRHS &&rhs, sequence const &rhs_indices) {
@@ -198,7 +198,7 @@ try_normalize_reversed_projector(ExprLHS &&lhs, sequence const &lhs_indices,
 }
 } // namespace detail_ip
 
-template <typename ExprLHS, typename ExprRHS>
+template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                         ExprRHS &&rhs, sequence &&rhs_indices) {
   if (auto norm = detail_ip::try_normalize_reversed_projector(lhs, lhs_indices,
@@ -209,7 +209,7 @@ template <typename ExprLHS, typename ExprRHS>
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
 }
 
-template <typename ExprLHS, typename ExprRHS>
+template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] inline auto
 inner_product(ExprLHS &&lhs, sequence const &lhs_indices, ExprRHS &&rhs,
               sequence const &rhs_indices) {
@@ -221,7 +221,7 @@ inner_product(ExprLHS &&lhs, sequence const &lhs_indices, ExprRHS &&rhs,
       rhs_indices);
 }
 
-template <typename ExprLHS, typename ExprRHS>
+template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto otimes(ExprLHS &&lhs, ExprRHS &&rhs) {
   sequence lhs_indices(lhs.get().rank()), rhs_indices(rhs.get().rank());
   std::iota(std::begin(lhs_indices), std::end(lhs_indices), std::size_t{0});
@@ -231,7 +231,7 @@ template <typename ExprLHS, typename ExprRHS>
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
 }
 
-template <typename ExprLHS, typename ExprRHS>
+template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto
 otimes(ExprLHS &&lhs, sequence &&lhs_indices, ExprRHS &&rhs,
        sequence &&rhs_indices) {
@@ -240,21 +240,21 @@ otimes(ExprLHS &&lhs, sequence &&lhs_indices, ExprRHS &&rhs,
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
 }
 
-template <typename ExprLHS, typename ExprRHS>
+template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto otimesu(ExprLHS &&lhs, ExprRHS &&rhs) {
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(sequence{1, 3}),
       std::forward<ExprRHS>(rhs), std::move(sequence{2, 4}));
 }
 
-template <typename ExprLHS, typename ExprRHS>
+template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto otimesl(ExprLHS &&lhs, ExprRHS &&rhs) {
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(sequence{1, 4}),
       std::forward<ExprRHS>(rhs), std::move(sequence{2, 3}));
 }
 
-template <typename Expr>
+template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto permute_indices(Expr &&expr,
                                                     sequence &&indices) {
   if (is_same<basis_change_imp>(expr)) {
@@ -302,7 +302,7 @@ template <typename Expr>
                                            std::move(indices));
 }
 
-template <typename Expr>
+template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto trans(Expr &&expr) {
   if (is_same<basis_change_imp>(expr)) {
     auto const &bc = expr.template get<basis_change_imp>();
@@ -313,7 +313,8 @@ template <typename Expr>
                                            sequence{2, 1});
 }
 
-template <typename Expr> [[nodiscard]] constexpr inline auto inv(Expr &&expr) {
+template <tensor_expr_holder Expr>
+[[nodiscard]] constexpr inline auto inv(Expr &&expr) {
   if (is_same<tensor_inv>(expr))
     return expr.template get<tensor_inv>().expr();
   // identity_tensor and kronecker_delta are self-inverse. This also avoids

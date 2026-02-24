@@ -30,13 +30,6 @@
 
 namespace numsim::cas {
 
-template <class T> using decay_t = std::remove_cvref_t<T>;
-
-template <class T>
-concept scalar_expr_holder = requires {
-  typename decay_t<T>::expr_type;
-} && std::is_base_of_v<scalar_expression, typename decay_t<T>::expr_type>;
-
 [[nodiscard]] std::string
 to_string(expression_holder<scalar_expression> const &expr);
 
