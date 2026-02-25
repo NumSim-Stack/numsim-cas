@@ -9,6 +9,7 @@
 #include <numsim_cas/tensor/functions/tensor_pow.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
 #include <sstream>
 
@@ -33,6 +34,10 @@ namespace numsim::cas {
 
 template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
 [[nodiscard]] auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
+  // pow(0, n) → 0
+  if (is_same<tensor_zero>(expr_lhs))
+    return make_expression<tensor_zero>(expr_lhs.get().dim(),
+                                        expr_lhs.get().rank());
   // pow(A, 0) → identity
   if (is_same<scalar_zero>(expr_rhs) ||
       (is_same<scalar_constant>(expr_rhs) &&

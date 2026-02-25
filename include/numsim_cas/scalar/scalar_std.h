@@ -55,6 +55,45 @@ template <scalar_expr_holder L, scalar_expr_holder R>
     return std::forward<L>(expr_lhs);
   }
 
+  // Constant folding: pow(numeric, numeric) → numeric
+  {
+    auto try_num = [](auto const &e) -> std::optional<scalar_number> {
+      if (is_same<scalar_zero>(e))
+        return scalar_number{0};
+      if (is_same<scalar_one>(e))
+        return scalar_number{1};
+      if (is_same<scalar_constant>(e))
+        return e.template get<scalar_constant>().value();
+      if (is_same<scalar_negative>(e)) {
+        auto inner = [&]() -> std::optional<scalar_number> {
+          auto const &neg = e.template get<scalar_negative>().expr();
+          if (is_same<scalar_zero>(neg))
+            return scalar_number{0};
+          if (is_same<scalar_one>(neg))
+            return scalar_number{1};
+          if (is_same<scalar_constant>(neg))
+            return neg.template get<scalar_constant>().value();
+          return std::nullopt;
+        }();
+        if (inner)
+          return -(*inner);
+      }
+      return std::nullopt;
+    };
+    auto lhs_val = try_num(expr_lhs);
+    auto rhs_val = try_num(expr_rhs);
+    if (lhs_val && rhs_val) {
+      auto result = pow(*lhs_val, *rhs_val);
+      if (result) {
+        if (*result == scalar_number{0})
+          return get_scalar_zero();
+        if (*result == scalar_number{1})
+          return get_scalar_one();
+        return make_expression<scalar_constant>(*result);
+      }
+    }
+  }
+
   return binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
                                     std::forward<R>(expr_rhs));
 }
@@ -153,6 +192,8 @@ template <scalar_expr_holder E> [[nodiscard]] auto sqrt(E &&e) {
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto sign(E &&e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
   if (is_positive(e))
     return get_scalar_one();
   if (is_negative(e))
