@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <iosfwd>
 #include <numeric>
+#include <optional>
 #include <type_traits>
 #include <variant>
 
@@ -62,8 +63,17 @@ public:
 
   [[nodiscard]] scalar_number abs() const noexcept;
 
+  /// Exact pow for integer exponents. Returns nullopt for non-integer exponents.
+  friend std::optional<scalar_number> pow(scalar_number const &base,
+                                          scalar_number const &exp);
+
 private:
-  explicit scalar_number(variant_t vv) : v_(vv) {}
+  explicit scalar_number(variant_t vv) : v_(std::move(vv)) {
+    if (auto *r = std::get_if<rational_t>(&v_)) {
+      if (r->den == 1)
+        v_ = r->num;
+    }
+  }
 
   variant_t v_;
 };

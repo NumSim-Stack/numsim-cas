@@ -326,4 +326,60 @@ scalar_number scalar_number::abs() const noexcept {
       v_);
 }
 
+// ─── Pow ──────────────────────────────────────────────────────────
+
+std::optional<scalar_number> pow(scalar_number const &base,
+                                 scalar_number const &exp) {
+  // Extract integer exponent from the variant.
+  std::optional<std::int64_t> int_exp;
+  std::visit(
+      [&](auto const &v) {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, std::int64_t>) {
+          int_exp = v;
+        } else if constexpr (is_rat_v<T>) {
+          if (v.den == 1)
+            int_exp = v.num;
+        }
+        // double, complex → not exact
+      },
+      exp.raw());
+
+  if (!int_exp)
+    return std::nullopt;
+
+  auto n = *int_exp;
+
+  // base == 0 && n < 0 → division by zero
+  if (base == scalar_number{0}) {
+    if (n < 0)
+      return std::nullopt;
+    if (n == 0)
+      return scalar_number{1}; // 0^0 = 1 by convention
+    return scalar_number{0};
+  }
+
+  if (n == 0)
+    return scalar_number{1};
+
+  // Compute |n| via repeated squaring
+  bool negative = n < 0;
+  std::uint64_t abs_n = negative ? static_cast<std::uint64_t>(-n)
+                                 : static_cast<std::uint64_t>(n);
+
+  scalar_number result{1};
+  scalar_number b = base;
+  while (abs_n > 0) {
+    if (abs_n & 1)
+      result = result * b;
+    b = b * b;
+    abs_n >>= 1;
+  }
+
+  if (negative)
+    result = scalar_number{1} / result;
+
+  return result;
+}
+
 } // namespace numsim::cas

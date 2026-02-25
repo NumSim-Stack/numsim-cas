@@ -94,6 +94,20 @@ TEST_F(TensorDifferentiationTest, PowRule) {
       << "Expected tensor_add, got: " << to_string(d);
 }
 
+// d(F*trans(F))/dF — product rule; zero terms must simplify away
+TEST_F(TensorDifferentiationTest, ProductRuleNoZeroArtifacts) {
+  auto C = X * trans(X);
+  auto d = diff(C, X);
+  auto s = to_string(d);
+  // Must not contain "0*" or "*0" or "permute_indices(0" patterns
+  EXPECT_EQ(s.find("0*"), std::string::npos)
+      << "Found '0*' artifact in: " << s;
+  EXPECT_EQ(s.find("*0"), std::string::npos)
+      << "Found '*0' artifact in: " << s;
+  EXPECT_EQ(s.find("permute_indices(0"), std::string::npos)
+      << "Found 'permute_indices(0' artifact in: " << s;
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORDIFFERENTIATIONTEST_H

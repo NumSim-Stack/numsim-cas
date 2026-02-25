@@ -23,6 +23,11 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>>
 inline expression_holder<tensor_expression> tag_invoke(add_fn, L &&lhs,
                                                        R &&rhs) {
+  if (is_same<tensor_zero>(lhs))
+    return std::forward<R>(rhs);
+  if (is_same<tensor_zero>(rhs))
+    return std::forward<L>(lhs);
+
   if (is_same<tensor_negative>(rhs) &&
       lhs == rhs.template get<tensor_negative>().expr()) {
     return make_expression<tensor_zero>(lhs.get().dim(), lhs.get().rank());
@@ -46,6 +51,10 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>>
 inline expression_holder<tensor_expression> tag_invoke(sub_fn, L &&lhs,
                                                        R &&rhs) {
+  if (is_same<tensor_zero>(rhs))
+    return std::forward<L>(lhs);
+  if (is_same<tensor_zero>(lhs))
+    return -std::forward<R>(rhs);
   if (lhs == rhs) {
     return make_expression<tensor_zero>(lhs.get().dim(), lhs.get().rank());
   }
@@ -62,6 +71,10 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>>
 inline expression_holder<tensor_expression>
 tag_invoke(mul_fn, L &&lhs, [[maybe_unused]] R &&rhs) {
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)){
+    const auto rank{rhs.get().rank() + lhs.get().rank() - 2};
+    return make_expression<tensor_zero>(lhs.get().dim(), rank);
+  }
   auto &_lhs{lhs.template get<tensor_visitable_t>()};
   tensor_detail::simplifier::mul_base visitor(std::forward<L>(lhs),
                                               std::forward<R>(rhs));
@@ -75,8 +88,10 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<scalar_expression>>
 inline expression_holder<tensor_expression> tag_invoke(mul_fn, L &&lhs,
                                                        R &&rhs) {
-  if (is_same<scalar_zero>(rhs))
-    return make_expression<tensor_zero>(lhs.get().dim(), lhs.get().rank());
+  if (is_same<tensor_zero>(lhs) || (is_same<scalar_zero>(rhs) ||
+      (is_same<scalar_constant>(rhs) &&
+       rhs.template get<scalar_constant>().value() == 0))){
+    return make_expression<tensor_zero>(lhs.get().dim(), lhs.get().rank());}
   if (is_same<scalar_one>(rhs) ||
       (is_same<scalar_constant>(rhs) &&
        rhs.template get<scalar_constant>().value() == 1)) {
@@ -96,8 +111,10 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>>
 inline expression_holder<tensor_expression> tag_invoke(mul_fn, L &&lhs,
                                                        R &&rhs) {
-  if (is_same<scalar_zero>(lhs))
-    return make_expression<tensor_zero>(rhs.get().dim(), rhs.get().rank());
+  if (is_same<tensor_zero>(rhs) || (is_same<scalar_zero>(lhs) ||
+      (is_same<scalar_constant>(lhs) &&
+       lhs.template get<scalar_constant>().value() == 0))){
+    return make_expression<tensor_zero>(rhs.get().dim(), rhs.get().rank());}
   if (is_same<scalar_one>(lhs) ||
       (is_same<scalar_constant>(lhs) &&
        lhs.template get<scalar_constant>().value() == 1)) {

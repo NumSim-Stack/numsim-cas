@@ -609,11 +609,13 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_DetScaling) {
 
   constexpr auto Dim = TestFixture::Dim;
 
-  // det(2*A) → pow(2,dim) * det(A)
+  // det(2*A) → 2^dim * det(A)  (pow(2,dim) folds to a numeric constant)
   if constexpr (Dim == 1) {
     EXPECT_PRINT(det(_2 * X), "2*det(X)");
-  } else {
-    EXPECT_PRINT(det(_2 * X), "pow(2," + std::to_string(Dim) + ")*det(X)");
+  } else if constexpr (Dim == 2) {
+    EXPECT_PRINT(det(_2 * X), "4*det(X)");
+  } else if constexpr (Dim == 3) {
+    EXPECT_PRINT(det(_2 * X), "8*det(X)");
   }
 
   // det(x*A) → pow(x, dim) * det(A)

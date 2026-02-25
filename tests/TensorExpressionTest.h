@@ -781,4 +781,64 @@ TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_ScalarZeroMulTensor) {
   EXPECT_PRINT(X * _zero, "0");
 }
 
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_ScalarMulTensorZero) {
+  auto &Zero = this->_Zero;
+  auto &x = this->x;
+  auto &_2 = this->_2;
+
+  // non-zero scalar * tensor_zero → 0
+  EXPECT_PRINT(x * Zero, "0");
+  // tensor_zero * non-zero scalar → 0
+  EXPECT_PRINT(Zero * x, "0");
+  // numeric constant * tensor_zero → 0
+  EXPECT_PRINT(_2 * Zero, "0");
+  // tensor_zero * numeric constant → 0
+  EXPECT_PRINT(Zero * _2, "0");
+  // pow(2,-1) * tensor_zero → 0 (the "0/2" pattern)
+  EXPECT_PRINT(pow(this->_2, -this->_one) * Zero, "0");
+  // scalar_constant(0) * tensor → 0
+  auto sc0 = numsim::cas::make_expression<numsim::cas::scalar_constant>(0);
+  EXPECT_PRINT(sc0 * this->X, "0");
+  EXPECT_PRINT(this->X * sc0, "0");
+}
+
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_TensorMulZero) {
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  // tensor_zero * tensor → tensor_zero
+  EXPECT_PRINT(Zero * X, "0");
+  // tensor * tensor_zero → tensor_zero
+  EXPECT_PRINT(X * Zero, "0");
+  // tensor_zero * tensor_zero → tensor_zero
+  EXPECT_PRINT(Zero * Zero, "0");
+}
+
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_AddSubZero) {
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  // tensor_zero + X → X
+  EXPECT_PRINT(Zero + X, "X");
+  // X + tensor_zero → X
+  EXPECT_PRINT(X + Zero, "X");
+  // tensor_zero - X → -X
+  EXPECT_PRINT(Zero - X, "-X");
+  // X - tensor_zero → X
+  EXPECT_PRINT(X - Zero, "X");
+}
+
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_PowZeroBase) {
+  auto &Zero = this->_Zero;
+  auto &_2 = this->_2;
+  auto &x = this->x;
+
+  // pow(tensor_zero, 2) → tensor_zero
+  auto r1 = pow(Zero, _2);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r1));
+  // pow(tensor_zero, x) → tensor_zero
+  auto r2 = pow(Zero, x);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r2));
+}
+
 #endif // TENSOREXPRESSIONTEST_H
