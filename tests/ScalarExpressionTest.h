@@ -629,15 +629,15 @@ TEST_F(ScalarFixture, OperatorEarlyExit_SubZero) {
 // PRINT_PowConstantFolding — pow(constant, constant) → constant
 //
 TEST_F(ScalarFixture, PRINT_PowConstantFolding) {
-  EXPECT_PRINT(pow(_2, _3), "8");         // 2^3 = 8
-  EXPECT_PRINT(pow(_3, _2), "9");         // 3^2 = 9
-  EXPECT_PRINT(pow(_2, -_1), "1/2");      // 2^(-1) = 1/2
-  EXPECT_PRINT(pow(_2, -_2), "1/4");      // 2^(-2) = 1/4
-  EXPECT_PRINT(pow(_3, -_1), "1/3");      // 3^(-1) = 1/3
-  EXPECT_PRINT(_2 * pow(_2, -_1), "1");   // 2 * 1/2 = 1 (the key case)
-  EXPECT_PRINT(pow(_1, _3), "1");         // 1^3 = 1
-  EXPECT_PRINT(pow(-_1, _2), "1");        // (-1)^2 = 1
-  EXPECT_PRINT(pow(-_1, _3), "-1");       // (-1)^3 = -1
+  EXPECT_PRINT(pow(_2, _3), "8");       // 2^3 = 8
+  EXPECT_PRINT(pow(_3, _2), "9");       // 3^2 = 9
+  EXPECT_PRINT(pow(_2, -_1), "1/2");    // 2^(-1) = 1/2
+  EXPECT_PRINT(pow(_2, -_2), "1/4");    // 2^(-2) = 1/4
+  EXPECT_PRINT(pow(_3, -_1), "1/3");    // 3^(-1) = 1/3
+  EXPECT_PRINT(_2 * pow(_2, -_1), "1"); // 2 * 1/2 = 1 (the key case)
+  EXPECT_PRINT(pow(_1, _3), "1");       // 1^3 = 1
+  EXPECT_PRINT(pow(-_1, _2), "1");      // (-1)^2 = 1
+  EXPECT_PRINT(pow(-_1, _3), "-1");     // (-1)^3 = -1
 }
 
 TEST_F(ScalarFixture, OperatorEarlyExit_NegZero) {

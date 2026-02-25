@@ -63,7 +63,8 @@ public:
 
   [[nodiscard]] scalar_number abs() const noexcept;
 
-  /// Exact pow for integer exponents. Returns nullopt for non-integer exponents.
+  /// Exact pow for integer exponents. Returns nullopt for non-integer
+  /// exponents.
   friend std::optional<scalar_number> pow(scalar_number const &base,
                                           scalar_number const &exp);
 
