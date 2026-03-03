@@ -17,6 +17,52 @@ include(GNUInstallDirs)
 include(FetchContent)
 include(CMakePackageConfigHelpers)
 
+function(numsim_cas_set_tmech_header_root out_var)
+  set(_candidates)
+
+  if(DEFINED tmech_SOURCE_DIR AND IS_DIRECTORY "${tmech_SOURCE_DIR}")
+    list(APPEND _candidates
+      "${tmech_SOURCE_DIR}/include"
+      "${tmech_SOURCE_DIR}"
+    )
+  endif()
+
+  if(DEFINED tmech_DIR AND IS_DIRECTORY "${tmech_DIR}")
+    get_filename_component(_tmech_package_prefix
+      "${tmech_DIR}/../../.."
+      ABSOLUTE
+    )
+    list(APPEND _candidates "${_tmech_package_prefix}/include")
+  endif()
+
+  get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
+  if(NOT _tmech_real)
+    set(_tmech_real tmech::tmech)
+  endif()
+  get_target_property(_tmech_inc_dirs ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
+
+  foreach(_raw_dir IN LISTS _tmech_inc_dirs)
+    set(_dir "${_raw_dir}")
+    if(_dir MATCHES "^\\$<BUILD_INTERFACE:(.+)>$")
+      set(_dir "${CMAKE_MATCH_1}")
+    elseif(_dir MATCHES "^\\$<INSTALL_INTERFACE:(.+)>$")
+      continue()
+    elseif(_dir MATCHES "^\\$<")
+      continue()
+    endif()
+    list(APPEND _candidates "${_dir}")
+  endforeach()
+
+  foreach(_candidate IN LISTS _candidates)
+    if(IS_DIRECTORY "${_candidate}/tmech")
+      set(${out_var} "${_candidate}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+
+  set(${out_var} "" PARENT_SCOPE)
+endfunction()
+
 # -----------------------------
 # Options
 # -----------------------------
@@ -218,26 +264,7 @@ if(NUMSIM_CAS_INSTALL_LIBRARY)
     DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
   )
 
-  set(_tmech_header_root "")
-  if(DEFINED tmech_DIR AND IS_DIRECTORY "${tmech_DIR}")
-    get_filename_component(_tmech_package_prefix
-      "${tmech_DIR}/../../.."
-      ABSOLUTE
-    )
-    if(IS_DIRECTORY "${_tmech_package_prefix}/include/tmech")
-      set(_tmech_header_root "${_tmech_package_prefix}/include")
-    endif()
-  endif()
-
-  if(NOT _tmech_header_root)
-    get_target_property(_tmech_inc_dirs tmech::tmech INTERFACE_INCLUDE_DIRECTORIES)
-    foreach(_tmech_inc_dir IN LISTS _tmech_inc_dirs)
-      if(IS_DIRECTORY "${_tmech_inc_dir}/tmech")
-        set(_tmech_header_root "${_tmech_inc_dir}")
-        break()
-      endif()
-    endforeach()
-  endif()
+  numsim_cas_set_tmech_header_root(_tmech_header_root)
 
   if(_tmech_header_root)
     install(
