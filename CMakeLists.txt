@@ -15,6 +15,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(GNUInstallDirs)
 include(FetchContent)
+include(CMakePackageConfigHelpers)
 
 # -----------------------------
 # Options
@@ -36,7 +37,11 @@ set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 # -----------------------------
 # Dependencies: tmech
 # -----------------------------
+set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE OFF)
 find_package(tmech QUIET)
+if(tmech_FOUND)
+  set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE ON)
+endif()
 if(NOT tmech_FOUND)
   # Disable tmech's own tests and examples (it uses BUILD_TESTS/BUILD_EXAMPLES)
   set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -167,7 +172,12 @@ endif()
 # -----------------------------
 # Install
 # -----------------------------
-if(NUMSIM_CAS_INSTALL_LIBRARY)
+set(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST OFF)
+if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE)
+  set(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST ON)
+  set(NUMSIM_CAS_INSTALL_CMAKEDIR
+      "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS")
+
   install(TARGETS ${PROJECT_NAME}
     EXPORT NumSim_CASTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -186,12 +196,33 @@ if(NUMSIM_CAS_INSTALL_LIBRARY)
       PATTERN "*.tpp"
   )
 
-  if(tmech_FOUND)
-    install(EXPORT NumSim_CASTargets
-      NAMESPACE NumSim_CAS::
-      DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS"
-    )
-  endif()
+  install(EXPORT NumSim_CASTargets
+    NAMESPACE NumSim_CAS::
+    DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
+  )
+
+  write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+  )
+
+  configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NumSim_CASConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfig.cmake"
+    INSTALL_DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
+  )
+
+  install(
+    FILES
+      "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfig.cmake"
+      "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfigVersion.cmake"
+    DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
+  )
+elseif(NUMSIM_CAS_INSTALL_LIBRARY)
+  message(STATUS
+    "NUMSIM_CAS_INSTALL_LIBRARY is ON, but installable package export is disabled "
+    "because tmech was not found as an external package.")
 endif()
 
 # -----------------------------
