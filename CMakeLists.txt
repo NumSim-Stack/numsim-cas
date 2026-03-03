@@ -103,15 +103,17 @@ add_library(NumSim_CAS::NumSim_CAS ALIAS ${PROJECT_NAME})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/include" PREFIX "Header Files" FILES ${NUMSIM_CAS_HEADERS})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src"     PREFIX "Source Files" FILES ${NUMSIM_CAS_SOURCES})
 
+get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
+if(NOT _tmech_real)
+  set(_tmech_real tmech::tmech)
+endif()
+get_target_property(_tmech_inc_dirs ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
+
 target_include_directories(${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${_tmech_inc_dirs}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-)
-
-target_link_libraries(${PROJECT_NAME}
-  PUBLIC
-    tmech::tmech
 )
 
 target_compile_definitions(${PROJECT_NAME}
