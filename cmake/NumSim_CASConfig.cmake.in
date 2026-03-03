@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(tmech REQUIRED)
+
+include("${CMAKE_CURRENT_LIST_DIR}/NumSim_CASTargets.cmake")
+
+check_required_components(NumSim_CAS)
