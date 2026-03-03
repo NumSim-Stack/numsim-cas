@@ -17,52 +17,6 @@ include(GNUInstallDirs)
 include(FetchContent)
 include(CMakePackageConfigHelpers)
 
-function(numsim_cas_set_tmech_header_root out_var)
-  set(_candidates)
-
-  if(DEFINED tmech_SOURCE_DIR AND IS_DIRECTORY "${tmech_SOURCE_DIR}")
-    list(APPEND _candidates
-      "${tmech_SOURCE_DIR}/include"
-      "${tmech_SOURCE_DIR}"
-    )
-  endif()
-
-  if(DEFINED tmech_DIR AND IS_DIRECTORY "${tmech_DIR}")
-    get_filename_component(_tmech_package_prefix
-      "${tmech_DIR}/../../.."
-      ABSOLUTE
-    )
-    list(APPEND _candidates "${_tmech_package_prefix}/include")
-  endif()
-
-  get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
-  if(NOT _tmech_real)
-    set(_tmech_real tmech::tmech)
-  endif()
-  get_target_property(_tmech_inc_dirs ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
-
-  foreach(_raw_dir IN LISTS _tmech_inc_dirs)
-    set(_dir "${_raw_dir}")
-    if(_dir MATCHES "^\\$<BUILD_INTERFACE:(.+)>$")
-      set(_dir "${CMAKE_MATCH_1}")
-    elseif(_dir MATCHES "^\\$<INSTALL_INTERFACE:(.+)>$")
-      continue()
-    elseif(_dir MATCHES "^\\$<")
-      continue()
-    endif()
-    list(APPEND _candidates "${_dir}")
-  endforeach()
-
-  foreach(_candidate IN LISTS _candidates)
-    if(IS_DIRECTORY "${_candidate}/tmech")
-      set(${out_var} "${_candidate}" PARENT_SCOPE)
-      return()
-    endif()
-  endforeach()
-
-  set(${out_var} "" PARENT_SCOPE)
-endfunction()
-
 # -----------------------------
 # Options
 # -----------------------------
@@ -83,7 +37,11 @@ set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 # -----------------------------
 # Dependencies: tmech
 # -----------------------------
+set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE OFF)
 find_package(tmech QUIET)
+if(tmech_FOUND)
+  set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE ON)
+endif()
 if(NOT tmech_FOUND)
   # Disable tmech's own tests and examples (it uses BUILD_TESTS/BUILD_EXAMPLES)
   set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -149,17 +107,15 @@ add_library(NumSim_CAS::NumSim_CAS ALIAS ${PROJECT_NAME})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/include" PREFIX "Header Files" FILES ${NUMSIM_CAS_HEADERS})
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src"     PREFIX "Source Files" FILES ${NUMSIM_CAS_SOURCES})
 
-get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
-if(NOT _tmech_real)
-  set(_tmech_real tmech::tmech)
-endif()
-get_target_property(_tmech_inc_dirs ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
-
 target_include_directories(${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<BUILD_INTERFACE:${_tmech_inc_dirs}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+target_link_libraries(${PROJECT_NAME}
+  PUBLIC
+    tmech::tmech
 )
 
 target_compile_definitions(${PROJECT_NAME}
@@ -216,11 +172,11 @@ endif()
 # -----------------------------
 # Install
 # -----------------------------
-if(NUMSIM_CAS_INSTALL_LIBRARY)
+set(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST OFF)
+if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE)
+  set(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST ON)
   set(NUMSIM_CAS_INSTALL_CMAKEDIR
       "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS")
-  set(NUMSIM_CAS_TMECH_INSTALL_CMAKEDIR
-      "${CMAKE_INSTALL_DATADIR}/tmech/cmake")
 
   install(TARGETS ${PROJECT_NAME}
     EXPORT NumSim_CASTargets
@@ -263,41 +219,10 @@ if(NUMSIM_CAS_INSTALL_LIBRARY)
       "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfigVersion.cmake"
     DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
   )
-
-  numsim_cas_set_tmech_header_root(_tmech_header_root)
-
-  if(_tmech_header_root)
-    install(
-      DIRECTORY "${_tmech_header_root}/tmech"
-      DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-    )
-
-    write_basic_package_version_file(
-      "${CMAKE_CURRENT_BINARY_DIR}/tmechConfigVersion.cmake"
-      VERSION ${PROJECT_VERSION}
-      COMPATIBILITY SameMajorVersion
-    )
-
-    configure_file(
-      "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmechTargets.cmake.in"
-      "${CMAKE_CURRENT_BINARY_DIR}/tmechTargets.cmake"
-      @ONLY
-    )
-
-    configure_package_config_file(
-      "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmechConfig.cmake.in"
-      "${CMAKE_CURRENT_BINARY_DIR}/tmechConfig.cmake"
-      INSTALL_DESTINATION "${NUMSIM_CAS_TMECH_INSTALL_CMAKEDIR}"
-    )
-
-    install(
-      FILES
-        "${CMAKE_CURRENT_BINARY_DIR}/tmechConfig.cmake"
-        "${CMAKE_CURRENT_BINARY_DIR}/tmechConfigVersion.cmake"
-        "${CMAKE_CURRENT_BINARY_DIR}/tmechTargets.cmake"
-      DESTINATION "${NUMSIM_CAS_TMECH_INSTALL_CMAKEDIR}"
-    )
-  endif()
+elseif(NUMSIM_CAS_INSTALL_LIBRARY)
+  message(STATUS
+    "NUMSIM_CAS_INSTALL_LIBRARY is ON, but installable package export is disabled "
+    "because tmech was not found as an external package.")
 endif()
 
 # -----------------------------
