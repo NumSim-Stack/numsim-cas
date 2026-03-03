@@ -15,6 +15,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(GNUInstallDirs)
 include(FetchContent)
+include(CMakePackageConfigHelpers)
 
 # -----------------------------
 # Options
@@ -168,6 +169,11 @@ endif()
 # Install
 # -----------------------------
 if(NUMSIM_CAS_INSTALL_LIBRARY)
+  set(NUMSIM_CAS_INSTALL_CMAKEDIR
+      "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS")
+  set(NUMSIM_CAS_TMECH_INSTALL_CMAKEDIR
+      "${CMAKE_INSTALL_DATADIR}/tmech/cmake")
+
   install(TARGETS ${PROJECT_NAME}
     EXPORT NumSim_CASTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -186,10 +192,81 @@ if(NUMSIM_CAS_INSTALL_LIBRARY)
       PATTERN "*.tpp"
   )
 
-  if(tmech_FOUND)
-    install(EXPORT NumSim_CASTargets
-      NAMESPACE NumSim_CAS::
-      DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS"
+  install(EXPORT NumSim_CASTargets
+    NAMESPACE NumSim_CAS::
+    DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
+  )
+
+  write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+  )
+
+  configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NumSim_CASConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfig.cmake"
+    INSTALL_DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
+  )
+
+  install(
+    FILES
+      "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfig.cmake"
+      "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfigVersion.cmake"
+    DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
+  )
+
+  set(_tmech_header_root "")
+  if(DEFINED tmech_DIR AND IS_DIRECTORY "${tmech_DIR}")
+    get_filename_component(_tmech_package_prefix
+      "${tmech_DIR}/../../.."
+      ABSOLUTE
+    )
+    if(IS_DIRECTORY "${_tmech_package_prefix}/include/tmech")
+      set(_tmech_header_root "${_tmech_package_prefix}/include")
+    endif()
+  endif()
+
+  if(NOT _tmech_header_root)
+    get_target_property(_tmech_inc_dirs tmech::tmech INTERFACE_INCLUDE_DIRECTORIES)
+    foreach(_tmech_inc_dir IN LISTS _tmech_inc_dirs)
+      if(IS_DIRECTORY "${_tmech_inc_dir}/tmech")
+        set(_tmech_header_root "${_tmech_inc_dir}")
+        break()
+      endif()
+    endforeach()
+  endif()
+
+  if(_tmech_header_root)
+    install(
+      DIRECTORY "${_tmech_header_root}/tmech"
+      DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    )
+
+    write_basic_package_version_file(
+      "${CMAKE_CURRENT_BINARY_DIR}/tmechConfigVersion.cmake"
+      VERSION ${PROJECT_VERSION}
+      COMPATIBILITY SameMajorVersion
+    )
+
+    configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmechTargets.cmake.in"
+      "${CMAKE_CURRENT_BINARY_DIR}/tmechTargets.cmake"
+      @ONLY
+    )
+
+    configure_package_config_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmechConfig.cmake.in"
+      "${CMAKE_CURRENT_BINARY_DIR}/tmechConfig.cmake"
+      INSTALL_DESTINATION "${NUMSIM_CAS_TMECH_INSTALL_CMAKEDIR}"
+    )
+
+    install(
+      FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/tmechConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/tmechConfigVersion.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/tmechTargets.cmake"
+      DESTINATION "${NUMSIM_CAS_TMECH_INSTALL_CMAKEDIR}"
     )
   endif()
 endif()
