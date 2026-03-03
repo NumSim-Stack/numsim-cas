@@ -54,15 +54,17 @@ add_numsim_cas_test(numsim_cas_test
     TensorToScalarLatexPrinterTest.h
 )
 
-add_test(
-  NAME numsim_cas_package_smoke
-  COMMAND
-    ${CMAKE_COMMAND}
-    -DNUMSIM_CAS_SOURCE_DIR=${CMAKE_SOURCE_DIR}
-    -DNUMSIM_CAS_BINARY_DIR=${CMAKE_BINARY_DIR}
-    -DTEST_CONFIG=$<CONFIG>
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/package_smoke/package_smoke_test.cmake
-)
+if(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
+  add_test(
+    NAME numsim_cas_package_smoke
+    COMMAND
+      ${CMAKE_COMMAND}
+      -DNUMSIM_CAS_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+      -DNUMSIM_CAS_BINARY_DIR=${CMAKE_BINARY_DIR}
+      -DTEST_CONFIG=$<CONFIG>
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/package_smoke/package_smoke_test.cmake
+  )
+endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wuninitialized -Werror=uninitialized -Wpedantic -Werror -Wextra -pedantic -Wno-error=comment -Wno-error=overloaded-virtual -Wno-error=pessimizing-move)
