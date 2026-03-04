@@ -50,7 +50,8 @@ void tensor_differentiation::operator()(tensor_pow const &visitable) {
 }
 
 // tensor_mul: product rule over the data() vector
-// d(A1*A2*...*An)/dX = sum_j (prod_{i!=j} Ai) * dAj/dX
+// d(A1*A2*...*An)/dX = sum_j coeff * lhs * dAj * rhs
+// where lhs = A0*...*A_{j-1}, rhs = A_{j+1}*...*A_{n-1}
 void tensor_differentiation::operator()(tensor_mul const &visitable) {
   auto const &factors = visitable.data();
   tensor_holder_t sum;
@@ -61,20 +62,69 @@ void tensor_differentiation::operator()(tensor_mul const &visitable) {
       continue;
     }
 
-    // Build product of all factors except j, contracted with dAj
-    // For tensor_mul, each factor is contracted on adjacent indices
-    // The derivative replaces factor j with dAj (which has extra indices)
-    tensor_holder_t term = dAj;
-    for (std::size_t i = 0; i < factors.size(); ++i) {
-      if (i == j)
-        continue;
-      // Contract: inner_product on the adjacent indices
-      auto rank_term = term.get().rank();
-      [[maybe_unused]] auto rank_fi = factors[i].get().rank();
-      // Contract last index of term with first index of factor[i]
-      // (or first of factor[i] with last of previous result)
-      term = inner_product(std::move(term), sequence{rank_term}, factors[i],
+    // Build lhs chain: factors[0] * ... * factors[j-1]
+    tensor_holder_t lhs;
+    for (std::size_t i = 0; i < j; ++i) {
+      if (!lhs.is_valid()) {
+        lhs = factors[i];
+      } else {
+        auto rank_lhs = lhs.get().rank();
+        lhs = inner_product(std::move(lhs), sequence{rank_lhs}, factors[i],
+                            sequence{1});
+      }
+    }
+
+    // Build rhs chain: factors[j+1] * ... * factors[n-1]
+    tensor_holder_t rhs;
+    for (std::size_t i = j + 1; i < factors.size(); ++i) {
+      if (!rhs.is_valid()) {
+        rhs = factors[i];
+      } else {
+        auto rank_rhs = rhs.get().rank();
+        rhs = inner_product(std::move(rhs), sequence{rank_rhs}, factors[i],
+                            sequence{1});
+      }
+    }
+
+    // Build term = lhs * dAj * rhs
+    tensor_holder_t term;
+    if (lhs.is_valid()) {
+      auto rank_lhs = lhs.get().rank();
+      term =
+          inner_product(std::move(lhs), sequence{rank_lhs}, dAj, sequence{1});
+    } else {
+      term = dAj;
+    }
+
+    if (rhs.is_valid()) {
+      // The exit index (last original index of factor j) is at 1-based
+      // position exit_pos = term.rank() - m_rank_arg, with derivative
+      // indices appended after it.
+      auto exit_pos = term.get().rank() - m_rank_arg; // 1-based
+      auto rank_rhs = rhs.get().rank();
+
+      // Contract at the exit position
+      term = inner_product(std::move(term), sequence{exit_pos}, std::move(rhs),
                            sequence{1});
+
+      // Permute [L][D][R] → [L][R][D] to move derivative indices to end
+      // basis_change convention: output(args) = input(args[perm[0]], ...)
+      // perm[k] maps input position k → output position that feeds into it
+      auto total = term.get().rank();
+      auto R = rank_rhs - 1;
+      auto L = total - m_rank_arg - R;
+      if (R > 0) {
+        sequence reorder(total);
+        std::iota(reorder.begin(),
+                  reorder.begin() + static_cast<std::ptrdiff_t>(L),
+                  std::size_t{0});
+        std::iota(reorder.begin() + static_cast<std::ptrdiff_t>(L),
+                  reorder.begin() + static_cast<std::ptrdiff_t>(L + m_rank_arg),
+                  L + R);
+        std::iota(reorder.begin() + static_cast<std::ptrdiff_t>(L + m_rank_arg),
+                  reorder.end(), L);
+        term = permute_indices(std::move(term), std::move(reorder));
+      }
     }
 
     if (term.is_valid()) {
@@ -91,6 +141,8 @@ void tensor_differentiation::operator()(tensor_mul const &visitable) {
 }
 
 // simple_outer_product: product rule (outer products, no contraction)
+// d(A1⊗A2⊗...⊗An)/dX = sum_j lhs ⊗ dAj ⊗ rhs
+// where lhs = A0⊗...⊗A_{j-1}, rhs = A_{j+1}⊗...⊗A_{n-1}
 void tensor_differentiation::operator()(simple_outer_product const &visitable) {
   auto const &factors = visitable.data();
   tensor_holder_t sum;
@@ -101,18 +153,80 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
       continue;
     }
 
-    // Build outer product of all factors, replacing factor j with dAj
-    tensor_holder_t term = (j == 0) ? dAj : factors[0];
-    std::size_t current_rank = term.get().rank();
+    // Build lhs chain: factors[0] ⊗ ... ⊗ factors[j-1]
+    tensor_holder_t lhs;
+    std::size_t rank_lhs = 0;
+    for (std::size_t i = 0; i < j; ++i) {
+      if (!lhs.is_valid()) {
+        lhs = factors[i];
+        rank_lhs = factors[i].get().rank();
+      } else {
+        auto fi_rank = factors[i].get().rank();
+        sequence lhs_idx(rank_lhs), rhs_idx(fi_rank);
+        std::iota(lhs_idx.begin(), lhs_idx.end(), std::size_t{0});
+        std::iota(rhs_idx.begin(), rhs_idx.end(), rank_lhs);
+        lhs = otimes(std::move(lhs), std::move(lhs_idx), factors[i],
+                     std::move(rhs_idx));
+        rank_lhs += fi_rank;
+      }
+    }
 
-    for (std::size_t i = 1; i < factors.size(); ++i) {
-      auto const &fi = (i == j) ? dAj : factors[i];
-      sequence lhs_idx(current_rank), rhs_idx(fi.get().rank());
-      std::iota(lhs_idx.begin(), lhs_idx.end(), std::size_t{0});
-      std::iota(rhs_idx.begin(), rhs_idx.end(), current_rank);
-      term =
-          otimes(std::move(term), std::move(lhs_idx), fi, std::move(rhs_idx));
-      current_rank += fi.get().rank();
+    // Build rhs chain: factors[j+1] ⊗ ... ⊗ factors[n-1]
+    tensor_holder_t rhs;
+    std::size_t rank_rhs = 0;
+    for (std::size_t i = j + 1; i < factors.size(); ++i) {
+      if (!rhs.is_valid()) {
+        rhs = factors[i];
+        rank_rhs = factors[i].get().rank();
+      } else {
+        auto fi_rank = factors[i].get().rank();
+        sequence lhs_idx(rank_rhs), rhs_idx(fi_rank);
+        std::iota(lhs_idx.begin(), lhs_idx.end(), std::size_t{0});
+        std::iota(rhs_idx.begin(), rhs_idx.end(), rank_rhs);
+        rhs = otimes(std::move(rhs), std::move(lhs_idx), factors[i],
+                     std::move(rhs_idx));
+        rank_rhs += fi_rank;
+      }
+    }
+
+    // Build term = lhs ⊗ dAj ⊗ rhs
+    tensor_holder_t term;
+    std::size_t current_rank = 0;
+    if (lhs.is_valid()) {
+      auto dAj_rank = dAj.get().rank();
+      sequence l_idx(rank_lhs), r_idx(dAj_rank);
+      std::iota(l_idx.begin(), l_idx.end(), std::size_t{0});
+      std::iota(r_idx.begin(), r_idx.end(), rank_lhs);
+      term = otimes(std::move(lhs), std::move(l_idx), dAj, std::move(r_idx));
+      current_rank = rank_lhs + dAj_rank;
+    } else {
+      term = dAj;
+      current_rank = dAj.get().rank();
+    }
+
+    if (rhs.is_valid()) {
+      sequence l_idx(current_rank), r_idx(rank_rhs);
+      std::iota(l_idx.begin(), l_idx.end(), std::size_t{0});
+      std::iota(r_idx.begin(), r_idx.end(), current_rank);
+      term = otimes(std::move(term), std::move(l_idx), std::move(rhs),
+                    std::move(r_idx));
+
+      // Permute: move derivative indices from middle to end
+      // Layout is [lhs][factor_j_orig][D][rhs], desired
+      // [lhs][factor_j_orig][rhs][D] basis_change convention: perm[k] maps
+      // input pos k → output pos
+      auto L = rank_lhs + factors[j].get().rank();
+      auto total = current_rank + rank_rhs;
+      sequence reorder(total);
+      std::iota(reorder.begin(),
+                reorder.begin() + static_cast<std::ptrdiff_t>(L),
+                std::size_t{0});
+      std::iota(reorder.begin() + static_cast<std::ptrdiff_t>(L),
+                reorder.begin() + static_cast<std::ptrdiff_t>(L + m_rank_arg),
+                L + rank_rhs);
+      std::iota(reorder.begin() + static_cast<std::ptrdiff_t>(L + m_rank_arg),
+                reorder.end(), L);
+      term = permute_indices(std::move(term), std::move(reorder));
     }
 
     if (term.is_valid()) {
@@ -178,20 +292,21 @@ void tensor_differentiation::operator()(
       // Need to reorder: put derivative indices (from arg) at the end
       // Original result: free_lhs indices, rank_arg indices, free_rhs indices
       // Desired: free_lhs indices, free_rhs indices, rank_arg indices
+      // basis_change convention: perm[k] maps input pos k → output pos
       std::size_t new_rank = free_lhs + m_rank_arg + free_rhs;
       sequence reorder(new_rank);
-      // free_lhs slots: 0..free_lhs-1
+      // L block (free_lhs): input 0..L-1 ← output 0..L-1
       std::iota(reorder.begin(),
                 reorder.begin() + static_cast<std::ptrdiff_t>(free_lhs),
                 std::size_t{0});
-      // free_rhs slots
+      // D block (rank_arg): input L..L+D-1 ← output L+R..L+R+D-1
       std::iota(reorder.begin() + static_cast<std::ptrdiff_t>(free_lhs),
                 reorder.begin() +
-                    static_cast<std::ptrdiff_t>(free_lhs + free_rhs),
-                free_lhs + m_rank_arg);
-      // rank_arg slots at end
+                    static_cast<std::ptrdiff_t>(free_lhs + m_rank_arg),
+                free_lhs + free_rhs);
+      // R block (free_rhs): input L+D..L+D+R-1 ← output L..L+R-1
       std::iota(reorder.begin() +
-                    static_cast<std::ptrdiff_t>(free_lhs + free_rhs),
+                    static_cast<std::ptrdiff_t>(free_lhs + m_rank_arg),
                 reorder.end(), free_lhs);
       term_lhs = permute_indices(std::move(term_lhs), std::move(reorder));
     }
