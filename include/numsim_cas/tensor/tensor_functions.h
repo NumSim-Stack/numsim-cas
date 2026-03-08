@@ -262,7 +262,7 @@ template <tensor_expr_holder Expr>
     const auto &t_indices{tensor.indices()};
     sequence new_order(t_indices.size());
     for (std::size_t i{0}; i < t_indices.size(); ++i) {
-      new_order[i] = t_indices[indices[i]];
+      new_order[i] = indices[t_indices[i]];
     }
     return make_expression<basis_change_imp>(tensor.expr(),
                                              std::move(new_order));

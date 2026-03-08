@@ -54,8 +54,15 @@ add_numsim_cas_test(numsim_cas_test
     TensorToScalarLatexPrinterTest.h
 )
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wuninitialized -Werror=uninitialized -Wpedantic -Werror -Wextra -pedantic -Wno-error=comment -Wno-error=overloaded-virtual -Wno-error=pessimizing-move)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    target_compile_options(${PROJECT_NAME} PRIVATE /WX /bigobj)
-endif()
+add_numsim_cas_test(numsim_cas_fuzz_test
+    FuzzyTensorDiffTest.cpp
+    cas_test_helpers.h
+)
+
+foreach(target numsim_cas_test numsim_cas_fuzz_test)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${target} PRIVATE -Wall -Wuninitialized -Werror=uninitialized -Wpedantic -Werror -Wextra -pedantic -Wno-error=comment -Wno-error=overloaded-virtual -Wno-error=pessimizing-move)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+        target_compile_options(${target} PRIVATE /WX /bigobj)
+    endif()
+endforeach()

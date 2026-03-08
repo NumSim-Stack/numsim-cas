@@ -13,7 +13,8 @@
 
 namespace numsim::cas {
 
-// tensor_pow: d(A^n)/dX = sum_{r=0}^{n-1} otimesu(A^r, A^{n-1-r}) : dA/dX
+// tensor_pow: d(A^n)/dX = sum_{r=0}^{n-1} T_r : dA/dX
+// where T_r[i,j,p,q] = (A^r)_{ip} * (A^{n-1-r})_{qj}  (Daleckij-Krein)
 void tensor_differentiation::operator()(tensor_pow const &visitable) {
   auto const &A = visitable.expr_lhs();
   auto const &n_expr = visitable.expr_rhs();
@@ -31,14 +32,15 @@ void tensor_differentiation::operator()(tensor_pow const &visitable) {
   auto const &val = n_expr.template get<scalar_constant>().value();
   auto n = std::get<std::int64_t>(val.raw());
 
-  // Build sum: sum_{r=0}^{n-1} inner_product(otimesu(A^r, A^{n-1-r}), {3,4},
-  // dA/dX, {1,2})
+  // Build sum: sum_{r=0}^{n-1} inner_product(T_r, {3,4}, dA/dX, {1,2})
+  // T_r = otimes(A^r, {1,3}, A^{n-1-r}, {4,2})
+  //   so T_r[i,j,p,q] = (A^r)_{ip} * (A^{n-1-r})_{qj}
   tensor_holder_t sum;
   for (std::int64_t r = 0; r < n; ++r) {
     auto Ar = pow(A, static_cast<int>(r));
     auto An1r = pow(A, static_cast<int>(n - 1 - r));
-    auto term =
-        inner_product(otimesu(Ar, An1r), sequence{3, 4}, dA, sequence{1, 2});
+    auto T = otimes(Ar, sequence{1, 3}, An1r, sequence{4, 2});
+    auto term = inner_product(T, sequence{3, 4}, dA, sequence{1, 2});
     if (sum.is_valid()) {
       sum += term;
     } else {
@@ -238,8 +240,8 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
 }
 
 // tensor_inv: d(A^{-1})/dX = -inner(inner(inv(A), dA/dX), inv(A))
-// For rank-2: d(A^{-1})_{ij}/dX_{kl} = -A^{-1}_{im} (dA_{mn}/dX_{kl})
-// A^{-1}_{nj}
+// For rank-2: d(A^{-1})_{ij}/dX = -sum_{mn} A^{-1}_{im} * A^{-1}_{nj} *
+// dA_{mn}/dX
 void tensor_differentiation::operator()(tensor_inv const &visitable) {
   auto const &A = visitable.expr();
   auto dA = diff(A, m_arg);
@@ -250,10 +252,11 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
   auto invA = inv(A);
 
   if (A.get().rank() == 2) {
-    // d(inv(A))/dX = -inv(A)_{im} * dA_{mn,kl} * inv(A)_{nj}
-    // = -inner(inv(A), {2}, dA, {1}) contracted with inv(A) on remaining
-    auto temp = inner_product(invA, sequence{2}, dA, sequence{1});
-    m_result = -inner_product(std::move(temp), sequence{3}, invA, sequence{1});
+    // Build T[i,j,m,n] = invA_{im} * invA_{nj} via
+    //   otimes(invA, {1,3}, invA, {4,2})
+    // Then contract T's {m,n} with dA's first two indices.
+    auto T = otimes(invA, sequence{1, 3}, invA, sequence{4, 2});
+    m_result = -inner_product(T, sequence{3, 4}, dA, sequence{1, 2});
   } else {
     throw not_implemented_error(
         "tensor_differentiation: inv derivative for rank != 2");
@@ -319,6 +322,7 @@ void tensor_differentiation::operator()(
     // Contraction indices are at the same positions as in the original B.
     auto term_rhs =
         inner_product(expr_lhs, sequence(seq_lhs), dB, sequence(seq_rhs));
+
     if (result.is_valid()) {
       result += term_rhs;
     } else {
