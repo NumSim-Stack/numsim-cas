@@ -629,6 +629,26 @@ TYPED_TEST(TensorExpressionTest, TransTransSimplification) {
 }
 
 // -----------------------------------------------------------------------------
+// trans(skew(X)) → -X for skew-symmetric tensors
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, TransSkewSimplification) {
+  constexpr std::size_t Dim = TestFixture::Dim;
+  auto S = numsim::cas::make_expression<numsim::cas::tensor>("S", Dim, 2);
+  numsim::cas::assume_skew(S);
+
+  // trans(S) → -S when S is skew
+  EXPECT_PRINT(numsim::cas::trans(S), "-S");
+
+  // trans(trans(S)) → trans(-S) → -trans(S) → -(-S) → S
+  EXPECT_PRINT(numsim::cas::trans(numsim::cas::trans(S)), "S");
+
+  // Symmetric variable: trans should still be identity
+  auto &X = this->X;
+  numsim::cas::assume_symmetric(X);
+  EXPECT_PRINT(numsim::cas::trans(X), "X");
+}
+
+// -----------------------------------------------------------------------------
 // inv(inv(A)) → A simplification
 // -----------------------------------------------------------------------------
 TYPED_TEST(TensorExpressionTest, InvInvSimplification) {

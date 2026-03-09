@@ -270,6 +270,13 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto permute_indices(Expr &&expr,
                                                     sequence &&indices) {
+  // For symmetric rank-2 tensors, any permutation of two indices is identity
+  if (expr.get().rank() == 2) {
+    if (auto const &sp = expr.get().space()) {
+      if (std::holds_alternative<Symmetric>(sp->perm))
+        return std::forward<Expr>(expr);
+    }
+  }
   if (is_same<basis_change_imp>(expr)) {
     auto &tensor{expr.template get<basis_change_imp>()};
     const auto &t_indices{tensor.indices()};
@@ -317,6 +324,14 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto trans(Expr &&expr) {
+  // trans(X) = X when X is symmetric (or any symmetric subspace)
+  // trans(X) = -X when X is skew-symmetric
+  if (auto const &sp = expr.get().space()) {
+    if (std::holds_alternative<Symmetric>(sp->perm))
+      return std::forward<Expr>(expr);
+    if (std::holds_alternative<Skew>(sp->perm))
+      return -std::forward<Expr>(expr);
+  }
   if (is_same<basis_change_imp>(expr)) {
     auto const &bc = expr.template get<basis_change_imp>();
     if (bc.indices() == sequence{2, 1})
