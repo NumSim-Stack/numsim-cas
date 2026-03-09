@@ -22,6 +22,7 @@ struct TensorVarEntry {
   std::string name;
   std::size_t rank;
   expression_holder<tensor_expression> expr;
+  std::optional<tensor_space> space;
 };
 
 // ===========================================================================
@@ -45,10 +46,10 @@ tensor_verify_impl(unsigned seed, std::vector<TensorVarEntry> const &vars,
   for (auto const &v : vars) {
     auto ptr = dispatch_rank(
         v.rank,
-        [&data_rng](auto R) -> std::shared_ptr<tensor_data_base<double>> {
+        [&data_rng, &v](auto R) -> std::shared_ptr<tensor_data_base<double>> {
           constexpr std::size_t r = decltype(R)::value;
           tmech::tensor<double, FDIM, r> t;
-          fill_random(t, data_rng);
+          fill_random(t, data_rng, v.space);
           return std::make_shared<tensor_data<double, FDIM, r>>(t);
         });
     ev.set(v.expr, ptr);
@@ -78,12 +79,12 @@ tensor_verify_impl(unsigned seed, std::vector<TensorVarEntry> const &vars,
       static_cast<tensor_data<double, FDIM, VarRank> &>(*diff_var_ptr).data();
   auto var_original = var_tmech;
 
-  auto numdiff = fuzzy_num_diff<DiffRank>(
-      [&](auto const &x) {
-        var_tmech = x;
-        return fuzzy_as_tmech<FDIM, ExprRank>(*ev.apply(info.expr));
-      },
-      var_original);
+  auto fn = [&](auto const &x) {
+    var_tmech = x;
+    return fuzzy_as_tmech<FDIM, ExprRank>(*ev.apply(info.expr));
+  };
+
+  auto numdiff = fuzzy_tensor_num_diff<DiffRank>(fn, var_original, var.space);
 
   var_tmech = var_original;
 
@@ -217,18 +218,24 @@ private:
   std::vector<TensorVarEntry> m_vars;
 
   void create_variable_pool() {
-    auto add_var = [&](std::string name, std::size_t rank) {
+    auto add_var = [&](std::string name, std::size_t rank,
+                       std::optional<tensor_space> space = std::nullopt) {
       auto expr = make_expression<tensor>(name, FDIM, rank);
-      m_vars.push_back({std::move(name), rank, expr});
+      if (space) {
+        expr.data()->set_space(*space);
+      }
+      m_vars.push_back({std::move(name), rank, expr, space});
     };
+
+    tensor_space sym_space{Symmetric{}, AnyTraceTag{}};
 
     add_var("a", 1);
     add_var("b", 1);
-    add_var("C", 2);
-    add_var("D", 2);
+    add_var("C", 2, sym_space);
+    add_var("D", 2, sym_space);
     add_var("E", 3);
     add_var("F", 4);
-    add_var("G", 2);
+    add_var("G", 2, sym_space);
   }
 
   void register_default_ops() {

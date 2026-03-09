@@ -32,6 +32,7 @@ struct T2sVarEntry {
   std::string name;
   std::size_t rank;
   expression_holder<tensor_expression> expr;
+  std::optional<tensor_space> space;
 };
 
 struct T2sScalarVarEntry {
@@ -105,13 +106,17 @@ private:
   std::vector<T2sScalarVarEntry> m_scalar_vars;
 
   void create_variable_pool() {
-    auto add_tensor = [&](std::string name, std::size_t rank) {
+    tensor_space sym_space{Symmetric{}, AnyTraceTag{}};
+    auto add_tensor = [&](std::string name, std::size_t rank,
+                          std::optional<tensor_space> space = std::nullopt) {
       auto expr = make_expression<tensor>(name, FDIM, rank);
-      m_tensor_vars.push_back({std::move(name), rank, expr});
+      if (space)
+        expr.data()->set_space(*space);
+      m_tensor_vars.push_back({std::move(name), rank, expr, space});
     };
-    add_tensor("A", 2);
-    add_tensor("B", 2);
-    add_tensor("C", 2);
+    add_tensor("A", 2, sym_space);
+    add_tensor("B", 2, sym_space);
+    add_tensor("C", 2, sym_space);
 
     if (m_combined) {
       auto add_scalar = [&](std::string name) {
@@ -324,7 +329,7 @@ private:
 
     for (auto const &tv : m_tensor_vars) {
       tmech::tensor<double, FDIM, 2> t;
-      fill_random(t, data_rng);
+      fill_random(t, data_rng, tv.space);
       auto ptr = std::make_shared<tensor_data<double, FDIM, 2>>(t);
       t2s_ev.set(tv.expr, ptr);
       tensor_ev.set(tv.expr, ptr);
@@ -360,44 +365,43 @@ private:
 
     auto &var_tmech =
         static_cast<tensor_data<double, FDIM, 2> &>(*diff_var_ptr).data();
+    auto var_original = var_tmech;
 
-    constexpr std::size_t n_components = FDIM * FDIM;
-    constexpr double h = 1e-5;
-    tmech::tensor<double, FDIM, 2> num_gradient;
-
-    auto *var_ptr = var_tmech.raw_data();
-    auto *grad_ptr = num_gradient.raw_data();
-
+    // Track max function value for cancellation noise estimate
     double max_fval = 0;
-    for (std::size_t k = 0; k < n_components; ++k) {
-      double original = var_ptr[k];
-      var_ptr[k] = original + h;
-      double f_plus = t2s_ev.apply(info.expr);
-      var_ptr[k] = original - h;
-      double f_minus = t2s_ev.apply(info.expr);
-      var_ptr[k] = original;
+    auto fn = [&](auto const &x) -> double {
+      var_tmech = x;
+      double val = t2s_ev.apply(info.expr);
+      max_fval = std::max(max_fval, std::abs(val));
+      return val;
+    };
 
-      if (!std::isfinite(f_plus) || !std::isfinite(f_minus))
+    // Check for non-finite function values before numerical diff
+    {
+      double test_val = fn(var_original);
+      var_tmech = var_original;
+      if (!std::isfinite(test_val))
         return {true, {}};
-
-      max_fval =
-          std::max(max_fval, std::max(std::abs(f_plus), std::abs(f_minus)));
-      grad_ptr[k] = (f_plus - f_minus) / (2.0 * h);
     }
 
+    auto num_gradient = fuzzy_t2s_num_diff<FDIM>(fn, var_original, var.space);
+
+    var_tmech = var_original;
+
+    constexpr std::size_t n_components = FDIM * FDIM;
     auto const *sym_ptr = sym_tensor.raw_data();
     auto const *num_ptr = num_gradient.raw_data();
 
-    // Cancellation noise: when |f| >> |f'|*h, subtracting two large
-    // values loses precision. The noise floor from cancellation is
-    // approximately eps * |f| / h.
-    constexpr double eps = std::numeric_limits<double>::epsilon();
-    double cancellation_noise = eps * max_fval / h;
-
     for (std::size_t i = 0; i < n_components; ++i) {
-      if (!std::isfinite(sym_ptr[i]))
+      if (!std::isfinite(sym_ptr[i]) || !std::isfinite(num_ptr[i]))
         return {true, {}};
     }
+
+    // Cancellation noise: when |f| >> |f'|*h, subtracting two large
+    // values loses precision. The noise floor is ~ eps * |f| / h.
+    constexpr double eps = std::numeric_limits<double>::epsilon();
+    constexpr double h = 5e-6; // default step in num_diff_sym_central
+    double cancellation_noise = eps * max_fval / h;
 
     auto cmp = compare_arrays(sym_ptr, num_ptr, n_components, 5e-6, 1e-4,
                               cancellation_noise);

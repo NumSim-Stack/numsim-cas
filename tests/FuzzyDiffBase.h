@@ -26,6 +26,7 @@
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/numsim_cas.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor/tensor_functions.h>
@@ -96,10 +97,36 @@ inline std::string join(std::vector<std::string> const &v,
 }
 
 // ===========================================================================
+// Rank-4 symmetrize helpers (via tmech::basis_change)
+// ===========================================================================
+
+// Minor symmetry: average over (ij)↔(ji) and (kl)↔(lk)
+template <std::size_t Dim>
+auto symmetrize_minor(tmech::tensor<double, Dim, 4> const &A) {
+  return 0.25 * (A + tmech::basis_change<tmech::sequence<2, 1, 3, 4>>(A) +
+                 tmech::basis_change<tmech::sequence<1, 2, 4, 3>>(A) +
+                 tmech::basis_change<tmech::sequence<2, 1, 4, 3>>(A));
+}
+
+// Major symmetry: average over (ij,kl)↔(kl,ij)
+template <std::size_t Dim>
+auto symmetrize_major(tmech::tensor<double, Dim, 4> const &A) {
+  return 0.5 * (A + tmech::basis_change<tmech::sequence<3, 4, 1, 2>>(A));
+}
+
+// Minor+major: apply minor then major
+template <std::size_t Dim>
+auto symmetrize_minor_major(tmech::tensor<double, Dim, 4> const &A) {
+  return tmech::eval(
+      symmetrize_major<Dim>(tmech::eval(symmetrize_minor<Dim>(A))));
+}
+
+// ===========================================================================
 // Tensor helpers (used by tensor and t2s machines)
 // ===========================================================================
 template <std::size_t Dim, std::size_t Rank>
-void fill_random(tmech::tensor<double, Dim, Rank> &t, std::mt19937 &rng) {
+void fill_random(tmech::tensor<double, Dim, Rank> &t, std::mt19937 &rng,
+                 std::optional<tensor_space> const &space = std::nullopt) {
   std::normal_distribution<double> dist(0.0, 1.0);
   auto *ptr = t.raw_data();
   std::size_t n = 1;
@@ -107,9 +134,34 @@ void fill_random(tmech::tensor<double, Dim, Rank> &t, std::mt19937 &rng) {
     n *= Dim;
   for (std::size_t i = 0; i < n; ++i)
     ptr[i] = dist(rng);
+
+  // NOTE: unlike the old fill_random which unconditionally symmetrized all
+  // rank-2 tensors, this version only applies symmetry when explicitly
+  // requested via the space parameter.
   if constexpr (Rank == 2) {
-    for (std::size_t i = 0; i < Dim; ++i)
-      ptr[i * Dim + i] += 5.0;
+    auto const I = tmech::eye<double, Dim, 2>();
+    if (space && std::holds_alternative<Symmetric>(space->perm)) {
+      t = tmech::eval(tmech::sym(t) + 5.0 * I);
+    } else if (space && std::holds_alternative<Skew>(space->perm)) {
+      t = tmech::eval(tmech::skew(t));
+    } else {
+      // General: no symmetry post-processing, but boost diagonal
+      t = tmech::eval(t + 5.0 * I);
+    }
+  }
+
+  if constexpr (Rank == 4) {
+    if (space) {
+      if (std::holds_alternative<Minor>(space->perm)) {
+        t = tmech::eval(symmetrize_minor<Dim>(t));
+      } else if (std::holds_alternative<Major>(space->perm)) {
+        t = tmech::eval(symmetrize_major<Dim>(t));
+      } else if (std::holds_alternative<MinorMajor>(space->perm)) {
+        t = tmech::eval(symmetrize_minor_major<Dim>(t));
+      }
+    }
+    // Boost diagonal-like entries (δ_ij·δ_kl) for invertibility
+    t = tmech::eval(t + 5.0 * tmech::eye<double, Dim, 4>());
   }
 }
 
@@ -138,6 +190,106 @@ template <std::size_t N> auto fuzzy_num_diff(auto &&fn, auto &&val) {
   return fuzzy_num_diff_impl(std::forward<decltype(fn)>(fn),
                              std::forward<decltype(val)>(val),
                              std::make_index_sequence<N>{});
+}
+
+// ===========================================================================
+// Symmetry type aliases for num_diff_sym_central
+// ===========================================================================
+using Sym2x2 = std::tuple<tmech::sequence<1, 2>, tmech::sequence<2, 1>>;
+
+using Minor4 =
+    std::tuple<tmech::sequence<1, 2, 3, 4>, tmech::sequence<2, 1, 3, 4>,
+               tmech::sequence<1, 2, 4, 3>, tmech::sequence<2, 1, 4, 3>>;
+
+using Major4 =
+    std::tuple<tmech::sequence<1, 2, 3, 4>, tmech::sequence<3, 4, 1, 2>>;
+
+using MinorMajor4 =
+    std::tuple<tmech::sequence<1, 2, 3, 4>, tmech::sequence<2, 1, 3, 4>,
+               tmech::sequence<1, 2, 4, 3>, tmech::sequence<2, 1, 4, 3>,
+               tmech::sequence<3, 4, 1, 2>, tmech::sequence<4, 3, 1, 2>,
+               tmech::sequence<3, 4, 2, 1>, tmech::sequence<4, 3, 2, 1>>;
+
+// ===========================================================================
+// Tensor-wrt-tensor numerical differentiation wrapper.
+// Dispatches to num_diff_central with a symmetrizing lambda based on
+// the variable's tensor_space assumption.
+// ===========================================================================
+template <std::size_t DiffRank, std::size_t Dim, std::size_t VarRank>
+auto fuzzy_tensor_num_diff(auto &&fn,
+                           tmech::tensor<double, Dim, VarRank> const &X,
+                           std::optional<tensor_space> const &space) {
+  if constexpr (VarRank == 2) {
+    if (space) {
+      if (std::holds_alternative<Symmetric>(space->perm)) {
+        auto sym_fn = [&](auto const &x) {
+          return fn(tmech::eval(tmech::sym(x)));
+        };
+        return fuzzy_num_diff<DiffRank>(sym_fn, X);
+      }
+      if (std::holds_alternative<Skew>(space->perm)) {
+        auto skew_fn = [&](auto const &x) {
+          return fn(tmech::eval(tmech::skew(x)));
+        };
+        return fuzzy_num_diff<DiffRank>(skew_fn, X);
+      }
+    }
+  }
+  if constexpr (VarRank == 4) {
+    if (space) {
+      if (std::holds_alternative<Minor>(space->perm)) {
+        auto minor_fn = [&](auto const &x) {
+          return fn(symmetrize_minor<Dim>(x));
+        };
+        return fuzzy_num_diff<DiffRank>(minor_fn, X);
+      }
+      if (std::holds_alternative<Major>(space->perm)) {
+        auto major_fn = [&](auto const &x) {
+          return fn(symmetrize_major<Dim>(x));
+        };
+        return fuzzy_num_diff<DiffRank>(major_fn, X);
+      }
+      if (std::holds_alternative<MinorMajor>(space->perm)) {
+        auto mm_fn = [&](auto const &x) {
+          return fn(symmetrize_minor_major<Dim>(x));
+        };
+        return fuzzy_num_diff<DiffRank>(mm_fn, X);
+      }
+    }
+  }
+  return fuzzy_num_diff<DiffRank>(fn, X);
+}
+
+// ===========================================================================
+// T2s (scalar-wrt-tensor) numerical differentiation wrapper.
+// For scalar output, num_diff_sym_central works without SymResult.
+// ===========================================================================
+template <std::size_t Dim, std::size_t VarRank>
+auto fuzzy_t2s_num_diff(auto &&fn, tmech::tensor<double, Dim, VarRank> const &X,
+                        std::optional<tensor_space> const &space) {
+  if constexpr (VarRank == 2) {
+    if (space) {
+      if (std::holds_alternative<Symmetric>(space->perm))
+        return tmech::num_diff_sym_central<Sym2x2>(fn, X);
+      if (std::holds_alternative<Skew>(space->perm)) {
+        auto skew_fn = [&](auto const &x) {
+          return fn(tmech::eval(tmech::skew(x)));
+        };
+        return fuzzy_num_diff<VarRank>(skew_fn, X);
+      }
+    }
+  }
+  if constexpr (VarRank == 4) {
+    if (space) {
+      if (std::holds_alternative<Minor>(space->perm))
+        return tmech::num_diff_sym_central<Minor4>(fn, X);
+      if (std::holds_alternative<Major>(space->perm))
+        return tmech::num_diff_sym_central<Major4>(fn, X);
+      if (std::holds_alternative<MinorMajor>(space->perm))
+        return tmech::num_diff_sym_central<MinorMajor4>(fn, X);
+    }
+  }
+  return fuzzy_num_diff<VarRank>(fn, X);
 }
 
 inline std::string
