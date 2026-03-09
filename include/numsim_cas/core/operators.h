@@ -42,12 +42,6 @@ concept cas_binary_op =
      std::is_arithmetic_v<std::remove_cvref_t<L>>) &&
     (is_expression_holder_v<R> || std::is_arithmetic_v<std::remove_cvref_t<R>>);
 
-} // namespace numsim::cas::detail
-
-namespace numsim::cas {
-
-namespace detail {
-
 template <class Holder>
 using holder_base_t = typename std::remove_cvref_t<Holder>::expr_type;
 
@@ -56,72 +50,79 @@ template <class H, class T> constexpr auto to_holder_like(T &&v) {
   return make_constant(std::type_identity<Base>{}, std::forward<T>(v));
 }
 
-} // namespace detail
+} // namespace numsim::cas::detail
 
 template <class L, class R>
-requires detail::cas_binary_op<L, R>
-constexpr auto operator+(L &&lhs, R &&rhs) -> result_expression_t<L, R> {
-  if constexpr (detail::is_expression_holder_v<L> &&
-                detail::is_expression_holder_v<R>) {
-    return detail::binary_add(std::forward<L>(lhs), std::forward<R>(rhs));
-  } else if constexpr (detail::is_expression_holder_v<L> &&
-                       detail::is_arithmetic_v<R>) {
-    auto r2 = detail::to_holder_like<L>(std::forward<R>(rhs));
-    return detail::binary_add(std::forward<L>(lhs), std::move(r2));
+requires numsim::cas::detail::cas_binary_op<L, R>
+constexpr auto operator+(L &&lhs,
+                         R &&rhs) -> numsim::cas::result_expression_t<L, R> {
+  using namespace numsim::cas::detail;
+  if constexpr (is_expression_holder_v<L> && is_expression_holder_v<R>) {
+    return binary_add(std::forward<L>(lhs), std::forward<R>(rhs));
+  } else if constexpr (is_expression_holder_v<L> && is_arithmetic_v<R>) {
+    auto r2 = to_holder_like<L>(std::forward<R>(rhs));
+    return binary_add(std::forward<L>(lhs), std::move(r2));
   } else {
-    auto l2 = detail::to_holder_like<R>(std::forward<L>(lhs));
-    return detail::binary_add(std::move(l2), std::forward<R>(rhs));
+    auto l2 = to_holder_like<R>(std::forward<L>(lhs));
+    return binary_add(std::move(l2), std::forward<R>(rhs));
   }
 }
 
 template <class L, class R>
-requires detail::cas_binary_op<L, R>
-constexpr auto operator-(L &&lhs, R &&rhs) -> result_expression_t<L, R> {
-  if constexpr (detail::is_expression_holder_v<L> &&
-                detail::is_expression_holder_v<R>) {
-    return detail::binary_sub(std::forward<L>(lhs), std::forward<R>(rhs));
-  } else if constexpr (detail::is_expression_holder_v<L> &&
-                       detail::is_arithmetic_v<R>) {
-    auto r2 = detail::to_holder_like<L>(std::forward<R>(rhs));
-    return detail::binary_sub(std::forward<L>(lhs), std::move(r2));
+requires numsim::cas::detail::cas_binary_op<L, R>
+constexpr auto operator-(L &&lhs,
+                         R &&rhs) -> numsim::cas::result_expression_t<L, R> {
+  using namespace numsim::cas::detail;
+  if constexpr (is_expression_holder_v<L> && is_expression_holder_v<R>) {
+    return binary_sub(std::forward<L>(lhs), std::forward<R>(rhs));
+  } else if constexpr (is_expression_holder_v<L> && is_arithmetic_v<R>) {
+    auto r2 = to_holder_like<L>(std::forward<R>(rhs));
+    return binary_sub(std::forward<L>(lhs), std::move(r2));
   } else {
-    auto l2 = detail::to_holder_like<R>(std::forward<L>(lhs));
-    return detail::binary_sub(std::move(l2), std::forward<R>(rhs));
+    auto l2 = to_holder_like<R>(std::forward<L>(lhs));
+    return binary_sub(std::move(l2), std::forward<R>(rhs));
   }
 }
 
 template <class L, class R>
-requires detail::cas_binary_op<L, R>
-constexpr auto operator*(L &&lhs, R &&rhs) -> result_expression_t<L, R> {
-  if constexpr (detail::is_expression_holder_v<L> &&
-                detail::is_expression_holder_v<R>) {
-    return detail::binary_mul(std::forward<L>(lhs), std::forward<R>(rhs));
-  } else if constexpr (detail::is_expression_holder_v<L> &&
-                       detail::is_arithmetic_v<R>) {
-    auto r2 = detail::to_holder_like<L>(std::forward<R>(rhs));
-    return detail::binary_mul(std::forward<L>(lhs), std::move(r2));
+requires numsim::cas::detail::cas_binary_op<L, R>
+constexpr auto operator*(L &&lhs,
+                         R &&rhs) -> numsim::cas::result_expression_t<L, R> {
+  using namespace numsim::cas::detail;
+  if constexpr (is_expression_holder_v<L> && is_expression_holder_v<R>) {
+    return binary_mul(std::forward<L>(lhs), std::forward<R>(rhs));
+  } else if constexpr (is_expression_holder_v<L> && is_arithmetic_v<R>) {
+    auto r2 = to_holder_like<L>(std::forward<R>(rhs));
+    return binary_mul(std::forward<L>(lhs), std::move(r2));
   } else {
-    auto l2 = detail::to_holder_like<R>(std::forward<L>(lhs));
-    return detail::binary_mul(std::move(l2), std::forward<R>(rhs));
+    auto l2 = to_holder_like<R>(std::forward<L>(lhs));
+    return binary_mul(std::move(l2), std::forward<R>(rhs));
   }
 }
 
 template <class L, class R>
-requires detail::cas_binary_op<L, R>
-constexpr auto operator/(L &&lhs, R &&rhs) -> result_expression_t<L, R> {
-  if constexpr (detail::is_expression_holder_v<L> &&
-                detail::is_expression_holder_v<R>) {
-    return detail::binary_div(std::forward<L>(lhs), std::forward<R>(rhs));
-  } else if constexpr (detail::is_expression_holder_v<L> &&
-                       detail::is_arithmetic_v<R>) {
-    auto r2 = detail::to_holder_like<L>(std::forward<R>(rhs));
-    return detail::binary_div(std::forward<L>(lhs), std::move(r2));
+requires numsim::cas::detail::cas_binary_op<L, R>
+constexpr auto operator/(L &&lhs,
+                         R &&rhs) -> numsim::cas::result_expression_t<L, R> {
+  using namespace numsim::cas::detail;
+  if constexpr (is_expression_holder_v<L> && is_expression_holder_v<R>) {
+    return binary_div(std::forward<L>(lhs), std::forward<R>(rhs));
+  } else if constexpr (is_expression_holder_v<L> && is_arithmetic_v<R>) {
+    auto r2 = to_holder_like<L>(std::forward<R>(rhs));
+    return binary_div(std::forward<L>(lhs), std::move(r2));
   } else {
-    auto l2 = detail::to_holder_like<R>(std::forward<L>(lhs));
-    return detail::binary_div(std::move(l2), std::forward<R>(rhs));
+    auto l2 = to_holder_like<R>(std::forward<L>(lhs));
+    return binary_div(std::move(l2), std::forward<R>(rhs));
   }
 }
 
+// Make the operators findable via ADL in numsim::cas (needed by
+// expression_holder::operator*= and similar member templates).
+namespace numsim::cas {
+using ::operator+;
+using ::operator-;
+using ::operator*;
+using ::operator/;
 } // namespace numsim::cas
 
 #endif // OPERATORS_H
