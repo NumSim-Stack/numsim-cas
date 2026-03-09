@@ -410,7 +410,8 @@ TEST_F(TensorDifferentiationTest, DevProjectorDiff) {
   auto d = diff(expr, X);
   ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for dev(X)";
 
-  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 2> X_t =
+      tmech::eval(tmech::sym(tmech::randn<double, 3, 2>()));
   for (std::size_t i = 0; i < 3; ++i)
     X_t(i, i) += 5.0;
   auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
@@ -424,7 +425,7 @@ TEST_F(TensorDifferentiationTest, DevProjectorDiff) {
 
   auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
       [&](auto const &x) {
-        X_ptr->data() = x;
+        X_ptr->data() = tmech::eval(tmech::sym(x));
         return as_tmech_diff<3, 2>(*ev.apply(expr));
       },
       X_t);
@@ -440,11 +441,10 @@ TEST_F(TensorDifferentiationTest, InvDevProjectorDiff) {
   auto d = diff(expr, X);
   ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for inv(dev(X))";
 
-  // Use symmetric, diagonally-dominant matrix for invertible dev
-  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 2> X_t =
+      tmech::eval(tmech::sym(tmech::randn<double, 3, 2>()));
   for (std::size_t i = 0; i < 3; ++i)
     X_t(i, i) += 10.0;
-  X_t = tmech::sym(X_t);
   auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
 
   tensor_evaluator<double> ev;
@@ -456,7 +456,7 @@ TEST_F(TensorDifferentiationTest, InvDevProjectorDiff) {
 
   auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
       [&](auto const &x) {
-        X_ptr->data() = x;
+        X_ptr->data() = tmech::eval(tmech::sym(x));
         return as_tmech_diff<3, 2>(*ev.apply(expr));
       },
       X_t);
@@ -473,10 +473,10 @@ TEST_F(TensorDifferentiationTest, TransInvDevProjectorDiff) {
   ASSERT_TRUE(d.is_valid())
       << "Expected valid derivative for trans(inv(dev(X)))";
 
-  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 2> X_t =
+      tmech::eval(tmech::sym(tmech::randn<double, 3, 2>()));
   for (std::size_t i = 0; i < 3; ++i)
     X_t(i, i) += 10.0;
-  X_t = tmech::sym(X_t);
   auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
 
   tensor_evaluator<double> ev;
@@ -488,7 +488,7 @@ TEST_F(TensorDifferentiationTest, TransInvDevProjectorDiff) {
 
   auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
       [&](auto const &x) {
-        X_ptr->data() = x;
+        X_ptr->data() = tmech::eval(tmech::sym(x));
         return as_tmech_diff<3, 2>(*ev.apply(expr));
       },
       X_t);
