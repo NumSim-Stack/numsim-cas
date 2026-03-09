@@ -201,6 +201,12 @@ try_normalize_reversed_projector(ExprLHS &&lhs, sequence const &lhs_indices,
 template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                         ExprRHS &&rhs, sequence &&rhs_indices) {
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
+    const auto rank{lhs.get().rank() + rhs.get().rank() - lhs_indices.size() -
+                    rhs_indices.size()};
+    return make_expression<tensor_zero>(lhs.get().dim(), rank);
+  }
+
   if (auto norm = detail_ip::try_normalize_reversed_projector(lhs, lhs_indices,
                                                               rhs, rhs_indices))
     return std::move(*norm);
@@ -213,6 +219,13 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] inline auto
 inner_product(ExprLHS &&lhs, sequence const &lhs_indices, ExprRHS &&rhs,
               sequence const &rhs_indices) {
+
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
+    const auto rank{lhs.get().rank() + rhs.get().rank() - lhs_indices.size() -
+                    rhs_indices.size()};
+    return make_expression<tensor_zero>(lhs.get().dim(), rank);
+  }
+
   if (auto norm = detail_ip::try_normalize_reversed_projector(lhs, lhs_indices,
                                                               rhs, rhs_indices))
     return std::move(*norm);

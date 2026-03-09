@@ -404,6 +404,100 @@ TEST_F(TensorDifferentiationTest, PermuteInnerProductDiff) {
   EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 5>(*result), numdiff, 1e-6));
 }
 
+// d(dev(X))/dX — projector differentiation through generic inner_product path
+TEST_F(TensorDifferentiationTest, DevProjectorDiff) {
+  auto expr = dev(X);
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for dev(X)";
+
+  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  for (std::size_t i = 0; i < 3; ++i)
+    X_t(i, i) += 5.0;
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6))
+      << "dev(X) derivative mismatch";
+}
+
+// d(inv(dev(X)))/dX — inv of projected tensor
+TEST_F(TensorDifferentiationTest, InvDevProjectorDiff) {
+  auto expr = inv(dev(X));
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for inv(dev(X))";
+
+  // Use symmetric, diagonally-dominant matrix for invertible dev
+  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  for (std::size_t i = 0; i < 3; ++i)
+    X_t(i, i) += 10.0;
+  X_t = tmech::sym(X_t);
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6))
+      << "inv(dev(X)) derivative mismatch";
+}
+
+// d(trans(inv(dev(X))))/dX — combination of trans, inv, dev
+TEST_F(TensorDifferentiationTest, TransInvDevProjectorDiff) {
+  auto expr = trans(inv(dev(X)));
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid())
+      << "Expected valid derivative for trans(inv(dev(X)))";
+
+  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  for (std::size_t i = 0; i < 3; ++i)
+    X_t(i, i) += 10.0;
+  X_t = tmech::sym(X_t);
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6))
+      << "trans(inv(dev(X))) derivative mismatch";
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORDIFFERENTIATIONTEST_H
