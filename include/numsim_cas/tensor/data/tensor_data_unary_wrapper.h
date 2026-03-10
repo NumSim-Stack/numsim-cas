@@ -132,7 +132,12 @@ struct dev {
     return Rank == 2;
   }
   template <typename T> static constexpr auto apply(T const &t) {
-    return tmech::dev(t);
+    // P_dev is the symmetric-deviatoric projector: P_dev : X = sym(X) - vol(X).
+    // tmech::dev(X) = X - vol(X) which only matches for symmetric X.
+    // When dev() is applied to non-symmetric expressions (e.g. X*Y), the
+    // symbolic derivative goes through the generic P_dev path (with sym).
+    // The evaluator must match so numerical derivatives agree.
+    return tmech::dev(tmech::sym(t));
   }
 };
 

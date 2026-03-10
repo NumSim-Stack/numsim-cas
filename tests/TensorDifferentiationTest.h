@@ -498,6 +498,49 @@ TEST_F(TensorDifferentiationTest, TransInvDevProjectorDiff) {
       << "trans(inv(dev(X))) derivative mismatch";
 }
 
+// Regression: d(dev(X*Y))/dX — dev applied to rank-4 derivative
+// Reproduces macOS fuzzy test failures (dev on rank-4 evaluator bug)
+TEST_F(TensorDifferentiationTest, DevOfTensorMulDiff) {
+  auto expr = dev(X * Y);
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for dev(X*Y)";
+
+  std::mt19937 rng(42);
+  std::normal_distribution<double> dist(0.0, 1.0);
+  tmech::tensor<double, 3, 2> X_t, Y_t;
+  for (std::size_t i = 0; i < 9; ++i) {
+    X_t.raw_data()[i] = dist(rng);
+    Y_t.raw_data()[i] = dist(rng);
+  }
+  for (std::size_t i = 0; i < 3; ++i) {
+    X_t(i, i) += 5.0;
+    Y_t(i, i) += 5.0;
+  }
+
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+  auto Y_ptr = std::make_shared<tensor_data<double, 3, 2>>(Y_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+  ev.set(Y, Y_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6))
+      << "dev(X*Y) derivative mismatch\n"
+      << "  d/dX: " << to_string(d);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORDIFFERENTIATIONTEST_H
