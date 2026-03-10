@@ -174,6 +174,279 @@ TEST(TensorProjDiff, DiffVolPlusDevEqualsSymProjector) {
                                   as_tmech_proj<3, 4>(*result_proj), proj_tol));
 }
 
+// d(dev(inv(X)))/dX vs numerical differentiation
+TEST(TensorProjDiff, DiffDevOfInvVsNumerical) {
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto expr = dev(inv(X));
+  auto d = diff(expr, X);
+
+  // clang-format off
+  tmech::tensor<double, 3, 2> X_t{5.0, 0.3, 0.1,
+                                   0.3, 6.0, 0.2,
+                                   0.1, 0.2, 7.0};
+  // clang-format on
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result_sym = ev.apply(d);
+  ASSERT_NE(result_sym, nullptr);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = tmech::eval(tmech::sym(x));
+        return as_tmech_proj<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech_proj<3, 4>(*result_sym), numdiff, 1e-6))
+      << "d(dev(inv(X)))/dX: symbolic != numerical";
+}
+
+// d(P_dev:{3,4} inv(X):{1,2})/dX — raw inner_product form
+TEST(TensorProjDiff, DiffRawProjOfInvVsNumerical) {
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto expr = inner_product(P_devi(3), sequence{3, 4}, inv(X), sequence{1, 2});
+  auto d = diff(expr, X);
+
+  // clang-format off
+  tmech::tensor<double, 3, 2> X_t{5.0, 0.3, 0.1,
+                                   0.3, 6.0, 0.2,
+                                   0.1, 0.2, 7.0};
+  // clang-format on
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result_sym = ev.apply(d);
+  ASSERT_NE(result_sym, nullptr);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = tmech::eval(tmech::sym(x));
+        return as_tmech_proj<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech_proj<3, 4>(*result_sym), numdiff, 1e-6))
+      << "d(P_dev:inv(X))/dX raw: symbolic != numerical";
+}
+
+// d(inv(X))/dX alone (baseline check)
+TEST(TensorProjDiff, DiffInvAlone) {
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto expr = inv(X);
+  auto d = diff(expr, X);
+
+  // clang-format off
+  tmech::tensor<double, 3, 2> X_t{5.0, 0.3, 0.1,
+                                   0.3, 6.0, 0.2,
+                                   0.1, 0.2, 7.0};
+  // clang-format on
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result_sym = ev.apply(d);
+  ASSERT_NE(result_sym, nullptr);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_proj<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech_proj<3, 4>(*result_sym), numdiff, 1e-6))
+      << "d(inv(X))/dX: symbolic != numerical";
+}
+
+// d(P_sym:{3,4} X:{1,2})/dX — simplest projector case with raw inner_product
+TEST(TensorProjDiff, DiffRawProjOfXIdentity) {
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto expr = inner_product(P_sym(3), sequence{3, 4}, X, sequence{1, 2});
+  auto d = diff(expr, X);
+
+  // clang-format off
+  tmech::tensor<double, 3, 2> X_t{5.0, 0.3, 0.1,
+                                   0.3, 6.0, 0.2,
+                                   0.1, 0.2, 7.0};
+  // clang-format on
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result_sym = ev.apply(d);
+  ASSERT_NE(result_sym, nullptr);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_proj<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech_proj<3, 4>(*result_sym), numdiff, 1e-6))
+      << "d(P_sym:X)/dX raw: symbolic != numerical";
+}
+
+// d(P_sym:{3,4} (X*X):{1,2})/dX — projector of tensor_mul
+TEST(TensorProjDiff, DiffProjOfTensorMul) {
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto expr = inner_product(P_sym(3), sequence{3, 4}, X * X, sequence{1, 2});
+  auto d = diff(expr, X);
+
+  // clang-format off
+  tmech::tensor<double, 3, 2> X_t{5.0, 0.3, 0.1,
+                                   0.3, 6.0, 0.2,
+                                   0.1, 0.2, 7.0};
+  // clang-format on
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result_sym = ev.apply(d);
+  ASSERT_NE(result_sym, nullptr);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_proj<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech_proj<3, 4>(*result_sym), numdiff, 1e-6))
+      << "d(P_sym:(X*X))/dX: symbolic != numerical";
+}
+
+// Manual P:dB/dX via separate evaluation, check auto and manual agree
+TEST(TensorProjDiff, ManualProjTimesDerivInv) {
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto inv_expr = inv(X);
+  auto dinv = diff(inv_expr, X);
+
+  auto manual_expr =
+      inner_product(P_devi(3), sequence{3, 4}, dinv, sequence{1, 2});
+
+  auto auto_expr = dev(inv(X));
+  auto auto_diff = diff(auto_expr, X);
+
+  // clang-format off
+  tmech::tensor<double, 3, 2> X_t{5.0, 0.3, 0.1,
+                                   0.3, 6.0, 0.2,
+                                   0.1, 0.2, 7.0};
+  // clang-format on
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result_manual = ev.apply(manual_expr);
+  auto result_auto = ev.apply(auto_diff);
+
+  ASSERT_NE(result_manual, nullptr);
+  ASSERT_NE(result_auto, nullptr);
+
+  // Check if manual and auto give same result
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_proj<3, 4>(*result_manual),
+                                  as_tmech_proj<3, 4>(*result_auto), 1e-10))
+      << "manual P:dinv != auto d(dev(inv))/dX";
+
+  // Check manual against numerical
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = tmech::eval(tmech::sym(x));
+        return as_tmech_proj<3, 2>(*ev.apply(auto_expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech_proj<3, 4>(*result_manual), numdiff, 1e-6))
+      << "manual P:dinv vs numerical";
+}
+
+// Raw manual contraction bypassing CAS inner_product evaluator
+TEST(TensorProjDiff, RawManualContraction) {
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto inv_expr = inv(X);
+  auto dinv = diff(inv_expr, X);
+
+  // clang-format off
+  tmech::tensor<double, 3, 2> X_t{5.0, 0.3, 0.1,
+                                   0.3, 6.0, 0.2,
+                                   0.1, 0.2, 7.0};
+  // clang-format on
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto p_data = ev.apply(P_devi(3));
+  auto d_data = ev.apply(dinv);
+
+  ASSERT_NE(p_data, nullptr);
+  ASSERT_NE(d_data, nullptr);
+  ASSERT_EQ(p_data->rank(), 4u);
+  ASSERT_EQ(d_data->rank(), 4u);
+
+  // Use raw_data pointers for manual contraction (0-based flat indexing)
+  auto const *P_raw = p_data->raw_data();
+  auto const *D_raw = d_data->raw_data();
+
+  tmech::tensor<double, 3, 4> manual_result;
+  auto *M_raw = manual_result.raw_data();
+  for (int i = 0; i < 3; ++i)
+    for (int j = 0; j < 3; ++j)
+      for (int k = 0; k < 3; ++k)
+        for (int l = 0; l < 3; ++l) {
+          double sum = 0;
+          for (int m = 0; m < 3; ++m)
+            for (int n = 0; n < 3; ++n)
+              sum += P_raw[i * 27 + j * 9 + m * 3 + n] *
+                     D_raw[m * 27 + n * 9 + k * 3 + l];
+          M_raw[i * 27 + j * 9 + k * 3 + l] = sum;
+        }
+
+  // Compare manual contraction against numerical differentiation
+  auto dev_inv_expr = dev(inv(X));
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = tmech::eval(tmech::sym(x));
+        return as_tmech_proj<3, 2>(*ev.apply(dev_inv_expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(manual_result, numdiff, 1e-6))
+      << "Manual P:dinv contraction vs numerical";
+
+  // Also evaluate via CAS inner_product and check against manual
+  auto cas_expr =
+      inner_product(P_devi(3), sequence{3, 4}, dinv, sequence{1, 2});
+  auto cas_data = ev.apply(cas_expr);
+  ASSERT_NE(cas_data, nullptr);
+
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech_proj<3, 4>(*cas_data), manual_result, 1e-10))
+      << "CAS inner_product vs manual contraction";
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORPROJECTORDIFFERENTIATIONTEST_H

@@ -201,6 +201,12 @@ try_normalize_reversed_projector(ExprLHS &&lhs, sequence const &lhs_indices,
 template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                         ExprRHS &&rhs, sequence &&rhs_indices) {
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
+    const auto rank{lhs.get().rank() + rhs.get().rank() - lhs_indices.size() -
+                    rhs_indices.size()};
+    return make_expression<tensor_zero>(lhs.get().dim(), rank);
+  }
+
   if (auto norm = detail_ip::try_normalize_reversed_projector(lhs, lhs_indices,
                                                               rhs, rhs_indices))
     return std::move(*norm);
@@ -213,6 +219,13 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] inline auto
 inner_product(ExprLHS &&lhs, sequence const &lhs_indices, ExprRHS &&rhs,
               sequence const &rhs_indices) {
+
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
+    const auto rank{lhs.get().rank() + rhs.get().rank() - lhs_indices.size() -
+                    rhs_indices.size()};
+    return make_expression<tensor_zero>(lhs.get().dim(), rank);
+  }
+
   if (auto norm = detail_ip::try_normalize_reversed_projector(lhs, lhs_indices,
                                                               rhs, rhs_indices))
     return std::move(*norm);
@@ -257,12 +270,19 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto permute_indices(Expr &&expr,
                                                     sequence &&indices) {
+  // For symmetric rank-2 tensors, any permutation of two indices is identity
+  if (expr.get().rank() == 2) {
+    if (auto const &sp = expr.get().space()) {
+      if (std::holds_alternative<Symmetric>(sp->perm))
+        return std::forward<Expr>(expr);
+    }
+  }
   if (is_same<basis_change_imp>(expr)) {
     auto &tensor{expr.template get<basis_change_imp>()};
     const auto &t_indices{tensor.indices()};
     sequence new_order(t_indices.size());
     for (std::size_t i{0}; i < t_indices.size(); ++i) {
-      new_order[i] = t_indices[indices[i]];
+      new_order[i] = indices[t_indices[i]];
     }
     return make_expression<basis_change_imp>(tensor.expr(),
                                              std::move(new_order));
@@ -304,6 +324,14 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto trans(Expr &&expr) {
+  // trans(X) = X when X is symmetric (or any symmetric subspace)
+  // trans(X) = -X when X is skew-symmetric
+  if (auto const &sp = expr.get().space()) {
+    if (std::holds_alternative<Symmetric>(sp->perm))
+      return std::forward<Expr>(expr);
+    if (std::holds_alternative<Skew>(sp->perm))
+      return -std::forward<Expr>(expr);
+  }
   if (is_same<basis_change_imp>(expr)) {
     auto const &bc = expr.template get<basis_change_imp>();
     if (bc.indices() == sequence{2, 1})

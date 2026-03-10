@@ -60,12 +60,24 @@ public:
     new_basis_rhs.insert(new_basis_rhs.end(), sequence_outer_rhs.begin(),
                          sequence_outer_rhs.end());
 
+    // tensor_data_basis_change convention: lhs(i0,...) = rhs(i_{m[0]}, ...).
+    // new_basis maps output positions to original dimensions (new_basis[k] =
+    // which original dim goes to position k). basis_change needs the inverse:
+    // m[k] = which output index feeds into the k-th slot of the source.
+    std::vector<std::size_t> inv_basis_lhs(RankLHS);
+    for (std::size_t i = 0; i < RankLHS; ++i)
+      inv_basis_lhs[new_basis_lhs[i]] = i;
+
+    std::vector<std::size_t> inv_basis_rhs(RankRHS);
+    for (std::size_t i = 0; i < RankRHS; ++i)
+      inv_basis_rhs[new_basis_rhs[i]] = i;
+
     bool basis_change_lhs{false};
     if (lhs_sequence != new_basis_lhs) {
       basis_change_lhs = true;
       m_lhs_temp = make_tensor_data<ValueType>(Dim, RankLHS);
       tensor_data_basis_change<ValueType> basis_change_temp(
-          *m_lhs_temp.get(), m_lhs, new_basis_lhs);
+          *m_lhs_temp.get(), m_lhs, inv_basis_lhs);
       basis_change_temp.evaluate(Dim, RankLHS);
     }
 
@@ -74,7 +86,7 @@ public:
       basis_change_rhs = true;
       m_rhs_temp = make_tensor_data<ValueType>(Dim, RankRHS);
       tensor_data_basis_change<ValueType> basis_change_temp(
-          *m_rhs_temp.get(), m_rhs, new_basis_rhs);
+          *m_rhs_temp.get(), m_rhs, inv_basis_rhs);
       basis_change_temp.evaluate(Dim, RankRHS);
     }
 

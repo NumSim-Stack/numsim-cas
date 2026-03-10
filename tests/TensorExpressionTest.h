@@ -77,7 +77,7 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
 
   EXPECT_PRINT(One * X, "X");
   EXPECT_PRINT(One * A, "A");
-  EXPECT_PRINT(Zero * X, "0");
+  EXPECT_PRINT(Zero * X, "0{2}");
   EXPECT_PRINT(One, "I");
   EXPECT_PRINT(Y, "Y");
   EXPECT_PRINT(Z, "Z");
@@ -138,7 +138,7 @@ TYPED_TEST(TensorExpressionTest, TensorScalarExpressionTestPrint) {
 
   // 0/x → 0
   auto &Zero = this->_Zero;
-  EXPECT_PRINT(Zero / x, "0");
+  EXPECT_PRINT(Zero / x, "0{2}");
 }
 
 TYPED_TEST(TensorExpressionTest, TensorSubtractionAndNegationPrint) {
@@ -147,7 +147,7 @@ TYPED_TEST(TensorExpressionTest, TensorSubtractionAndNegationPrint) {
   auto &Z = this->Z;
 
   EXPECT_PRINT(-X, "-X");
-  EXPECT_PRINT(X - X, "0");
+  EXPECT_PRINT(X - X, "0{2}");
   EXPECT_PRINT(-X - X, "-2*X");
   EXPECT_PRINT(X - X - Y - Z, "-(Y+Z)");
   EXPECT_PRINT(-X - X - Y - Z, "-(2*X+Y+Z)");
@@ -206,8 +206,8 @@ TYPED_TEST(TensorExpressionTest, TensorIdentityAndZeroMore) {
   EXPECT_PRINT(X + Zero, "X"); // additive identity
   EXPECT_PRINT(Zero + X, "X");
 
-  EXPECT_PRINT(X * Zero, "0"); // annihilator (right)
-  EXPECT_PRINT(Zero * X, "0"); // annihilator (left)
+  EXPECT_PRINT(X * Zero, "0{2}"); // annihilator (right)
+  EXPECT_PRINT(Zero * X, "0{2}"); // annihilator (left)
 }
 
 TYPED_TEST(TensorExpressionTest, TensorAdditionAssociativityCanonical) {
@@ -259,7 +259,7 @@ TYPED_TEST(TensorExpressionTest, TensorNegationCombinations) {
   auto &X = this->X;
   auto &Y = this->Y;
 
-  EXPECT_PRINT(X + (-X), "0");
+  EXPECT_PRINT(X + (-X), "0{2}");
   EXPECT_PRINT((-X) + (-X), "-2*X");
   EXPECT_PRINT(-(X + Y), "-(X+Y)");
 }
@@ -280,7 +280,7 @@ TYPED_TEST(TensorExpressionTest, AddZeroIdentity) {
   // rank 2
   EXPECT_PRINT(Zero + X, "X");
   EXPECT_PRINT(X + Zero, "X");
-  EXPECT_PRINT(Zero + Zero, "0");
+  EXPECT_PRINT(Zero + Zero, "0{2}");
   // rank 4
   EXPECT_PRINT(Zero4 + A, "A");
   EXPECT_PRINT(A + Zero4, "A");
@@ -309,12 +309,12 @@ TYPED_TEST(TensorExpressionTest, AddNegativeCancellation) {
   auto &Y = this->Y;
   auto &A = this->A;
 
-  EXPECT_PRINT(X + (-X), "0");
-  EXPECT_PRINT(Y + (-Y), "0");
-  EXPECT_PRINT(A + (-A), "0");
+  EXPECT_PRINT(X + (-X), "0{2}");
+  EXPECT_PRINT(Y + (-Y), "0{2}");
+  EXPECT_PRINT(A + (-A), "0{4}");
   // negative + positive (reversed order)
-  EXPECT_PRINT((-X) + X, "0");
-  EXPECT_PRINT((-A) + A, "0");
+  EXPECT_PRINT((-X) + X, "0{2}");
+  EXPECT_PRINT((-A) + A, "0{4}");
 }
 
 // add_negative: (-X) + (-Y) → -(X+Y)
@@ -445,8 +445,8 @@ TYPED_TEST(TensorExpressionTest, AddRank4) {
 
   EXPECT_PRINT(A + B, "A+B");
   EXPECT_PRINT(A + A, "2*A");
-  EXPECT_PRINT(A + (-A), "0");
-  EXPECT_PRINT((-A) + A, "0");
+  EXPECT_PRINT(A + (-A), "0{4}");
+  EXPECT_PRINT((-A) + A, "0{4}");
   EXPECT_PRINT(A + B + C, "A+B+C");
   EXPECT_PRINT((A + B) + (B + C), "A+2*B+C");
   EXPECT_PRINT(_2 * A + A, "3*A");
@@ -470,7 +470,7 @@ TYPED_TEST(TensorExpressionTest, AddGenericFallback) {
   // dev + zero → dev(X)
   EXPECT_PRINT(dX + this->_Zero, "dev(X)");
   // dev + (-dev) → 0
-  EXPECT_PRINT(dX + (-dX), "0");
+  EXPECT_PRINT(dX + (-dX), "0{2}");
 }
 
 TYPED_TEST(TensorExpressionTest, TensorDecomposition) {
@@ -626,6 +626,26 @@ TYPED_TEST(TensorExpressionTest, TransTransSimplification) {
   EXPECT_PRINT(numsim::cas::trans(numsim::cas::trans(X)), "X");
   // single trans still works
   EXPECT_PRINT(numsim::cas::trans(X), "trans(X)");
+}
+
+// -----------------------------------------------------------------------------
+// trans(skew(X)) → -X for skew-symmetric tensors
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, TransSkewSimplification) {
+  constexpr std::size_t Dim = TestFixture::Dim;
+  auto S = numsim::cas::make_expression<numsim::cas::tensor>("S", Dim, 2);
+  numsim::cas::assume_skew(S);
+
+  // trans(S) → -S when S is skew
+  EXPECT_PRINT(numsim::cas::trans(S), "-S");
+
+  // trans(trans(S)) → trans(-S) → -trans(S) → -(-S) → S
+  EXPECT_PRINT(numsim::cas::trans(numsim::cas::trans(S)), "S");
+
+  // Symmetric variable: trans should still be identity
+  auto &X = this->X;
+  numsim::cas::assume_symmetric(X);
+  EXPECT_PRINT(numsim::cas::trans(X), "X");
 }
 
 // -----------------------------------------------------------------------------
