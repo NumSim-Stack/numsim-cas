@@ -640,4 +640,205 @@ TYPED_TEST(TensorExpressionTest, InvInvSimplification) {
   EXPECT_PRINT(numsim::cas::inv(X), "inv(X)");
 }
 
+// -----------------------------------------------------------------------------
+// Zero early returns for tensor functions
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, TransZeroReturnsZero) {
+  auto &Zero = this->_Zero;
+  auto result = numsim::cas::trans(Zero);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(result));
+  EXPECT_EQ(result.get().rank(), 2u);
+  EXPECT_EQ(result.get().dim(), TestFixture::Dim);
+}
+
+TYPED_TEST(TensorExpressionTest, PermuteIndicesZeroReturnsZero) {
+  auto &Zero = this->_Zero;
+  auto result = numsim::cas::permute_indices(Zero, numsim::cas::sequence{2, 1});
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(result));
+  EXPECT_EQ(result.get().rank(), 2u);
+  EXPECT_EQ(result.get().dim(), TestFixture::Dim);
+}
+
+TYPED_TEST(TensorExpressionTest, InnerProductZeroLhsReturnsZero) {
+  using seq = numsim::cas::sequence;
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  // rank-2 : rank-2 with 1 contraction → rank 2
+  auto result = numsim::cas::inner_product(Zero, seq{2}, X, seq{1});
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(result));
+  EXPECT_EQ(result.get().rank(), 2u);
+  EXPECT_EQ(result.get().dim(), TestFixture::Dim);
+}
+
+TYPED_TEST(TensorExpressionTest, InnerProductZeroRhsReturnsZero) {
+  using seq = numsim::cas::sequence;
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  auto result = numsim::cas::inner_product(X, seq{2}, Zero, seq{1});
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(result));
+  EXPECT_EQ(result.get().rank(), 2u);
+  EXPECT_EQ(result.get().dim(), TestFixture::Dim);
+}
+
+TYPED_TEST(TensorExpressionTest, InnerProductDoubleContractionZero) {
+  using seq = numsim::cas::sequence;
+  auto &A = this->A;
+  typename TestFixture::tensor_t Zero4{
+      numsim::cas::make_expression<numsim::cas::tensor_zero>(TestFixture::Dim,
+                                                             4)};
+
+  // rank-4 : rank-2 with 2 contractions → rank 2
+  auto result =
+      numsim::cas::inner_product(Zero4, seq{3, 4}, this->X, seq{1, 2});
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(result));
+  EXPECT_EQ(result.get().rank(), 2u);
+
+  // rank-4 : rank-4 with 2 contractions → rank 4
+  auto result2 = numsim::cas::inner_product(A, seq{3, 4}, Zero4, seq{1, 2});
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(result2));
+  EXPECT_EQ(result2.get().rank(), 4u);
+}
+
+TYPED_TEST(TensorExpressionTest, OtimesZeroReturnsZero) {
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  // 2-arg otimes: rank 2 + rank 2 → rank 4
+  auto r1 = numsim::cas::otimes(Zero, X);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r1));
+  EXPECT_EQ(r1.get().rank(), 4u);
+
+  auto r2 = numsim::cas::otimes(X, Zero);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r2));
+  EXPECT_EQ(r2.get().rank(), 4u);
+
+  // 4-arg otimes
+  auto r3 = numsim::cas::otimes(Zero, numsim::cas::sequence{1, 3}, X,
+                                numsim::cas::sequence{2, 4});
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r3));
+  EXPECT_EQ(r3.get().rank(), 4u);
+}
+
+TYPED_TEST(TensorExpressionTest, OtimesuZeroReturnsZero) {
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  auto r1 = numsim::cas::otimesu(Zero, X);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r1));
+  EXPECT_EQ(r1.get().rank(), 4u);
+
+  auto r2 = numsim::cas::otimesu(X, Zero);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r2));
+  EXPECT_EQ(r2.get().rank(), 4u);
+}
+
+TYPED_TEST(TensorExpressionTest, OtimeslZeroReturnsZero) {
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  auto r1 = numsim::cas::otimesl(Zero, X);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r1));
+  EXPECT_EQ(r1.get().rank(), 4u);
+
+  auto r2 = numsim::cas::otimesl(X, Zero);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r2));
+  EXPECT_EQ(r2.get().rank(), 4u);
+}
+
+// -----------------------------------------------------------------------------
+// Operator early-exit coverage: zero/one identity & annihilator for +,-,*,/,neg
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_SubZero) {
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  // Zero - X → -X
+  EXPECT_PRINT(Zero - X, "-X");
+  // X - Zero → X
+  EXPECT_PRINT(X - Zero, "X");
+  // Zero - Zero → 0
+  EXPECT_PRINT(Zero - Zero, "0");
+}
+
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_NegZero) {
+  auto &Zero = this->_Zero;
+
+  // -Zero → 0 (tensor_zero)
+  auto result = -Zero;
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(result));
+  EXPECT_PRINT(result, "0");
+}
+
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_ScalarZeroMulTensor) {
+  auto &X = this->X;
+  auto &_zero = this->_zero;
+
+  // scalar_zero * tensor → 0
+  EXPECT_PRINT(_zero * X, "0");
+  // tensor * scalar_zero → 0
+  EXPECT_PRINT(X * _zero, "0");
+}
+
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_ScalarMulTensorZero) {
+  auto &Zero = this->_Zero;
+  auto &x = this->x;
+  auto &_2 = this->_2;
+
+  // non-zero scalar * tensor_zero → 0
+  EXPECT_PRINT(x * Zero, "0");
+  // tensor_zero * non-zero scalar → 0
+  EXPECT_PRINT(Zero * x, "0");
+  // numeric constant * tensor_zero → 0
+  EXPECT_PRINT(_2 * Zero, "0");
+  // tensor_zero * numeric constant → 0
+  EXPECT_PRINT(Zero * _2, "0");
+  // pow(2,-1) * tensor_zero → 0 (the "0/2" pattern)
+  EXPECT_PRINT(pow(this->_2, -this->_one) * Zero, "0");
+  // scalar_constant(0) * tensor → 0
+  auto sc0 = numsim::cas::make_expression<numsim::cas::scalar_constant>(0);
+  EXPECT_PRINT(sc0 * this->X, "0");
+  EXPECT_PRINT(this->X * sc0, "0");
+}
+
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_TensorMulZero) {
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  // tensor_zero * tensor → tensor_zero
+  EXPECT_PRINT(Zero * X, "0");
+  // tensor * tensor_zero → tensor_zero
+  EXPECT_PRINT(X * Zero, "0");
+  // tensor_zero * tensor_zero → tensor_zero
+  EXPECT_PRINT(Zero * Zero, "0");
+}
+
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_AddSubZero) {
+  auto &X = this->X;
+  auto &Zero = this->_Zero;
+
+  // tensor_zero + X → X
+  EXPECT_PRINT(Zero + X, "X");
+  // X + tensor_zero → X
+  EXPECT_PRINT(X + Zero, "X");
+  // tensor_zero - X → -X
+  EXPECT_PRINT(Zero - X, "-X");
+  // X - tensor_zero → X
+  EXPECT_PRINT(X - Zero, "X");
+}
+
+TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_PowZeroBase) {
+  auto &Zero = this->_Zero;
+  auto &_2 = this->_2;
+  auto &x = this->x;
+
+  // pow(tensor_zero, 2) → tensor_zero
+  auto r1 = pow(Zero, _2);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r1));
+  // pow(tensor_zero, x) → tensor_zero
+  auto r2 = pow(Zero, x);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r2));
+}
+
 #endif // TENSOREXPRESSIONTEST_H

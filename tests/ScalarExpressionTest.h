@@ -471,6 +471,9 @@ TEST_F(ScalarFixture, AbsSimplification) {
 TEST_F(ScalarFixture, SignSimplification) {
   using namespace numsim::cas;
 
+  // sign(0) → 0
+  EXPECT_PRINT(sign(_zero), "0");
+
   auto px = make_expression<scalar>("spx");
   assume(px, positive{});
   EXPECT_PRINT(sign(px), "1");
@@ -606,6 +609,44 @@ TEST_F(ScalarFixture, Scalar_ExpPowSimplification) {
   EXPECT_PRINT(pow(exp(x), _2), "exp(2*x)");
   EXPECT_PRINT(pow(exp(x), _3), "exp(3*x)");
   EXPECT_PRINT(pow(exp(x + y), _2), "exp(2*(x+y))");
+}
+
+//
+// Operator early-exit coverage: zero/one identity & annihilator for +, -, *, /
+//
+TEST_F(ScalarFixture, OperatorEarlyExit_SubZero) {
+  using namespace numsim::cas;
+
+  // 0 - x → -x
+  EXPECT_PRINT(_zero - x, "-x");
+  // x - 0 → x
+  EXPECT_PRINT(x - _zero, "x");
+  // 0 - 0 → 0
+  EXPECT_PRINT(_zero - _zero, "0");
+}
+
+//
+// PRINT_PowConstantFolding — pow(constant, constant) → constant
+//
+TEST_F(ScalarFixture, PRINT_PowConstantFolding) {
+  EXPECT_PRINT(pow(_2, _3), "8");       // 2^3 = 8
+  EXPECT_PRINT(pow(_3, _2), "9");       // 3^2 = 9
+  EXPECT_PRINT(pow(_2, -_1), "1/2");    // 2^(-1) = 1/2
+  EXPECT_PRINT(pow(_2, -_2), "1/4");    // 2^(-2) = 1/4
+  EXPECT_PRINT(pow(_3, -_1), "1/3");    // 3^(-1) = 1/3
+  EXPECT_PRINT(_2 * pow(_2, -_1), "1"); // 2 * 1/2 = 1 (the key case)
+  EXPECT_PRINT(pow(_1, _3), "1");       // 1^3 = 1
+  EXPECT_PRINT(pow(-_1, _2), "1");      // (-1)^2 = 1
+  EXPECT_PRINT(pow(-_1, _3), "-1");     // (-1)^3 = -1
+}
+
+TEST_F(ScalarFixture, OperatorEarlyExit_NegZero) {
+  using namespace numsim::cas;
+
+  // -0 → 0
+  EXPECT_PRINT(-_zero, "0");
+  // -(-x) → x (already tested but included for completeness)
+  EXPECT_PRINT(-(-x), "x");
 }
 
 #endif // SCALAREXPRESSIONTEST_H

@@ -41,6 +41,8 @@ sub_base::expr_holder_t sub_base::dispatch(scalar_one const &) {
 
 // 0 - expr
 sub_base::expr_holder_t sub_base::dispatch(scalar_zero const &) {
+  if (is_same<scalar_zero>(m_rhs))
+    return get_scalar_zero();
   return make_expression<scalar_negative>(std::move(m_rhs));
 }
 
