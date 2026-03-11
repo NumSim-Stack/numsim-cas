@@ -119,6 +119,24 @@ TEST_F(TensorToScalarDifferentiationTest,
   EXPECT_SAME_PRINT(d2, Zero);
 }
 
+// Regression: dot(B)-(det(B)*det(A)*tr(A)) w.r.t. symmetric B
+// derivative must have rank 2, not rank 4
+TEST_F(TensorToScalarDifferentiationTest, SymmetricDotDetDiff) {
+  // Create symmetric variables
+  tensor_space sym_space{Symmetric{}, AnyTraceTag{}};
+  auto A = make_expression<tensor>("A", dim, rank);
+  auto B = make_expression<tensor>("B", dim, rank);
+  A.data()->set_space(sym_space);
+  B.data()->set_space(sym_space);
+
+  auto expr = dot(B) - (det(B) * det(A) * trace(A));
+  auto d = diff(expr, B);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative";
+  EXPECT_EQ(d.get().rank(), 2u)
+      << "derivative of t2s expr w.r.t. rank-2 var must be rank 2\n"
+      << "  d: " << to_string(d);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALARDIFFERENTIATIONTEST_H

@@ -13,7 +13,11 @@ class tensor_to_scalar_with_tensor_mul final
 public:
   using base = binary_op<tensor_node_base_t<tensor_to_scalar_with_tensor_mul>,
                          tensor_expression, tensor_to_scalar_expression>;
-  using base::base;
+
+  template <typename ExprLHS, typename ExprRHS>
+  tensor_to_scalar_with_tensor_mul(ExprLHS &&lhs, ExprRHS &&rhs)
+      : base(std::forward<ExprLHS>(lhs), std::forward<ExprRHS>(rhs),
+             lhs.get().dim(), lhs.get().rank()) {}
 
   tensor_to_scalar_with_tensor_mul(tensor_to_scalar_with_tensor_mul const &data)
       : base(static_cast<base const &>(data)) {}
