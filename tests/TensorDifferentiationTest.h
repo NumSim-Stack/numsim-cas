@@ -441,8 +441,12 @@ TEST_F(TensorDifferentiationTest, InvDevProjectorDiff) {
   auto d = diff(expr, X);
   ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for inv(dev(X))";
 
-  tmech::tensor<double, 3, 2> X_t =
-      tmech::eval(tmech::sym(tmech::randn<double, 3, 2>()));
+  std::mt19937 rng1(123);
+  std::normal_distribution<double> dist1(0.0, 1.0);
+  tmech::tensor<double, 3, 2> X_t;
+  for (std::size_t i = 0; i < 9; ++i)
+    X_t.raw_data()[i] = dist1(rng1);
+  X_t = tmech::eval(tmech::sym(X_t));
   for (std::size_t i = 0; i < 3; ++i)
     X_t(i, i) += 10.0;
   auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
@@ -473,8 +477,12 @@ TEST_F(TensorDifferentiationTest, TransInvDevProjectorDiff) {
   ASSERT_TRUE(d.is_valid())
       << "Expected valid derivative for trans(inv(dev(X)))";
 
-  tmech::tensor<double, 3, 2> X_t =
-      tmech::eval(tmech::sym(tmech::randn<double, 3, 2>()));
+  std::mt19937 rng2(456);
+  std::normal_distribution<double> dist2(0.0, 1.0);
+  tmech::tensor<double, 3, 2> X_t;
+  for (std::size_t i = 0; i < 9; ++i)
+    X_t.raw_data()[i] = dist2(rng2);
+  X_t = tmech::eval(tmech::sym(X_t));
   for (std::size_t i = 0; i < 3; ++i)
     X_t(i, i) += 10.0;
   auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
