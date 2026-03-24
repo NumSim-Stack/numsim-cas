@@ -608,4 +608,50 @@ TEST_F(ScalarFixture, Scalar_ExpPowSimplification) {
   EXPECT_PRINT(pow(exp(x + y), _2), "exp(2*(x+y))");
 }
 
+//
+// SQRT-EXP composition — sqrt(exp(x)) → exp(x/2)
+//
+TEST_F(ScalarFixture, Scalar_SqrtExpSimplification) {
+  // sqrt(exp(x)) → exp(x/2)
+  EXPECT_PRINT(sqrt(exp(x)), "exp((1/2)*x)");
+  // sqrt(exp(x+y)) → exp((x+y)/2)
+  EXPECT_PRINT(sqrt(exp(x + y)), "exp((1/2)*(x+y))");
+  // Chained: log(sqrt(exp(x))) → x/2
+  EXPECT_PRINT(log(sqrt(exp(x))), "(1/2)*x");
+}
+
+//
+// LOG-SQRT composition — log(sqrt(x)) → log(x)/2
+//
+TEST_F(ScalarFixture, Scalar_LogSqrtSimplification) {
+  // log(sqrt(x)) → log(x)/2
+  EXPECT_PRINT(log(sqrt(x)), "(1/2)*log(x)");
+  // log(sqrt(exp(x))) → x/2 (chains with exp(log(x))=x)
+  EXPECT_PRINT(log(sqrt(exp(x))), "(1/2)*x");
+}
+
+//
+// LOG-POW composition — log(pow(x, n)) → n*log(x) when x > 0
+//
+TEST_F(ScalarFixture, Scalar_LogPowSimplification) {
+  using namespace numsim::cas;
+  // Need positive assumption for log(pow(x,n)) → n*log(x)
+  auto px = make_expression<scalar>("px");
+  assume(px, positive{});
+  EXPECT_PRINT(log(pow(px, _2)), "2*log(px)");
+  EXPECT_PRINT(log(pow(px, _3)), "3*log(px)");
+  // Without positive assumption, should NOT simplify
+  EXPECT_PRINT(log(pow(x, _2)), "log(pow(x,2))");
+}
+
+//
+// POW-SQRT composition — pow(sqrt(x), n) → pow(x, n/2)
+//
+TEST_F(ScalarFixture, Scalar_PowSqrtSimplification) {
+  // pow(sqrt(x), 2) → x (via pow(x, 2/2) = pow(x, 1) = x)
+  EXPECT_PRINT(pow(sqrt(x), _2), "x");
+  // pow(sqrt(x), 3) → pow(x, 3/2)
+  EXPECT_PRINT(pow(sqrt(x), _3), "pow(x,3/2)");
+}
+
 #endif // SCALAREXPRESSIONTEST_H
