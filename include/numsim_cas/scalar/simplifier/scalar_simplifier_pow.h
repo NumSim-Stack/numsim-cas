@@ -103,6 +103,9 @@ protected:
 
   expr_holder_t dispatch(scalar_exp const &);
 
+  /// pow(sqrt(x), n) → pow(x, n/2)
+  expr_holder_t dispatch(scalar_sqrt const &);
+
   template <typename Expr> expr_holder_t dispatch(Expr const &) {
     auto &_rhs{m_rhs.template get<scalar_visitable_t>()};
     pow_default<void> visitor(std::move(m_lhs), std::move(m_rhs));

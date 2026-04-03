@@ -1,6 +1,9 @@
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/core/scalar_number.h>
 #include <numsim_cas/scalar/scalar_definitions.h>
+#include <numsim_cas/scalar/scalar_make_constant.h>
 #include <numsim_cas/scalar/scalar_operators.h>
+#include <numsim_cas/scalar/scalar_std.h>
 #include <numsim_cas/scalar/simplifier/scalar_simplifier_pow.h>
 
 namespace numsim::cas::simplifier {
@@ -85,6 +88,12 @@ pow_base::pow_base(expr_holder_t lhs, expr_holder_t rhs)
 
 pow_base::expr_holder_t pow_base::dispatch(scalar_exp const &) {
   return exp(m_lhs.template get<scalar_exp>().expr() * m_rhs);
+}
+
+/// pow(sqrt(x), n) → pow(x, n/2)
+pow_base::expr_holder_t pow_base::dispatch(scalar_sqrt const &) {
+  auto half = make_expression<scalar_constant>(scalar_number{1, 2});
+  return pow(m_lhs.template get<scalar_sqrt>().expr(), m_rhs * half);
 }
 
 pow_base::expr_holder_t pow_base::dispatch(scalar_pow const &) {

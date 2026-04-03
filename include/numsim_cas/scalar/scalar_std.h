@@ -188,6 +188,12 @@ template <scalar_expr_holder E> [[nodiscard]] auto sqrt(E &&e) {
         return p.expr_lhs();
     }
   }
+  // sqrt(exp(x)) → exp(x/2)
+  // Implemented via pow(exp(x), 1/2) which triggers pow_base → exp(x * 1/2)
+  if (is_same<scalar_exp>(e)) {
+    auto half = make_expression<scalar_constant>(scalar_number{1, 2});
+    return binary_scalar_pow_simplify(std::forward<E>(e), std::move(half));
+  }
   return make_expression<scalar_sqrt>(std::forward<E>(e));
 }
 
@@ -208,6 +214,17 @@ template <scalar_expr_holder E> [[nodiscard]] auto log(E &&e) {
     return get_scalar_zero();
   if (is_same<scalar_exp>(e))
     return e.template get<scalar_exp>().expr();
+  // log(sqrt(x)) → log(x)/2
+  if (is_same<scalar_sqrt>(e)) {
+    auto half = make_expression<scalar_constant>(scalar_number{1, 2});
+    return log(e.template get<scalar_sqrt>().expr()) * half;
+  }
+  // log(pow(x, n)) → n * log(x), when x is positive
+  if (is_same<scalar_pow>(e)) {
+    auto const &p = e.template get<scalar_pow>();
+    if (is_positive(p.expr_lhs()))
+      return p.expr_rhs() * log(p.expr_lhs());
+  }
   return make_expression<scalar_log>(std::forward<E>(e));
 }
 
