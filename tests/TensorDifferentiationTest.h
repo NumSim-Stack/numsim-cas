@@ -504,6 +504,8 @@ TEST_F(TensorDifferentiationTest, TransInvDevProjectorDiff) {
 
   EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6))
       << "trans(inv(dev(X))) derivative mismatch";
+}
+
 // d(F*trans(F))/dF — product rule; zero terms must simplify away
 TEST_F(TensorDifferentiationTest, ProductRuleNoZeroArtifacts) {
   auto C = X * trans(X);
