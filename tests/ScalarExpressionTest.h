@@ -471,6 +471,9 @@ TEST_F(ScalarFixture, AbsSimplification) {
 TEST_F(ScalarFixture, SignSimplification) {
   using namespace numsim::cas;
 
+  // sign(0) → 0
+  EXPECT_PRINT(sign(_zero), "0");
+
   auto px = make_expression<scalar>("spx");
   assume(px, positive{});
   EXPECT_PRINT(sign(px), "1");
@@ -606,6 +609,89 @@ TEST_F(ScalarFixture, Scalar_ExpPowSimplification) {
   EXPECT_PRINT(pow(exp(x), _2), "exp(2*x)");
   EXPECT_PRINT(pow(exp(x), _3), "exp(3*x)");
   EXPECT_PRINT(pow(exp(x + y), _2), "exp(2*(x+y))");
+}
+
+//
+// SQRT-EXP composition — sqrt(exp(x)) → exp(x/2)
+//
+TEST_F(ScalarFixture, Scalar_SqrtExpSimplification) {
+  // sqrt(exp(x)) → exp(x/2)
+  EXPECT_PRINT(sqrt(exp(x)), "exp((1/2)*x)");
+  // sqrt(exp(x+y)) → exp((x+y)/2)
+  EXPECT_PRINT(sqrt(exp(x + y)), "exp((1/2)*(x+y))");
+  // Chained: log(sqrt(exp(x))) → x/2
+  EXPECT_PRINT(log(sqrt(exp(x))), "(1/2)*x");
+}
+
+//
+// LOG-SQRT composition — log(sqrt(x)) → log(x)/2
+//
+TEST_F(ScalarFixture, Scalar_LogSqrtSimplification) {
+  // log(sqrt(x)) → log(x)/2
+  EXPECT_PRINT(log(sqrt(x)), "(1/2)*log(x)");
+  // log(sqrt(exp(x))) → x/2 (chains with exp(log(x))=x)
+  EXPECT_PRINT(log(sqrt(exp(x))), "(1/2)*x");
+}
+
+//
+// LOG-POW composition — log(pow(x, n)) → n*log(x) when x > 0
+//
+TEST_F(ScalarFixture, Scalar_LogPowSimplification) {
+  using namespace numsim::cas;
+  // Need positive assumption for log(pow(x,n)) → n*log(x)
+  auto px = make_expression<scalar>("px");
+  assume(px, positive{});
+  EXPECT_PRINT(log(pow(px, _2)), "2*log(px)");
+  EXPECT_PRINT(log(pow(px, _3)), "3*log(px)");
+  // Without positive assumption, should NOT simplify
+  EXPECT_PRINT(log(pow(x, _2)), "log(pow(x,2))");
+}
+
+//
+// POW-SQRT composition — pow(sqrt(x), n) → pow(x, n/2)
+//
+TEST_F(ScalarFixture, Scalar_PowSqrtSimplification) {
+  // pow(sqrt(x), 2) → x (via pow(x, 2/2) = pow(x, 1) = x)
+  EXPECT_PRINT(pow(sqrt(x), _2), "x");
+  // pow(sqrt(x), 3) → pow(x, 3/2)
+  EXPECT_PRINT(pow(sqrt(x), _3), "pow(x,3/2)");
+}
+
+// Operator early-exit coverage: zero/one identity & annihilator for +, -, *, /
+//
+TEST_F(ScalarFixture, OperatorEarlyExit_SubZero) {
+  using namespace numsim::cas;
+
+  // 0 - x → -x
+  EXPECT_PRINT(_zero - x, "-x");
+  // x - 0 → x
+  EXPECT_PRINT(x - _zero, "x");
+  // 0 - 0 → 0
+  EXPECT_PRINT(_zero - _zero, "0");
+}
+
+//
+// PRINT_PowConstantFolding — pow(constant, constant) → constant
+//
+TEST_F(ScalarFixture, PRINT_PowConstantFolding) {
+  EXPECT_PRINT(pow(_2, _3), "8");       // 2^3 = 8
+  EXPECT_PRINT(pow(_3, _2), "9");       // 3^2 = 9
+  EXPECT_PRINT(pow(_2, -_1), "1/2");    // 2^(-1) = 1/2
+  EXPECT_PRINT(pow(_2, -_2), "1/4");    // 2^(-2) = 1/4
+  EXPECT_PRINT(pow(_3, -_1), "1/3");    // 3^(-1) = 1/3
+  EXPECT_PRINT(_2 * pow(_2, -_1), "1"); // 2 * 1/2 = 1 (the key case)
+  EXPECT_PRINT(pow(_1, _3), "1");       // 1^3 = 1
+  EXPECT_PRINT(pow(-_1, _2), "1");      // (-1)^2 = 1
+  EXPECT_PRINT(pow(-_1, _3), "-1");     // (-1)^3 = -1
+}
+
+TEST_F(ScalarFixture, OperatorEarlyExit_NegZero) {
+  using namespace numsim::cas;
+
+  // -0 → 0
+  EXPECT_PRINT(-_zero, "0");
+  // -(-x) → x (already tested but included for completeness)
+  EXPECT_PRINT(-(-x), "x");
 }
 
 #endif // SCALAREXPRESSIONTEST_H
