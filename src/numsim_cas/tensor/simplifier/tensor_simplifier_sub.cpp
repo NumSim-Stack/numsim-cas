@@ -58,6 +58,8 @@ sub_base::expr_holder_t sub_base::dispatch(tensor const &) {
 
 // 0 - expr
 sub_base::expr_holder_t sub_base::dispatch(tensor_zero const &) {
+  if (is_same<tensor_zero>(m_rhs))
+    return make_expression<tensor_zero>(m_rhs.get().dim(), m_rhs.get().rank());
   return make_expression<tensor_negative>(std::move(m_rhs));
 }
 

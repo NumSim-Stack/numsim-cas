@@ -4,6 +4,7 @@
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/tensor/operators/scalar/tensor_scalar_mul.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_zero.h>
 
 namespace numsim::cas {
 namespace tensor_with_scalar_detail {
@@ -33,6 +34,10 @@ protected:
 #undef NUMSIM_ADD_OVR_NEXT
 
   expr_holder_tensor_t dispatch(tensor_scalar_mul const &rhs) noexcept;
+
+  expr_holder_tensor_t dispatch(tensor_zero const &rhs) noexcept {
+    return make_expression<tensor_zero>(rhs.dim(), rhs.rank());
+  }
 
   template <typename Expr>
   expr_holder_tensor_t dispatch(Expr const &) noexcept {

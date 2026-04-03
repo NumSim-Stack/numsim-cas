@@ -201,6 +201,12 @@ try_normalize_reversed_projector(ExprLHS &&lhs, sequence const &lhs_indices,
 template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                         ExprRHS &&rhs, sequence &&rhs_indices) {
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
+    auto d = is_same<tensor_zero>(lhs) ? rhs.get().dim() : lhs.get().dim();
+    auto r = lhs.get().rank() + rhs.get().rank() - lhs_indices.size() -
+             rhs_indices.size();
+    return make_expression<tensor_zero>(d, r);
+  }
   if (auto norm = detail_ip::try_normalize_reversed_projector(lhs, lhs_indices,
                                                               rhs, rhs_indices))
     return std::move(*norm);
@@ -213,6 +219,12 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] inline auto
 inner_product(ExprLHS &&lhs, sequence const &lhs_indices, ExprRHS &&rhs,
               sequence const &rhs_indices) {
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
+    auto d = is_same<tensor_zero>(lhs) ? rhs.get().dim() : lhs.get().dim();
+    auto r = lhs.get().rank() + rhs.get().rank() - lhs_indices.size() -
+             rhs_indices.size();
+    return make_expression<tensor_zero>(d, r);
+  }
   if (auto norm = detail_ip::try_normalize_reversed_projector(lhs, lhs_indices,
                                                               rhs, rhs_indices))
     return std::move(*norm);
@@ -223,6 +235,9 @@ inner_product(ExprLHS &&lhs, sequence const &lhs_indices, ExprRHS &&rhs,
 
 template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto otimes(ExprLHS &&lhs, ExprRHS &&rhs) {
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs))
+    return make_expression<tensor_zero>(lhs.get().dim(),
+                                        lhs.get().rank() + rhs.get().rank());
   sequence lhs_indices(lhs.get().rank()), rhs_indices(rhs.get().rank());
   std::iota(std::begin(lhs_indices), std::end(lhs_indices), std::size_t{0});
   std::iota(std::begin(rhs_indices), std::end(rhs_indices), lhs_indices.size());
@@ -235,6 +250,9 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto
 otimes(ExprLHS &&lhs, sequence &&lhs_indices, ExprRHS &&rhs,
        sequence &&rhs_indices) {
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs))
+    return make_expression<tensor_zero>(lhs.get().dim(),
+                                        lhs.get().rank() + rhs.get().rank());
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(lhs_indices),
       std::forward<ExprRHS>(rhs), std::move(rhs_indices));
@@ -242,6 +260,9 @@ otimes(ExprLHS &&lhs, sequence &&lhs_indices, ExprRHS &&rhs,
 
 template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto otimesu(ExprLHS &&lhs, ExprRHS &&rhs) {
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs))
+    return make_expression<tensor_zero>(lhs.get().dim(),
+                                        lhs.get().rank() + rhs.get().rank());
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(sequence{1, 3}),
       std::forward<ExprRHS>(rhs), std::move(sequence{2, 4}));
@@ -249,6 +270,9 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 
 template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto otimesl(ExprLHS &&lhs, ExprRHS &&rhs) {
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs))
+    return make_expression<tensor_zero>(lhs.get().dim(),
+                                        lhs.get().rank() + rhs.get().rank());
   return make_expression<outer_product_wrapper>(
       std::forward<ExprLHS>(lhs), std::move(sequence{1, 4}),
       std::forward<ExprRHS>(rhs), std::move(sequence{2, 3}));
@@ -257,6 +281,8 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto permute_indices(Expr &&expr,
                                                     sequence &&indices) {
+  if (is_same<tensor_zero>(expr))
+    return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   if (is_same<basis_change_imp>(expr)) {
     auto &tensor{expr.template get<basis_change_imp>()};
     const auto &t_indices{tensor.indices()};
@@ -304,6 +330,8 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto trans(Expr &&expr) {
+  if (is_same<tensor_zero>(expr))
+    return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   if (is_same<basis_change_imp>(expr)) {
     auto const &bc = expr.template get<basis_change_imp>();
     if (bc.indices() == sequence{2, 1})
