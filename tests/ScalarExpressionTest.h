@@ -655,6 +655,8 @@ TEST_F(ScalarFixture, Scalar_PowSqrtSimplification) {
   EXPECT_PRINT(pow(sqrt(x), _2), "x");
   // pow(sqrt(x), 3) → pow(x, 3/2)
   EXPECT_PRINT(pow(sqrt(x), _3), "pow(x,3/2)");
+}
+
 // Operator early-exit coverage: zero/one identity & annihilator for +, -, *, /
 //
 TEST_F(ScalarFixture, OperatorEarlyExit_SubZero) {
