@@ -221,8 +221,12 @@ public:
     try {
       info = generate(m_depth);
     } catch (cas_error const &e) {
+      std::cerr << "[SKIP] seed=" << m_seed << " phase=generation"
+                << " exception=" << e.what() << "\n";
       return handle_exception(e, "generation");
-    } catch (std::exception const &) {
+    } catch (std::exception const &e) {
+      std::cerr << "[SKIP] seed=" << m_seed << " phase=generation"
+                << " std::exception=" << e.what() << "\n";
       return TestResult::Skip;
     }
 
@@ -242,8 +246,14 @@ public:
     try {
       d_holder = self().do_diff(info, diff_var);
     } catch (cas_error const &e) {
+      std::cerr << "[SKIP] seed=" << m_seed << " phase=differentiation"
+                << " var=" << self().get_var_name(diff_var)
+                << " exception=" << e.what() << "\n";
       return handle_exception(e, "differentiation");
-    } catch (std::exception const &) {
+    } catch (std::exception const &e) {
+      std::cerr << "[SKIP] seed=" << m_seed << " phase=differentiation"
+                << " var=" << self().get_var_name(diff_var)
+                << " std::exception=" << e.what() << "\n";
       return TestResult::Skip;
     }
     if (!d_holder) {
@@ -260,8 +270,14 @@ public:
       }
       return TestResult::Pass;
     } catch (cas_error const &e) {
+      std::cerr << "[SKIP] seed=" << m_seed << " phase=verification"
+                << " var=" << self().get_var_name(diff_var)
+                << " exception=" << e.what() << "\n";
       return handle_exception(e, "verification");
-    } catch (std::exception const &) {
+    } catch (std::exception const &e) {
+      std::cerr << "[SKIP] seed=" << m_seed << " phase=verification"
+                << " var=" << self().get_var_name(diff_var)
+                << " std::exception=" << e.what() << "\n";
       return TestResult::Skip;
     }
   }

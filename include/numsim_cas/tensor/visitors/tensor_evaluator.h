@@ -364,6 +364,13 @@ void tensor_evaluator<ValueType>::operator()(
   for (auto const &[key, val] : m_tensor_values) {
     t2s_eval.set(key, val);
   }
+  for (auto const &[key, val] : m_scalar_eval.symbol_values()) {
+    t2s_eval.set_scalar(
+        expression_holder<scalar_expression>(
+            std::static_pointer_cast<scalar_expression>(
+                std::const_pointer_cast<expression>(key.data()))),
+        std::any_cast<ValueType>(val));
+  }
   const auto scalar_val = t2s_eval.apply(visitable.expr_rhs());
   auto src = apply(visitable.expr_lhs());
   const auto dim = src->dim();
