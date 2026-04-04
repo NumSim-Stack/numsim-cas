@@ -536,8 +536,8 @@ TEST(TensorEval, CompoundScalarSymMinusDev) {
                                   2.0, 5.0, 8.0,
                                   3.0, 7.0, 9.0});
   auto B_val = make_tmech<3, 2>({9.0, 3.0, 1.0,
-                                  6.0, 5.0, 2.0,
-                                  7.0, 8.0, 4.0});
+                                  3.0, 5.0, 2.0,
+                                  1.0, 2.0, 4.0});
   // clang-format on
   ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(A_val));
   ev.set(B, std::make_shared<tensor_data<double, 3, 2>>(B_val));

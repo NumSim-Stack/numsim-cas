@@ -506,7 +506,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()([[maybe_unused]] tensor_zero const &visitable) override {
-    m_out << "0";
+    m_out << "0{" << visitable.rank() << "}";
   }
 
   void operator()(tensor_pow const &visitable) override {

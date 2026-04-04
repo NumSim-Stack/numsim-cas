@@ -35,9 +35,8 @@ protected:
 
   expr_holder_tensor_t dispatch(tensor_scalar_mul const &rhs) noexcept;
 
-  expr_holder_tensor_t dispatch(tensor_zero const &rhs) noexcept {
-    return make_expression<tensor_zero>(rhs.dim(), rhs.rank());
-  }
+  // scalar * 0 → 0
+  expr_holder_tensor_t dispatch(tensor_zero const &) noexcept { return m_rhs; }
 
   template <typename Expr>
   expr_holder_tensor_t dispatch(Expr const &) noexcept {

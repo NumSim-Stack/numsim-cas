@@ -77,7 +77,7 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
 
   EXPECT_PRINT(One * X, "X");
   EXPECT_PRINT(One * A, "A");
-  EXPECT_PRINT(Zero * X, "0");
+  EXPECT_PRINT(Zero * X, "0{2}");
   EXPECT_PRINT(One, "I");
   EXPECT_PRINT(Y, "Y");
   EXPECT_PRINT(Z, "Z");
@@ -138,7 +138,7 @@ TYPED_TEST(TensorExpressionTest, TensorScalarExpressionTestPrint) {
 
   // 0/x → 0
   auto &Zero = this->_Zero;
-  EXPECT_PRINT(Zero / x, "0");
+  EXPECT_PRINT(Zero / x, "0{2}");
 }
 
 TYPED_TEST(TensorExpressionTest, TensorSubtractionAndNegationPrint) {
@@ -147,7 +147,7 @@ TYPED_TEST(TensorExpressionTest, TensorSubtractionAndNegationPrint) {
   auto &Z = this->Z;
 
   EXPECT_PRINT(-X, "-X");
-  EXPECT_PRINT(X - X, "0");
+  EXPECT_PRINT(X - X, "0{2}");
   EXPECT_PRINT(-X - X, "-2*X");
   EXPECT_PRINT(X - X - Y - Z, "-(Y+Z)");
   EXPECT_PRINT(-X - X - Y - Z, "-(2*X+Y+Z)");
@@ -206,8 +206,8 @@ TYPED_TEST(TensorExpressionTest, TensorIdentityAndZeroMore) {
   EXPECT_PRINT(X + Zero, "X"); // additive identity
   EXPECT_PRINT(Zero + X, "X");
 
-  EXPECT_PRINT(X * Zero, "0"); // annihilator (right)
-  EXPECT_PRINT(Zero * X, "0"); // annihilator (left)
+  EXPECT_PRINT(X * Zero, "0{2}"); // annihilator (right)
+  EXPECT_PRINT(Zero * X, "0{2}"); // annihilator (left)
 }
 
 TYPED_TEST(TensorExpressionTest, TensorAdditionAssociativityCanonical) {
@@ -259,7 +259,7 @@ TYPED_TEST(TensorExpressionTest, TensorNegationCombinations) {
   auto &X = this->X;
   auto &Y = this->Y;
 
-  EXPECT_PRINT(X + (-X), "0");
+  EXPECT_PRINT(X + (-X), "0{2}");
   EXPECT_PRINT((-X) + (-X), "-2*X");
   EXPECT_PRINT(-(X + Y), "-(X+Y)");
 }
@@ -280,7 +280,7 @@ TYPED_TEST(TensorExpressionTest, AddZeroIdentity) {
   // rank 2
   EXPECT_PRINT(Zero + X, "X");
   EXPECT_PRINT(X + Zero, "X");
-  EXPECT_PRINT(Zero + Zero, "0");
+  EXPECT_PRINT(Zero + Zero, "0{2}");
   // rank 4
   EXPECT_PRINT(Zero4 + A, "A");
   EXPECT_PRINT(A + Zero4, "A");
@@ -309,12 +309,12 @@ TYPED_TEST(TensorExpressionTest, AddNegativeCancellation) {
   auto &Y = this->Y;
   auto &A = this->A;
 
-  EXPECT_PRINT(X + (-X), "0");
-  EXPECT_PRINT(Y + (-Y), "0");
-  EXPECT_PRINT(A + (-A), "0");
+  EXPECT_PRINT(X + (-X), "0{2}");
+  EXPECT_PRINT(Y + (-Y), "0{2}");
+  EXPECT_PRINT(A + (-A), "0{4}");
   // negative + positive (reversed order)
-  EXPECT_PRINT((-X) + X, "0");
-  EXPECT_PRINT((-A) + A, "0");
+  EXPECT_PRINT((-X) + X, "0{2}");
+  EXPECT_PRINT((-A) + A, "0{4}");
 }
 
 // add_negative: (-X) + (-Y) → -(X+Y)
@@ -445,8 +445,8 @@ TYPED_TEST(TensorExpressionTest, AddRank4) {
 
   EXPECT_PRINT(A + B, "A+B");
   EXPECT_PRINT(A + A, "2*A");
-  EXPECT_PRINT(A + (-A), "0");
-  EXPECT_PRINT((-A) + A, "0");
+  EXPECT_PRINT(A + (-A), "0{4}");
+  EXPECT_PRINT((-A) + A, "0{4}");
   EXPECT_PRINT(A + B + C, "A+B+C");
   EXPECT_PRINT((A + B) + (B + C), "A+2*B+C");
   EXPECT_PRINT(_2 * A + A, "3*A");
@@ -470,7 +470,7 @@ TYPED_TEST(TensorExpressionTest, AddGenericFallback) {
   // dev + zero → dev(X)
   EXPECT_PRINT(dX + this->_Zero, "dev(X)");
   // dev + (-dev) → 0
-  EXPECT_PRINT(dX + (-dX), "0");
+  EXPECT_PRINT(dX + (-dX), "0{2}");
 }
 
 TYPED_TEST(TensorExpressionTest, TensorDecomposition) {
@@ -629,6 +629,26 @@ TYPED_TEST(TensorExpressionTest, TransTransSimplification) {
 }
 
 // -----------------------------------------------------------------------------
+// trans(skew(X)) → -X for skew-symmetric tensors
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, TransSkewSimplification) {
+  constexpr std::size_t Dim = TestFixture::Dim;
+  auto S = numsim::cas::make_expression<numsim::cas::tensor>("S", Dim, 2);
+  numsim::cas::assume_skew(S);
+
+  // trans(S) → -S when S is skew
+  EXPECT_PRINT(numsim::cas::trans(S), "-S");
+
+  // trans(trans(S)) → trans(-S) → -trans(S) → -(-S) → S
+  EXPECT_PRINT(numsim::cas::trans(numsim::cas::trans(S)), "S");
+
+  // Symmetric variable: trans should still be identity
+  auto &X = this->X;
+  numsim::cas::assume_symmetric(X);
+  EXPECT_PRINT(numsim::cas::trans(X), "X");
+}
+
+// -----------------------------------------------------------------------------
 // inv(inv(A)) → A simplification
 // -----------------------------------------------------------------------------
 TYPED_TEST(TensorExpressionTest, InvInvSimplification) {
@@ -758,27 +778,27 @@ TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_SubZero) {
   EXPECT_PRINT(Zero - X, "-X");
   // X - Zero → X
   EXPECT_PRINT(X - Zero, "X");
-  // Zero - Zero → 0
-  EXPECT_PRINT(Zero - Zero, "0");
+  // Zero - Zero → 0{2}
+  EXPECT_PRINT(Zero - Zero, "0{2}");
 }
 
 TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_NegZero) {
   auto &Zero = this->_Zero;
 
-  // -Zero → 0 (tensor_zero)
+  // -Zero → 0{2} (tensor_zero)
   auto result = -Zero;
   EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(result));
-  EXPECT_PRINT(result, "0");
+  EXPECT_PRINT(result, "0{2}");
 }
 
 TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_ScalarZeroMulTensor) {
   auto &X = this->X;
   auto &_zero = this->_zero;
 
-  // scalar_zero * tensor → 0
-  EXPECT_PRINT(_zero * X, "0");
-  // tensor * scalar_zero → 0
-  EXPECT_PRINT(X * _zero, "0");
+  // scalar_zero * tensor → 0{2}
+  EXPECT_PRINT(_zero * X, "0{2}");
+  // tensor * scalar_zero → 0{2}
+  EXPECT_PRINT(X * _zero, "0{2}");
 }
 
 TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_ScalarMulTensorZero) {
@@ -786,20 +806,20 @@ TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_ScalarMulTensorZero) {
   auto &x = this->x;
   auto &_2 = this->_2;
 
-  // non-zero scalar * tensor_zero → 0
-  EXPECT_PRINT(x * Zero, "0");
-  // tensor_zero * non-zero scalar → 0
-  EXPECT_PRINT(Zero * x, "0");
-  // numeric constant * tensor_zero → 0
-  EXPECT_PRINT(_2 * Zero, "0");
-  // tensor_zero * numeric constant → 0
-  EXPECT_PRINT(Zero * _2, "0");
-  // pow(2,-1) * tensor_zero → 0 (the "0/2" pattern)
-  EXPECT_PRINT(pow(this->_2, -this->_one) * Zero, "0");
-  // scalar_constant(0) * tensor → 0
+  // non-zero scalar * tensor_zero → 0{2}
+  EXPECT_PRINT(x * Zero, "0{2}");
+  // tensor_zero * non-zero scalar → 0{2}
+  EXPECT_PRINT(Zero * x, "0{2}");
+  // numeric constant * tensor_zero → 0{2}
+  EXPECT_PRINT(_2 * Zero, "0{2}");
+  // tensor_zero * numeric constant → 0{2}
+  EXPECT_PRINT(Zero * _2, "0{2}");
+  // pow(2,-1) * tensor_zero → 0{2} (the "0/2" pattern)
+  EXPECT_PRINT(pow(this->_2, -this->_one) * Zero, "0{2}");
+  // scalar_constant(0) * tensor → 0{2}
   auto sc0 = numsim::cas::make_expression<numsim::cas::scalar_constant>(0);
-  EXPECT_PRINT(sc0 * this->X, "0");
-  EXPECT_PRINT(this->X * sc0, "0");
+  EXPECT_PRINT(sc0 * this->X, "0{2}");
+  EXPECT_PRINT(this->X * sc0, "0{2}");
 }
 
 TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_TensorMulZero) {
@@ -807,11 +827,11 @@ TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_TensorMulZero) {
   auto &Zero = this->_Zero;
 
   // tensor_zero * tensor → tensor_zero
-  EXPECT_PRINT(Zero * X, "0");
+  EXPECT_PRINT(Zero * X, "0{2}");
   // tensor * tensor_zero → tensor_zero
-  EXPECT_PRINT(X * Zero, "0");
+  EXPECT_PRINT(X * Zero, "0{2}");
   // tensor_zero * tensor_zero → tensor_zero
-  EXPECT_PRINT(Zero * Zero, "0");
+  EXPECT_PRINT(Zero * Zero, "0{2}");
 }
 
 TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_AddSubZero) {

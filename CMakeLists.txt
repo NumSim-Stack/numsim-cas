@@ -142,7 +142,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_options(${PROJECT_NAME} PUBLIC /bigobj)
     target_compile_options(${PROJECT_NAME} PRIVATE
-        /W4 /EHsc /utf-8 /permissive-)
+        /W4 /EHsc /utf-8 /permissive- /Zc:preprocessor)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         target_compile_options(${PROJECT_NAME} PRIVATE /sdl)
     elseif(CMAKE_BUILD_TYPE STREQUAL "Release")

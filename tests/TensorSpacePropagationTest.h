@@ -63,7 +63,7 @@ TEST_F(TensorSpacePropagationTest, SymOfScalarMul) {
 
 TEST_F(TensorSpacePropagationTest, SkewOfScalarMul) {
   // skew(2*C) → 0 when C is symmetric
-  EXPECT_PRINT(skew(2 * C), "0");
+  EXPECT_PRINT(skew(2 * C), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, DevOfScalarMulDeviatoric) {
@@ -73,7 +73,7 @@ TEST_F(TensorSpacePropagationTest, DevOfScalarMulDeviatoric) {
 
 TEST_F(TensorSpacePropagationTest, VolOfScalarMulDeviatoric) {
   // vol(2*D) → 0 when D is deviatoric
-  EXPECT_PRINT(vol(2 * D), "0");
+  EXPECT_PRINT(vol(2 * D), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, SymOfScalarMulSymbolicCoeff) {
@@ -92,7 +92,7 @@ TEST_F(TensorSpacePropagationTest, SymOfNeg) {
 
 TEST_F(TensorSpacePropagationTest, SkewOfNeg) {
   // skew(-C) → 0 when C is symmetric
-  EXPECT_PRINT(skew(-C), "0");
+  EXPECT_PRINT(skew(-C), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, DevOfNegDeviatoric) {
@@ -111,7 +111,7 @@ TEST_F(TensorSpacePropagationTest, SymOfPow) {
 
 TEST_F(TensorSpacePropagationTest, SkewOfPow) {
   // skew(pow(C,2)) → 0 when C is symmetric
-  EXPECT_PRINT(skew(pow(C, 2)), "0");
+  EXPECT_PRINT(skew(pow(C, 2)), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, PowSkewDoesNotPropagateSkew) {
@@ -158,7 +158,7 @@ TEST_F(TensorSpacePropagationTest, SymOfInv) {
 
 TEST_F(TensorSpacePropagationTest, SkewOfInv) {
   // skew(inv(C)) → 0 when C is symmetric
-  EXPECT_PRINT(skew(inv(C)), "0");
+  EXPECT_PRINT(skew(inv(C)), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, InvDevDoesNotPropagateDeviatoric) {
@@ -203,7 +203,7 @@ TEST_F(TensorSpacePropagationTest, SymOfSymPlusVol) {
 
 TEST_F(TensorSpacePropagationTest, SkewOfSymPlusVol) {
   // C+V has join Sym; skew(C+V) → 0
-  EXPECT_PRINT(skew(C + V), "0");
+  EXPECT_PRINT(skew(C + V), "0{2}");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -233,12 +233,12 @@ TEST_F(TensorSpacePropagationTest, VolOfI) {
 
 TEST_F(TensorSpacePropagationTest, DevOfI) {
   // dev(I) → 0  (because dev = sym - vol, so dev(I) = I - I = 0)
-  EXPECT_PRINT(dev(I), "0");
+  EXPECT_PRINT(dev(I), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, SkewOfI) {
   // skew(I) → 0  (I is symmetric, so skew part is zero)
-  EXPECT_PRINT(skew(I), "0");
+  EXPECT_PRINT(skew(I), "0{2}");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
