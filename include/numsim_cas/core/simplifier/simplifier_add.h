@@ -295,8 +295,8 @@ public:
     if (pos != add.symbol_map().end()) {
       auto expr{pos->second + base::m_rhs};
       add.symbol_map().erase(pos);
-      // The combined result might match another entry in the add
-      // (e.g. add has {x, 2*x}, combining x+x=2*x collides with 2*x)
+      // Combined result may match another entry (e.g. x+x=2*x collides
+      // with existing 2*x when add has {x, 2*x})
       auto pos2 = add.symbol_map().find(expr);
       if (pos2 != add.symbol_map().end()) {
         auto combined = pos2->second + expr;

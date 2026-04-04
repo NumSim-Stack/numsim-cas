@@ -27,8 +27,10 @@ constexpr inline void merge_add(n_ary_tree<Derived> const &lhs,
     }
   }
 
-  // Helper: insert into result, combining with existing entry if present
-  auto insert_or_combine = [&](expression_holder<expr_t> entry) {
+  // Helper: insert into result, combining with existing entry if present.
+  // After combining child+rhs_child (e.g. x+x=2*x), the result may
+  // match another entry already in the result (e.g. existing 2*x).
+  auto safe_push = [&](expression_holder<expr_t> entry) {
     auto it = result.symbol_map().find(entry);
     if (it != result.symbol_map().end()) {
       auto combined = it->second + entry;
@@ -44,15 +46,15 @@ constexpr inline void merge_add(n_ary_tree<Derived> const &lhs,
     auto pos{rhs.symbol_map().find(child)};
     if (pos != rhs.symbol_map().end()) {
       used_expr.insert(pos->second);
-      insert_or_combine(child + pos->second);
+      safe_push(child + pos->second);
     } else {
-      insert_or_combine(child);
+      safe_push(child);
     }
   }
   if (used_expr.size() != rhs.size()) {
     for (auto &child : rhs.symbol_map() | std::views::values) {
       if (!used_expr.count(child)) {
-        insert_or_combine(child);
+        safe_push(child);
       }
     }
   }
