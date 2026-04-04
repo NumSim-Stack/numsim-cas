@@ -10,7 +10,8 @@ namespace numsim::cas {
 
 template <typename Type, typename Expr>
 [[nodiscard]] inline bool is_same(Expr const &expr) noexcept {
-  assert(expr.is_valid());
+  if (!expr.is_valid())
+    return false;
   return Type::get_id() == expr.get().id();
 }
 

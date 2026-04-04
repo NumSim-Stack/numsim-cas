@@ -306,13 +306,15 @@ private:
    * @return Derivative expression.
    */
   expr_holder_t apply_imp(expr_holder_t const &expr) {
+    m_result = expr_holder_t{};
     if (expr.is_valid()) {
       m_expr = expr;
       expr.get<scalar_visitable_t>().accept(*this);
-      return m_result;
-    } else {
+    }
+    if (!m_result.is_valid()) {
       return get_scalar_zero();
     }
+    return m_result;
   }
 
   ///< Differentiation variable.
