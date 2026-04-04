@@ -24,6 +24,40 @@ struct TensorVarEntry {
   expression_holder<tensor_expression> expr;
 };
 
+// Check if an expression contains a skew-symmetric factor (directly or as
+// part of a tensor_mul product). Skew matrices are rank-deficient in odd
+// dimensions, making inv() of any product containing them singular.
+inline bool has_skew_space(expression_holder<tensor_expression> const &e) {
+  if (auto const &sp = e.get().space())
+    return std::holds_alternative<Skew>(sp->perm);
+  return false;
+}
+
+inline bool
+contains_skew_factor(expression_holder<tensor_expression> const &e) {
+  if (has_skew_space(e))
+    return true;
+  // Check tensor_mul children (inner_product_wrapper with contraction on one
+  // pair = matrix multiply)
+  if (is_same<inner_product_wrapper>(e)) {
+    auto const &ip = e.get<inner_product_wrapper>();
+    if (has_skew_space(ip.expr_lhs()) || has_skew_space(ip.expr_rhs()))
+      return true;
+  }
+  // Check scalar_mul: s * A preserves skew property
+  if (is_same<tensor_scalar_mul>(e)) {
+    auto const &sm = e.get<tensor_scalar_mul>();
+    if (contains_skew_factor(sm.expr_rhs()))
+      return true;
+  }
+  // Check negation
+  if (is_same<tensor_negative>(e)) {
+    if (contains_skew_factor(e.get<tensor_negative>().expr()))
+      return true;
+  }
+  return false;
+}
+
 // ===========================================================================
 // Tensor verification (free function template)
 // ===========================================================================
@@ -385,12 +419,12 @@ private:
                    auto sub = m.generate(depth - 1);
                    if (sub.rank != 2)
                      return std::nullopt;
-                   // Skew-symmetric matrices are singular in odd dimensions
-                   if (auto const &sp = sub.expr.get().space()) {
-                     if (std::holds_alternative<Skew>(sp->perm) &&
-                         sub.expr.get().dim() % 2 != 0)
-                       return std::nullopt;
-                   }
+                   // Reject if the expression involves a skew-symmetric
+                   // factor in odd dimensions — skew matrices are rank-
+                   // deficient, making any product containing them singular.
+                   if (sub.expr.get().dim() % 2 != 0 &&
+                       contains_skew_factor(sub.expr))
+                     return std::nullopt;
                    auto expr = inv(sub.expr);
                    return TensorExprInfo{expr, 2, sub.used_vars};
                  });
