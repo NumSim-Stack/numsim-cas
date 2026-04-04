@@ -612,13 +612,7 @@ namespace {
 // ===========================================================================
 class FuzzyTensorDiffTest : public ::testing::TestWithParam<unsigned> {};
 
-// Seeds that produce near-singular tensors on some platforms, causing marginal
-// numerical differentiation mismatches. Fixed by assumption-driven branch.
-inline bool is_flaky_tensor_seed(unsigned seed) {
-  static constexpr unsigned flaky[] = {71, 10044};
-  for (auto s : flaky)
-    if (seed == s)
-      return true;
+inline bool is_flaky_tensor_seed([[maybe_unused]] unsigned seed) {
   return false;
 }
 
