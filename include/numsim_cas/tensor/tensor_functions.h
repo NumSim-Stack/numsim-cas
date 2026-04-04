@@ -317,9 +317,10 @@ template <tensor_expr_holder Expr>
     indices_new_lhs.reserve(indices_lhs.size());
     indices_new_rhs.reserve(indices_rhs.size());
 
-    // Permute: new[i] = old[perm[i]]  (all 0-based)
-    for (std::size_t i{0}; i < indices.size(); ++i) {
-      indices_new[i] = indices_old[indices[i]];
+    // Permute: new[k] = perm[old[k]]  (all 0-based)
+    // Same composition as basis_change_imp folding above.
+    for (std::size_t k{0}; k < indices_old.size(); ++k) {
+      indices_new[k] = indices[indices_old[k]];
     }
 
     indices_new_lhs.insert(indices_new_lhs.begin(), indices_new.begin(),
