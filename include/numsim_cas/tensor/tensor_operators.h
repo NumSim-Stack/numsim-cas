@@ -58,6 +58,27 @@ inline expression_holder<tensor_expression> tag_invoke(sub_fn, L &&lhs,
   if (lhs == rhs) {
     return make_expression<tensor_zero>(lhs.get().dim(), lhs.get().rank());
   }
+  // trans(A) - A → skew-symmetric (set Skew space on result)
+  // A - trans(A) → skew-symmetric
+  if (lhs.get().rank() == 2 && lhs.get().dim() % 2 != 0) {
+    bool lhs_is_trans_of_rhs =
+        is_same<basis_change_imp>(lhs) &&
+        lhs.template get<basis_change_imp>().indices() == sequence{2, 1} &&
+        lhs.template get<basis_change_imp>().expr() == rhs;
+    bool rhs_is_trans_of_lhs =
+        is_same<basis_change_imp>(rhs) &&
+        rhs.template get<basis_change_imp>().indices() == sequence{2, 1} &&
+        rhs.template get<basis_change_imp>().expr() == lhs;
+    if (lhs_is_trans_of_rhs || rhs_is_trans_of_lhs) {
+      auto &_lhs{lhs.template get<tensor_visitable_t>()};
+      tensor_detail::simplifier::sub_base visitor(std::forward<L>(lhs),
+                                                  std::forward<R>(rhs));
+      auto result = _lhs.accept(visitor);
+      if (result.is_valid())
+        result.data()->set_space({Skew{}, AnyTraceTag{}});
+      return result;
+    }
+  }
   auto &_lhs{lhs.template get<tensor_visitable_t>()};
   tensor_detail::simplifier::sub_base visitor(std::forward<L>(lhs),
                                               std::forward<R>(rhs));

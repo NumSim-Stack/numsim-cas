@@ -385,6 +385,12 @@ private:
                    auto sub = m.generate(depth - 1);
                    if (sub.rank != 2)
                      return std::nullopt;
+                   // Skew-symmetric matrices are singular in odd dimensions
+                   if (auto const &sp = sub.expr.get().space()) {
+                     if (std::holds_alternative<Skew>(sp->perm) &&
+                         sub.expr.get().dim() % 2 != 0)
+                       return std::nullopt;
+                   }
                    auto expr = inv(sub.expr);
                    return TensorExprInfo{expr, 2, sub.used_vars};
                  });
