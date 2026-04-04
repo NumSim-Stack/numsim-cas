@@ -295,7 +295,16 @@ public:
     if (pos != add.symbol_map().end()) {
       auto expr{pos->second + base::m_rhs};
       add.symbol_map().erase(pos);
-      add.push_back(std::move(expr));
+      // The combined result might match another entry in the add
+      // (e.g. add has {x, 2*x}, combining x+x=2*x collides with 2*x)
+      auto pos2 = add.symbol_map().find(expr);
+      if (pos2 != add.symbol_map().end()) {
+        auto combined = pos2->second + expr;
+        add.symbol_map().erase(pos2);
+        add.push_back(std::move(combined));
+      } else {
+        add.push_back(std::move(expr));
+      }
       return expr_add;
     }
     add.push_back(base::m_rhs);

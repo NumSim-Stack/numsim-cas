@@ -27,20 +27,32 @@ constexpr inline void merge_add(n_ary_tree<Derived> const &lhs,
     }
   }
 
+  // Helper: insert into result, combining with existing entry if present
+  auto insert_or_combine = [&](expression_holder<expr_t> entry) {
+    auto it = result.symbol_map().find(entry);
+    if (it != result.symbol_map().end()) {
+      auto combined = it->second + entry;
+      result.symbol_map().erase(it);
+      result.push_back(std::move(combined));
+    } else {
+      result.push_back(std::move(entry));
+    }
+  };
+
   expr_set<expression_holder<expr_t>> used_expr;
   for (auto &child : lhs.symbol_map() | std::views::values) {
     auto pos{rhs.symbol_map().find(child)};
     if (pos != rhs.symbol_map().end()) {
       used_expr.insert(pos->second);
-      result.push_back(child + pos->second);
+      insert_or_combine(child + pos->second);
     } else {
-      result.push_back(child);
+      insert_or_combine(child);
     }
   }
   if (used_expr.size() != rhs.size()) {
     for (auto &child : rhs.symbol_map() | std::views::values) {
       if (!used_expr.count(child)) {
-        result.push_back(child);
+        insert_or_combine(child);
       }
     }
   }
