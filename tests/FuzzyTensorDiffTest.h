@@ -428,8 +428,10 @@ private:
                    // factor in odd dimensions — skew matrices are rank-
                    // deficient, making any product containing them singular.
                    if (sub.expr.get().dim() % 2 != 0 &&
-                       contains_skew_factor(sub.expr))
+                       contains_skew_factor(sub.expr)) {
+                     std::cerr << "[REJECT-INV] seed skew factor detected\n";
                      return std::nullopt;
+                   }
                    auto expr = inv(sub.expr);
                    return TensorExprInfo{expr, 2, sub.used_vars};
                  });
