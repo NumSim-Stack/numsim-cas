@@ -37,20 +37,25 @@ inline bool
 contains_skew_factor(expression_holder<tensor_expression> const &e) {
   if (has_skew_space(e))
     return true;
-  // Check tensor_mul children (inner_product_wrapper with contraction on one
-  // pair = matrix multiply)
+  // tensor_mul (n_ary_vector): check each factor
+  if (is_same<tensor_mul>(e)) {
+    for (auto const &child : e.get<tensor_mul>().data()) {
+      if (has_skew_space(child))
+        return true;
+    }
+  }
+  // inner_product_wrapper (contraction-based multiply)
   if (is_same<inner_product_wrapper>(e)) {
     auto const &ip = e.get<inner_product_wrapper>();
     if (has_skew_space(ip.expr_lhs()) || has_skew_space(ip.expr_rhs()))
       return true;
   }
-  // Check scalar_mul: s * A preserves skew property
+  // scalar_mul: s * A preserves singularity
   if (is_same<tensor_scalar_mul>(e)) {
-    auto const &sm = e.get<tensor_scalar_mul>();
-    if (contains_skew_factor(sm.expr_rhs()))
+    if (contains_skew_factor(e.get<tensor_scalar_mul>().expr_rhs()))
       return true;
   }
-  // Check negation
+  // negation
   if (is_same<tensor_negative>(e)) {
     if (contains_skew_factor(e.get<tensor_negative>().expr()))
       return true;
