@@ -464,7 +464,17 @@ private:
                      bool has_sp = sub.expr.get().space().has_value();
                      std::cerr << "[INV-CHECK] odd=" << odd << " skew=" << skew
                                << " has_space=" << has_sp
-                               << " id=" << sub.expr.get().id() << "\n";
+                               << " id=" << sub.expr.get().id();
+                     if (is_same<tensor_mul>(sub.expr)) {
+                       auto const &mul = sub.expr.get<tensor_mul>();
+                       std::cerr << " mul_children=" << mul.data().size();
+                       for (std::size_t ci = 0; ci < mul.data().size(); ++ci) {
+                         auto const &ch = mul.data()[ci];
+                         std::cerr << " c" << ci << "_id=" << ch.get().id()
+                                   << "_sp=" << ch.get().space().has_value();
+                       }
+                     }
+                     std::cerr << "\n";
                      if (odd && skew) {
                        std::cerr << "[REJECT-INV] rejected\n";
                        return std::nullopt;
