@@ -33,21 +33,52 @@ inline bool has_skew_space(expression_holder<tensor_expression> const &e) {
   return false;
 }
 
+// Check if a rank-2 expression is provably skew-symmetric.
+// Detects: explicit Skew space, trans(A)+(-A) pattern, trans(A)-A pattern.
+inline bool is_provably_skew(expression_holder<tensor_expression> const &e) {
+  if (has_skew_space(e))
+    return true;
+  // tensor_add with two children: trans(X) and -X (i.e. trans(X)+(-X))
+  if (is_same<tensor_add>(e)) {
+    auto const &add = e.get<tensor_add>();
+    if (add.symbol_map().size() == 2) {
+      auto it = add.symbol_map().begin();
+      auto const &c0 = it->second;
+      ++it;
+      auto const &c1 = it->second;
+      // Check c0 = trans(c1_inner) and c1 = -c1_inner, or vice versa
+      auto check_trans_neg = [](auto const &a, auto const &b) {
+        if (!is_same<basis_change_imp>(a))
+          return false;
+        auto const &bc = a.template get<basis_change_imp>();
+        if (bc.indices() != sequence{2, 1})
+          return false;
+        if (is_same<tensor_negative>(b))
+          return bc.expr() == b.template get<tensor_negative>().expr();
+        return false;
+      };
+      if (check_trans_neg(c0, c1) || check_trans_neg(c1, c0))
+        return true;
+    }
+  }
+  return false;
+}
+
 inline bool
 contains_skew_factor(expression_holder<tensor_expression> const &e) {
-  if (has_skew_space(e))
+  if (is_provably_skew(e))
     return true;
   // tensor_mul (n_ary_vector): check each factor
   if (is_same<tensor_mul>(e)) {
     for (auto const &child : e.get<tensor_mul>().data()) {
-      if (has_skew_space(child))
+      if (is_provably_skew(child))
         return true;
     }
   }
   // inner_product_wrapper (contraction-based multiply)
   if (is_same<inner_product_wrapper>(e)) {
     auto const &ip = e.get<inner_product_wrapper>();
-    if (has_skew_space(ip.expr_lhs()) || has_skew_space(ip.expr_rhs()))
+    if (is_provably_skew(ip.expr_lhs()) || is_provably_skew(ip.expr_rhs()))
       return true;
   }
   // scalar_mul: s * A preserves singularity
