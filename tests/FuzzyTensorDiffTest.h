@@ -34,10 +34,19 @@ inline bool has_skew_space(expression_holder<tensor_expression> const &e) {
 }
 
 // Check if a rank-2 expression is provably skew-symmetric.
-// Detects: explicit Skew space, trans(A)+(-A) pattern, trans(A)-A pattern.
+// Detects: Skew space, skew() projector pattern, trans(A)+(-A) pattern.
 inline bool is_provably_skew(expression_holder<tensor_expression> const &e) {
   if (has_skew_space(e))
     return true;
+  // inner_product(P_skew, {3,4}, X, {1,2}) — the skew() function
+  if (is_same<inner_product_wrapper>(e)) {
+    auto const &ip = e.get<inner_product_wrapper>();
+    if (is_same<tensor_projector>(ip.expr_lhs())) {
+      auto const &proj = ip.expr_lhs().get<tensor_projector>();
+      if (std::holds_alternative<Skew>(proj.space().perm))
+        return true;
+    }
+  }
   // tensor_add with two children: trans(X) and -X (i.e. trans(X)+(-X))
   if (is_same<tensor_add>(e)) {
     auto const &add = e.get<tensor_add>();
@@ -46,7 +55,6 @@ inline bool is_provably_skew(expression_holder<tensor_expression> const &e) {
       auto const &c0 = it->second;
       ++it;
       auto const &c1 = it->second;
-      // Check c0 = trans(c1_inner) and c1 = -c1_inner, or vice versa
       auto check_trans_neg = [](auto const &a, auto const &b) {
         if (!is_same<basis_change_imp>(a))
           return false;
@@ -64,6 +72,7 @@ inline bool is_provably_skew(expression_holder<tensor_expression> const &e) {
   return false;
 }
 
+// Check if expression contains a rank-deficient factor (skew in odd dim).
 inline bool
 contains_skew_factor(expression_holder<tensor_expression> const &e) {
   if (is_provably_skew(e))
@@ -75,7 +84,7 @@ contains_skew_factor(expression_holder<tensor_expression> const &e) {
         return true;
     }
   }
-  // inner_product_wrapper (contraction-based multiply)
+  // inner_product_wrapper: check both sides
   if (is_same<inner_product_wrapper>(e)) {
     auto const &ip = e.get<inner_product_wrapper>();
     if (is_provably_skew(ip.expr_lhs()) || is_provably_skew(ip.expr_rhs()))
