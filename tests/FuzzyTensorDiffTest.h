@@ -427,10 +427,17 @@ private:
                    // Reject if the expression involves a skew-symmetric
                    // factor in odd dimensions — skew matrices are rank-
                    // deficient, making any product containing them singular.
-                   if (sub.expr.get().dim() % 2 != 0 &&
-                       contains_skew_factor(sub.expr)) {
-                     std::cerr << "[REJECT-INV] seed skew factor detected\n";
-                     return std::nullopt;
+                   {
+                     bool odd = sub.expr.get().dim() % 2 != 0;
+                     bool skew = contains_skew_factor(sub.expr);
+                     bool has_sp = sub.expr.get().space().has_value();
+                     std::cerr << "[INV-CHECK] odd=" << odd << " skew=" << skew
+                               << " has_space=" << has_sp
+                               << " id=" << sub.expr.get().id() << "\n";
+                     if (odd && skew) {
+                       std::cerr << "[REJECT-INV] rejected\n";
+                       return std::nullopt;
+                     }
                    }
                    auto expr = inv(sub.expr);
                    return TensorExprInfo{expr, 2, sub.used_vars};
