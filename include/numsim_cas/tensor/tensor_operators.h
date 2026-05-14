@@ -38,6 +38,34 @@ inline expression_holder<tensor_expression> tag_invoke(add_fn, L &&lhs,
     return make_expression<tensor_zero>(lhs.get().dim(), lhs.get().rank());
   }
 
+  // trans(A) + (-A) and (-A) + trans(A) are skew-symmetric in any dimension
+  // (same algebra as trans(A) - A). Mirrors the sub branch annotation so
+  // structural pattern fast-paths (e.g. skew(skew_expr) -> skew_expr) fire
+  // regardless of which spelling the user wrote.
+  if (lhs.get().rank() == 2) {
+    auto matches_trans_plus_neg = [](auto const &a, auto const &b) {
+      if (!is_same<basis_change_imp>(a))
+        return false;
+      auto const &bc = a.template get<basis_change_imp>();
+      if (bc.indices() != sequence{2, 1})
+        return false;
+      if (!is_same<tensor_negative>(b))
+        return false;
+      return bc.expr() == b.template get<tensor_negative>().expr();
+    };
+    if (matches_trans_plus_neg(lhs, rhs) || matches_trans_plus_neg(rhs, lhs)) {
+      auto &_lhs{lhs.template get<tensor_visitable_t>()};
+      simplifier::tensor_detail::add_base visitor(std::forward<L>(lhs),
+                                                  std::forward<R>(rhs));
+      auto result = _lhs.accept(visitor);
+      // See sub branch: set_space post-construction is safe today because the
+      // n_ary_tree hash excludes the space annotation.
+      if (result.is_valid())
+        result.data()->set_space({Skew{}, AnyTraceTag{}});
+      return result;
+    }
+  }
+
   auto &_lhs{lhs.template get<tensor_visitable_t>()};
   simplifier::tensor_detail::add_base visitor(std::forward<L>(lhs),
                                               std::forward<R>(rhs));

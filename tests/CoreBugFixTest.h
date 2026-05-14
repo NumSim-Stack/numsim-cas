@@ -256,6 +256,30 @@ TEST(CoreBugFix, AddCompoundConstructionSmoke) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// scalar_evaluator::forward_values_to filters non-scalar keys
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, ForwardValuesToSkipsNonScalarKey) {
+  // scalar_evaluator::set is templated on ExprBase, so callers could mistakenly
+  // store a tensor symbol in the scalar evaluator's map. The forwarding loop
+  // uses dynamic_pointer_cast<scalar_expression> to skip such keys instead of
+  // force-casting them (which would be UB the next time the destination tried
+  // to treat the holder as a scalar). Confirm the loop survives the bad key.
+  auto [x] = make_scalar_variable("x");
+  auto T = std::get<0>(
+      make_tensor_variable(std::tuple{"T", std::size_t{3}, std::size_t{2}}));
+
+  scalar_evaluator<double> src;
+  src.set(x, 1.5);
+  src.set(T, 2.5); // tensor key forced into the scalar evaluator
+
+  // tensor_evaluator is the real-world forwarding target; it exposes
+  // set_scalar that forward_values_to expects.
+  tensor_evaluator<double> dst;
+  EXPECT_NO_THROW(src.forward_values_to(dst));
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

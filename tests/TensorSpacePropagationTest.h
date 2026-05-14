@@ -224,6 +224,16 @@ TEST_F(TensorSpacePropagationTest, TransMinusSelfIsAnnotatedSkewInEvenDim) {
       << "trans(A) - A must carry the Skew annotation regardless of dim";
 }
 
+TEST_F(TensorSpacePropagationTest, TransPlusNegIsAnnotatedSkew) {
+  // trans(A) + (-A) is the same expression as trans(A) - A up to spelling;
+  // the add operator must mirror the sub operator's annotation so consumers
+  // that fast-path on the Skew annotation behave consistently.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", dim, 2}));
+  auto expr = trans(A) + (-A);
+  EXPECT_TRUE(is_skew(expr))
+      << "trans(A) + (-A) must carry the Skew annotation";
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Space propagation through addition
 // ═══════════════════════════════════════════════════════════════════════════════
