@@ -27,34 +27,20 @@ constexpr inline void merge_add(n_ary_tree<Derived> const &lhs,
     }
   }
 
-  // Helper: insert into result, combining with existing entry if present.
-  // After combining child+rhs_child (e.g. x+x=2*x), the result may
-  // match another entry already in the result (e.g. existing 2*x).
-  auto safe_push = [&](expression_holder<expr_t> entry) {
-    auto it = result.symbol_map().find(entry);
-    if (it != result.symbol_map().end()) {
-      auto combined = it->second + entry;
-      result.symbol_map().erase(it);
-      result.push_back(std::move(combined));
-    } else {
-      result.push_back(std::move(entry));
-    }
-  };
-
   expr_set<expression_holder<expr_t>> used_expr;
   for (auto &child : lhs.symbol_map() | std::views::values) {
     auto pos{rhs.symbol_map().find(child)};
     if (pos != rhs.symbol_map().end()) {
       used_expr.insert(pos->second);
-      safe_push(child + pos->second);
+      result.merge_or_insert(child + pos->second);
     } else {
-      safe_push(child);
+      result.merge_or_insert(child);
     }
   }
   if (used_expr.size() != rhs.size()) {
     for (auto &child : rhs.symbol_map() | std::views::values) {
       if (!used_expr.count(child)) {
-        safe_push(child);
+        result.merge_or_insert(child);
       }
     }
   }

@@ -53,6 +53,23 @@ public:
     insert_hash(std::move(expr));
   }
 
+  // Insert `entry`, combining with any colliding map entry first.
+  // After combination, `+` may algebraically simplify to an expression with a
+  // different key (cos(x)^2 + sin(x)^2 -> 1, x + (-x) -> 0, projector
+  // identities) which can collide with yet another entry in the map. Loop
+  // until insertion produces no further collisions.
+  inline void merge_or_insert(expression_holder<expr_t> entry) {
+    while (true) {
+      auto it = m_symbol_map.find(entry);
+      if (it == m_symbol_map.end())
+        break;
+      auto combined = it->second + entry;
+      m_symbol_map.erase(it);
+      entry = std::move(combined);
+    }
+    insert_hash(std::move(entry));
+  }
+
   inline void reserve([[maybe_unused]] std::size_t size) noexcept {
     // m_symbol_map.reserve(size);
   }
