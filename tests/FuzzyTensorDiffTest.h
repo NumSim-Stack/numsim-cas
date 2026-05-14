@@ -5,7 +5,6 @@
 // Derives from FuzzyDiffBase via CRTP.
 
 #include "FuzzyDiffBase.h"
-#include <numsim_cas/tensor/skew_classification.h>
 
 namespace numsim::cas {
 namespace fuzzy_detail {

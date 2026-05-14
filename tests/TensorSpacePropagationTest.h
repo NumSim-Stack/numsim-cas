@@ -194,6 +194,25 @@ TEST_F(TensorSpacePropagationTest, InvSkewPreservesSkewInEvenDim) {
   EXPECT_TRUE(is_skew(i)) << "inv(W4) should be skew — (W^{-1})^T = -W^{-1}";
 }
 
+TEST_F(TensorSpacePropagationTest, InvRejectsScaledSkewFactorInTensorMul) {
+  // contains_skew_factor must reject tensor_mul whose factor is a scaled skew.
+  // On this build tensor_scalar_mul propagates the Skew space annotation, so
+  // detection succeeds via the space fast-path; this test additionally locks in
+  // the contract for paths where the annotation might be lost (the recursive
+  // walk into tensor_mul children is the structural fallback).
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = inv(B * (_2 * W)); },
+      invalid_expression_error);
+}
+
+TEST_F(TensorSpacePropagationTest, InvRejectsNegatedSkewFactorInTensorMul) {
+  // Same contract for tensor_negative as the wrapper child.
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = inv(B * (-W)); }, invalid_expression_error);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Space propagation through addition
 // ═══════════════════════════════════════════════════════════════════════════════

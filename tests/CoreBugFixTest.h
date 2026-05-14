@@ -236,19 +236,21 @@ TEST(CoreBugFix, ScalarPowDiffBothConstWrtArg) {
 }
 
 // ---------------------------------------------------------------------------
-// merge_or_insert: transitively resolves collisions produced by algebraic
-// simplification during `+` (cos^2(x) + sin^2(x) -> 1, etc.). Constructs a
-// case where re-insertion would have hit the duplicate-child internal_error.
+// merge_or_insert: smoke test that compound add constructions succeed.
+// The deterministic transitive-collision case requires a specific algebraic
+// simplification path that this codebase does not currently expose as a fixed
+// rule (e.g. there is no sin^2+cos^2 -> 1 reduction); the real exercise of
+// merge_or_insert's loop happens in the fuzz suite, which previously skipped
+// the seeds that hit it. Keep this as a smoke check that construction does
+// not regress to the duplicate-child internal_error.
 // ---------------------------------------------------------------------------
 
-TEST(CoreBugFix, AddMergeHandlesSimplificationCollision) {
-  // (cos^2(x) + sin^2(x)) collapses to 1; adding another term that simplifies
-  // similarly used to throw internal_error in the merge path.
-  auto [x] = make_scalar_variable("x");
+TEST(CoreBugFix, AddCompoundConstructionSmoke) {
+  auto [x, y] = make_scalar_variable("x", "y");
   auto one = make_scalar_constant(1);
   EXPECT_NO_THROW({
-    auto lhs = pow(cos(x), 2) + pow(sin(x), 2);
-    auto rhs = one + one;
+    auto lhs = pow(cos(x), 2) + pow(sin(x), 2) + y;
+    auto rhs = one + one + y;
     auto sum = lhs + rhs;
     (void)sum;
   });

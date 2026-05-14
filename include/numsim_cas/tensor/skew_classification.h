@@ -29,7 +29,9 @@ namespace numsim::cas {
 // rewrite paths drop annotations entirely. Structural pattern matching is the
 // authoritative check; the space annotation is a fast path.
 [[nodiscard]] inline bool
-is_provably_skew(expression_holder<tensor_expression> const &e) noexcept {
+is_provably_skew(expression_holder<tensor_expression> const &e) {
+  if (!e.is_valid())
+    return false;
   if (auto const &sp = e.get().space()) {
     if (std::holds_alternative<Skew>(sp->perm))
       return true;
@@ -70,20 +72,25 @@ is_provably_skew(expression_holder<tensor_expression> const &e) noexcept {
 
 // Walks compound expressions to check whether any factor is provably skew.
 // A scalar multiple or negation preserves singularity; tensor_mul and
-// inner_product are singular if any factor is.
+// inner_product are singular if any factor is. The walk into tensor_mul /
+// inner_product recurses via contains_skew_factor so a scaled or negated skew
+// child (e.g. tensor_mul(2*skew(A), B)) is still caught.
 [[nodiscard]] inline bool
-contains_skew_factor(expression_holder<tensor_expression> const &e) noexcept {
+contains_skew_factor(expression_holder<tensor_expression> const &e) {
+  if (!e.is_valid())
+    return false;
   if (is_provably_skew(e))
     return true;
   if (is_same<tensor_mul>(e)) {
     for (auto const &child : e.template get<tensor_mul>().data()) {
-      if (is_provably_skew(child))
+      if (contains_skew_factor(child))
         return true;
     }
   }
   if (is_same<inner_product_wrapper>(e)) {
     auto const &ip = e.template get<inner_product_wrapper>();
-    if (is_provably_skew(ip.expr_lhs()) || is_provably_skew(ip.expr_rhs()))
+    if (contains_skew_factor(ip.expr_lhs()) ||
+        contains_skew_factor(ip.expr_rhs()))
       return true;
   }
   if (is_same<tensor_scalar_mul>(e)) {
