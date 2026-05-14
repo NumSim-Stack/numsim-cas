@@ -21,10 +21,6 @@ public:
     m_symbols_to_value[to_base_holder(symbol)] = val;
   }
 
-  [[nodiscard]] auto const &symbol_values() const noexcept {
-    return m_symbols_to_value;
-  }
-
 protected:
   void dispatch() {
     auto it = m_symbols_to_value.find(m_current_expr);

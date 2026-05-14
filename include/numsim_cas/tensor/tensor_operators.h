@@ -58,9 +58,11 @@ inline expression_holder<tensor_expression> tag_invoke(sub_fn, L &&lhs,
   if (lhs == rhs) {
     return make_expression<tensor_zero>(lhs.get().dim(), lhs.get().rank());
   }
-  // trans(A) - A → skew-symmetric (set Skew space on result)
-  // A - trans(A) → skew-symmetric
-  if (lhs.get().rank() == 2 && lhs.get().dim() % 2 != 0) {
+  // trans(A) - A and A - trans(A) are skew-symmetric in any dimension by
+  // definition: ((trans(A)-A))^T = A - trans(A) = -(trans(A)-A). Annotate
+  // unconditionally; inv()'s rejection of singular skew is dim-gated where
+  // it belongs.
+  if (lhs.get().rank() == 2) {
     bool lhs_is_trans_of_rhs =
         is_same<basis_change_imp>(lhs) &&
         lhs.template get<basis_change_imp>().indices() == sequence{2, 1} &&
@@ -74,6 +76,10 @@ inline expression_holder<tensor_expression> tag_invoke(sub_fn, L &&lhs,
       tensor_detail::simplifier::sub_base visitor(std::forward<L>(lhs),
                                                   std::forward<R>(rhs));
       auto result = _lhs.accept(visitor);
+      // set_space mutates the expression node after construction. Safe today
+      // because the n_ary_tree hash excludes the space annotation; if that
+      // ever changes, this must move before any operation that may finalize
+      // the hash.
       if (result.is_valid())
         result.data()->set_space({Skew{}, AnyTraceTag{}});
       return result;

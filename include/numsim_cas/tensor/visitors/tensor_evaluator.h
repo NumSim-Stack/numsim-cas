@@ -364,22 +364,7 @@ void tensor_evaluator<ValueType>::operator()(
   for (auto const &[key, val] : m_tensor_values) {
     t2s_eval.set(key, val);
   }
-  for (auto const &[key, val] : m_scalar_eval.symbol_values()) {
-    // Filter: any_cast<ValueType> would throw on a precision mismatch;
-    // skip entries whose stored type does not match.
-    if (val.type() != typeid(ValueType))
-      continue;
-    // Filter: keys are stored as expression_holder<expression> (the base);
-    // dynamic_pointer_cast keeps only those whose runtime type is actually
-    // a scalar_expression. A static_pointer_cast here would be UB for any
-    // non-scalar key that ever ended up in the map.
-    auto scalar_ptr = std::dynamic_pointer_cast<scalar_expression>(key.data());
-    if (!scalar_ptr)
-      continue;
-    t2s_eval.set_scalar(
-        expression_holder<scalar_expression>(std::move(scalar_ptr)),
-        std::any_cast<ValueType>(val));
-  }
+  m_scalar_eval.forward_values_to(t2s_eval);
   const auto scalar_val = t2s_eval.apply(visitable.expr_rhs());
   auto src = apply(visitable.expr_lhs());
   const auto dim = src->dim();

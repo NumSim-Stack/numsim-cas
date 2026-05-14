@@ -35,6 +35,26 @@ public:
     return ValueType{0};
   }
 
+  // Forward every stored (scalar_symbol -> ValueType) entry into `target` via
+  // target.set_scalar(...). Skips entries whose stored std::any type does not
+  // match ValueType (defensive against future precision-mixing). Skips entries
+  // whose key is not actually a scalar_expression at runtime — guards against
+  // a tensor key ever landing in this map.
+  template <typename TargetEvaluator>
+  void forward_values_to(TargetEvaluator &target) const {
+    for (auto const &[key, val] : base::m_symbols_to_value) {
+      if (val.type() != typeid(ValueType))
+        continue;
+      auto scalar_ptr =
+          std::dynamic_pointer_cast<scalar_expression>(key.data());
+      if (!scalar_ptr)
+        continue;
+      target.set_scalar(
+          expression_holder<scalar_expression>(std::move(scalar_ptr)),
+          std::any_cast<ValueType>(val));
+    }
+  }
+
   void operator()(scalar const &) override { base::dispatch(); }
 
   void operator()([[maybe_unused]] scalar_zero const &) override {

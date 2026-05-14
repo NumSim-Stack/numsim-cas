@@ -213,6 +213,17 @@ TEST_F(TensorSpacePropagationTest, InvRejectsNegatedSkewFactorInTensorMul) {
       { [[maybe_unused]] auto r = inv(B * (-W)); }, invalid_expression_error);
 }
 
+TEST_F(TensorSpacePropagationTest, TransMinusSelfIsAnnotatedSkewInEvenDim) {
+  // trans(A) - A is skew-symmetric by definition in any dimension. The
+  // construction-time annotation must not be gated on odd dim — even-dim
+  // callers still need it for skew/projector simplifications.
+  auto A4 = std::get<0>(
+      make_tensor_variable(std::tuple{"A4", std::size_t{4}, std::size_t{2}}));
+  auto expr = trans(A4) - A4;
+  EXPECT_TRUE(is_skew(expr))
+      << "trans(A) - A must carry the Skew annotation regardless of dim";
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Space propagation through addition
 // ═══════════════════════════════════════════════════════════════════════════════
