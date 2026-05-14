@@ -2,7 +2,6 @@
 #define N_ARY_TREE_H
 
 #include <algorithm>
-#include <iostream>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/hash_functions.h>
@@ -138,20 +137,8 @@ private:
   expr_ordered_map<expr_holder_t> m_symbol_map;
 
 private:
-  void dump_duplicate_diag(expression_holder<expr_t> const &expr) const {
-    std::cerr << "[DIAG] n_ary_tree duplicate insertion\n"
-              << "  new expr hash=" << expr.get().hash_value()
-              << " id=" << expr.get().id() << "\n"
-              << "  existing map (" << m_symbol_map.size() << " entries):\n";
-    for (auto const &[k, v] : m_symbol_map) {
-      std::cerr << "    hash=" << v.get().hash_value() << " id=" << v.get().id()
-                << " eq=" << (v == expr) << "\n";
-    }
-  }
-
   void insert_hash(expression_holder<expr_t> const &expr) {
     if (m_symbol_map.contains(expr)) {
-      dump_duplicate_diag(expr);
       throw internal_error(
           "n_ary_tree::insert_hash: duplicate child insertion");
     }
@@ -160,7 +147,6 @@ private:
 
   void insert_hash(expression_holder<expr_t> &&expr) {
     if (m_symbol_map.contains(expr)) {
-      dump_duplicate_diag(expr);
       throw internal_error(
           "n_ary_tree::insert_hash: duplicate child insertion");
     }
