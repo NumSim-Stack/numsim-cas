@@ -15,6 +15,22 @@
 #include <numsim_cas/tensor/tensor_zero.h>
 
 namespace numsim::cas::detail {
+
+// True iff `a` is trans(X), i.e. a basis_change_imp with index pattern {2,1}
+// over an inner expression matching `inner_target`. Used by the add and sub
+// operators to recognize trans(A) ± A (or its commutation) and annotate the
+// result as Skew at construction time.
+inline bool
+is_trans_of(expression_holder<tensor_expression> const &a,
+            expression_holder<tensor_expression> const &inner_target) {
+  if (!is_same<basis_change_imp>(a))
+    return false;
+  auto const &bc = a.template get<basis_change_imp>();
+  if (bc.indices() != sequence{2, 1})
+    return false;
+  return bc.expr() == inner_target;
+}
+
 // scalar binary ops
 template <class L, class R>
 requires std::same_as<std::remove_cvref_t<L>,
@@ -43,17 +59,12 @@ inline expression_holder<tensor_expression> tag_invoke(add_fn, L &&lhs,
   // structural pattern fast-paths (e.g. skew(skew_expr) -> skew_expr) fire
   // regardless of which spelling the user wrote.
   if (lhs.get().rank() == 2) {
-    auto matches_trans_plus_neg = [](auto const &a, auto const &b) {
-      if (!is_same<basis_change_imp>(a))
-        return false;
-      auto const &bc = a.template get<basis_change_imp>();
-      if (bc.indices() != sequence{2, 1})
-        return false;
+    auto is_trans_of_neg = [](auto const &a, auto const &b) {
       if (!is_same<tensor_negative>(b))
         return false;
-      return bc.expr() == b.template get<tensor_negative>().expr();
+      return is_trans_of(a, b.template get<tensor_negative>().expr());
     };
-    if (matches_trans_plus_neg(lhs, rhs) || matches_trans_plus_neg(rhs, lhs)) {
+    if (is_trans_of_neg(lhs, rhs) || is_trans_of_neg(rhs, lhs)) {
       auto &_lhs{lhs.template get<tensor_visitable_t>()};
       simplifier::tensor_detail::add_base visitor(std::forward<L>(lhs),
                                                   std::forward<R>(rhs));
@@ -91,15 +102,7 @@ inline expression_holder<tensor_expression> tag_invoke(sub_fn, L &&lhs,
   // unconditionally; inv()'s rejection of singular skew is dim-gated where
   // it belongs.
   if (lhs.get().rank() == 2) {
-    bool lhs_is_trans_of_rhs =
-        is_same<basis_change_imp>(lhs) &&
-        lhs.template get<basis_change_imp>().indices() == sequence{2, 1} &&
-        lhs.template get<basis_change_imp>().expr() == rhs;
-    bool rhs_is_trans_of_lhs =
-        is_same<basis_change_imp>(rhs) &&
-        rhs.template get<basis_change_imp>().indices() == sequence{2, 1} &&
-        rhs.template get<basis_change_imp>().expr() == lhs;
-    if (lhs_is_trans_of_rhs || rhs_is_trans_of_lhs) {
+    if (is_trans_of(lhs, rhs) || is_trans_of(rhs, lhs)) {
       auto &_lhs{lhs.template get<tensor_visitable_t>()};
       tensor_detail::simplifier::sub_base visitor(std::forward<L>(lhs),
                                                   std::forward<R>(rhs));

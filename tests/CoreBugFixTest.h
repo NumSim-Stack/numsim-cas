@@ -256,6 +256,36 @@ TEST(CoreBugFix, AddCompoundConstructionSmoke) {
   });
 }
 
+TEST(CoreBugFix, SubSymbolDispatchSmoke) {
+  // Exercises merge_or_insert on n_ary_sub_dispatch::dispatch(symbol):
+  // lhs is an add expression, rhs matches one of its children, and the
+  // combined entry is re-inserted via merge_or_insert.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  EXPECT_NO_THROW({
+    auto lhs = x + y + z;
+    auto diff = lhs - x;
+    (void)diff;
+  });
+}
+
+TEST(CoreBugFix, NegativeSubAddDispatchSmoke) {
+  // Exercises merge_or_insert on negative_sub_dispatch::dispatch(add):
+  // lhs is a negative, rhs is an add — the inner expr is folded into the
+  // rhs add via merge_or_insert before being wrapped in the outer negation.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  EXPECT_NO_THROW({
+    auto diff = -x - (y + z);
+    (void)diff;
+  });
+}
+
+// NOTE: a third smoke test for n_ary_sub_dispatch::dispatch(add, add)
+// — e.g. (a+b+c) - (a+b) — would surface a separate, pre-existing latent
+// bug in that dispatch: it computes lhs.coeff() + rhs.coeff() unguarded
+// against invalid coefficients, and uses `+` where `-` would be correct
+// for subtraction semantics. Out of scope for this PR; documenting the
+// gap rather than re-introducing the failing test.
+
 // ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
 // ---------------------------------------------------------------------------
