@@ -5,6 +5,7 @@
 // Derives from FuzzyDiffBase via CRTP.
 
 #include "FuzzyDiffBase.h"
+#include <numsim_cas/tensor/skew_classification.h>
 
 namespace numsim::cas {
 namespace fuzzy_detail {
@@ -23,85 +24,6 @@ struct TensorVarEntry {
   std::size_t rank;
   expression_holder<tensor_expression> expr;
 };
-
-// Check if an expression contains a skew-symmetric factor (directly or as
-// part of a tensor_mul product). Skew matrices are rank-deficient in odd
-// dimensions, making inv() of any product containing them singular.
-inline bool has_skew_space(expression_holder<tensor_expression> const &e) {
-  if (auto const &sp = e.get().space())
-    return std::holds_alternative<Skew>(sp->perm);
-  return false;
-}
-
-// Check if a rank-2 expression is provably skew-symmetric.
-// Detects: Skew space, skew() projector pattern, trans(A)+(-A) pattern.
-inline bool is_provably_skew(expression_holder<tensor_expression> const &e) {
-  if (has_skew_space(e))
-    return true;
-  // inner_product(P_skew, {3,4}, X, {1,2}) — the skew() function
-  if (is_same<inner_product_wrapper>(e)) {
-    auto const &ip = e.get<inner_product_wrapper>();
-    if (is_same<tensor_projector>(ip.expr_lhs())) {
-      auto const &proj = ip.expr_lhs().get<tensor_projector>();
-      if (std::holds_alternative<Skew>(proj.space().perm))
-        return true;
-    }
-  }
-  // tensor_add with two children: trans(X) and -X (i.e. trans(X)+(-X))
-  if (is_same<tensor_add>(e)) {
-    auto const &add = e.get<tensor_add>();
-    if (add.symbol_map().size() == 2) {
-      auto it = add.symbol_map().begin();
-      auto const &c0 = it->second;
-      ++it;
-      auto const &c1 = it->second;
-      auto check_trans_neg = [](auto const &a, auto const &b) {
-        if (!is_same<basis_change_imp>(a))
-          return false;
-        auto const &bc = a.template get<basis_change_imp>();
-        if (bc.indices() != sequence{2, 1})
-          return false;
-        if (is_same<tensor_negative>(b))
-          return bc.expr() == b.template get<tensor_negative>().expr();
-        return false;
-      };
-      if (check_trans_neg(c0, c1) || check_trans_neg(c1, c0))
-        return true;
-    }
-  }
-  return false;
-}
-
-// Check if expression contains a rank-deficient factor (skew in odd dim).
-inline bool
-contains_skew_factor(expression_holder<tensor_expression> const &e) {
-  if (is_provably_skew(e))
-    return true;
-  // tensor_mul (n_ary_vector): check each factor
-  if (is_same<tensor_mul>(e)) {
-    for (auto const &child : e.get<tensor_mul>().data()) {
-      if (is_provably_skew(child))
-        return true;
-    }
-  }
-  // inner_product_wrapper: check both sides
-  if (is_same<inner_product_wrapper>(e)) {
-    auto const &ip = e.get<inner_product_wrapper>();
-    if (is_provably_skew(ip.expr_lhs()) || is_provably_skew(ip.expr_rhs()))
-      return true;
-  }
-  // scalar_mul: s * A preserves singularity
-  if (is_same<tensor_scalar_mul>(e)) {
-    if (contains_skew_factor(e.get<tensor_scalar_mul>().expr_rhs()))
-      return true;
-  }
-  // negation
-  if (is_same<tensor_negative>(e)) {
-    if (contains_skew_factor(e.get<tensor_negative>().expr()))
-      return true;
-  }
-  return false;
-}
 
 // ===========================================================================
 // Tensor verification (free function template)
@@ -464,33 +386,15 @@ private:
                    auto sub = m.generate(depth - 1);
                    if (sub.rank != 2)
                      return std::nullopt;
-                   // Reject if the expression involves a skew-symmetric
-                   // factor in odd dimensions — skew matrices are rank-
-                   // deficient, making any product containing them singular.
-                   {
-                     bool odd = sub.expr.get().dim() % 2 != 0;
-                     bool skew = contains_skew_factor(sub.expr);
-                     bool has_sp = sub.expr.get().space().has_value();
-                     std::cerr << "[INV-CHECK] odd=" << odd << " skew=" << skew
-                               << " has_space=" << has_sp
-                               << " id=" << sub.expr.get().id();
-                     if (is_same<tensor_mul>(sub.expr)) {
-                       auto const &mul = sub.expr.get<tensor_mul>();
-                       std::cerr << " mul_children=" << mul.data().size();
-                       for (std::size_t ci = 0; ci < mul.data().size(); ++ci) {
-                         auto const &ch = mul.data()[ci];
-                         std::cerr << " c" << ci << "_id=" << ch.get().id()
-                                   << "_sp=" << ch.get().space().has_value();
-                       }
-                     }
-                     std::cerr << "\n";
-                     if (odd && skew) {
-                       std::cerr << "[REJECT-INV] rejected\n";
-                       return std::nullopt;
-                     }
+                   // inv() throws invalid_expression_error for skew-symmetric
+                   // operands in odd dimensions; let the library decide and
+                   // skip the seed when it rejects.
+                   try {
+                     auto expr = inv(sub.expr);
+                     return TensorExprInfo{expr, 2, sub.used_vars};
+                   } catch (invalid_expression_error const &) {
+                     return std::nullopt;
                    }
-                   auto expr = inv(sub.expr);
-                   return TensorExprInfo{expr, 2, sub.used_vars};
                  });
 
     this->add_op("simple_outer_product", 7,

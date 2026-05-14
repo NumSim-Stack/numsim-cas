@@ -190,6 +190,70 @@ TEST(CoreBugFix, NaryTreeNonDuplicateInsertWorks) {
   EXPECT_EQ(add_node->size(), 2u);
 }
 
+// ---------------------------------------------------------------------------
+// is_same on an invalid expression returns false (used to assert)
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, IsSameOnInvalidExpressionReturnsFalse) {
+  expression_holder<scalar_expression> null_expr;
+  EXPECT_FALSE(is_same<scalar_zero>(null_expr));
+}
+
+// ---------------------------------------------------------------------------
+// scalar_pow differentiation: constant base, non-constant exponent
+//   d/dx(2^x) = 2^x * log(2)
+// Previously took the wrong branch (treated dg as the only contributor) and
+// dropped the log(g)*dh term.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, ScalarPowDiffConstBaseVariableExponent) {
+  auto [x] = make_scalar_variable("x");
+  auto two = make_scalar_constant(2);
+  auto expr = pow(two, x);
+  auto d = diff(expr, x);
+  // Evaluate at x=0: d/dx(2^x)|_{x=0} = 2^0 * log(2) = log(2) ~= 0.6931...
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.0);
+  EXPECT_NEAR(ev.apply(d), std::log(2.0), 1e-12);
+}
+
+TEST(CoreBugFix, ScalarPowDiffVariableBaseConstExponent) {
+  // d/dx(x^3) = 3 x^2 — confirms the long-standing branch still works.
+  auto [x] = make_scalar_variable("x");
+  auto expr = pow(x, 3);
+  auto d = diff(expr, x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  EXPECT_NEAR(ev.apply(d), 12.0, 1e-12);
+}
+
+TEST(CoreBugFix, ScalarPowDiffBothConstWrtArg) {
+  // pow(y, z) differentiated by an unrelated x must yield 0, not crash.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto expr = pow(y, z);
+  auto d = diff(expr, x);
+  EXPECT_TRUE(is_same<scalar_zero>(d));
+}
+
+// ---------------------------------------------------------------------------
+// merge_or_insert: transitively resolves collisions produced by algebraic
+// simplification during `+` (cos^2(x) + sin^2(x) -> 1, etc.). Constructs a
+// case where re-insertion would have hit the duplicate-child internal_error.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, AddMergeHandlesSimplificationCollision) {
+  // (cos^2(x) + sin^2(x)) collapses to 1; adding another term that simplifies
+  // similarly used to throw internal_error in the merge path.
+  auto [x] = make_scalar_variable("x");
+  auto one = make_scalar_constant(1);
+  EXPECT_NO_THROW({
+    auto lhs = pow(cos(x), 2) + pow(sin(x), 2);
+    auto rhs = one + one;
+    auto sum = lhs + rhs;
+    (void)sum;
+  });
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

@@ -180,10 +180,18 @@ TEST_F(TensorSpacePropagationTest, SymOfInvDev) {
   EXPECT_PRINT(sym(inv(D)), "inv(D)");
 }
 
-TEST_F(TensorSpacePropagationTest, InvSkewPreservesSkew) {
-  // inv(W) preserves Skew: (W^{-1})^T = (W^T)^{-1} = (-W)^{-1} = -W^{-1}
-  auto i = inv(W);
-  EXPECT_TRUE(is_skew(i)) << "inv(W) should be skew — (W^{-1})^T = -W^{-1}";
+TEST_F(TensorSpacePropagationTest, InvSkewRejectedInOddDim) {
+  // dim=3 W is singular (det=0 by det(-A^T) = (-1)^n det(A)); inv must reject.
+  EXPECT_THROW({ [[maybe_unused]] auto r = inv(W); }, invalid_expression_error);
+}
+
+TEST_F(TensorSpacePropagationTest, InvSkewPreservesSkewInEvenDim) {
+  // inv(W) preserves Skew in even dimension: (W^{-1})^T = (W^T)^{-1} = -W^{-1}.
+  auto W4 = std::get<0>(
+      make_tensor_variable(std::tuple{"W4", std::size_t{4}, std::size_t{2}}));
+  assume_skew(W4);
+  auto i = inv(W4);
+  EXPECT_TRUE(is_skew(i)) << "inv(W4) should be skew — (W^{-1})^T = -W^{-1}";
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
