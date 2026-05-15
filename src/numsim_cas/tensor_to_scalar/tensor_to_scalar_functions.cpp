@@ -113,6 +113,29 @@ det(expression_holder<tensor_expression> const &expr) {
     return result;
   }
 
+  // det(inv(A)) -> 1 / det(A).
+  if (is_same<tensor_inv>(expr)) {
+    auto const &inv_node = expr.get<tensor_inv>();
+    return make_expression<tensor_to_scalar_one>() / det(inv_node.expr());
+  }
+
+  // det(trans(A)) -> det(A). basis_change_imp with indices {2,1} is
+  // transpose for rank-2.
+  if (is_same<basis_change_imp>(expr)) {
+    auto const &bc = expr.get<basis_change_imp>();
+    if (bc.indices() == sequence{2, 1})
+      return det(bc.expr());
+  }
+
+  // det(otimes(u, v)) -> 0 when the outer product yields a rank-1 matrix
+  // (rank-1 in the linear-algebra sense, i.e. a rank-2 tensor formed by
+  // u_i * v_j). The outer product of two rank-1 vectors always satisfies
+  // this; since we're inside det()'s rank-2 assertion, any outer product
+  // here has rank-1 operands.
+  if (is_same<outer_product_wrapper>(expr)) {
+    return make_expression<tensor_to_scalar_zero>();
+  }
+
   return make_expression<tensor_det>(expr);
 }
 
