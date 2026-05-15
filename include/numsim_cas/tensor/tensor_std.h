@@ -11,6 +11,7 @@
 #include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
 #include <sstream>
@@ -70,11 +71,12 @@ template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
   // pow(inv(A), n) → inv(pow(A, n))
   // Push inv outermost so other simplifications keying on inv() (e.g.
   // contains_skew_factor in inv() rejection, or future inv-of-X rules)
-  // see the canonical shape. The inner pow re-enters this function and
-  // any rules applicable to A and n still fire.
+  // see the canonical shape. Routes through inv() rather than
+  // make_expression<tensor_inv> so the construction-time checks (inv(I)
+  // collapse, skew-odd-dim rejection) still run on the new operand.
   if (is_same<tensor_inv>(expr_lhs)) {
     auto const &inv_node = expr_lhs.template get<tensor_inv>();
-    return make_expression<tensor_inv>(pow(inv_node.expr(), expr_rhs));
+    return inv(pow(inv_node.expr(), expr_rhs));
   }
 
   return numsim::cas::make_expression<numsim::cas::tensor_pow>(
