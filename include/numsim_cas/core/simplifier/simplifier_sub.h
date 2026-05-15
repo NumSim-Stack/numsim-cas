@@ -207,22 +207,51 @@ public:
     return add_expr;
   }
 
-  // merge two add expressions
-  // NOTE: this dispatch has a separate pre-existing semantic issue —
-  // `lhs.coeff() + rhs.coeff()` is unguarded against invalid coeffs and uses
-  // `+` where `-` would be correct for subtraction. Documented in
-  // CoreBugFixTest near SubSymbolDispatchSmoke. Conversion below preserves
-  // existing behavior and closes the transitive-collision bug class.
+  // (c_l + a + b + c) - (c_r + a + d) = (c_l - c_r) + b + c - d
+  //
+  // Coefficient combines via `-` and is guarded against invalid sides
+  // (functions.h::merge_add carries the same guard pattern for the add side).
+  // Children matching by key combine via `-`; rhs-only children negate.
+  // Zero-valued children are filtered (otherwise (x+y+z)-(x+y) would leave
+  // stray zeros in the result).
+  //
+  // Return-type contract — this dispatch can return any of:
+  //   1. Traits::add_type — the typical case with at least one child plus
+  //      possibly a coefficient
+  //   2. Traits::zero_type — coefficient and all children cancelled
+  //   3. The coefficient expression — children cancelled, coefficient survived
+  //   4. A child expression — exactly one child survived, no coefficient
+  // Cases 2–4 are the "trivial result" collapse at the bottom. Callers via
+  // the visitor pattern propagate the holder, so the type-broadening is
+  // transparent to them.
+  //
+  // Zero-detection uses `is_same<Traits::zero_type>`, which checks the type-id
+  // of the canonical zero singleton (scalar_zero / tensor_zero /
+  // tensor_to_scalar_zero). Today the per-domain `-` operator and constant
+  // simplifiers normalise cancellations to the singleton, so this filter is
+  // reliable. A mathematically-zero but non-singleton result (e.g. a stray
+  // `make_constant(0)`) would pass through unfiltered if normalisation rules
+  // ever drift.
   expr_holder_t dispatch(typename Traits::add_type const &rhs) {
     auto expr{make_expression<typename Traits::add_type>()};
     auto &add{expr.template get<typename Traits::add_type>()};
-    add.set_coeff(lhs.coeff() + rhs.coeff());
+    if (lhs.coeff().is_valid() && rhs.coeff().is_valid()) {
+      auto coeff = lhs.coeff() - rhs.coeff();
+      if (!is_same<typename Traits::zero_type>(coeff))
+        add.set_coeff(std::move(coeff));
+    } else if (lhs.coeff().is_valid()) {
+      add.set_coeff(lhs.coeff());
+    } else if (rhs.coeff().is_valid()) {
+      add.set_coeff(-rhs.coeff());
+    }
     std::set<expr_holder_t> used_expr;
     for (auto &child : lhs.symbol_map() | std::views::values) {
       auto pos{rhs.symbol_map().find(child)};
       if (pos != rhs.symbol_map().end()) {
         used_expr.insert(pos->second);
-        add.merge_or_insert(child + pos->second);
+        auto combined = child - pos->second;
+        if (!is_same<typename Traits::zero_type>(combined))
+          add.merge_or_insert(std::move(combined));
       } else {
         add.merge_or_insert(child);
       }
@@ -230,9 +259,17 @@ public:
     if (used_expr.size() != rhs.size()) {
       for (auto &child : rhs.symbol_map() | std::views::values) {
         if (!used_expr.count(child)) {
-          add.merge_or_insert(child);
+          add.merge_or_insert(-child);
         }
       }
+    }
+    // Collapse: no children -> return coeff (or zero); one child + no coeff
+    // -> return the child directly.
+    if (add.symbol_map().empty()) {
+      return add.coeff().is_valid() ? add.coeff() : Traits::zero();
+    }
+    if (add.symbol_map().size() == 1 && !add.coeff().is_valid()) {
+      return add.symbol_map().begin()->second;
     }
     return expr;
   }

@@ -279,12 +279,40 @@ TEST(CoreBugFix, NegativeSubAddDispatchSmoke) {
   });
 }
 
-// NOTE: a third smoke test for n_ary_sub_dispatch::dispatch(add, add)
-// — e.g. (a+b+c) - (a+b) — would surface a separate, pre-existing latent
-// bug in that dispatch: it computes lhs.coeff() + rhs.coeff() unguarded
-// against invalid coefficients, and uses `+` where `-` would be correct
-// for subtraction semantics. Out of scope for this PR; documenting the
-// gap rather than re-introducing the failing test.
+TEST(CoreBugFix, NArySubAddDispatchScalar) {
+  // Regression for issue #91. Previously n_ary_sub_dispatch::dispatch(add, add)
+  // combined coefficients with `+` (instead of `-`) and was unguarded against
+  // invalid coefficients — the latter making (x+y+z) - (x+y) throw on the
+  // unguarded `+` of two invalid holders.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto [a, b] = make_scalar_variable("a", "b");
+  auto two = make_scalar_constant(2);
+  auto one = make_scalar_constant(1);
+
+  // (x+y+z) - (x+y) -> z
+  EXPECT_EQ((x + y + z) - (x + y), z);
+  // (2+x) - (1+x) -> 1
+  EXPECT_EQ((two + x) - (one + x), one);
+  // (a+b) - (a+b) -> 0
+  EXPECT_TRUE(is_same<scalar_zero>((a + b) - (a + b)));
+}
+
+TEST(CoreBugFix, NArySubAddDispatchT2s) {
+  // The #91 fix lives in a generic dispatcher template instantiated by both
+  // scalar_traits and tensor_to_scalar_traits. This test locks in the t2s
+  // path; tensor doesn't instantiate it because tensor_traits::mul_type is
+  // void.
+  auto [X, Y, Z] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"Y", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"Z", std::size_t{3}, std::size_t{2}});
+
+  // (trace(X) + trace(Y) + trace(Z)) - (trace(X) + trace(Y)) -> trace(Z)
+  EXPECT_EQ((trace(X) + trace(Y) + trace(Z)) - (trace(X) + trace(Y)), trace(Z));
+  // (trace(X) + trace(Y)) - (trace(X) + trace(Y)) -> 0
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>((trace(X) + trace(Y)) -
+                                             (trace(X) + trace(Y))));
+}
 
 // ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
