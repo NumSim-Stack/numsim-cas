@@ -208,12 +208,30 @@ public:
   }
 
   // (c_l + a + b + c) - (c_r + a + d) = (c_l - c_r) + b + c - d
+  //
   // Coefficient combines via `-` and is guarded against invalid sides
   // (functions.h::merge_add carries the same guard pattern for the add side).
   // Children matching by key combine via `-`; rhs-only children negate.
   // Zero-valued children are filtered (otherwise (x+y+z)-(x+y) would leave
-  // stray zeros in the result); if the resulting add has no children, the
-  // coefficient (or zero) is returned directly.
+  // stray zeros in the result).
+  //
+  // Return-type contract — this dispatch can return any of:
+  //   1. Traits::add_type — the typical case with at least one child plus
+  //      possibly a coefficient
+  //   2. Traits::zero_type — coefficient and all children cancelled
+  //   3. The coefficient expression — children cancelled, coefficient survived
+  //   4. A child expression — exactly one child survived, no coefficient
+  // Cases 2–4 are the "trivial result" collapse at the bottom. Callers via
+  // the visitor pattern propagate the holder, so the type-broadening is
+  // transparent to them.
+  //
+  // Zero-detection uses `is_same<Traits::zero_type>`, which checks the type-id
+  // of the canonical zero singleton (scalar_zero / tensor_zero /
+  // tensor_to_scalar_zero). Today the per-domain `-` operator and constant
+  // simplifiers normalise cancellations to the singleton, so this filter is
+  // reliable. A mathematically-zero but non-singleton result (e.g. a stray
+  // `make_constant(0)`) would pass through unfiltered if normalisation rules
+  // ever drift.
   expr_holder_t dispatch(typename Traits::add_type const &rhs) {
     auto expr{make_expression<typename Traits::add_type>()};
     auto &add{expr.template get<typename Traits::add_type>()};

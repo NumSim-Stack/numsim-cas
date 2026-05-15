@@ -5,9 +5,14 @@
 > goal is to surface drift, missing rules, and architectural asymmetries so
 > they can be tracked rather than rediscovered.
 >
-> **Scope**: construction-time and visitor-driven simplification in
-> `include/numsim_cas/{core,scalar,tensor,tensor_to_scalar}/simplifier/`. Does
-> not cover differentiation, evaluation, printing, or substitution visitors.
+> **Scope**: visitor-driven simplification in
+> `include/numsim_cas/{core,scalar,tensor,tensor_to_scalar}/simplifier/` only.
+> Construction-time simplifications (e.g. `inv(inv(A)) → A` in `tensor_functions.h`,
+> `sin(asin(x)) → x` in `scalar_std.h`, `trace(0) → 0` in
+> `tensor_to_scalar_functions.cpp`, the `is_trans_of` annotations in
+> `tensor_operators.h`) are not in this matrix — they deserve a parallel audit
+> as a follow-up. Differentiation, evaluation, printing, and substitution
+> visitors are also out of scope.
 
 ## Layering
 
@@ -151,7 +156,8 @@ revisit if any grow.
 | Coefficient handling for `constant ± add` | `simplifier_add.h:138` | `simplifier_sub.h:139` | Extract coeff via `get_coefficient<Traits>(rhs, 0)`, combine, rebuild add |
 | `1 ± add` rebuild | `simplifier_add.h:210` | `simplifier_sub.h:152` | Same coeff-extract / rebuild pattern as above |
 | `n_ary_mul ± mul` hash-equality merge | `simplifier_add.h:378` | `simplifier_sub.h:306` | Hash check; `get_coefficient<Traits>(lhs, 1)` + rhs coefficient; combine |
-| `symbol_map` find / combine / `merge_or_insert` | `simplifier_add.h:291` | `simplifier_sub.h:243` | The `x+y+z ± x` shape; differs only by `+` / `-` in the combine step |
+| `symbol_map` find / combine / `merge_or_insert` (`x+y+z ± x`) | `simplifier_add.h:291` | `simplifier_sub.h:243` | Same shape, differs only by `+` / `-` in the combine step |
+| Merge two adds (`(c_l + a + b) ± (c_r + a + d)`) | `simplifier_add.h:306` | `simplifier_sub.h:217` | **Legitimately divergent post-PR #98.** Sub has zero-filtering on combined children, validity-guarded coeff, and trivial-result collapse — none of which the add side needs because `+` rarely cancels children to zero. Do not extract a shared helper. |
 
 ### Known semantic defect (in progress on this branch)
 
@@ -173,3 +179,4 @@ revisit if any grow.
 - Issue [#75](https://github.com/NumSim-Stack/numsim-cas/issues/75) — specific scalar-tensor mul case.
 - Issue [#96](https://github.com/NumSim-Stack/numsim-cas/issues/96) — missing tensor pow simplifier (filed from this audit).
 - Issue [#97](https://github.com/NumSim-Stack/numsim-cas/issues/97) — missing `n_ary_mul_mul_dispatch` (filed from this audit).
+- Issue [#99](https://github.com/NumSim-Stack/numsim-cas/issues/99) — centralise the trivial-result collapse pattern (filed from PR #98 review).
