@@ -27,7 +27,7 @@ namespace numsim::cas::detail {
 // to. This helper sits in the simplifier layer where Traits is already in
 // scope at the call site.
 template <typename Traits>
-[[nodiscard]] inline expression_holder<typename Traits::expression_type>
+[[nodiscard]] expression_holder<typename Traits::expression_type>
 finalize_add(expression_holder<typename Traits::expression_type> expr) {
   auto &add = expr.template get<typename Traits::add_type>();
   if (add.symbol_map().empty()) {

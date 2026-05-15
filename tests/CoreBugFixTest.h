@@ -350,12 +350,12 @@ TEST(CoreBugFix, NArySubSymbolDispatchCancelsCleanly) {
   auto [x, y, z] = make_scalar_variable("x", "y", "z");
   auto two = make_scalar_constant(2);
 
-  // (2+x) - x -> 2
+  // (2+x) - x -> 2 (empty children + valid coeff: finalize_add returns coeff)
   EXPECT_EQ((two + x) - x, two);
-  // (x+y+z) - x -> y+z (or z+y; the holder operator== treats them as equal)
+  // (x+y+z) - x -> y+z (two children survive; finalize_add returns the add)
   EXPECT_EQ((x + y + z) - x, y + z);
-  // (x) - x -> 0 (via finalize_add's empty-children collapse)
-  EXPECT_TRUE(is_same<scalar_zero>((x + x) - x - x));
+  // (x+y) - x -> y (one child + no coeff: finalize_add returns the child)
+  EXPECT_EQ((x + y) - x, y);
 }
 
 TEST(CoreBugFix, FinalizeAddSingleChildWithCoeffReturnsUnchanged) {
