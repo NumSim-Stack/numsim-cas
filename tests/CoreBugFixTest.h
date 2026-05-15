@@ -327,6 +327,8 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 
 namespace {
 template <typename Holder> bool is_skew_annotated(Holder const &e) {
+  if (!e.is_valid())
+    return false;
   if (auto const &sp = e.get().space())
     return std::holds_alternative<Skew>(sp->perm);
   return false;
@@ -364,16 +366,24 @@ TEST(CoreBugFix, SkewSpacePreservedAsTensorMulChild) {
   ASSERT_TRUE(is_same<tensor_mul>(prod));
   auto const &mul = prod.get<tensor_mul>();
   ASSERT_EQ(mul.data().size(), 2u);
-  // Find the skew child (the one carrying the annotation)
-  bool found_skew_child = false;
+  // Verify the skew child is specifically the operand we passed as skew —
+  // not just "some child happens to be annotated." Find the child equal
+  // to sA and assert ITS annotation is preserved; the other child (B)
+  // must not be spuriously annotated as Skew.
+  bool found_sA_with_skew = false;
+  bool other_child_spuriously_skew = false;
   for (auto const &ch : mul.data()) {
-    if (is_skew_annotated(ch)) {
-      found_skew_child = true;
-      break;
+    if (ch == sA) {
+      EXPECT_TRUE(is_skew_annotated(ch))
+          << "skew(A) child lost its Skew annotation on this build";
+      found_sA_with_skew = is_skew_annotated(ch);
+    } else if (is_skew_annotated(ch)) {
+      other_child_spuriously_skew = true;
     }
   }
-  EXPECT_TRUE(found_skew_child)
-      << "skew(A) child of tensor_mul lost its Skew annotation on this build";
+  EXPECT_TRUE(found_sA_with_skew) << "skew(A) child not found in tensor_mul";
+  EXPECT_FALSE(other_child_spuriously_skew)
+      << "non-skew child spuriously annotated as Skew";
 }
 
 // ---------------------------------------------------------------------------
