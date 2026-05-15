@@ -444,12 +444,14 @@ TEST(CoreBugFix, MergeOrInsertResetsCounterBetweenCalls) {
 // NOTE: a deterministic multi-iteration (>1) test would require the
 // codebase to expose an algebraic simplification that transitions the
 // combined entry's hash key to one matching another existing entry.
-// Today's simplifier rules don't produce such a chain in any path
-// reachable via construction-time operators (verified by audit during
-// PR #100). The loop's multi-iteration safety is forward-protection
-// against future simplifier additions; the fuzz suite remains the only
-// witness if a chain is ever produced. The instrumentation counter
-// above lets the day-it-happens regression land cleanly.
+// No such chain is reachable via construction-time operators as far as
+// the simplifier dispatchers were checked during PR #100 — but the
+// audit was not exhaustive across every per-domain wrapper, so the
+// "no path exists" claim is best read as "no obvious path found." The
+// loop's multi-iteration safety is forward-protection against future
+// simplifier additions; the fuzz suite remains the witness if a chain
+// is produced. The instrumentation counter above lets the
+// day-it-happens regression land cleanly.
 
 // ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys

@@ -85,7 +85,9 @@ public:
   }
 
   // Iteration count of the most recent merge_or_insert call. Public for
-  // test instrumentation; reset on each call.
+  // test instrumentation; reset on each call. Per-template-instantiation
+  // (each n_ary_tree<Base> has its own counter) and not thread-safe — fine
+  // for the single-threaded CAS construction model this library targets.
   static inline std::size_t s_last_merge_iterations{0};
 
   inline void reserve([[maybe_unused]] std::size_t size) noexcept {
