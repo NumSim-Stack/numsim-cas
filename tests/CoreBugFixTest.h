@@ -404,6 +404,36 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// Tensor pow simplifications (issue #96) — extends the construction-time
+// rules in tensor_std.h::pow with pow(I, n) → I and pow(inv(A), n) →
+// inv(pow(A, n)). The existing rules pow(0, n) → 0, pow(A, 0) → I,
+// pow(A, 1) → A, pow(pow(A,m), n) → pow(A, m*n) are already covered.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, TensorPowIdentityIsIdempotent) {
+  // pow(I, n) → I (kronecker_delta as I)
+  auto I = make_expression<kronecker_delta>(std::size_t{3});
+  EXPECT_EQ(pow(I, 5), I);
+  EXPECT_EQ(pow(I, 0), I); // also covered by existing pow(A, 0) → I rule
+  // For pow(A, 1) the existing rule returns A directly; identity round-trips
+  EXPECT_EQ(pow(I, 1), I);
+}
+
+TEST(CoreBugFix, TensorPowOfInvLiftsToInvOfPow) {
+  // pow(inv(A), n) → inv(pow(A, n))
+  // Use an even-dim symmetric A so inv() doesn't reject and any structural
+  // checks downstream are well-defined.
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{4}, std::size_t{2}});
+  EXPECT_EQ(pow(inv(A), 2), inv(pow(A, 2)));
+  EXPECT_EQ(pow(inv(A), 3), inv(pow(A, 3)));
+}
+
+TEST(CoreBugFix, TensorPowPowChains) {
+  // pow(pow(A, 2), 3) → pow(A, 6) — already existed; lock in.
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  EXPECT_EQ(pow(pow(A, 2), 3), pow(A, 6));
 // mul × mul merges like factors (verifies issue #97's claim was wrong —
 // the rules ARE implemented, in per-domain wrappers rather than a generic
 // dispatcher; these regressions lock in the contract).
