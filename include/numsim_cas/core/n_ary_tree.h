@@ -85,9 +85,21 @@ public:
   }
 
   // Iteration count of the most recent merge_or_insert call. Public for
-  // test instrumentation; reset on each call. Per-template-instantiation
-  // (each n_ary_tree<Base> has its own counter) and not thread-safe — fine
-  // for the single-threaded CAS construction model this library targets.
+  // test instrumentation; reset on each call.
+  //
+  // Limitations of the counter (not of merge_or_insert itself):
+  //   - Per-template-instantiation: each n_ary_tree<Base> has its own
+  //     counter, so reading it requires naming the concrete instantiation
+  //     (e.g. scalar_add::s_last_merge_iterations).
+  //   - Not thread-safe: two threads merging concurrently on the same
+  //     n_ary_tree<Base> race on the counter. The merge logic itself is
+  //     reentrant (operates on instance state), but the static counter
+  //     would report incorrect values under concurrent use.
+  //   - Sensitive to test execution order: if the test harness runs
+  //     tests in parallel (gtest --gtest_parallel etc.), one test's
+  //     counter read may include another test's merges.
+  // Fine for the single-threaded CAS construction model this library
+  // targets and the sequential gtest default.
   static inline std::size_t s_last_merge_iterations{0};
 
   inline void reserve([[maybe_unused]] std::size_t size) noexcept {
