@@ -321,6 +321,11 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 // ---------------------------------------------------------------------------
 
 TEST(CoreBugFix, MulMulMergesLikeFactorsScalar) {
+  // EXPECT_EQ compares via expression_holder::operator==, which is
+  // hash-based — child ordering inside the resulting mul is not
+  // observable through this assertion. The "alphabetical-looking"
+  // expected forms below match the canonical hash order on this
+  // platform but the test passes regardless of order.
   auto [x, y, z, a] = make_scalar_variable("x", "y", "z", "a");
   auto two = make_scalar_constant(2);
   auto three = make_scalar_constant(3);
@@ -329,7 +334,7 @@ TEST(CoreBugFix, MulMulMergesLikeFactorsScalar) {
   EXPECT_EQ((two * x * y) * (three * x * z), 6 * pow(x, 2) * y * z);
   // (x*y) * (x*z) -> pow(x,2)*y*z
   EXPECT_EQ((x * y) * (x * z), pow(x, 2) * y * z);
-  // (x*y*z) * (x*a) -> a*pow(x,2)*y*z (alphabetical ordering)
+  // (x*y*z) * (x*a) -> a*pow(x,2)*y*z
   EXPECT_EQ((x * y * z) * (x * a), a * pow(x, 2) * y * z);
 }
 
