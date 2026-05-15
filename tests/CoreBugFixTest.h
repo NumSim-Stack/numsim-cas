@@ -404,6 +404,54 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// merge_or_insert loop instrumentation (issue #92).
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, MergeOrInsertNoCollisionSingleInsert) {
+  // No collision: counter stays at 0 (one insert, no iteration).
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto add_node = std::make_shared<scalar_add>();
+  add_node->push_back(x);
+  add_node->merge_or_insert(y);
+  EXPECT_EQ(scalar_add::s_last_merge_iterations, 0u);
+  EXPECT_EQ(add_node->size(), 2u);
+}
+
+TEST(CoreBugFix, MergeOrInsertCollisionOneIteration) {
+  // Collision case: pushing x when x is already there triggers one
+  // iteration of the merge loop. The combined entry has the same key
+  // (n_ary_tree hash excludes the coefficient) so the loop terminates
+  // after one round.
+  auto [x] = make_scalar_variable("x");
+  auto add_node = std::make_shared<scalar_add>();
+  add_node->push_back(x);
+  add_node->merge_or_insert(x);
+  EXPECT_EQ(scalar_add::s_last_merge_iterations, 1u);
+  EXPECT_EQ(add_node->size(), 1u); // x + x = 2*x stored under key x
+}
+
+TEST(CoreBugFix, MergeOrInsertResetsCounterBetweenCalls) {
+  // The counter is reset at the start of each call, not accumulated.
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto add_node = std::make_shared<scalar_add>();
+  add_node->push_back(x);
+  add_node->merge_or_insert(x); // 1 iteration (collision)
+  EXPECT_EQ(scalar_add::s_last_merge_iterations, 1u);
+  add_node->merge_or_insert(y); // 0 iterations (no collision)
+  EXPECT_EQ(scalar_add::s_last_merge_iterations, 0u);
+}
+
+// NOTE: a deterministic multi-iteration (>1) test would require the
+// codebase to expose an algebraic simplification that transitions the
+// combined entry's hash key to one matching another existing entry.
+// Today's simplifier rules don't produce such a chain in any path
+// reachable via construction-time operators (verified by audit during
+// PR #100). The loop's multi-iteration safety is forward-protection
+// against future simplifier additions; the fuzz suite remains the only
+// witness if a chain is ever produced. The instrumentation counter
+// above lets the day-it-happens regression land cleanly.
+
+// ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
 // ---------------------------------------------------------------------------
 

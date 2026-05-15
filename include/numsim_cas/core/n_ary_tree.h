@@ -64,17 +64,29 @@ public:
   // n_ary_add_dispatch) build a fresh result tree and discard it on throw,
   // so the partial state is never observed. Do not call this from a context
   // that catches the exception and continues using the tree.
+  //
+  // Instrumented: `s_last_merge_iterations` records the loop count of the
+  // most recent call so tests can verify the loop behaved as expected.
+  // Always on (rather than macro-gated) to avoid ODR risk across the
+  // library and test translation units. Cost is negligible (two memory
+  // writes per call).
   inline void merge_or_insert(expression_holder<expr_t> entry) {
+    s_last_merge_iterations = 0;
     while (true) {
       auto it = m_symbol_map.find(entry);
       if (it == m_symbol_map.end())
         break;
+      ++s_last_merge_iterations;
       auto combined = it->second + entry;
       m_symbol_map.erase(it);
       entry = std::move(combined);
     }
     insert_hash(std::move(entry));
   }
+
+  // Iteration count of the most recent merge_or_insert call. Public for
+  // test instrumentation; reset on each call.
+  static inline std::size_t s_last_merge_iterations{0};
 
   inline void reserve([[maybe_unused]] std::size_t size) noexcept {
     // m_symbol_map.reserve(size);
