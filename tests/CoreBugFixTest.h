@@ -404,6 +404,62 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// constant_sub_dispatch(add) bug fix (issue #102) — same pattern as #91.
+// constant - (coeff + x) was computing m_lhs - rhs.coeff() unguarded against
+// invalid rhs.coeff() (the common case when rhs has no constant term);
+// `2 - (x + y)` threw on the unguarded operator-. Children were also pushed
+// via push_back (collides with existing entries) and the result wasn't
+// collapsed when trivial.
+// ---------------------------------------------------------------------------
+
+// Helper: evaluate scalar expression at a fixed point. The result of
+// constant_sub_dispatch's rewrite produces `scalar_add{coeff, neg-children}`
+// which can equivalent algebraically to `-(1+x+y)` (a scalar_negative
+// wrapping the add) but differs structurally — comparison by numerical
+// evaluation avoids the canonical-form ambiguity.
+namespace {
+double eval2(expression_holder<scalar_expression> const &expr,
+             expression_holder<scalar_expression> const &x, double x_val,
+             expression_holder<scalar_expression> const &y, double y_val) {
+  scalar_evaluator<double> ev;
+  ev.set(x, x_val);
+  ev.set(y, y_val);
+  return ev.apply(expr);
+}
+} // namespace
+
+TEST(CoreBugFix, ConstantSubAddNoRhsCoeff) {
+  // 2 - (x + y) used to throw because m_lhs - rhs.coeff() called operator-
+  // on an invalid holder. Verify no-throw and that the result evaluates
+  // correctly at a fixed point: 2 - (3 + 4) = -5.
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto two = make_scalar_constant(2);
+  expression_holder<scalar_expression> result;
+  ASSERT_NO_THROW({ result = two - (x + y); });
+  EXPECT_NEAR(eval2(result, x, 3.0, y, 4.0), -5.0, 1e-12);
+}
+
+TEST(CoreBugFix, ConstantSubAddWithRhsCoeff) {
+  // 2 - (3 + x + y) at (x=2, y=3): 2 - (3+2+3) = -6.
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto two = make_scalar_constant(2);
+  auto three = make_scalar_constant(3);
+  auto result = two - (three + x + y);
+  EXPECT_NEAR(eval2(result, x, 2.0, y, 3.0), -6.0, 1e-12);
+}
+
+TEST(CoreBugFix, ConstantSubAddCoeffCancels) {
+  // 2 - (2 + x) -> -x  (coeff cancels via the `c_l - c_r == 0` filter,
+  // single child + no coeff: finalize_add collapses to the bare child).
+  // Verify the structural collapse explicitly.
+  auto [x] = make_scalar_variable("x");
+  auto two = make_scalar_constant(2);
+  auto result = two - (two + x);
+  EXPECT_TRUE(is_same<scalar_negative>(result));
+  EXPECT_EQ(result.get<scalar_negative>().expr(), x);
+}
+
+// ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
 // ---------------------------------------------------------------------------
 
