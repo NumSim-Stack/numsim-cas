@@ -421,6 +421,11 @@ TEST(CoreBugFix, TensorToScalarWithTensorMulCorrectness) {
   // fresh tensor_to_scalar_evaluator on every visit (issue #94); any
   // future optimization that caches the inner evaluator must preserve
   // the value contract this test locks in.
+  //
+  // Result access uses raw_data() rather than a static_cast back to the
+  // concrete tensor_data<T,Dim,Rank> type — the raw buffer view doesn't
+  // depend on the underlying representation, so a future optimization
+  // that changed how the result is stored still satisfies the contract.
   auto A = make_expression<tensor>("A", std::size_t{3}, std::size_t{2});
   auto t2s_expr = trace(A);
   auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
@@ -434,26 +439,31 @@ TEST(CoreBugFix, TensorToScalarWithTensorMulCorrectness) {
   Araw[4] = 2.0;
   Araw[8] = 3.0;
 
+  // Row-major indices 0,4,8 are the diagonal in a 3x3.
+  auto check_diag = [](tensor_data_base<double> const &result) {
+    auto const *raw = result.raw_data();
+    EXPECT_NEAR(raw[0], 6.0, 1e-12);
+    EXPECT_NEAR(raw[4], 12.0, 1e-12);
+    EXPECT_NEAR(raw[8], 18.0, 1e-12);
+    // off-diagonals
+    EXPECT_NEAR(raw[1], 0.0, 1e-12);
+    EXPECT_NEAR(raw[2], 0.0, 1e-12);
+    EXPECT_NEAR(raw[5], 0.0, 1e-12);
+  };
+
   tensor_evaluator<double> ev;
   ev.set(A, A_data);
   auto result = ev.apply(expr);
   ASSERT_NE(result, nullptr);
-  auto const &res =
-      static_cast<tensor_data<double, 3, 2> const &>(*result).data();
-  EXPECT_NEAR(res(0, 0), 6.0, 1e-12);
-  EXPECT_NEAR(res(1, 1), 12.0, 1e-12);
-  EXPECT_NEAR(res(2, 2), 18.0, 1e-12);
-  EXPECT_NEAR(res(0, 1), 0.0, 1e-12);
+  check_diag(*result);
 
-  // Re-apply with the same evaluator: the rebuild fires again,
-  // result must be identical. Locks in idempotence across visits.
+  // Re-apply with the same evaluator: the rebuild fires again, result
+  // must be identical. Locks in idempotence across visits — a future
+  // optimization that caches the inner t2s_eval must not leak state
+  // from the first call into the second.
   auto result2 = ev.apply(expr);
   ASSERT_NE(result2, nullptr);
-  auto const &res2 =
-      static_cast<tensor_data<double, 3, 2> const &>(*result2).data();
-  EXPECT_NEAR(res2(0, 0), 6.0, 1e-12);
-  EXPECT_NEAR(res2(1, 1), 12.0, 1e-12);
-  EXPECT_NEAR(res2(2, 2), 18.0, 1e-12);
+  check_diag(*result2);
 }
 
 // ---------------------------------------------------------------------------
