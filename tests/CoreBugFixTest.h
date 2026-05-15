@@ -315,6 +315,44 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// inv(alpha * A) -> (1/alpha) * inv(A) (issue #71)
+// Scalar factor is lifted outside the inverse so the canonical form keeps
+// the tensor inverse on the inner operand.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, InvLiftsConstantScalarFactor) {
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto two = make_scalar_constant(2);
+  auto r = inv(two * A);
+  // Result should be a tensor_scalar_mul wrapping inv(A).
+  ASSERT_TRUE(is_same<tensor_scalar_mul>(r));
+  auto const &sm = r.get<tensor_scalar_mul>();
+  ASSERT_TRUE(is_same<tensor_inv>(sm.expr_rhs()));
+  EXPECT_EQ(sm.expr_rhs().get<tensor_inv>().expr(), A);
+}
+
+TEST(CoreBugFix, InvLiftsSymbolicScalarFactor) {
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto [s] = make_scalar_variable("s");
+  auto r = inv(s * A);
+  ASSERT_TRUE(is_same<tensor_scalar_mul>(r));
+  EXPECT_TRUE(is_same<tensor_inv>(r.get<tensor_scalar_mul>().expr_rhs()));
+}
+
+TEST(CoreBugFix, InvLiftsThenRejectsSkewInner) {
+  // inv(2 * skew(A)) in odd dim: the scalar lifts out (canonical form),
+  // then the recursive inv(skew(A)) throws via contains_skew_factor.
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto two = make_scalar_constant(2);
+  auto sA = skew(A);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = inv(two * sA); }, invalid_expression_error);
+}
+
+// ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
 // ---------------------------------------------------------------------------
 

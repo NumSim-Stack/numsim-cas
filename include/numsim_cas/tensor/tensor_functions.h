@@ -371,6 +371,15 @@ template <tensor_expr_holder Expr>
     return std::forward<Expr>(expr);
   if (is_same<kronecker_delta>(expr))
     return std::forward<Expr>(expr);
+  // inv(alpha * A) -> (1/alpha) * inv(A). Lift the scalar factor out before
+  // any skew rejection check so the canonical form is consistent. The
+  // recursive inv(A) runs its own checks (inv(inv) -> A, identity short-
+  // circuits, skew-odd-dim rejection); if A is singular, the recursion
+  // throws and the new rule produces the same overall error.
+  if (is_same<tensor_scalar_mul>(expr)) {
+    auto const &sm = expr.template get<tensor_scalar_mul>();
+    return (get_scalar_one() / sm.expr_lhs()) * inv(sm.expr_rhs());
+  }
   // A skew-symmetric matrix in odd dimensions is singular (det = 0) by the
   // determinant theorem det(-A^T) = (-1)^n det(A). contains_skew_factor also
   // catches expressions that aren't themselves skew but contain a skew factor
