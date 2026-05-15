@@ -404,6 +404,44 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// mul × mul merges like factors (verifies issue #97's claim was wrong —
+// the rules ARE implemented, in per-domain wrappers rather than a generic
+// dispatcher; these regressions lock in the contract).
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, MulMulMergesLikeFactorsScalar) {
+  // EXPECT_EQ compares via expression_holder::operator==, which is
+  // hash-based — child ordering inside the resulting mul is not
+  // observable through this assertion. The "alphabetical-looking"
+  // expected forms below match the canonical hash order on this
+  // platform but the test passes regardless of order.
+  auto [x, y, z, a] = make_scalar_variable("x", "y", "z", "a");
+  auto two = make_scalar_constant(2);
+  auto three = make_scalar_constant(3);
+
+  // (2*x*y) * (3*x*z) -> 6*pow(x,2)*y*z
+  EXPECT_EQ((two * x * y) * (three * x * z), 6 * pow(x, 2) * y * z);
+  // (x*y) * (x*z) -> pow(x,2)*y*z
+  EXPECT_EQ((x * y) * (x * z), pow(x, 2) * y * z);
+  // (x*y*z) * (x*a) -> a*pow(x,2)*y*z
+  EXPECT_EQ((x * y * z) * (x * a), a * pow(x, 2) * y * z);
+}
+
+TEST(CoreBugFix, MulMulMergesLikeFactorsT2s) {
+  // Same contract for tensor-to-scalar mul × mul, via the push_or_combine
+  // helper in tensor_to_scalar_simplifier_mul.cpp.
+  auto [X, Y, Z] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"Y", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"Z", std::size_t{3}, std::size_t{2}});
+  auto tX = trace(X);
+  auto tY = trace(Y);
+  auto tZ = trace(Z);
+  // (tr(X) * tr(Y)) * (tr(X) * tr(Z)) -> pow(tr(X), 2) * tr(Y) * tr(Z)
+  EXPECT_EQ((tX * tY) * (tX * tZ), pow(tX, 2) * tY * tZ);
+}
+
+// ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
 // ---------------------------------------------------------------------------
 
