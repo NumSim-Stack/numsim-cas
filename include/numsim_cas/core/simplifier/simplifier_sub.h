@@ -269,6 +269,9 @@ public:
   // x+y+z - x --> y+z  (symbol domains only). The combined child is filtered
   // if zero (otherwise (x+y+z)-x leaves a stray 0 in the result), and the
   // final result is passed through finalize_add for trivial-case collapse.
+  // The not-found branch uses merge_or_insert rather than push_back so that
+  // (-x + y) - x correctly combines the new `-x` with the existing one
+  // (-x + (-x) -> -2*x) instead of hitting the duplicate-child guard.
   template <typename SymbolType = typename Traits::symbol_type>
   requires(!std::is_void_v<SymbolType>)
   expr_holder_t dispatch(SymbolType const &) {
@@ -282,7 +285,7 @@ public:
         add.merge_or_insert(std::move(combined));
       return finalize_add<Traits>(std::move(expr_add));
     }
-    add.push_back(-base::m_rhs);
+    add.merge_or_insert(-base::m_rhs);
     return finalize_add<Traits>(std::move(expr_add));
   }
 

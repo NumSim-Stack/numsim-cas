@@ -358,6 +358,21 @@ TEST(CoreBugFix, NArySubSymbolDispatchCancelsCleanly) {
   EXPECT_EQ((x + y) - x, y);
 }
 
+TEST(CoreBugFix, NArySubSymbolDispatchNotFoundCombinesWithExisting) {
+  // Regression: when m_rhs is not in lhs's symbol_map but -m_rhs is, the
+  // dispatch used push_back(-m_rhs) which hit the duplicate-child guard.
+  // Switched to merge_or_insert so the negation combines with the existing
+  // entry instead.
+  auto [x, y] = make_scalar_variable("x", "y");
+  // (-x + y) - x: lhs has -x and y, neither key matches x. Without the fix
+  // push_back(-x) collides with the existing -x. With merge_or_insert,
+  // combine to (-2*x) + y.
+  EXPECT_NO_THROW({
+    auto r = (-x + y) - x;
+    (void)r;
+  });
+}
+
 TEST(CoreBugFix, FinalizeAddSingleChildWithCoeffReturnsUnchanged) {
   // One child + valid coeff is a meaningful add (e.g. 1+x); not trivial.
   using Traits = domain_traits<scalar_expression>;
