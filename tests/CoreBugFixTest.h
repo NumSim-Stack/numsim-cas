@@ -297,6 +297,95 @@ TEST(CoreBugFix, NArySubAddDispatchScalar) {
   EXPECT_TRUE(is_same<scalar_zero>((a + b) - (a + b)));
 }
 
+// ---------------------------------------------------------------------------
+// finalize_add<Traits> direct unit tests — the trivial-result collapse helper
+// extracted from n_ary_sub_dispatch in #99.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, FinalizeAddEmptyAndCoeffReturnsCoeff) {
+  using Traits = domain_traits<scalar_expression>;
+  auto two = make_scalar_constant(2);
+  auto node = std::make_shared<scalar_add>();
+  node->set_coeff(two);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, two);
+}
+
+TEST(CoreBugFix, FinalizeAddEmptyNoCoeffReturnsZero) {
+  using Traits = domain_traits<scalar_expression>;
+  auto node = std::make_shared<scalar_add>();
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_TRUE(is_same<scalar_zero>(result));
+}
+
+TEST(CoreBugFix, FinalizeAddSingleChildNoCoeffReturnsChild) {
+  using Traits = domain_traits<scalar_expression>;
+  auto [x] = make_scalar_variable("x");
+  auto node = std::make_shared<scalar_add>();
+  node->push_back(x);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, x);
+}
+
+TEST(CoreBugFix, FinalizeAddNonTrivialReturnsUnchanged) {
+  using Traits = domain_traits<scalar_expression>;
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto node = std::make_shared<scalar_add>();
+  node->push_back(x);
+  node->push_back(y);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, expr);
+}
+
+TEST(CoreBugFix, NArySubSymbolDispatchCancelsCleanly) {
+  // Regression: dispatch(SymbolType) used to leak a stray zero child when
+  // the symbol matched a child and the cancellation x-x=0 was pushed back
+  // via merge_or_insert without filtering. (2+x)-x produced "2+0" instead
+  // of "2"; (x+y+z)-x produced a 3-child add (the stray 0 plus y, z)
+  // instead of the 2-child y+z.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto two = make_scalar_constant(2);
+
+  // (2+x) - x -> 2 (empty children + valid coeff: finalize_add returns coeff)
+  EXPECT_EQ((two + x) - x, two);
+  // (x+y+z) - x -> y+z (two children survive; finalize_add returns the add)
+  EXPECT_EQ((x + y + z) - x, y + z);
+  // (x+y) - x -> y (one child + no coeff: finalize_add returns the child)
+  EXPECT_EQ((x + y) - x, y);
+}
+
+TEST(CoreBugFix, NArySubSymbolDispatchNotFoundCombinesWithExisting) {
+  // Regression: when m_rhs is not in lhs's symbol_map but -m_rhs is, the
+  // dispatch used push_back(-m_rhs) which hit the duplicate-child guard.
+  // Switched to merge_or_insert so the negation combines with the existing
+  // entry instead.
+  auto [x, y] = make_scalar_variable("x", "y");
+  // (-x + y) - x: lhs has -x and y, neither key matches x. Without the fix
+  // push_back(-x) collides with the existing -x. With merge_or_insert,
+  // combine to (-2*x) + y.
+  EXPECT_NO_THROW({
+    auto r = (-x + y) - x;
+    (void)r;
+  });
+}
+
+TEST(CoreBugFix, FinalizeAddSingleChildWithCoeffReturnsUnchanged) {
+  // One child + valid coeff is a meaningful add (e.g. 1+x); not trivial.
+  using Traits = domain_traits<scalar_expression>;
+  auto [x] = make_scalar_variable("x");
+  auto one = make_scalar_constant(1);
+  auto node = std::make_shared<scalar_add>();
+  node->set_coeff(one);
+  node->push_back(x);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, expr);
+}
+
 TEST(CoreBugFix, NArySubAddDispatchT2s) {
   // The #91 fix lives in a generic dispatcher template instantiated by both
   // scalar_traits and tensor_to_scalar_traits. This test locks in the t2s
