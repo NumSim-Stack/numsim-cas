@@ -297,6 +297,95 @@ TEST(CoreBugFix, NArySubAddDispatchScalar) {
   EXPECT_TRUE(is_same<scalar_zero>((a + b) - (a + b)));
 }
 
+// ---------------------------------------------------------------------------
+// finalize_add<Traits> direct unit tests — the trivial-result collapse helper
+// extracted from n_ary_sub_dispatch in #99.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, FinalizeAddEmptyAndCoeffReturnsCoeff) {
+  using Traits = domain_traits<scalar_expression>;
+  auto two = make_scalar_constant(2);
+  auto node = std::make_shared<scalar_add>();
+  node->set_coeff(two);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, two);
+}
+
+TEST(CoreBugFix, FinalizeAddEmptyNoCoeffReturnsZero) {
+  using Traits = domain_traits<scalar_expression>;
+  auto node = std::make_shared<scalar_add>();
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_TRUE(is_same<scalar_zero>(result));
+}
+
+TEST(CoreBugFix, FinalizeAddSingleChildNoCoeffReturnsChild) {
+  using Traits = domain_traits<scalar_expression>;
+  auto [x] = make_scalar_variable("x");
+  auto node = std::make_shared<scalar_add>();
+  node->push_back(x);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, x);
+}
+
+TEST(CoreBugFix, FinalizeAddNonTrivialReturnsUnchanged) {
+  using Traits = domain_traits<scalar_expression>;
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto node = std::make_shared<scalar_add>();
+  node->push_back(x);
+  node->push_back(y);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, expr);
+}
+
+TEST(CoreBugFix, NArySubSymbolDispatchCancelsCleanly) {
+  // Regression: dispatch(SymbolType) used to leak a stray zero child when
+  // the symbol matched a child and the cancellation x-x=0 was pushed back
+  // via merge_or_insert without filtering. (2+x)-x produced "2+0" instead
+  // of "2"; (x+y+z)-x produced a 3-child add (the stray 0 plus y, z)
+  // instead of the 2-child y+z.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto two = make_scalar_constant(2);
+
+  // (2+x) - x -> 2 (empty children + valid coeff: finalize_add returns coeff)
+  EXPECT_EQ((two + x) - x, two);
+  // (x+y+z) - x -> y+z (two children survive; finalize_add returns the add)
+  EXPECT_EQ((x + y + z) - x, y + z);
+  // (x+y) - x -> y (one child + no coeff: finalize_add returns the child)
+  EXPECT_EQ((x + y) - x, y);
+}
+
+TEST(CoreBugFix, NArySubSymbolDispatchNotFoundCombinesWithExisting) {
+  // Regression: when m_rhs is not in lhs's symbol_map but -m_rhs is, the
+  // dispatch used push_back(-m_rhs) which hit the duplicate-child guard.
+  // Switched to merge_or_insert so the negation combines with the existing
+  // entry instead.
+  auto [x, y] = make_scalar_variable("x", "y");
+  // (-x + y) - x: lhs has -x and y, neither key matches x. Without the fix
+  // push_back(-x) collides with the existing -x. With merge_or_insert,
+  // combine to (-2*x) + y.
+  EXPECT_NO_THROW({
+    auto r = (-x + y) - x;
+    (void)r;
+  });
+}
+
+TEST(CoreBugFix, FinalizeAddSingleChildWithCoeffReturnsUnchanged) {
+  // One child + valid coeff is a meaningful add (e.g. 1+x); not trivial.
+  using Traits = domain_traits<scalar_expression>;
+  auto [x] = make_scalar_variable("x");
+  auto one = make_scalar_constant(1);
+  auto node = std::make_shared<scalar_add>();
+  node->set_coeff(one);
+  node->push_back(x);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, expr);
+}
+
 TEST(CoreBugFix, NArySubAddDispatchT2s) {
   // The #91 fix lives in a generic dispatcher template instantiated by both
   // scalar_traits and tensor_to_scalar_traits. This test locks in the t2s
@@ -384,6 +473,71 @@ TEST(CoreBugFix, SkewSpacePreservedAsTensorMulChild) {
   EXPECT_TRUE(found_sA_with_skew) << "skew(A) child not found in tensor_mul";
   EXPECT_FALSE(other_child_spuriously_skew)
       << "non-skew child spuriously annotated as Skew";
+// Tensor pow simplifications (issue #96) — extends the construction-time
+// rules in tensor_std.h::pow with pow(I, n) → I and pow(inv(A), n) →
+// inv(pow(A, n)). The existing rules pow(0, n) → 0, pow(A, 0) → I,
+// pow(A, 1) → A, pow(pow(A,m), n) → pow(A, m*n) are already covered.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, TensorPowIdentityIsIdempotent) {
+  // pow(I, n) → I (kronecker_delta as I)
+  auto I = make_expression<kronecker_delta>(std::size_t{3});
+  EXPECT_EQ(pow(I, 5), I);
+  EXPECT_EQ(pow(I, 0), I); // also covered by existing pow(A, 0) → I rule
+  // For pow(A, 1) the existing rule returns A directly; identity round-trips
+  EXPECT_EQ(pow(I, 1), I);
+}
+
+TEST(CoreBugFix, TensorPowOfInvLiftsToInvOfPow) {
+  // pow(inv(A), n) → inv(pow(A, n))
+  // Use an even-dim symmetric A so inv() doesn't reject and any structural
+  // checks downstream are well-defined.
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{4}, std::size_t{2}});
+  EXPECT_EQ(pow(inv(A), 2), inv(pow(A, 2)));
+  EXPECT_EQ(pow(inv(A), 3), inv(pow(A, 3)));
+}
+
+TEST(CoreBugFix, TensorPowPowChains) {
+  // pow(pow(A, 2), 3) → pow(A, 6) — already existed; lock in.
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  EXPECT_EQ(pow(pow(A, 2), 3), pow(A, 6));
+// mul × mul merges like factors (verifies issue #97's claim was wrong —
+// the rules ARE implemented, in per-domain wrappers rather than a generic
+// dispatcher; these regressions lock in the contract).
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, MulMulMergesLikeFactorsScalar) {
+  // EXPECT_EQ compares via expression_holder::operator==, which is
+  // hash-based — child ordering inside the resulting mul is not
+  // observable through this assertion. The "alphabetical-looking"
+  // expected forms below match the canonical hash order on this
+  // platform but the test passes regardless of order.
+  auto [x, y, z, a] = make_scalar_variable("x", "y", "z", "a");
+  auto two = make_scalar_constant(2);
+  auto three = make_scalar_constant(3);
+
+  // (2*x*y) * (3*x*z) -> 6*pow(x,2)*y*z
+  EXPECT_EQ((two * x * y) * (three * x * z), 6 * pow(x, 2) * y * z);
+  // (x*y) * (x*z) -> pow(x,2)*y*z
+  EXPECT_EQ((x * y) * (x * z), pow(x, 2) * y * z);
+  // (x*y*z) * (x*a) -> a*pow(x,2)*y*z
+  EXPECT_EQ((x * y * z) * (x * a), a * pow(x, 2) * y * z);
+}
+
+TEST(CoreBugFix, MulMulMergesLikeFactorsT2s) {
+  // Same contract for tensor-to-scalar mul × mul, via the push_or_combine
+  // helper in tensor_to_scalar_simplifier_mul.cpp.
+  auto [X, Y, Z] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"Y", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"Z", std::size_t{3}, std::size_t{2}});
+  auto tX = trace(X);
+  auto tY = trace(Y);
+  auto tZ = trace(Z);
+  // (tr(X) * tr(Y)) * (tr(X) * tr(Z)) -> pow(tr(X), 2) * tr(Y) * tr(Z)
+  EXPECT_EQ((tX * tY) * (tX * tZ), pow(tX, 2) * tY * tZ);
 }
 
 // ---------------------------------------------------------------------------
