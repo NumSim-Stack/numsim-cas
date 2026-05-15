@@ -266,10 +266,9 @@ public:
     return finalize_add<Traits>(std::move(expr));
   }
 
-  // x+y+z - x --> y+z  (symbol domains only). Final result goes through
-  // finalize_add for trivial-case collapse (e.g. (x) - x reaches the
-  // empty-children branch when merge_or_insert produces a zero that the
-  // simplifier downstream filters out).
+  // x+y+z - x --> y+z  (symbol domains only). The combined child is filtered
+  // if zero (otherwise (x+y+z)-x leaves a stray 0 in the result), and the
+  // final result is passed through finalize_add for trivial-case collapse.
   template <typename SymbolType = typename Traits::symbol_type>
   requires(!std::is_void_v<SymbolType>)
   expr_holder_t dispatch(SymbolType const &) {
@@ -277,9 +276,10 @@ public:
     auto &add{expr_add.template get<typename Traits::add_type>()};
     auto pos{add.symbol_map().find(base::m_rhs)};
     if (pos != add.symbol_map().end()) {
-      auto expr{pos->second - base::m_rhs};
+      auto combined{pos->second - base::m_rhs};
       add.symbol_map().erase(pos);
-      add.merge_or_insert(std::move(expr));
+      if (!is_same<typename Traits::zero_type>(combined))
+        add.merge_or_insert(std::move(combined));
       return finalize_add<Traits>(std::move(expr_add));
     }
     add.push_back(-base::m_rhs);

@@ -341,6 +341,23 @@ TEST(CoreBugFix, FinalizeAddNonTrivialReturnsUnchanged) {
   EXPECT_EQ(result, expr);
 }
 
+TEST(CoreBugFix, NArySubSymbolDispatchCancelsCleanly) {
+  // Regression: dispatch(SymbolType) used to leak a stray zero child when
+  // the symbol matched a child and the cancellation x-x=0 was pushed back
+  // via merge_or_insert without filtering. (2+x)-x produced "2+0" instead
+  // of "2"; (x+y+z)-x produced a 3-child add (the stray 0 plus y, z)
+  // instead of the 2-child y+z.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto two = make_scalar_constant(2);
+
+  // (2+x) - x -> 2
+  EXPECT_EQ((two + x) - x, two);
+  // (x+y+z) - x -> y+z (or z+y; the holder operator== treats them as equal)
+  EXPECT_EQ((x + y + z) - x, y + z);
+  // (x) - x -> 0 (via finalize_add's empty-children collapse)
+  EXPECT_TRUE(is_same<scalar_zero>((x + x) - x - x));
+}
+
 TEST(CoreBugFix, FinalizeAddSingleChildWithCoeffReturnsUnchanged) {
   // One child + valid coeff is a meaningful add (e.g. 1+x); not trivial.
   using Traits = domain_traits<scalar_expression>;
