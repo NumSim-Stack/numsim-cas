@@ -404,6 +404,59 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// t2s_eval rebuild correctness lock-in (issue #94) — the per-visit rebuild
+// path in tensor_evaluator::operator()(tensor_to_scalar_with_tensor_mul)
+// is functionally correct but pays construction + symbol-table copy cost
+// on every visit. Optimization is non-trivial because of the include
+// cycle between tensor_evaluator.h and tensor_to_scalar_evaluator.h
+// (see #94 for the architectural constraint). This test verifies the
+// rebuild path produces correct results across many visits — any future
+// optimization that caches or shares state must preserve the contract.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, TensorToScalarWithTensorMulCorrectness) {
+  // Construct a tensor_to_scalar_with_tensor_mul node directly (mirroring
+  // the existing TensorEvaluatorTest pattern) and verify evaluation
+  // produces correct results. The dispatcher for this node rebuilds a
+  // fresh tensor_to_scalar_evaluator on every visit (issue #94); any
+  // future optimization that caches the inner evaluator must preserve
+  // the value contract this test locks in.
+  auto A = make_expression<tensor>("A", std::size_t{3}, std::size_t{2});
+  auto t2s_expr = trace(A);
+  auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
+
+  // A = diag(1, 2, 3); trace(A) = 6; result = 6 * A.
+  auto A_data = std::make_shared<tensor_data<double, 3, 2>>();
+  auto *Araw = A_data->raw_data();
+  for (std::size_t i = 0; i < 9; ++i)
+    Araw[i] = 0.0;
+  Araw[0] = 1.0;
+  Araw[4] = 2.0;
+  Araw[8] = 3.0;
+
+  tensor_evaluator<double> ev;
+  ev.set(A, A_data);
+  auto result = ev.apply(expr);
+  ASSERT_NE(result, nullptr);
+  auto const &res =
+      static_cast<tensor_data<double, 3, 2> const &>(*result).data();
+  EXPECT_NEAR(res(0, 0), 6.0, 1e-12);
+  EXPECT_NEAR(res(1, 1), 12.0, 1e-12);
+  EXPECT_NEAR(res(2, 2), 18.0, 1e-12);
+  EXPECT_NEAR(res(0, 1), 0.0, 1e-12);
+
+  // Re-apply with the same evaluator: the rebuild fires again,
+  // result must be identical. Locks in idempotence across visits.
+  auto result2 = ev.apply(expr);
+  ASSERT_NE(result2, nullptr);
+  auto const &res2 =
+      static_cast<tensor_data<double, 3, 2> const &>(*result2).data();
+  EXPECT_NEAR(res2(0, 0), 6.0, 1e-12);
+  EXPECT_NEAR(res2(1, 1), 12.0, 1e-12);
+  EXPECT_NEAR(res2(2, 2), 18.0, 1e-12);
+}
+
+// ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
 // ---------------------------------------------------------------------------
 
