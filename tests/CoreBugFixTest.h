@@ -404,6 +404,75 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// Skew annotation propagation lock-in (issue #93).
+// On the build platform that motivated commit 7e962e5, the Skew space
+// annotation could be lost when skew(A) was stored inside a tensor_mul.
+// The structural skew classifier in skew_classification.h was added as
+// a defensive fallback. These tests lock in that on THIS build the
+// annotation IS preserved through the common composition paths — any
+// regression would be visible here (whether or not the platform-specific
+// loss the original commit observed ever recurs).
+// ---------------------------------------------------------------------------
+
+namespace {
+template <typename Holder> bool is_skew_annotated(Holder const &e) {
+  if (!e.is_valid())
+    return false;
+  if (auto const &sp = e.get().space())
+    return std::holds_alternative<Skew>(sp->perm);
+  return false;
+}
+} // namespace
+
+TEST(CoreBugFix, SkewSpacePreservedThroughNegation) {
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto sA = skew(A);
+  ASSERT_TRUE(is_skew_annotated(sA));
+  EXPECT_TRUE(is_skew_annotated(-sA));
+}
+
+TEST(CoreBugFix, SkewSpacePreservedThroughScalarMul) {
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto sA = skew(A);
+  ASSERT_TRUE(is_skew_annotated(sA));
+  EXPECT_TRUE(is_skew_annotated(2 * sA));
+}
+
+TEST(CoreBugFix, SkewSpacePreservedAsTensorMulChild) {
+  // The case the original commit (7e962e5) flagged as platform-dependent:
+  // skew(A) stored inside a tensor_mul. On this build the child retains
+  // its Skew annotation. The structural classifier in skew_classification.h
+  // is the authoritative fallback when the annotation IS lost on other
+  // platforms.
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  auto sA = skew(A);
+  ASSERT_TRUE(is_skew_annotated(sA));
+  auto prod = sA * B;
+  ASSERT_TRUE(is_same<tensor_mul>(prod));
+  auto const &mul = prod.get<tensor_mul>();
+  ASSERT_EQ(mul.data().size(), 2u);
+  // Verify the skew child is specifically the operand we passed as skew —
+  // not just "some child happens to be annotated." Find the child equal
+  // to sA and assert ITS annotation is preserved; the other child (B)
+  // must not be spuriously annotated as Skew.
+  bool found_sA_with_skew = false;
+  bool other_child_spuriously_skew = false;
+  for (auto const &ch : mul.data()) {
+    if (ch == sA) {
+      EXPECT_TRUE(is_skew_annotated(ch))
+          << "skew(A) child lost its Skew annotation on this build";
+      found_sA_with_skew = is_skew_annotated(ch);
+    } else if (is_skew_annotated(ch)) {
+      other_child_spuriously_skew = true;
+    }
+  }
+  EXPECT_TRUE(found_sA_with_skew) << "skew(A) child not found in tensor_mul";
+  EXPECT_FALSE(other_child_spuriously_skew)
+      << "non-skew child spuriously annotated as Skew";
 // Tensor pow simplifications (issue #96) — extends the construction-time
 // rules in tensor_std.h::pow with pow(I, n) → I and pow(inv(A), n) →
 // inv(pow(A, n)). The existing rules pow(0, n) → 0, pow(A, 0) → I,
