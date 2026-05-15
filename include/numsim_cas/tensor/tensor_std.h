@@ -6,7 +6,9 @@
 #include <numsim_cas/scalar/scalar_one.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_zero.h>
+#include <numsim_cas/tensor/functions/tensor_inv.h>
 #include <numsim_cas/tensor/functions/tensor_pow.h>
+#include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_zero.h>
@@ -56,6 +58,23 @@ template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
   if (is_same<tensor_pow>(expr_lhs)) {
     auto const &inner = expr_lhs.template get<tensor_pow>();
     return pow(inner.expr_lhs(), inner.expr_rhs() * expr_rhs);
+  }
+
+  // pow(I, n) → I  (identity is idempotent under exponentiation; this covers
+  // both kronecker_delta and identity_tensor representations of "I")
+  if (is_same<kronecker_delta>(expr_lhs) ||
+      is_same<identity_tensor>(expr_lhs)) {
+    return std::forward<ExprLHS>(expr_lhs);
+  }
+
+  // pow(inv(A), n) → inv(pow(A, n))
+  // Push inv outermost so other simplifications keying on inv() (e.g.
+  // contains_skew_factor in inv() rejection, or future inv-of-X rules)
+  // see the canonical shape. The inner pow re-enters this function and
+  // any rules applicable to A and n still fire.
+  if (is_same<tensor_inv>(expr_lhs)) {
+    auto const &inv_node = expr_lhs.template get<tensor_inv>();
+    return make_expression<tensor_inv>(pow(inv_node.expr(), expr_rhs));
   }
 
   return numsim::cas::make_expression<numsim::cas::tensor_pow>(

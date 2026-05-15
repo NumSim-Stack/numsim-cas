@@ -94,7 +94,7 @@ expressions (e.g. mul × mul, symbol × mul) goes through the base dispatcher's
 | Add | `add_default<Derived>`, `n_ary_add`, `symbol_add`, **`tensor_scalar_mul_add`**, `add_negative` | **Does not inherit generic.** Hand-written because `tensor_traits::mul_type` is `void` (no n-ary scalar multiplication node in this domain — see [`tensor_domain_traits.h`](../include/numsim_cas/tensor/tensor_domain_traits.h)). `tensor_scalar_mul_add` is domain-specific. |
 | Sub | `sub_default<Derived>`, `negative_sub`, `n_ary_sub`, `symbol_sub` | Same architectural note as add. |
 | Mul | `mul_default<Derived>`, `tensor_pow_mul`, `kronecker_delta_mul`, `symbol_mul`, `n_ary_mul` | Hand-written. `kronecker_delta_mul` handles index contraction; `symbol_mul`: `x·x → pow(x,2)`. |
-| Pow | **— absent —** | No `tensor_simplifier_pow.h` file. Rules like `pow(pow(A,m), n) → pow(A, m·n)` and `pow(inv(A), n)` have no construction-time handling. → tracked separately. |
+| Pow | **— no dispatcher-based simplifier —** but construction-time rules in [`tensor_std.h::pow`](../include/numsim_cas/tensor/tensor_std.h): `pow(0, n) → 0`, `pow(A, 0) → I`, `pow(A, 1) → A`, `pow(pow(A,m), n) → pow(A, m·n)`, `pow(I, n) → I`, `pow(inv(A), n) → inv(pow(A, n))`. Architecture is asymmetric with scalar/t2s (which use the dispatcher pattern) but functional coverage is comparable. |
 
 Additional domain-specific simplifiers (not in the dispatcher hierarchy):
 
@@ -118,12 +118,17 @@ a tracking issue.
 
 ### Material gaps (filed)
 
-1. **No tensor pow simplifier.** Entire `tensor/simplifier/tensor_simplifier_pow.h`
-   is missing. Tensor `pow` expressions are constructed via
-   [`tensor/functions/tensor_pow.h`](../include/numsim_cas/tensor/functions/tensor_pow.h)
-   and the `pow()` free function but receive no simplifier-driven rewrites
-   (`pow(pow(A, m), n) → pow(A, m·n)`, `pow(inv(A), n) → inv(pow(A, n))`, etc.).
-   Tracked as [#96](https://github.com/NumSim-Stack/numsim-cas/issues/96).
+1. **Tensor pow uses construction-time simplification, not the dispatcher pattern.**
+   Unlike scalar and t2s, which use the `pow_dispatch` / `pow_pow_dispatch` /
+   `mul_pow_dispatch` family, tensor handles all pow simplifications as
+   `if (is_same<...>) return ...;` checks in
+   [`tensor_std.h::pow`](../include/numsim_cas/tensor/tensor_std.h).
+   Functional coverage is comparable (`pow(0, n)`, `pow(A, 0)`, `pow(A, 1)`,
+   `pow(pow(A,m), n)`, `pow(I, n)`, `pow(inv(A), n)` all simplify), but the
+   architecture is asymmetric. A future refactor could lift this into a
+   tensor pow dispatcher family for parity — see #96 (closed as the
+   construction-time rules cover the same ground; refactor follow-up is
+   non-blocking).
 
 2. **No `n_ary_mul_mul_dispatch`.** The mul family has only the base
    `mul_dispatch` ([`simplifier_mul.h:16`](../include/numsim_cas/core/simplifier/simplifier_mul.h)).
