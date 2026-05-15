@@ -315,6 +315,68 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// Skew annotation propagation lock-in (issue #93).
+// On the build platform that motivated commit 7e962e5, the Skew space
+// annotation could be lost when skew(A) was stored inside a tensor_mul.
+// The structural skew classifier in skew_classification.h was added as
+// a defensive fallback. These tests lock in that on THIS build the
+// annotation IS preserved through the common composition paths — any
+// regression would be visible here (whether or not the platform-specific
+// loss the original commit observed ever recurs).
+// ---------------------------------------------------------------------------
+
+namespace {
+template <typename Holder> bool is_skew_annotated(Holder const &e) {
+  if (auto const &sp = e.get().space())
+    return std::holds_alternative<Skew>(sp->perm);
+  return false;
+}
+} // namespace
+
+TEST(CoreBugFix, SkewSpacePreservedThroughNegation) {
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto sA = skew(A);
+  ASSERT_TRUE(is_skew_annotated(sA));
+  EXPECT_TRUE(is_skew_annotated(-sA));
+}
+
+TEST(CoreBugFix, SkewSpacePreservedThroughScalarMul) {
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto sA = skew(A);
+  ASSERT_TRUE(is_skew_annotated(sA));
+  EXPECT_TRUE(is_skew_annotated(2 * sA));
+}
+
+TEST(CoreBugFix, SkewSpacePreservedAsTensorMulChild) {
+  // The case the original commit (7e962e5) flagged as platform-dependent:
+  // skew(A) stored inside a tensor_mul. On this build the child retains
+  // its Skew annotation. The structural classifier in skew_classification.h
+  // is the authoritative fallback when the annotation IS lost on other
+  // platforms.
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  auto sA = skew(A);
+  ASSERT_TRUE(is_skew_annotated(sA));
+  auto prod = sA * B;
+  ASSERT_TRUE(is_same<tensor_mul>(prod));
+  auto const &mul = prod.get<tensor_mul>();
+  ASSERT_EQ(mul.data().size(), 2u);
+  // Find the skew child (the one carrying the annotation)
+  bool found_skew_child = false;
+  for (auto const &ch : mul.data()) {
+    if (is_skew_annotated(ch)) {
+      found_skew_child = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_skew_child)
+      << "skew(A) child of tensor_mul lost its Skew annotation on this build";
+}
+
+// ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
 // ---------------------------------------------------------------------------
 
