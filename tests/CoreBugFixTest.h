@@ -297,6 +297,63 @@ TEST(CoreBugFix, NArySubAddDispatchScalar) {
   EXPECT_TRUE(is_same<scalar_zero>((a + b) - (a + b)));
 }
 
+// ---------------------------------------------------------------------------
+// finalize_add<Traits> direct unit tests — the trivial-result collapse helper
+// extracted from n_ary_sub_dispatch in #99.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, FinalizeAddEmptyAndCoeffReturnsCoeff) {
+  using Traits = domain_traits<scalar_expression>;
+  auto two = make_scalar_constant(2);
+  auto node = std::make_shared<scalar_add>();
+  node->set_coeff(two);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, two);
+}
+
+TEST(CoreBugFix, FinalizeAddEmptyNoCoeffReturnsZero) {
+  using Traits = domain_traits<scalar_expression>;
+  auto node = std::make_shared<scalar_add>();
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_TRUE(is_same<scalar_zero>(result));
+}
+
+TEST(CoreBugFix, FinalizeAddSingleChildNoCoeffReturnsChild) {
+  using Traits = domain_traits<scalar_expression>;
+  auto [x] = make_scalar_variable("x");
+  auto node = std::make_shared<scalar_add>();
+  node->push_back(x);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, x);
+}
+
+TEST(CoreBugFix, FinalizeAddNonTrivialReturnsUnchanged) {
+  using Traits = domain_traits<scalar_expression>;
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto node = std::make_shared<scalar_add>();
+  node->push_back(x);
+  node->push_back(y);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, expr);
+}
+
+TEST(CoreBugFix, FinalizeAddSingleChildWithCoeffReturnsUnchanged) {
+  // One child + valid coeff is a meaningful add (e.g. 1+x); not trivial.
+  using Traits = domain_traits<scalar_expression>;
+  auto [x] = make_scalar_variable("x");
+  auto one = make_scalar_constant(1);
+  auto node = std::make_shared<scalar_add>();
+  node->set_coeff(one);
+  node->push_back(x);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, expr);
+}
+
 TEST(CoreBugFix, NArySubAddDispatchT2s) {
   // The #91 fix lives in a generic dispatcher template instantiated by both
   // scalar_traits and tensor_to_scalar_traits. This test locks in the t2s

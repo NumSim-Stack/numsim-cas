@@ -4,6 +4,7 @@
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/domain_traits.h>
 #include <numsim_cas/core/scalar_number.h>
+#include <numsim_cas/core/simplifier/simplifier_common.h>
 #include <ranges>
 #include <set>
 
@@ -215,15 +216,14 @@ public:
   // Zero-valued children are filtered (otherwise (x+y+z)-(x+y) would leave
   // stray zeros in the result).
   //
-  // Return-type contract — this dispatch can return any of:
-  //   1. Traits::add_type — the typical case with at least one child plus
-  //      possibly a coefficient
-  //   2. Traits::zero_type — coefficient and all children cancelled
-  //   3. The coefficient expression — children cancelled, coefficient survived
-  //   4. A child expression — exactly one child survived, no coefficient
-  // Cases 2–4 are the "trivial result" collapse at the bottom. Callers via
-  // the visitor pattern propagate the holder, so the type-broadening is
-  // transparent to them.
+  // The final result is passed through `finalize_add` (see
+  // simplifier_common.h) which collapses trivial shapes:
+  //   - empty children + invalid coeff -> Traits::zero()
+  //   - empty children + valid coeff   -> the coefficient
+  //   - one child + invalid coeff      -> the child
+  //   - otherwise                      -> the freshly-built add unchanged
+  // Callers via the visitor pattern propagate the holder, so the type-
+  // broadening is transparent to them.
   //
   // Zero-detection uses `is_same<Traits::zero_type>`, which checks the type-id
   // of the canonical zero singleton (scalar_zero / tensor_zero /
@@ -263,18 +263,13 @@ public:
         }
       }
     }
-    // Collapse: no children -> return coeff (or zero); one child + no coeff
-    // -> return the child directly.
-    if (add.symbol_map().empty()) {
-      return add.coeff().is_valid() ? add.coeff() : Traits::zero();
-    }
-    if (add.symbol_map().size() == 1 && !add.coeff().is_valid()) {
-      return add.symbol_map().begin()->second;
-    }
-    return expr;
+    return finalize_add<Traits>(std::move(expr));
   }
 
-  // x+y+z - x --> y+z  (symbol domains only)
+  // x+y+z - x --> y+z  (symbol domains only). Final result goes through
+  // finalize_add for trivial-case collapse (e.g. (x) - x reaches the
+  // empty-children branch when merge_or_insert produces a zero that the
+  // simplifier downstream filters out).
   template <typename SymbolType = typename Traits::symbol_type>
   requires(!std::is_void_v<SymbolType>)
   expr_holder_t dispatch(SymbolType const &) {
@@ -285,10 +280,10 @@ public:
       auto expr{pos->second - base::m_rhs};
       add.symbol_map().erase(pos);
       add.merge_or_insert(std::move(expr));
-      return expr_add;
+      return finalize_add<Traits>(std::move(expr_add));
     }
     add.push_back(-base::m_rhs);
-    return expr_add;
+    return finalize_add<Traits>(std::move(expr_add));
   }
 
 protected:
