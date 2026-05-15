@@ -62,7 +62,12 @@ template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
   }
 
   // pow(I, n) → I  (identity is idempotent under exponentiation; this covers
-  // both kronecker_delta and identity_tensor representations of "I")
+  // both kronecker_delta and identity_tensor representations of "I").
+  // Rank-agnostic: identity_tensor may be rank-2 (δ_ij) or rank-4 (the minor
+  // identity δ_ik δ_jl). For ranks where tensor `pow` isn't standard the
+  // earlier construction would have produced a tensor_pow node that wouldn't
+  // evaluate anyway; returning the identity is no worse and is the right
+  // result for the rank-2 case.
   if (is_same<kronecker_delta>(expr_lhs) ||
       is_same<identity_tensor>(expr_lhs)) {
     return std::forward<ExprLHS>(expr_lhs);
