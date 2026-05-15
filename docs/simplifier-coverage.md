@@ -125,12 +125,33 @@ a tracking issue.
    (`pow(pow(A, m), n) → pow(A, m·n)`, `pow(inv(A), n) → inv(pow(A, n))`, etc.).
    Tracked as [#96](https://github.com/NumSim-Stack/numsim-cas/issues/96).
 
-2. **No `n_ary_mul_mul_dispatch`.** The mul family has only the base
-   `mul_dispatch` ([`simplifier_mul.h:16`](../include/numsim_cas/core/simplifier/simplifier_mul.h)).
-   Rules like `(c₁·x·y) · (c₂·x·z) → c₁·c₂·pow(x,2)·y·z` aren't reachable
-   without a dedicated LHS=mul dispatcher. Compare with the add side's
-   `n_ary_add_dispatch`, which exists.
-   Tracked as [#97](https://github.com/NumSim-Stack/numsim-cas/issues/97).
+2. **No `n_ary_mul_mul_dispatch`** in the generic layer, but the
+   functional rules **are** implemented per-domain. The mul family in
+   `core/simplifier/simplifier_mul.h` has only the base `mul_dispatch`,
+   yet:
+   - **Scalar** handles mul × mul via `n_ary_mul::dispatch(scalar_mul)` in
+     [`scalar_simplifier_mul.cpp:100`](../src/numsim_cas/scalar/simplifier/scalar_simplifier_mul.cpp).
+     Approach: copy lhs, multiply each rhs child into the result via
+     `operator*` (re-triggers simplification).
+   - **T2s** handles mul × mul via `mul_base::dispatch(tensor_to_scalar_mul)`
+     in [`tensor_to_scalar_simplifier_mul.cpp:99`](../src/numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_mul.cpp).
+     Approach: copy lhs, call a `push_or_combine` helper for each rhs
+     child (inlined merge with pow-promotion).
+   - **Tensor** mul has different semantics (inner-product based, not
+     commutative) and doesn't apply.
+   
+   `(c₁·x·y) · (c₂·x·z) → c₁·c₂·pow(x,2)·y·z` works in both scalar and
+   t2s today (verified by `tests/CoreBugFixTest.h` regression tests
+   `MulMulMergesLikeFactorsScalar` / `T2s`).
+   
+   The architectural concern that #95 raised is real: the **drift**
+   between the scalar and t2s implementations (different approaches to
+   the same algebraic task) is the kind of thing that surfaces bugs
+   like #91 / #102. Consolidating into a single generic dispatcher is
+   worth tracking as a refactor but isn't a missing-feature gap.
+   Tracked as [#97](https://github.com/NumSim-Stack/numsim-cas/issues/97)
+   (closed as based on wrong premise) and a new follow-up if
+   consolidation is pursued.
 
 3. **`pow_add` Pythagorean identity is scalar-only.** `sin²(x) + cos²(x) → 1`
    is implemented in [`scalar_simplifier_add.h:127`](../include/numsim_cas/scalar/simplifier/scalar_simplifier_add.h)
