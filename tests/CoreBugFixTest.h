@@ -315,6 +315,37 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// trace() simplification rules (issue #72).
+// Existing: trace(0)=0, trace(I)=dim, trace(alpha*A)=alpha*trace(A),
+// trace(A+B+...)=trace(A)+trace(B)+... .
+// New: trace(-A)=-trace(A), trace(trans(A))=trace(A),
+// trace(otimes(u,v))=dot_product(u,v).
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, TraceNegativeIsNegated) {
+  // trace(-A) -> -trace(A)
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  EXPECT_EQ(trace(-A), -trace(A));
+}
+
+TEST(CoreBugFix, TraceTransIsSelf) {
+  // trace(trans(A)) -> trace(A)
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  EXPECT_EQ(trace(trans(A)), trace(A));
+}
+
+TEST(CoreBugFix, TraceOuterProductIsDot) {
+  // trace(u ⊗ v) -> dot_product(u, v) for rank-1 vectors.
+  auto [u, v] =
+      make_tensor_variable(std::tuple{"u", std::size_t{3}, std::size_t{1}},
+                           std::tuple{"v", std::size_t{3}, std::size_t{1}});
+  auto r = trace(otimes(u, v));
+  EXPECT_EQ(r, dot_product(u, sequence{1}, v, sequence{1}));
+}
+
+// ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
 // ---------------------------------------------------------------------------
 
