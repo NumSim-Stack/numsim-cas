@@ -32,15 +32,15 @@ constexpr inline void merge_add(n_ary_tree<Derived> const &lhs,
     auto pos{rhs.symbol_map().find(child)};
     if (pos != rhs.symbol_map().end()) {
       used_expr.insert(pos->second);
-      result.push_back(child + pos->second);
+      result.merge_or_insert(child + pos->second);
     } else {
-      result.push_back(child);
+      result.merge_or_insert(child);
     }
   }
   if (used_expr.size() != rhs.size()) {
     for (auto &child : rhs.symbol_map() | std::views::values) {
       if (!used_expr.count(child)) {
-        result.push_back(child);
+        result.merge_or_insert(child);
       }
     }
   }

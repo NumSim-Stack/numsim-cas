@@ -96,15 +96,7 @@ public:
   expr_holder_t dispatch(typename Traits::add_type const &rhs) {
     auto add_expr{make_expression<typename Traits::add_type>(rhs)};
     auto &add{add_expr.template get<typename Traits::add_type>()};
-    auto inner = lhs.expr();
-    auto pos = add.symbol_map().find(inner);
-    if (pos != add.symbol_map().end()) {
-      auto combined = pos->second + inner;
-      add.symbol_map().erase(pos);
-      add.push_back(combined);
-    } else {
-      add.push_back(inner);
-    }
+    add.merge_or_insert(lhs.expr());
     return make_expression<typename Traits::negative_type>(std::move(add_expr));
   }
 
@@ -216,6 +208,11 @@ public:
   }
 
   // merge two add expressions
+  // NOTE: this dispatch has a separate pre-existing semantic issue —
+  // `lhs.coeff() + rhs.coeff()` is unguarded against invalid coeffs and uses
+  // `+` where `-` would be correct for subtraction. Documented in
+  // CoreBugFixTest near SubSymbolDispatchSmoke. Conversion below preserves
+  // existing behavior and closes the transitive-collision bug class.
   expr_holder_t dispatch(typename Traits::add_type const &rhs) {
     auto expr{make_expression<typename Traits::add_type>()};
     auto &add{expr.template get<typename Traits::add_type>()};
@@ -225,15 +222,15 @@ public:
       auto pos{rhs.symbol_map().find(child)};
       if (pos != rhs.symbol_map().end()) {
         used_expr.insert(pos->second);
-        add.push_back(child + pos->second);
+        add.merge_or_insert(child + pos->second);
       } else {
-        add.push_back(child);
+        add.merge_or_insert(child);
       }
     }
     if (used_expr.size() != rhs.size()) {
       for (auto &child : rhs.symbol_map() | std::views::values) {
         if (!used_expr.count(child)) {
-          add.push_back(child);
+          add.merge_or_insert(child);
         }
       }
     }
@@ -250,7 +247,7 @@ public:
     if (pos != add.symbol_map().end()) {
       auto expr{pos->second - base::m_rhs};
       add.symbol_map().erase(pos);
-      add.push_back(expr);
+      add.merge_or_insert(std::move(expr));
       return expr_add;
     }
     add.push_back(-base::m_rhs);

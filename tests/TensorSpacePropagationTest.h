@@ -180,10 +180,58 @@ TEST_F(TensorSpacePropagationTest, SymOfInvDev) {
   EXPECT_PRINT(sym(inv(D)), "inv(D)");
 }
 
-TEST_F(TensorSpacePropagationTest, InvSkewPreservesSkew) {
-  // inv(W) preserves Skew: (W^{-1})^T = (W^T)^{-1} = (-W)^{-1} = -W^{-1}
-  auto i = inv(W);
-  EXPECT_TRUE(is_skew(i)) << "inv(W) should be skew — (W^{-1})^T = -W^{-1}";
+TEST_F(TensorSpacePropagationTest, InvSkewRejectedInOddDim) {
+  // dim=3 W is singular (det=0 by det(-A^T) = (-1)^n det(A)); inv must reject.
+  EXPECT_THROW({ [[maybe_unused]] auto r = inv(W); }, invalid_expression_error);
+}
+
+TEST_F(TensorSpacePropagationTest, InvSkewPreservesSkewInEvenDim) {
+  // inv(W) preserves Skew in even dimension: (W^{-1})^T = (W^T)^{-1} = -W^{-1}.
+  auto W4 = std::get<0>(
+      make_tensor_variable(std::tuple{"W4", std::size_t{4}, std::size_t{2}}));
+  assume_skew(W4);
+  auto i = inv(W4);
+  EXPECT_TRUE(is_skew(i)) << "inv(W4) should be skew — (W^{-1})^T = -W^{-1}";
+}
+
+TEST_F(TensorSpacePropagationTest, InvRejectsScaledSkewFactorInTensorMul) {
+  // contains_skew_factor must reject tensor_mul whose factor is a scaled skew.
+  // On this build tensor_scalar_mul propagates the Skew space annotation, so
+  // detection succeeds via the space fast-path; this test additionally locks in
+  // the contract for paths where the annotation might be lost (the recursive
+  // walk into tensor_mul children is the structural fallback).
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = inv(B * (_2 * W)); },
+      invalid_expression_error);
+}
+
+TEST_F(TensorSpacePropagationTest, InvRejectsNegatedSkewFactorInTensorMul) {
+  // Same contract for tensor_negative as the wrapper child.
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = inv(B * (-W)); }, invalid_expression_error);
+}
+
+TEST_F(TensorSpacePropagationTest, TransMinusSelfIsAnnotatedSkewInEvenDim) {
+  // trans(A) - A is skew-symmetric by definition in any dimension. The
+  // construction-time annotation must not be gated on odd dim — even-dim
+  // callers still need it for skew/projector simplifications.
+  auto A4 = std::get<0>(
+      make_tensor_variable(std::tuple{"A4", std::size_t{4}, std::size_t{2}}));
+  auto expr = trans(A4) - A4;
+  EXPECT_TRUE(is_skew(expr))
+      << "trans(A) - A must carry the Skew annotation regardless of dim";
+}
+
+TEST_F(TensorSpacePropagationTest, TransPlusNegIsAnnotatedSkew) {
+  // trans(A) + (-A) is the same expression as trans(A) - A up to spelling;
+  // the add operator must mirror the sub operator's annotation so consumers
+  // that fast-path on the Skew annotation behave consistently.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", dim, 2}));
+  auto expr = trans(A) + (-A);
+  EXPECT_TRUE(is_skew(expr))
+      << "trans(A) + (-A) must carry the Skew annotation";
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

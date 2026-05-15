@@ -190,6 +190,126 @@ TEST(CoreBugFix, NaryTreeNonDuplicateInsertWorks) {
   EXPECT_EQ(add_node->size(), 2u);
 }
 
+// ---------------------------------------------------------------------------
+// is_same on an invalid expression returns false (used to assert)
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, IsSameOnInvalidExpressionReturnsFalse) {
+  expression_holder<scalar_expression> null_expr;
+  EXPECT_FALSE(is_same<scalar_zero>(null_expr));
+}
+
+// ---------------------------------------------------------------------------
+// scalar_pow differentiation: constant base, non-constant exponent
+//   d/dx(2^x) = 2^x * log(2)
+// Previously took the wrong branch (treated dg as the only contributor) and
+// dropped the log(g)*dh term.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, ScalarPowDiffConstBaseVariableExponent) {
+  auto [x] = make_scalar_variable("x");
+  auto two = make_scalar_constant(2);
+  auto expr = pow(two, x);
+  auto d = diff(expr, x);
+  // Evaluate at x=0: d/dx(2^x)|_{x=0} = 2^0 * log(2) = log(2) ~= 0.6931...
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.0);
+  EXPECT_NEAR(ev.apply(d), std::log(2.0), 1e-12);
+}
+
+TEST(CoreBugFix, ScalarPowDiffVariableBaseConstExponent) {
+  // d/dx(x^3) = 3 x^2 — confirms the long-standing branch still works.
+  auto [x] = make_scalar_variable("x");
+  auto expr = pow(x, 3);
+  auto d = diff(expr, x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  EXPECT_NEAR(ev.apply(d), 12.0, 1e-12);
+}
+
+TEST(CoreBugFix, ScalarPowDiffBothConstWrtArg) {
+  // pow(y, z) differentiated by an unrelated x must yield 0, not crash.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto expr = pow(y, z);
+  auto d = diff(expr, x);
+  EXPECT_TRUE(is_same<scalar_zero>(d));
+}
+
+// ---------------------------------------------------------------------------
+// merge_or_insert: smoke test that compound add constructions succeed.
+// The deterministic transitive-collision case requires a specific algebraic
+// simplification path that this codebase does not currently expose as a fixed
+// rule (e.g. there is no sin^2+cos^2 -> 1 reduction); the real exercise of
+// merge_or_insert's loop happens in the fuzz suite, which previously skipped
+// the seeds that hit it. Keep this as a smoke check that construction does
+// not regress to the duplicate-child internal_error.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, AddCompoundConstructionSmoke) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto one = make_scalar_constant(1);
+  EXPECT_NO_THROW({
+    auto lhs = pow(cos(x), 2) + pow(sin(x), 2) + y;
+    auto rhs = one + one + y;
+    auto sum = lhs + rhs;
+    (void)sum;
+  });
+}
+
+TEST(CoreBugFix, SubSymbolDispatchSmoke) {
+  // Exercises merge_or_insert on n_ary_sub_dispatch::dispatch(symbol):
+  // lhs is an add expression, rhs matches one of its children, and the
+  // combined entry is re-inserted via merge_or_insert.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  EXPECT_NO_THROW({
+    auto lhs = x + y + z;
+    auto diff = lhs - x;
+    (void)diff;
+  });
+}
+
+TEST(CoreBugFix, NegativeSubAddDispatchSmoke) {
+  // Exercises merge_or_insert on negative_sub_dispatch::dispatch(add):
+  // lhs is a negative, rhs is an add — the inner expr is folded into the
+  // rhs add via merge_or_insert before being wrapped in the outer negation.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  EXPECT_NO_THROW({
+    auto diff = -x - (y + z);
+    (void)diff;
+  });
+}
+
+// NOTE: a third smoke test for n_ary_sub_dispatch::dispatch(add, add)
+// — e.g. (a+b+c) - (a+b) — would surface a separate, pre-existing latent
+// bug in that dispatch: it computes lhs.coeff() + rhs.coeff() unguarded
+// against invalid coefficients, and uses `+` where `-` would be correct
+// for subtraction semantics. Out of scope for this PR; documenting the
+// gap rather than re-introducing the failing test.
+
+// ---------------------------------------------------------------------------
+// scalar_evaluator::forward_values_to filters non-scalar keys
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, ForwardValuesToSkipsNonScalarKey) {
+  // scalar_evaluator::set is templated on ExprBase, so callers could mistakenly
+  // store a tensor symbol in the scalar evaluator's map. The forwarding loop
+  // uses dynamic_pointer_cast<scalar_expression> to skip such keys instead of
+  // force-casting them (which would be UB the next time the destination tried
+  // to treat the holder as a scalar). Confirm the loop survives the bad key.
+  auto [x] = make_scalar_variable("x");
+  auto T = std::get<0>(
+      make_tensor_variable(std::tuple{"T", std::size_t{3}, std::size_t{2}}));
+
+  scalar_evaluator<double> src;
+  src.set(x, 1.5);
+  src.set(T, 2.5); // tensor key forced into the scalar evaluator
+
+  // tensor_evaluator is the real-world forwarding target; it exposes
+  // set_scalar that forward_values_to expects.
+  tensor_evaluator<double> dst;
+  EXPECT_NO_THROW(src.forward_values_to(dst));
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

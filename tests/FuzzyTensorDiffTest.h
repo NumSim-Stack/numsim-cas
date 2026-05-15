@@ -385,8 +385,15 @@ private:
                    auto sub = m.generate(depth - 1);
                    if (sub.rank != 2)
                      return std::nullopt;
-                   auto expr = inv(sub.expr);
-                   return TensorExprInfo{expr, 2, sub.used_vars};
+                   // inv() throws invalid_expression_error for skew-symmetric
+                   // operands in odd dimensions; let the library decide and
+                   // skip the seed when it rejects.
+                   try {
+                     auto expr = inv(sub.expr);
+                     return TensorExprInfo{expr, 2, sub.used_vars};
+                   } catch (invalid_expression_error const &) {
+                     return std::nullopt;
+                   }
                  });
 
     this->add_op("simple_outer_product", 7,
@@ -612,13 +619,7 @@ namespace {
 // ===========================================================================
 class FuzzyTensorDiffTest : public ::testing::TestWithParam<unsigned> {};
 
-// Seeds that produce near-singular tensors on some platforms, causing marginal
-// numerical differentiation mismatches. Fixed by assumption-driven branch.
-inline bool is_flaky_tensor_seed(unsigned seed) {
-  static constexpr unsigned flaky[] = {71, 10044};
-  for (auto s : flaky)
-    if (seed == s)
-      return true;
+inline bool is_flaky_tensor_seed([[maybe_unused]] unsigned seed) {
   return false;
 }
 

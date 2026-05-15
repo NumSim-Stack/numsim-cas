@@ -8,6 +8,7 @@
 #include <numsim_cas/tensor/projection_tensor.h>
 #include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/sequence.h>
+#include <numsim_cas/tensor/skew_classification.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
@@ -370,6 +371,18 @@ template <tensor_expr_holder Expr>
     return std::forward<Expr>(expr);
   if (is_same<kronecker_delta>(expr))
     return std::forward<Expr>(expr);
+  // A skew-symmetric matrix in odd dimensions is singular (det = 0) by the
+  // determinant theorem det(-A^T) = (-1)^n det(A). contains_skew_factor also
+  // catches expressions that aren't themselves skew but contain a skew factor
+  // (e.g. B * skew(A)) — still singular. Reject at construction so downstream
+  // evaluation cannot produce NaN/Inf from a silently-invalid expression.
+  // Rank-2 only; rank-4 inverses are a separate concern.
+  if (expr.get().rank() == 2 && expr.get().dim() % 2 != 0 &&
+      contains_skew_factor(expr)) {
+    throw invalid_expression_error(
+        "inv: operand contains a skew-symmetric factor in odd dimensions "
+        "(singular)");
+  }
   return make_expression<tensor_inv>(std::forward<Expr>(expr));
 }
 

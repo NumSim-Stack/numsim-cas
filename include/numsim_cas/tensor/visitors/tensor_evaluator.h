@@ -364,6 +364,7 @@ void tensor_evaluator<ValueType>::operator()(
   for (auto const &[key, val] : m_tensor_values) {
     t2s_eval.set(key, val);
   }
+  m_scalar_eval.forward_values_to(t2s_eval);
   const auto scalar_val = t2s_eval.apply(visitable.expr_rhs());
   auto src = apply(visitable.expr_lhs());
   const auto dim = src->dim();

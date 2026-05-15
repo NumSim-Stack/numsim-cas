@@ -53,7 +53,7 @@ void scalar_differentiation::operator()(scalar_add const &visitable) {
 void scalar_differentiation::operator()(scalar_negative const &visitable) {
   scalar_differentiation d(m_arg);
   auto diff_expr{d.apply(visitable.expr())};
-  if (diff_expr.is_valid() || !is_same<scalar_zero>(diff_expr)) {
+  if (diff_expr.is_valid() && !is_same<scalar_zero>(diff_expr)) {
     m_result = -diff_expr;
   }
 }
@@ -66,9 +66,20 @@ void scalar_differentiation::operator()(scalar_pow const &visitable) {
   auto dg{diff(g, m_arg)};
   auto dh{diff(h, m_arg)};
 
-  if (is_same<scalar_zero>(dh)) {
+  bool dh_zero = !dh.is_valid() || is_same<scalar_zero>(dh);
+  bool dg_zero = !dg.is_valid() || is_same<scalar_zero>(dg);
+
+  if (dg_zero && dh_zero) {
+    m_result = get_scalar_zero();
+    return;
+  }
+
+  if (dh_zero) {
     // h is constant (w.r.t. m_arg)
     m_result = h * pow(g, h - one) * dg;
+  } else if (dg_zero) {
+    // g is constant (w.r.t. m_arg)
+    m_result = pow(g, h) * dh * log(g);
   } else {
     // general case
     m_result = pow(g, h - one) * (h * dg + dh * log(g) * g);
