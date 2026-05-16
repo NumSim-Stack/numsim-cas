@@ -292,15 +292,15 @@ template <tensor_expr_holder Expr>
   }
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
-  if (is_same<basis_change_imp>(expr)) {
-    auto &tensor{expr.template get<basis_change_imp>()};
+  if (is_same<permute_indices_wrapper>(expr)) {
+    auto &tensor{expr.template get<permute_indices_wrapper>()};
     const auto &t_indices{tensor.indices()};
     sequence new_order(t_indices.size());
     for (std::size_t i{0}; i < t_indices.size(); ++i) {
       new_order[i] = indices[t_indices[i]];
     }
-    return make_expression<basis_change_imp>(tensor.expr(),
-                                             std::move(new_order));
+    return make_expression<permute_indices_wrapper>(tensor.expr(),
+                                                    std::move(new_order));
   }
 
   if (is_same<outer_product_wrapper>(expr)) {
@@ -319,7 +319,7 @@ template <tensor_expr_holder Expr>
     indices_new_rhs.reserve(indices_rhs.size());
 
     // Permute: new[k] = perm[old[k]]  (all 0-based)
-    // Same composition as basis_change_imp folding above.
+    // Same composition as permute_indices_wrapper folding above.
     for (std::size_t k{0}; k < indices_old.size(); ++k) {
       indices_new[k] = indices[indices_old[k]];
     }
@@ -334,8 +334,8 @@ template <tensor_expr_holder Expr>
   }
 
   // outer_product_wrapper
-  return make_expression<basis_change_imp>(std::forward<Expr>(expr),
-                                           std::move(indices));
+  return make_expression<permute_indices_wrapper>(std::forward<Expr>(expr),
+                                                  std::move(indices));
 }
 
 template <tensor_expr_holder Expr>
@@ -350,13 +350,13 @@ template <tensor_expr_holder Expr>
   }
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
-  if (is_same<basis_change_imp>(expr)) {
-    auto const &bc = expr.template get<basis_change_imp>();
+  if (is_same<permute_indices_wrapper>(expr)) {
+    auto const &bc = expr.template get<permute_indices_wrapper>();
     if (bc.indices() == sequence{2, 1})
       return bc.expr();
   }
-  return make_expression<basis_change_imp>(std::forward<Expr>(expr),
-                                           sequence{2, 1});
+  return make_expression<permute_indices_wrapper>(std::forward<Expr>(expr),
+                                                  sequence{2, 1});
 }
 
 template <tensor_expr_holder Expr>

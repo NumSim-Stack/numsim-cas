@@ -369,7 +369,7 @@ TEST_F(TensorDifferentiationTest, TensorMulSameVariable) {
 }
 
 // Regression: d(permute_indices(inner_product(C, {1}, E, {3}), {3,1,2}))/dC
-// Tests basis_change_imp permutation composition in differentiation
+// Tests permute_indices_wrapper permutation composition in differentiation
 TEST_F(TensorDifferentiationTest, PermuteInnerProductDiff) {
   auto C = make_expression<tensor>("C", 3, 2);
   auto E = make_expression<tensor>("E", 3, 3);

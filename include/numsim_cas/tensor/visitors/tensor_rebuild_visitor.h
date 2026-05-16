@@ -49,8 +49,9 @@ public:
     m_result = inv(apply(v.expr()));
   }
 
-  void operator()(basis_change_imp const &v) override {
-    m_result = make_expression<basis_change_imp>(apply(v.expr()), v.indices());
+  void operator()(permute_indices_wrapper const &v) override {
+    m_result =
+        make_expression<permute_indices_wrapper>(apply(v.expr()), v.indices());
   }
 
   // Binary tensor x tensor -> tensor

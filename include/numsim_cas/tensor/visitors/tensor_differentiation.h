@@ -147,7 +147,7 @@ public:
   void operator()(simple_outer_product const &visitable) override;
   void operator()(tensor_inv const &visitable) override;
   void operator()(inner_product_wrapper const &visitable) override;
-  void operator()(basis_change_imp const &visitable) override;
+  void operator()(permute_indices_wrapper const &visitable) override;
   void operator()(outer_product_wrapper const &visitable) override;
   void operator()(tensor_to_scalar_with_tensor_mul const &visitable) override;
 
