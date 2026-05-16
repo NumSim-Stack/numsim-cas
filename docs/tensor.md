@@ -32,7 +32,7 @@ classDiagram
 
     class inner_product_wrapper["inner_product_wrapper"]
     class outer_product_wrapper["outer_product_wrapper"]
-    class basis_change_imp["basis_change_imp"]
+    class permute_indices_wrapper["permute_indices_wrapper"]
     class simple_outer_product["simple_outer_product (n_ary_vector)"]
 
     class tensor_symmetry
@@ -55,7 +55,7 @@ classDiagram
     tensor_expression <|-- tensor_power_diff
     tensor_expression <|-- inner_product_wrapper
     tensor_expression <|-- outer_product_wrapper
-    tensor_expression <|-- basis_change_imp
+    tensor_expression <|-- permute_indices_wrapper
     tensor_expression <|-- simple_outer_product
     tensor_expression <|-- tensor_symmetry
     tensor_expression <|-- tensor_deviatoric
@@ -75,7 +75,7 @@ classDiagram
 | 5 | `tensor_power_diff` | special | Derivative helper for tensor power |
 | 6 | `tensor_negative` | `unary_op` | Unary negation |
 | 7 | `inner_product_wrapper` | binary-like | Inner product with index specification |
-| 8 | `basis_change_imp` | unary-like | Index permutation / transpose |
+| 8 | `permute_indices_wrapper` | unary-like | Index permutation / transpose |
 | 9 | `outer_product_wrapper` | binary-like | Outer product with index specification |
 | 10 | `kronecker_delta` | leaf | Kronecker delta (rank-2 identity) |
 | 11 | `simple_outer_product` | `n_ary_vector` | N-ary outer product |

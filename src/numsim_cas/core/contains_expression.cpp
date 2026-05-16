@@ -168,7 +168,9 @@ public:
       check(child);
     }
   }
-  void operator()(basis_change_imp const &v) override { check(v.expr()); }
+  void operator()(permute_indices_wrapper const &v) override {
+    check(v.expr());
+  }
 
   // tensor_scalar_mul: lhs is scalar, rhs is tensor
   void operator()(tensor_scalar_mul const &v) override { check(v.expr_rhs()); }
