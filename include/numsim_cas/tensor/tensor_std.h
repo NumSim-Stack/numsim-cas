@@ -6,11 +6,11 @@
 #include <numsim_cas/scalar/scalar_one.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_zero.h>
-#include <numsim_cas/tensor/functions/tensor_pow.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
+#include <numsim_cas/tensor/wrappers/tensor_pow.h>
 #include <sstream>
 
 // namespace std {

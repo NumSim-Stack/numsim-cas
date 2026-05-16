@@ -120,7 +120,7 @@ a tracking issue.
 
 1. **No tensor pow simplifier.** Entire `tensor/simplifier/tensor_simplifier_pow.h`
    is missing. Tensor `pow` expressions are constructed via
-   [`tensor/functions/tensor_pow.h`](../include/numsim_cas/tensor/functions/tensor_pow.h)
+   [`tensor/wrappers/tensor_pow.h`](../include/numsim_cas/tensor/wrappers/tensor_pow.h)
    and the `pow()` free function but receive no simplifier-driven rewrites
    (`pow(pow(A, m), n) → pow(A, m·n)`, `pow(inv(A), n) → inv(pow(A, n))`, etc.).
    Tracked as [#96](https://github.com/NumSim-Stack/numsim-cas/issues/96).

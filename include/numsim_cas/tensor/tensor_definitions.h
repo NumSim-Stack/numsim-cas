@@ -1,12 +1,6 @@
 #ifndef TENSOR_DEFINITIONS_H
 #define TENSOR_DEFINITIONS_H
 
-#include <numsim_cas/tensor/functions/inner_product_wrapper.h>
-#include <numsim_cas/tensor/functions/outer_product_wrapper.h>
-#include <numsim_cas/tensor/functions/permute_indices.h>
-#include <numsim_cas/tensor/functions/simple_outer_product.h>
-#include <numsim_cas/tensor/functions/tensor_inv.h>
-#include <numsim_cas/tensor/functions/tensor_pow.h>
 #include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/operators/scalar/tensor_scalar_mul.h>
@@ -17,5 +11,11 @@
 #include <numsim_cas/tensor/tensor.h>
 #include <numsim_cas/tensor/tensor_negative.h>
 #include <numsim_cas/tensor/tensor_zero.h>
+#include <numsim_cas/tensor/wrappers/inner_product_wrapper.h>
+#include <numsim_cas/tensor/wrappers/outer_product_wrapper.h>
+#include <numsim_cas/tensor/wrappers/permute_indices.h>
+#include <numsim_cas/tensor/wrappers/simple_outer_product.h>
+#include <numsim_cas/tensor/wrappers/tensor_inv.h>
+#include <numsim_cas/tensor/wrappers/tensor_pow.h>
 
 #endif // TENSOR_DEFINITIONS_H
