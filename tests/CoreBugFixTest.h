@@ -315,6 +315,22 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// Division-by-reciprocal canonicalisation (issue #49).
+// `a * (1/b)` should canonicalise to `a/b`. Both produce the same
+// pow(b, -1)-based structural form on construction (comment in
+// scalar_operators.h:106: "pow(c, -1) stays structural and the printer
+// formats as x/c"). The two are == today; this test locks the contract.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, ScalarMulByReciprocalEqualsDivide) {
+  auto [a, b] = make_scalar_variable("a", "b");
+  // a * (1/b) == a / b
+  EXPECT_EQ(a * pow(b, -1), a / b);
+  // (1/b) * a == a / b  (commutative case)
+  EXPECT_EQ(pow(b, -1) * a, a / b);
+}
+
+// ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
 // ---------------------------------------------------------------------------
 
