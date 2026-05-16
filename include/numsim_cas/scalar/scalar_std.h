@@ -228,6 +228,47 @@ template <scalar_expr_holder E> [[nodiscard]] auto log(E &&e) {
   return make_expression<scalar_log>(std::forward<E>(e));
 }
 
+template <scalar_expr_holder E> [[nodiscard]] auto log10(E const &e) {
+  expression_holder<scalar_expression> ten =
+      make_expression<scalar_constant>(scalar_number{10});
+  expression_holder<scalar_expression> log_ten =
+      make_expression<scalar_log>(std::move(ten));
+  return log(e) / std::move(log_ten);
+}
+
+template <scalar_expr_holder E> [[nodiscard]] auto sinh(E const &e) {
+  expression_holder<scalar_expression> two =
+      make_expression<scalar_constant>(scalar_number{2});
+  return (exp(e) - exp(-e)) / std::move(two);
+}
+
+template <scalar_expr_holder E> [[nodiscard]] auto cosh(E const &e) {
+  expression_holder<scalar_expression> two =
+      make_expression<scalar_constant>(scalar_number{2});
+  return (exp(e) + exp(-e)) / std::move(two);
+}
+
+template <scalar_expr_holder E> [[nodiscard]] auto tanh(E const &e) {
+  return sinh(e) / cosh(e);
+}
+
+template <scalar_expr_holder E> [[nodiscard]] auto asinh(E const &e) {
+  expression_holder<scalar_expression> one = get_scalar_one();
+  return log(e + sqrt(pow(e, 2) + std::move(one)));
+}
+
+template <scalar_expr_holder E> [[nodiscard]] auto acosh(E const &e) {
+  expression_holder<scalar_expression> one = get_scalar_one();
+  return log(e + sqrt(pow(e, 2) - std::move(one)));
+}
+
+template <scalar_expr_holder E> [[nodiscard]] auto atanh(E const &e) {
+  expression_holder<scalar_expression> one = get_scalar_one();
+  expression_holder<scalar_expression> two =
+      make_expression<scalar_constant>(scalar_number{2});
+  return log((one + e) / (std::move(one) - e)) / std::move(two);
+}
+
 } // namespace numsim::cas
 
 #endif // SCALAR_STD_H
