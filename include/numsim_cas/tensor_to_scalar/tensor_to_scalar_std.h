@@ -115,6 +115,59 @@ template <tensor_to_scalar_expr_holder Expr>
   return make_expression<tensor_to_scalar_sqrt>(std::forward<Expr>(expr));
 }
 
+namespace tensor_to_scalar_detail {
+inline auto t2s_constant(scalar_number v) {
+  return make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar_constant>(v));
+}
+} // namespace tensor_to_scalar_detail
+
+template <tensor_to_scalar_expr_holder Expr>
+[[nodiscard]] auto log10(Expr const &expr) {
+  expression_holder<tensor_to_scalar_expression> log_ten =
+      make_expression<tensor_to_scalar_log>(
+          tensor_to_scalar_detail::t2s_constant(scalar_number{10}));
+  return log(expr) / std::move(log_ten);
+}
+
+template <tensor_to_scalar_expr_holder Expr>
+[[nodiscard]] auto sinh(Expr const &expr) {
+  auto two = tensor_to_scalar_detail::t2s_constant(scalar_number{2});
+  return (exp(expr) - exp(-expr)) / std::move(two);
+}
+
+template <tensor_to_scalar_expr_holder Expr>
+[[nodiscard]] auto cosh(Expr const &expr) {
+  auto two = tensor_to_scalar_detail::t2s_constant(scalar_number{2});
+  return (exp(expr) + exp(-expr)) / std::move(two);
+}
+
+template <tensor_to_scalar_expr_holder Expr>
+[[nodiscard]] auto tanh(Expr const &expr) {
+  return sinh(expr) / cosh(expr);
+}
+
+template <tensor_to_scalar_expr_holder Expr>
+[[nodiscard]] auto asinh(Expr const &expr) {
+  auto one = make_expression<tensor_to_scalar_one>();
+  return log(expr + sqrt(pow(expr, 2) + std::move(one)));
+}
+
+template <tensor_to_scalar_expr_holder Expr>
+[[nodiscard]] auto acosh(Expr const &expr) {
+  auto one = make_expression<tensor_to_scalar_one>();
+  return log(expr + sqrt(pow(expr, 2) - std::move(one)));
+}
+
+template <tensor_to_scalar_expr_holder Expr>
+[[nodiscard]] auto atanh(Expr const &expr) {
+  auto one_a = make_expression<tensor_to_scalar_one>();
+  auto one_b = make_expression<tensor_to_scalar_one>();
+  auto two = tensor_to_scalar_detail::t2s_constant(scalar_number{2});
+  return log((std::move(one_a) + expr) / (std::move(one_b) - expr)) /
+         std::move(two);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSOR_TO_SCALAR_STD_H

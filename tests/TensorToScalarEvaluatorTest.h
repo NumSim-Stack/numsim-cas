@@ -258,6 +258,73 @@ TEST(T2sEval, EvaluationErrorIsCatchableAsRuntimeError) {
   EXPECT_THROW(ev.apply(trace(A)), std::runtime_error);
 }
 
+// ─── #32: t2s std overloads — log10, hyperbolic, inverse hyperbolic ──────
+// Implemented as compositions of existing primitives (log, exp, sqrt, pow,
+// +, -, *, /). Verify numerical evaluation matches std:: counterparts when
+// applied to a t2s expression. Use trace(A) as the inner t2s expression.
+
+TEST(T2sEval, T2sLog10MatchesNumerical) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  // trace = 1 + 99 = 100 → log10 = 2
+  ev.set(A, make_test_data<2, 2>({1.0, 0.0, 0.0, 99.0}));
+  auto expr = log10(trace(A));
+  EXPECT_NEAR(ev.apply(expr), 2.0, t2s_tol);
+}
+
+TEST(T2sEval, T2sSinhMatchesNumerical) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  // trace = 0.5
+  ev.set(A, make_test_data<2, 2>({0.2, 0.0, 0.0, 0.3}));
+  auto expr = sinh(trace(A));
+  EXPECT_NEAR(ev.apply(expr), std::sinh(0.5), t2s_tol);
+}
+
+TEST(T2sEval, T2sCoshMatchesNumerical) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  ev.set(A, make_test_data<2, 2>({0.2, 0.0, 0.0, 0.3}));
+  auto expr = cosh(trace(A));
+  EXPECT_NEAR(ev.apply(expr), std::cosh(0.5), t2s_tol);
+}
+
+TEST(T2sEval, T2sTanhMatchesNumerical) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  // trace = 0.7
+  ev.set(A, make_test_data<2, 2>({0.3, 0.0, 0.0, 0.4}));
+  auto expr = tanh(trace(A));
+  EXPECT_NEAR(ev.apply(expr), std::tanh(0.7), t2s_tol);
+}
+
+TEST(T2sEval, T2sAsinhMatchesNumerical) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  // trace = 1.5
+  ev.set(A, make_test_data<2, 2>({0.5, 0.0, 0.0, 1.0}));
+  auto expr = asinh(trace(A));
+  EXPECT_NEAR(ev.apply(expr), std::asinh(1.5), t2s_tol);
+}
+
+TEST(T2sEval, T2sAcoshMatchesNumerical) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  // trace = 2.5 (domain: x >= 1)
+  ev.set(A, make_test_data<2, 2>({1.0, 0.0, 0.0, 1.5}));
+  auto expr = acosh(trace(A));
+  EXPECT_NEAR(ev.apply(expr), std::acosh(2.5), t2s_tol);
+}
+
+TEST(T2sEval, T2sAtanhMatchesNumerical) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  // trace = 0.5 (domain: |x| < 1)
+  ev.set(A, make_test_data<2, 2>({0.2, 0.0, 0.0, 0.3}));
+  auto expr = atanh(trace(A));
+  EXPECT_NEAR(ev.apply(expr), std::atanh(0.5), t2s_tol);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALAREVALUATORTEST_H
