@@ -417,6 +417,9 @@ TEST(CoreBugFix, ScalarMulByReciprocalEqualsDivide) {
   EXPECT_EQ(a * pow(b, -1), a / b);
   // (1/b) * a == a / b  (commutative case)
   EXPECT_EQ(pow(b, -1) * a, a / b);
+}
+
+// ---------------------------------------------------------------------------
 // Skew annotation propagation lock-in (issue #93).
 // On the build platform that motivated commit 7e962e5, the Skew space
 // annotation could be lost when skew(A) was stored inside a tensor_mul.
@@ -486,6 +489,9 @@ TEST(CoreBugFix, SkewSpacePreservedAsTensorMulChild) {
   EXPECT_TRUE(found_sA_with_skew) << "skew(A) child not found in tensor_mul";
   EXPECT_FALSE(other_child_spuriously_skew)
       << "non-skew child spuriously annotated as Skew";
+}
+
+// ---------------------------------------------------------------------------
 // Tensor pow simplifications (issue #96) — extends the construction-time
 // rules in tensor_std.h::pow with pow(I, n) → I and pow(inv(A), n) →
 // inv(pow(A, n)). The existing rules pow(0, n) → 0, pow(A, 0) → I,
@@ -516,6 +522,9 @@ TEST(CoreBugFix, TensorPowPowChains) {
   auto [A] =
       make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
   EXPECT_EQ(pow(pow(A, 2), 3), pow(A, 6));
+}
+
+// ---------------------------------------------------------------------------
 // mul × mul merges like factors (verifies issue #97's claim was wrong —
 // the rules ARE implemented, in per-domain wrappers rather than a generic
 // dispatcher; these regressions lock in the contract).
