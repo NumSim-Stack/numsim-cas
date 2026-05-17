@@ -146,13 +146,21 @@ TEST(TensorPrinterAudit, SimpleOuterProduct) {
 
 TEST(TensorPrinterAudit, TensorToScalarWithTensorMul) {
   // tensor_to_scalar_with_tensor_mul is constructed internally by t2s
-  // differentiation. Exercise the print path via d(det(A))/dA which
-  // produces an expression that contains this node.
+  // differentiation. d(det(A))/dA produces an expression whose root is a
+  // tensor_to_scalar_with_tensor_mul (det(A) scaling the inv-transpose
+  // tensor). Assert the node type first so a future change to the
+  // differentiation result shape doesn't silently let this test pass
+  // vacuously without exercising the printer's overload for this node.
   auto [A] =
       make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
   auto expr = diff(det(A), A);
+  ASSERT_TRUE(is_same<tensor_to_scalar_with_tensor_mul>(expr))
+      << "Expected d(det(A))/dA to be a tensor_to_scalar_with_tensor_mul, "
+         "got: "
+      << to_string(expr);
   auto s = print(expr);
-  EXPECT_FALSE(s.empty()) << "diff(det(A), A) print produced empty output";
+  // Node prints as "<t2s_scalar>*<tensor>" — must contain '*'.
+  EXPECT_NE(s.find("*"), std::string::npos) << "got: " << s;
 }
 
 } // namespace numsim::cas
