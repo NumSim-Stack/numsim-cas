@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <numsim_cas/core/cas_error.h>
+#include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/data/tensor_data_make_imp.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/projection_tensor.h>

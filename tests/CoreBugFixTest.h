@@ -441,6 +441,23 @@ TEST(CoreBugFix, InvLiftsThenRejectsSkewInner) {
       { [[maybe_unused]] auto r = inv(two * sA); }, invalid_expression_error);
 }
 
+TEST(CoreBugFix, InvLiftsNestedScalarFactor) {
+  // inv(s * (t * A)) — nested tensor_scalar_mul. The recursive rule should
+  // produce a canonical (s*t)-scaled inv(A) rather than a doubly-nested
+  // tensor_scalar_mul.
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto [s, t] = make_scalar_variable("s", "t");
+  auto r = inv(s * (t * A));
+  // Result should be a tensor_scalar_mul whose tensor child is inv(A),
+  // not another tensor_scalar_mul (the operator* on scalar*tensor_scalar_mul
+  // collapses the nesting via mul_base::dispatch(tensor_scalar_mul)).
+  ASSERT_TRUE(is_same<tensor_scalar_mul>(r));
+  EXPECT_TRUE(is_same<tensor_inv>(r.get<tensor_scalar_mul>().expr_rhs()))
+      << "Inner tensor should be tensor_inv directly (collapsed), got: "
+      << to_string(r);
+}
+
 // ---------------------------------------------------------------------------
 // Skew annotation propagation lock-in (issue #93).
 // On the build platform that motivated commit 7e962e5, the Skew space
