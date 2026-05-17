@@ -378,7 +378,13 @@ template <tensor_expr_holder Expr>
   // throws and the new rule produces the same overall error.
   if (is_same<tensor_scalar_mul>(expr)) {
     auto const &sm = expr.template get<tensor_scalar_mul>();
-    return (get_scalar_one() / sm.expr_lhs()) * inv(sm.expr_rhs());
+    // Construct the lifted scalar*inv(A) directly via make_expression so this
+    // header doesn't have to include tensor_operators.h — which would form a
+    // cycle through the tensor simplifier headers.
+    auto reciprocal = get_scalar_one() / sm.expr_lhs();
+    auto inv_inner = inv(sm.expr_rhs());
+    return make_expression<tensor_scalar_mul>(std::move(reciprocal),
+                                              std::move(inv_inner));
   }
   // A skew-symmetric matrix in odd dimensions is singular (det = 0) by the
   // determinant theorem det(-A^T) = (-1)^n det(A). contains_skew_factor also
