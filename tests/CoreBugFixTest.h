@@ -401,6 +401,50 @@ TEST(CoreBugFix, ScalarAtanhMatchesNumerical) {
   EXPECT_NEAR(ev.apply(expr), std::atanh(0.5), 1e-12);
 }
 
+// ---------------------------------------------------------------------------
+// Construction-time short-circuits for the composition-based hyperbolic
+// functions. These mirror what the underlying primitives (exp/log/sqrt/pow)
+// already do for special arguments, but lift the simplification to the
+// public API so callers see a clean expression without round-tripping
+// through the composed form.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, ScalarSinhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<scalar_zero>(sinh(get_scalar_zero())));
+}
+
+TEST(CoreBugFix, ScalarCoshOfZeroIsOne) {
+  EXPECT_TRUE(is_same<scalar_one>(cosh(get_scalar_zero())));
+}
+
+TEST(CoreBugFix, ScalarCoshOfNegateFoldsToCosh) {
+  // cosh(-x) = cosh(x) — even function.
+  auto [x] = make_scalar_variable("x");
+  EXPECT_EQ(cosh(-x), cosh(x));
+}
+
+TEST(CoreBugFix, ScalarTanhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<scalar_zero>(tanh(get_scalar_zero())));
+}
+
+TEST(CoreBugFix, ScalarTanhOfNegateFoldsToNegTanh) {
+  // tanh(-x) = -tanh(x) — odd function.
+  auto [x] = make_scalar_variable("x");
+  EXPECT_EQ(tanh(-x), -tanh(x));
+}
+
+TEST(CoreBugFix, ScalarAsinhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<scalar_zero>(asinh(get_scalar_zero())));
+}
+
+TEST(CoreBugFix, ScalarAcoshOfOneIsZero) {
+  EXPECT_TRUE(is_same<scalar_zero>(acosh(get_scalar_one())));
+}
+
+TEST(CoreBugFix, ScalarAtanhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<scalar_zero>(atanh(get_scalar_zero())));
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

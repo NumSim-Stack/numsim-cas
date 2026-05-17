@@ -228,51 +228,72 @@ template <scalar_expr_holder E> [[nodiscard]] auto log(E &&e) {
   return make_expression<scalar_log>(std::forward<E>(e));
 }
 
-template <scalar_expr_holder E> [[nodiscard]] auto log10(E const &e) {
+template <scalar_expr_holder E> [[nodiscard]] auto log10(E &&e) {
   expression_holder<scalar_expression> ten =
       make_expression<scalar_constant>(scalar_number{10});
   expression_holder<scalar_expression> log_ten =
       make_expression<scalar_log>(std::move(ten));
-  return log(e) / std::move(log_ten);
+  return log(std::forward<E>(e)) / std::move(log_ten);
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto sinh(E const &e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
   expression_holder<scalar_expression> two =
       make_expression<scalar_constant>(scalar_number{2});
   return (exp(e) - exp(-e)) / std::move(two);
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto cosh(E const &e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_one();
+  // cosh(-x) = cosh(x) — fold the negation away so chain rules see the
+  // simpler form.
+  if (is_same<scalar_negative>(e))
+    return cosh(e.template get<scalar_negative>().expr());
   expression_holder<scalar_expression> two =
       make_expression<scalar_constant>(scalar_number{2});
   return (exp(e) + exp(-e)) / std::move(two);
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto tanh(E const &e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
+  // tanh(-x) = -tanh(x)
+  if (is_same<scalar_negative>(e))
+    return -tanh(e.template get<scalar_negative>().expr());
   return sinh(e) / cosh(e);
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto asinh(E const &e) {
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
   expression_holder<scalar_expression> one = get_scalar_one();
   return log(e + sqrt(pow(e, 2) + std::move(one)));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto acosh(E const &e) {
+  // acosh(1) = 0 — covers scalar_one and scalar_constant{1}.
+  if (is_same<scalar_one>(e) ||
+      (is_same<scalar_constant>(e) &&
+       e.template get<scalar_constant>().value() == scalar_number{1}))
+    return get_scalar_zero();
   expression_holder<scalar_expression> one = get_scalar_one();
   return log(e + sqrt(pow(e, 2) - std::move(one)));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto atanh(E const &e) {
-  // Use separate `one` instances per sub-expression: the C++ standard does
-  // not specify evaluation order of operator/'s operands, so `std::move(one)`
-  // on the RHS could otherwise empty the lvalue used on the LHS. gcc and MSVC
-  // evaluate RHS first; clang evaluates LHS first.
-  expression_holder<scalar_expression> one_lhs = get_scalar_one();
-  expression_holder<scalar_expression> one_rhs = get_scalar_one();
+  if (is_same<scalar_zero>(e))
+    return get_scalar_zero();
+  // The C++ standard does not specify evaluation order of operator/'s
+  // operands. Build numerator and denominator as separate named statements
+  // so the moves are unambiguously ordered before the division consumes
+  // them. (gcc/MSVC evaluate RHS first; clang evaluates LHS first.)
+  auto num = get_scalar_one() + e;
+  auto den = get_scalar_one() - e;
   expression_holder<scalar_expression> two =
       make_expression<scalar_constant>(scalar_number{2});
-  return log((std::move(one_lhs) + e) / (std::move(one_rhs) - e)) /
-         std::move(two);
+  return log(std::move(num) / std::move(den)) / std::move(two);
 }
 
 } // namespace numsim::cas
