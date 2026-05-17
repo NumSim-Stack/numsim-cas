@@ -263,10 +263,16 @@ template <scalar_expr_holder E> [[nodiscard]] auto acosh(E const &e) {
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto atanh(E const &e) {
-  expression_holder<scalar_expression> one = get_scalar_one();
+  // Use separate `one` instances per sub-expression: the C++ standard does
+  // not specify evaluation order of operator/'s operands, so `std::move(one)`
+  // on the RHS could otherwise empty the lvalue used on the LHS. gcc and MSVC
+  // evaluate RHS first; clang evaluates LHS first.
+  expression_holder<scalar_expression> one_lhs = get_scalar_one();
+  expression_holder<scalar_expression> one_rhs = get_scalar_one();
   expression_holder<scalar_expression> two =
       make_expression<scalar_constant>(scalar_number{2});
-  return log((one + e) / (std::move(one) - e)) / std::move(two);
+  return log((std::move(one_lhs) + e) / (std::move(one_rhs) - e)) /
+         std::move(two);
 }
 
 } // namespace numsim::cas
