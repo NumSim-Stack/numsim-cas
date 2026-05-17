@@ -325,6 +325,49 @@ TEST(T2sEval, T2sAtanhMatchesNumerical) {
   EXPECT_NEAR(ev.apply(expr), std::atanh(0.5), t2s_tol);
 }
 
+// ─── #32 hyperbolic short-circuit lock-ins ───────────────────────────────
+// Mirror the scalar short-circuits added in PR #123 for t2s.
+
+TEST(T2sEval, T2sSinhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(
+      sinh(make_expression<tensor_to_scalar_zero>())));
+}
+
+TEST(T2sEval, T2sCoshOfZeroIsOne) {
+  EXPECT_TRUE(is_same<tensor_to_scalar_one>(
+      cosh(make_expression<tensor_to_scalar_zero>())));
+}
+
+TEST(T2sEval, T2sCoshOfNegateFoldsToCosh) {
+  auto A = make_expression<tensor>("A", 2, 2);
+  EXPECT_EQ(cosh(-trace(A)), cosh(trace(A)));
+}
+
+TEST(T2sEval, T2sTanhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(
+      tanh(make_expression<tensor_to_scalar_zero>())));
+}
+
+TEST(T2sEval, T2sTanhOfNegateFoldsToNegTanh) {
+  auto A = make_expression<tensor>("A", 2, 2);
+  EXPECT_EQ(tanh(-trace(A)), -tanh(trace(A)));
+}
+
+TEST(T2sEval, T2sAsinhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(
+      asinh(make_expression<tensor_to_scalar_zero>())));
+}
+
+TEST(T2sEval, T2sAcoshOfOneIsZero) {
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(
+      acosh(make_expression<tensor_to_scalar_one>())));
+}
+
+TEST(T2sEval, T2sAtanhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(
+      atanh(make_expression<tensor_to_scalar_zero>())));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALAREVALUATORTEST_H

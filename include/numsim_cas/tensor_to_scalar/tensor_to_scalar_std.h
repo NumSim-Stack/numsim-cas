@@ -123,49 +123,70 @@ inline auto t2s_constant(scalar_number v) {
 } // namespace tensor_to_scalar_detail
 
 template <tensor_to_scalar_expr_holder Expr>
-[[nodiscard]] auto log10(Expr const &expr) {
+[[nodiscard]] auto log10(Expr &&expr) {
   expression_holder<tensor_to_scalar_expression> log_ten =
       make_expression<tensor_to_scalar_log>(
           tensor_to_scalar_detail::t2s_constant(scalar_number{10}));
-  return log(expr) / std::move(log_ten);
+  return log(std::forward<Expr>(expr)) / std::move(log_ten);
 }
 
 template <tensor_to_scalar_expr_holder Expr>
 [[nodiscard]] auto sinh(Expr const &expr) {
+  if (is_same<tensor_to_scalar_zero>(expr))
+    return make_expression<tensor_to_scalar_zero>();
   auto two = tensor_to_scalar_detail::t2s_constant(scalar_number{2});
   return (exp(expr) - exp(-expr)) / std::move(two);
 }
 
 template <tensor_to_scalar_expr_holder Expr>
 [[nodiscard]] auto cosh(Expr const &expr) {
+  if (is_same<tensor_to_scalar_zero>(expr))
+    return make_expression<tensor_to_scalar_one>();
+  // cosh(-x) = cosh(x) — even function.
+  if (is_same<tensor_to_scalar_negative>(expr))
+    return cosh(expr.template get<tensor_to_scalar_negative>().expr());
   auto two = tensor_to_scalar_detail::t2s_constant(scalar_number{2});
   return (exp(expr) + exp(-expr)) / std::move(two);
 }
 
 template <tensor_to_scalar_expr_holder Expr>
 [[nodiscard]] auto tanh(Expr const &expr) {
+  if (is_same<tensor_to_scalar_zero>(expr))
+    return make_expression<tensor_to_scalar_zero>();
+  // tanh(-x) = -tanh(x) — odd function.
+  if (is_same<tensor_to_scalar_negative>(expr))
+    return -tanh(expr.template get<tensor_to_scalar_negative>().expr());
   return sinh(expr) / cosh(expr);
 }
 
 template <tensor_to_scalar_expr_holder Expr>
 [[nodiscard]] auto asinh(Expr const &expr) {
+  if (is_same<tensor_to_scalar_zero>(expr))
+    return make_expression<tensor_to_scalar_zero>();
   auto one = make_expression<tensor_to_scalar_one>();
   return log(expr + sqrt(pow(expr, 2) + std::move(one)));
 }
 
 template <tensor_to_scalar_expr_holder Expr>
 [[nodiscard]] auto acosh(Expr const &expr) {
+  // acosh(1) = 0
+  if (is_same<tensor_to_scalar_one>(expr))
+    return make_expression<tensor_to_scalar_zero>();
   auto one = make_expression<tensor_to_scalar_one>();
   return log(expr + sqrt(pow(expr, 2) - std::move(one)));
 }
 
 template <tensor_to_scalar_expr_holder Expr>
 [[nodiscard]] auto atanh(Expr const &expr) {
-  auto one_a = make_expression<tensor_to_scalar_one>();
-  auto one_b = make_expression<tensor_to_scalar_one>();
+  if (is_same<tensor_to_scalar_zero>(expr))
+    return make_expression<tensor_to_scalar_zero>();
+  // Build numerator and denominator as separate named statements so the
+  // moves are unambiguously ordered before the division consumes them.
+  // (operator/'s operand evaluation order is unspecified in C++.)
+  auto num = make_expression<tensor_to_scalar_one>() + expr;
+  auto den = make_expression<tensor_to_scalar_one>() - expr;
   auto two = tensor_to_scalar_detail::t2s_constant(scalar_number{2});
-  return log((std::move(one_a) + expr) / (std::move(one_b) - expr)) /
-         std::move(two);
+  return log(std::move(num) / std::move(den)) / std::move(two);
 }
 
 } // namespace numsim::cas
