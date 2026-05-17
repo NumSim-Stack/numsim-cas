@@ -1,8 +1,6 @@
 #ifndef SCALARDIFFERENTIATIONTEST_H
 #define SCALARDIFFERENTIATIONTEST_H
 
-#pragma once
-
 #include <gtest/gtest.h>
 
 #include <numsim_cas/core/diff.h>
