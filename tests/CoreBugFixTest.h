@@ -404,6 +404,61 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// inv(alpha * A) -> (1/alpha) * inv(A) (issue #71)
+// Scalar factor is lifted outside the inverse so the canonical form keeps
+// the tensor inverse on the inner operand.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, InvLiftsConstantScalarFactor) {
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto two = make_scalar_constant(2);
+  auto r = inv(two * A);
+  // Result should be a tensor_scalar_mul wrapping inv(A).
+  ASSERT_TRUE(is_same<tensor_scalar_mul>(r));
+  auto const &sm = r.get<tensor_scalar_mul>();
+  ASSERT_TRUE(is_same<tensor_inv>(sm.expr_rhs()));
+  EXPECT_EQ(sm.expr_rhs().get<tensor_inv>().expr(), A);
+}
+
+TEST(CoreBugFix, InvLiftsSymbolicScalarFactor) {
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto [s] = make_scalar_variable("s");
+  auto r = inv(s * A);
+  ASSERT_TRUE(is_same<tensor_scalar_mul>(r));
+  EXPECT_TRUE(is_same<tensor_inv>(r.get<tensor_scalar_mul>().expr_rhs()));
+}
+
+TEST(CoreBugFix, InvLiftsThenRejectsSkewInner) {
+  // inv(2 * skew(A)) in odd dim: the scalar lifts out (canonical form),
+  // then the recursive inv(skew(A)) throws via contains_skew_factor.
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto two = make_scalar_constant(2);
+  auto sA = skew(A);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = inv(two * sA); }, invalid_expression_error);
+}
+
+TEST(CoreBugFix, InvLiftsNestedScalarFactor) {
+  // inv(s * (t * A)) — nested tensor_scalar_mul. The recursive rule should
+  // produce a canonical (s*t)-scaled inv(A) rather than a doubly-nested
+  // tensor_scalar_mul.
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto [s, t] = make_scalar_variable("s", "t");
+  auto r = inv(s * (t * A));
+  // Result should be a tensor_scalar_mul whose tensor child is inv(A),
+  // not another tensor_scalar_mul (the operator* on scalar*tensor_scalar_mul
+  // collapses the nesting via mul_base::dispatch(tensor_scalar_mul)).
+  ASSERT_TRUE(is_same<tensor_scalar_mul>(r));
+  EXPECT_TRUE(is_same<tensor_inv>(r.get<tensor_scalar_mul>().expr_rhs()))
+      << "Inner tensor should be tensor_inv directly (collapsed), got: "
+      << to_string(r);
+}
+
+// ---------------------------------------------------------------------------
 // Division-by-reciprocal canonicalisation (issue #49).
 // `a * (1/b)` should canonicalise to `a/b`. Both produce the same
 // pow(b, -1)-based structural form on construction (comment in
