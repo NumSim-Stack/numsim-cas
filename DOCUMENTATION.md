@@ -498,7 +498,7 @@ This represents `5 + x + 3*y + z^2`. The hash-map enables O(1) lookup when addin
 | `tensor_inv` | `unary_op` | Matrix inverse (A^{-1}) |
 | `inner_product_wrapper` | binary with indices | Index contraction (A:B) |
 | `outer_product_wrapper` | binary with indices | Tensor product (A ⊗ B) |
-| `basis_change_imp` | unary with indices | Index permutation (transpose) |
+| `permute_indices_wrapper` | unary with indices | Index permutation (transpose) |
 | `simple_outer_product` | n-ary | Iterated outer product |
 | `tensor_to_scalar_with_tensor_mul` | binary | Cross-domain: T2S * Tensor |
 
@@ -1386,7 +1386,7 @@ GitHub Actions workflow runs on every push and PR:
 | `tensor_negative.h`, `tensor_scalar_mul.h` | Unary/binary arithmetic |
 | `tensor_inv.h` | Matrix inverse |
 | `inner_product_wrapper.h`, `outer_product_wrapper.h` | Product nodes |
-| `basis_change_imp.h` | Index permutation |
+| `permute_indices.h` | Index permutation |
 | `simple_outer_product.h` | Iterated outer product |
 
 ### 14.7 Tensor Simplifiers (`include/numsim_cas/tensor/simplifier/`)

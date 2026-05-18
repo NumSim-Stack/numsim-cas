@@ -193,7 +193,7 @@ public:
     m_out << "\\right)";
   }
 
-  void operator()(basis_change_imp const &visitable) override {
+  void operator()(permute_indices_wrapper const &visitable) override {
     auto const &indices_temp = visitable.indices();
     if (indices_temp == sequence{2, 1}) {
       m_out << "{";
