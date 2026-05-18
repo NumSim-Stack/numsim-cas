@@ -231,41 +231,31 @@ template<typename Stream>
 // Printed in C-style infix form, parenthesised so the indicator
 // product `(a < b) * x` stays unambiguous.
 namespace {
-template <typename Stream, typename Node>
-void print_comparison(Stream &m_out, Node const &v, const char *op,
-                      auto apply_fn) {
-  m_out << "(";
-  apply_fn(v.expr_lhs());
-  m_out << " " << op << " ";
-  apply_fn(v.expr_rhs());
-  m_out << ")";
+template <typename Stream, typename Node, typename ApplyFn>
+void print_comparison(Stream &out, Node const &v, const char *op,
+                      ApplyFn apply) {
+  out << "(";
+  apply(v.expr_lhs());
+  out << " " << op << " ";
+  apply(v.expr_rhs());
+  out << ")";
 }
 } // namespace
 
-template <typename Stream>
-void scalar_printer<Stream>::operator()(scalar_lt const &v) {
-  print_comparison(m_out, v, "<", [this](auto const &e) { apply(e); });
-}
-template <typename Stream>
-void scalar_printer<Stream>::operator()(scalar_gt const &v) {
-  print_comparison(m_out, v, ">", [this](auto const &e) { apply(e); });
-}
-template <typename Stream>
-void scalar_printer<Stream>::operator()(scalar_le const &v) {
-  print_comparison(m_out, v, "<=", [this](auto const &e) { apply(e); });
-}
-template <typename Stream>
-void scalar_printer<Stream>::operator()(scalar_ge const &v) {
-  print_comparison(m_out, v, ">=", [this](auto const &e) { apply(e); });
-}
-template <typename Stream>
-void scalar_printer<Stream>::operator()(scalar_eq const &v) {
-  print_comparison(m_out, v, "==", [this](auto const &e) { apply(e); });
-}
-template <typename Stream>
-void scalar_printer<Stream>::operator()(scalar_ne const &v) {
-  print_comparison(m_out, v, "!=", [this](auto const &e) { apply(e); });
-}
+#define NUMSIM_DEFINE_PRINT_COMPARISON(Node, OpStr)                            \
+  template <typename Stream>                                                   \
+  void scalar_printer<Stream>::operator()(Node const &v) {                     \
+    print_comparison(m_out, v, OpStr, [this](auto const &e) { apply(e); });    \
+  }
+
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_lt, "<")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_gt, ">")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_le, "<=")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_ge, ">=")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_eq, "==")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_ne, "!=")
+
+#undef NUMSIM_DEFINE_PRINT_COMPARISON
 
 template class scalar_printer<std::ostream>;
 template class scalar_printer<std::stringstream>;

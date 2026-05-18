@@ -77,6 +77,38 @@ TEST(ScalarComparison, ConstantFolding_Ne) {
       ne(make_scalar_constant(3), make_scalar_constant(3))));
 }
 
+// --- 1b. Cross-rank numeric folding: int vs double, rationals, etc.
+// Locks in the use of `numeric_less` (which promotes ranks) rather
+// than `scalar_number::operator<` (which is rank-lexicographic, a
+// total order for sorting that gives wrong numeric answers).
+
+TEST(ScalarComparison, ConstantFolding_CrossRank_IntVsDouble) {
+  // int(3) and double(3.0) are numerically equal — not <, not >.
+  EXPECT_TRUE(is_same<scalar_zero>(
+      lt(make_scalar_constant(3), make_scalar_constant(3.0))));
+  EXPECT_TRUE(is_same<scalar_zero>(
+      gt(make_scalar_constant(3), make_scalar_constant(3.0))));
+  EXPECT_TRUE(is_same<scalar_one>(
+      eq(make_scalar_constant(3), make_scalar_constant(3.0))));
+  EXPECT_TRUE(is_same<scalar_one>(
+      le(make_scalar_constant(3), make_scalar_constant(3.0))));
+  EXPECT_TRUE(is_same<scalar_one>(
+      ge(make_scalar_constant(3), make_scalar_constant(3.0))));
+  // int(2) < double(2.5) numerically.
+  EXPECT_TRUE(is_same<scalar_one>(
+      lt(make_scalar_constant(2), make_scalar_constant(2.5))));
+}
+
+TEST(ScalarComparison, ConstantFolding_Rationals) {
+  auto half = make_scalar_constant(rational_t{1, 2});
+  auto third = make_scalar_constant(rational_t{1, 3});
+  EXPECT_TRUE(is_same<scalar_one>(gt(half, third)));
+  EXPECT_TRUE(is_same<scalar_zero>(lt(half, third)));
+  // rational vs int.
+  EXPECT_TRUE(is_same<scalar_zero>(lt(half, make_scalar_constant(0))));
+  EXPECT_TRUE(is_same<scalar_one>(gt(half, make_scalar_constant(0))));
+}
+
 // --- 2. Structural identity: same expression on both sides folds.
 
 TEST(ScalarComparison, IdentityFolding_EqLeGe_ToOne) {
@@ -118,6 +150,28 @@ TEST(ScalarComparison, NoFold_Eq) {
 TEST(ScalarComparison, NoFold_Ne) {
   auto [x, y] = make_scalar_variable("x", "y");
   EXPECT_TRUE(is_same<scalar_ne>(ne(x, y)));
+}
+
+// --- 3b. Assumption-based folding (uses is_positive/is_negative/...).
+
+TEST(ScalarComparison, AssumptionFold_AbsAgainstZero) {
+  auto [x] = make_scalar_variable("x");
+  // |x| is nonnegative, so |x| < 0 must be false …
+  EXPECT_TRUE(is_same<scalar_zero>(lt(abs(x), make_scalar_constant(0))));
+  // … and 0 <= |x| must be true.
+  EXPECT_TRUE(is_same<scalar_one>(le(make_scalar_constant(0), abs(x))));
+  // |x| > -1 must be true (|x| nonneg, -1 negative).
+  auto neg_one = -make_scalar_constant(1);
+  EXPECT_TRUE(is_same<scalar_one>(gt(abs(x), neg_one)));
+}
+
+TEST(ScalarComparison, AssumptionFold_SqrtAgainstNegative) {
+  auto [x] = make_scalar_variable("x");
+  // sqrt(x) is nonnegative, -1 is negative ⇒ sqrt(x) >= -1 is true.
+  auto neg_one = -make_scalar_constant(1);
+  EXPECT_TRUE(is_same<scalar_one>(ge(sqrt(x), neg_one)));
+  // -1 != sqrt(x) is true because their sign cones don't overlap.
+  EXPECT_TRUE(is_same<scalar_one>(ne(neg_one, sqrt(x))));
 }
 
 // --- 4. Evaluator: indicator semantics — true ⇒ 1.0, false ⇒ 0.0.
@@ -215,6 +269,27 @@ TEST(ScalarComparison, DerivativeIsZero) {
   EXPECT_TRUE(is_same<scalar_zero>(diff(ge(x, y), x)));
   EXPECT_TRUE(is_same<scalar_zero>(diff(eq(x, y), x)));
   EXPECT_TRUE(is_same<scalar_zero>(diff(ne(x, y), x)));
+}
+
+// --- 6b. Indicator survives composition: printer + evaluator on a
+//        compound expression that mixes a comparison with arithmetic.
+
+TEST(ScalarComparison, IndicatorInsideExpression_PrintAndEval) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto expr = lt(x, y) * make_scalar_constant(2);
+  // The printer wraps the comparison in parens so the product reads
+  // unambiguously regardless of operator precedence in the host
+  // language.
+  std::stringstream s;
+  s << expr;
+  EXPECT_EQ(s.str(), "2*(x < y)");
+
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, 2.0);
+  EXPECT_NEAR(ev.apply(expr), 2.0, 1e-12);
+  ev.set(x, 3.0);
+  EXPECT_NEAR(ev.apply(expr), 0.0, 1e-12);
 }
 
 // --- 7. Printer: infix with parentheses (lossless re-parsing aid).

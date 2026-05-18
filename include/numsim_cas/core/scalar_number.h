@@ -61,6 +61,15 @@ public:
   friend bool operator==(scalar_number const &a, scalar_number const &b);
   friend bool operator<(scalar_number const &a, scalar_number const &b);
 
+  /// Numeric strict-less for comparison-operator folding.
+  ///
+  /// Unlike `operator<` (which is a total order for sort containers, with
+  /// rank-lexicographic ordering across variant alternatives), this compares
+  /// values numerically after cross-rank promotion — so `int(3) < double(3.0)`
+  /// is `false`. Complex pairs are ordered real-then-imag for totality; this
+  /// suits indicator folding where complex inputs shouldn't normally appear.
+  friend bool numeric_less(scalar_number const &a, scalar_number const &b);
+
   [[nodiscard]] scalar_number abs() const noexcept;
 
   /// Exact pow for integer exponents. Returns nullopt for non-integer

@@ -322,37 +322,34 @@ void set_indicator_assumptions(numeric_assumption_manager &r) {
   r.insert(integer{});
   r.insert(nonnegative{});
 }
+
+template <typename BinaryNode>
+void handle_comparison(scalar_assumption_propagator &prop,
+                       numeric_assumption_manager &result,
+                       BinaryNode const &v) {
+  prop.apply(v.expr_lhs());
+  prop.apply(v.expr_rhs());
+  set_indicator_assumptions(result);
+}
 } // namespace
 
 void scalar_assumption_propagator::operator()(scalar_lt const &v) {
-  apply(v.expr_lhs());
-  apply(v.expr_rhs());
-  set_indicator_assumptions(m_result);
+  handle_comparison(*this, m_result, v);
 }
 void scalar_assumption_propagator::operator()(scalar_gt const &v) {
-  apply(v.expr_lhs());
-  apply(v.expr_rhs());
-  set_indicator_assumptions(m_result);
+  handle_comparison(*this, m_result, v);
 }
 void scalar_assumption_propagator::operator()(scalar_le const &v) {
-  apply(v.expr_lhs());
-  apply(v.expr_rhs());
-  set_indicator_assumptions(m_result);
+  handle_comparison(*this, m_result, v);
 }
 void scalar_assumption_propagator::operator()(scalar_ge const &v) {
-  apply(v.expr_lhs());
-  apply(v.expr_rhs());
-  set_indicator_assumptions(m_result);
+  handle_comparison(*this, m_result, v);
 }
 void scalar_assumption_propagator::operator()(scalar_eq const &v) {
-  apply(v.expr_lhs());
-  apply(v.expr_rhs());
-  set_indicator_assumptions(m_result);
+  handle_comparison(*this, m_result, v);
 }
 void scalar_assumption_propagator::operator()(scalar_ne const &v) {
-  apply(v.expr_lhs());
-  apply(v.expr_rhs());
-  set_indicator_assumptions(m_result);
+  handle_comparison(*this, m_result, v);
 }
 
 // ─── Convenience function ──────────────────────────────────────────
@@ -652,56 +649,20 @@ public:
 
   // ─── Comparison nodes (#136) ─────────────────────────────────────
   // Indicator values: {0, 1} ⇒ real, integer, nonnegative.
-  void operator()(scalar_lt const &v) override {
-    ensure_assumptions(v.expr_lhs());
-    ensure_assumptions(v.expr_rhs());
-    m_result = {};
-    m_result.insert(real_tag{});
-    m_result.insert(integer{});
-    m_result.insert(nonnegative{});
-  }
-  void operator()(scalar_gt const &v) override {
-    ensure_assumptions(v.expr_lhs());
-    ensure_assumptions(v.expr_rhs());
-    m_result = {};
-    m_result.insert(real_tag{});
-    m_result.insert(integer{});
-    m_result.insert(nonnegative{});
-  }
-  void operator()(scalar_le const &v) override {
-    ensure_assumptions(v.expr_lhs());
-    ensure_assumptions(v.expr_rhs());
-    m_result = {};
-    m_result.insert(real_tag{});
-    m_result.insert(integer{});
-    m_result.insert(nonnegative{});
-  }
-  void operator()(scalar_ge const &v) override {
-    ensure_assumptions(v.expr_lhs());
-    ensure_assumptions(v.expr_rhs());
-    m_result = {};
-    m_result.insert(real_tag{});
-    m_result.insert(integer{});
-    m_result.insert(nonnegative{});
-  }
-  void operator()(scalar_eq const &v) override {
-    ensure_assumptions(v.expr_lhs());
-    ensure_assumptions(v.expr_rhs());
-    m_result = {};
-    m_result.insert(real_tag{});
-    m_result.insert(integer{});
-    m_result.insert(nonnegative{});
-  }
-  void operator()(scalar_ne const &v) override {
-    ensure_assumptions(v.expr_lhs());
-    ensure_assumptions(v.expr_rhs());
-    m_result = {};
-    m_result.insert(real_tag{});
-    m_result.insert(integer{});
-    m_result.insert(nonnegative{});
-  }
+  void operator()(scalar_lt const &v) override { handle_comparison(v); }
+  void operator()(scalar_gt const &v) override { handle_comparison(v); }
+  void operator()(scalar_le const &v) override { handle_comparison(v); }
+  void operator()(scalar_ge const &v) override { handle_comparison(v); }
+  void operator()(scalar_eq const &v) override { handle_comparison(v); }
+  void operator()(scalar_ne const &v) override { handle_comparison(v); }
 
 private:
+  template <typename BinaryNode> void handle_comparison(BinaryNode const &v) {
+    ensure_assumptions(v.expr_lhs());
+    ensure_assumptions(v.expr_rhs());
+    set_indicator_assumptions(m_result);
+  }
+
   numeric_assumption_manager m_result;
 };
 

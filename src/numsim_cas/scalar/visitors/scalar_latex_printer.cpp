@@ -240,54 +240,35 @@ void scalar_latex_printer<Stream>::operator()(scalar_acos const &visitable) {
 }
 
 // ─── Comparison nodes (#136) ───────────────────────────────────────
-template <typename Stream>
-void scalar_latex_printer<Stream>::operator()(scalar_lt const &v) {
-  m_out << "\\left(";
+// Printed as `\left( lhs op rhs \right)` for all six ops; the only
+// per-op variation is the operator glyph.
+namespace {
+template <typename Stream, typename Node, typename ApplyFn>
+void print_comparison_latex(Stream &out, Node const &v, const char *op,
+                            ApplyFn apply) {
+  out << "\\left(";
   apply(v.expr_lhs());
-  m_out << " < ";
+  out << " " << op << " ";
   apply(v.expr_rhs());
-  m_out << "\\right)";
+  out << "\\right)";
 }
-template <typename Stream>
-void scalar_latex_printer<Stream>::operator()(scalar_gt const &v) {
-  m_out << "\\left(";
-  apply(v.expr_lhs());
-  m_out << " > ";
-  apply(v.expr_rhs());
-  m_out << "\\right)";
-}
-template <typename Stream>
-void scalar_latex_printer<Stream>::operator()(scalar_le const &v) {
-  m_out << "\\left(";
-  apply(v.expr_lhs());
-  m_out << " \\le ";
-  apply(v.expr_rhs());
-  m_out << "\\right)";
-}
-template <typename Stream>
-void scalar_latex_printer<Stream>::operator()(scalar_ge const &v) {
-  m_out << "\\left(";
-  apply(v.expr_lhs());
-  m_out << " \\ge ";
-  apply(v.expr_rhs());
-  m_out << "\\right)";
-}
-template <typename Stream>
-void scalar_latex_printer<Stream>::operator()(scalar_eq const &v) {
-  m_out << "\\left(";
-  apply(v.expr_lhs());
-  m_out << " = ";
-  apply(v.expr_rhs());
-  m_out << "\\right)";
-}
-template <typename Stream>
-void scalar_latex_printer<Stream>::operator()(scalar_ne const &v) {
-  m_out << "\\left(";
-  apply(v.expr_lhs());
-  m_out << " \\ne ";
-  apply(v.expr_rhs());
-  m_out << "\\right)";
-}
+} // namespace
+
+#define NUMSIM_DEFINE_LATEX_COMPARISON(Node, OpStr)                            \
+  template <typename Stream>                                                   \
+  void scalar_latex_printer<Stream>::operator()(Node const &v) {               \
+    print_comparison_latex(this->m_out, v, OpStr,                              \
+                           [this](auto const &e) { apply(e); });               \
+  }
+
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_lt, "<")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_gt, ">")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_le, "\\le")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_ge, "\\ge")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_eq, "=")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_ne, "\\ne")
+
+#undef NUMSIM_DEFINE_LATEX_COMPARISON
 
 template class scalar_latex_printer<std::ostream>;
 template class scalar_latex_printer<std::stringstream>;

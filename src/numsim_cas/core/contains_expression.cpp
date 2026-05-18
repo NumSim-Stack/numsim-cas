@@ -79,42 +79,24 @@ public:
   }
 
   // ─── Comparison nodes (#136) ─────────────────────────────────────
-  void operator()(scalar_lt const &v) override {
-    check(v.expr_lhs());
-    if (!m_found)
-      check(v.expr_rhs());
-  }
-  void operator()(scalar_gt const &v) override {
-    check(v.expr_lhs());
-    if (!m_found)
-      check(v.expr_rhs());
-  }
-  void operator()(scalar_le const &v) override {
-    check(v.expr_lhs());
-    if (!m_found)
-      check(v.expr_rhs());
-  }
-  void operator()(scalar_ge const &v) override {
-    check(v.expr_lhs());
-    if (!m_found)
-      check(v.expr_rhs());
-  }
-  void operator()(scalar_eq const &v) override {
-    check(v.expr_lhs());
-    if (!m_found)
-      check(v.expr_rhs());
-  }
-  void operator()(scalar_ne const &v) override {
-    check(v.expr_lhs());
-    if (!m_found)
-      check(v.expr_rhs());
-  }
+  void operator()(scalar_lt const &v) override { check_binary(v); }
+  void operator()(scalar_gt const &v) override { check_binary(v); }
+  void operator()(scalar_le const &v) override { check_binary(v); }
+  void operator()(scalar_ge const &v) override { check_binary(v); }
+  void operator()(scalar_eq const &v) override { check_binary(v); }
+  void operator()(scalar_ne const &v) override { check_binary(v); }
 
 private:
   void check(expr_holder_t const &expr) {
     if (m_found)
       return;
     m_found = apply(expr);
+  }
+
+  template <typename BinaryNode> void check_binary(BinaryNode const &v) {
+    check(v.expr_lhs());
+    if (!m_found)
+      check(v.expr_rhs());
   }
 
   expr_holder_t m_needle;

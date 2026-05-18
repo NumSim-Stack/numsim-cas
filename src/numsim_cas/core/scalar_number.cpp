@@ -302,6 +302,31 @@ bool operator<(scalar_number const &a, scalar_number const &b) {
       a.v_);
 }
 
+bool numeric_less(scalar_number const &a, scalar_number const &b) {
+  return std::visit(
+      [](auto const &x, auto const &y) -> bool {
+        using X = std::decay_t<decltype(x)>;
+        using Y = std::decay_t<decltype(y)>;
+        if constexpr (is_cplx_v<X> || is_cplx_v<Y>) {
+          auto cx = to_complex(x);
+          auto cy = to_complex(y);
+          if (cx.real() != cy.real())
+            return cx.real() < cy.real();
+          return cx.imag() < cy.imag();
+        } else if constexpr (std::is_same_v<X, double> ||
+                             std::is_same_v<Y, double>) {
+          return to_double(x) < to_double(y);
+        } else if constexpr (is_rat_v<X> || is_rat_v<Y>) {
+          auto rx = to_rational(x);
+          auto ry = to_rational(y);
+          return rx.num * ry.den < ry.num * rx.den;
+        } else {
+          return static_cast<std::int64_t>(x) < static_cast<std::int64_t>(y);
+        }
+      },
+      a.v_, b.v_);
+}
+
 // ─── Misc ────────────────────────────────────────────────────────
 
 scalar_number scalar_number::abs() const noexcept {

@@ -213,39 +213,29 @@ void scalar_limit_visitor::operator()(
 }
 
 // ─── Comparison nodes (#136) ─────────────────────────────────────
-// Indicator values are step functions in {0, 1}; the limit is generally
-// not derivable from one-sided behaviour of the children without
-// knowing the actual crossing point, so report `unknown`. The children
-// are visited so any side effects in derived limit visitors still
-// propagate.
-void scalar_limit_visitor::operator()(scalar_lt const &v) {
-  (void)apply(v.expr_lhs());
-  (void)apply(v.expr_rhs());
+// Indicators are step functions in {0, 1}. Resolving the limit
+// requires knowing the comparison's exact crossing point relative to
+// the limit target, which the children's one-sided behaviour alone
+// rarely pins down. The conservative `unknown` here can be tightened
+// later (e.g. lt(+inf, finite) → 0) if that ever shows up as a real
+// bottleneck. Tightening goes in one place because all six ops share
+// this implementation via the static_assert below.
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_lt const &) {
   m_result = {dir::unknown};
 }
-void scalar_limit_visitor::operator()(scalar_gt const &v) {
-  (void)apply(v.expr_lhs());
-  (void)apply(v.expr_rhs());
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_gt const &) {
   m_result = {dir::unknown};
 }
-void scalar_limit_visitor::operator()(scalar_le const &v) {
-  (void)apply(v.expr_lhs());
-  (void)apply(v.expr_rhs());
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_le const &) {
   m_result = {dir::unknown};
 }
-void scalar_limit_visitor::operator()(scalar_ge const &v) {
-  (void)apply(v.expr_lhs());
-  (void)apply(v.expr_rhs());
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_ge const &) {
   m_result = {dir::unknown};
 }
-void scalar_limit_visitor::operator()(scalar_eq const &v) {
-  (void)apply(v.expr_lhs());
-  (void)apply(v.expr_rhs());
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_eq const &) {
   m_result = {dir::unknown};
 }
-void scalar_limit_visitor::operator()(scalar_ne const &v) {
-  (void)apply(v.expr_lhs());
-  (void)apply(v.expr_rhs());
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_ne const &) {
   m_result = {dir::unknown};
 }
 
