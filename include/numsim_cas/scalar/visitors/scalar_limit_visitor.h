@@ -41,6 +41,14 @@ public:
   void operator()(scalar_atan const &) override;
   void operator()(scalar_named_expression const &) override;
 
+  // ─── Comparison nodes (#136) ─────────────────────────────────────
+  void operator()(scalar_lt const &) override;
+  void operator()(scalar_gt const &) override;
+  void operator()(scalar_le const &) override;
+  void operator()(scalar_ge const &) override;
+  void operator()(scalar_eq const &) override;
+  void operator()(scalar_ne const &) override;
+
 private:
   expr_holder_t m_limit_var;
   limit_target m_target;

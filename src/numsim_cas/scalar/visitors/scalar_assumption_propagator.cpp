@@ -311,6 +311,50 @@ void scalar_assumption_propagator::operator()(
   m_result = {};
 }
 
+// ─── Comparison nodes (#136) ───────────────────────────────────────
+// Indicator values: always in {0, 1} ⇒ real, integer, nonnegative.
+// Children visited for completeness so their assumptions land in any
+// downstream caches; only the indicator's own tags get reported.
+namespace {
+void set_indicator_assumptions(numeric_assumption_manager &r) {
+  r = {};
+  r.insert(real_tag{});
+  r.insert(integer{});
+  r.insert(nonnegative{});
+}
+} // namespace
+
+void scalar_assumption_propagator::operator()(scalar_lt const &v) {
+  apply(v.expr_lhs());
+  apply(v.expr_rhs());
+  set_indicator_assumptions(m_result);
+}
+void scalar_assumption_propagator::operator()(scalar_gt const &v) {
+  apply(v.expr_lhs());
+  apply(v.expr_rhs());
+  set_indicator_assumptions(m_result);
+}
+void scalar_assumption_propagator::operator()(scalar_le const &v) {
+  apply(v.expr_lhs());
+  apply(v.expr_rhs());
+  set_indicator_assumptions(m_result);
+}
+void scalar_assumption_propagator::operator()(scalar_ge const &v) {
+  apply(v.expr_lhs());
+  apply(v.expr_rhs());
+  set_indicator_assumptions(m_result);
+}
+void scalar_assumption_propagator::operator()(scalar_eq const &v) {
+  apply(v.expr_lhs());
+  apply(v.expr_rhs());
+  set_indicator_assumptions(m_result);
+}
+void scalar_assumption_propagator::operator()(scalar_ne const &v) {
+  apply(v.expr_lhs());
+  apply(v.expr_rhs());
+  set_indicator_assumptions(m_result);
+}
+
 // ─── Convenience function ──────────────────────────────────────────
 
 numeric_assumption_manager
@@ -604,6 +648,57 @@ public:
     m_result = {};
     if (ca.contains(real_tag{}))
       m_result.insert(real_tag{});
+  }
+
+  // ─── Comparison nodes (#136) ─────────────────────────────────────
+  // Indicator values: {0, 1} ⇒ real, integer, nonnegative.
+  void operator()(scalar_lt const &v) override {
+    ensure_assumptions(v.expr_lhs());
+    ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    m_result.insert(real_tag{});
+    m_result.insert(integer{});
+    m_result.insert(nonnegative{});
+  }
+  void operator()(scalar_gt const &v) override {
+    ensure_assumptions(v.expr_lhs());
+    ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    m_result.insert(real_tag{});
+    m_result.insert(integer{});
+    m_result.insert(nonnegative{});
+  }
+  void operator()(scalar_le const &v) override {
+    ensure_assumptions(v.expr_lhs());
+    ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    m_result.insert(real_tag{});
+    m_result.insert(integer{});
+    m_result.insert(nonnegative{});
+  }
+  void operator()(scalar_ge const &v) override {
+    ensure_assumptions(v.expr_lhs());
+    ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    m_result.insert(real_tag{});
+    m_result.insert(integer{});
+    m_result.insert(nonnegative{});
+  }
+  void operator()(scalar_eq const &v) override {
+    ensure_assumptions(v.expr_lhs());
+    ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    m_result.insert(real_tag{});
+    m_result.insert(integer{});
+    m_result.insert(nonnegative{});
+  }
+  void operator()(scalar_ne const &v) override {
+    ensure_assumptions(v.expr_lhs());
+    ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    m_result.insert(real_tag{});
+    m_result.insert(integer{});
+    m_result.insert(nonnegative{});
   }
 
 private:

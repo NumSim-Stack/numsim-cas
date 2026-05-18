@@ -212,4 +212,41 @@ void scalar_limit_visitor::operator()(
   m_result = {dir::unknown};
 }
 
+// ─── Comparison nodes (#136) ─────────────────────────────────────
+// Indicator values are step functions in {0, 1}; the limit is generally
+// not derivable from one-sided behaviour of the children without
+// knowing the actual crossing point, so report `unknown`. The children
+// are visited so any side effects in derived limit visitors still
+// propagate.
+void scalar_limit_visitor::operator()(scalar_lt const &v) {
+  (void)apply(v.expr_lhs());
+  (void)apply(v.expr_rhs());
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()(scalar_gt const &v) {
+  (void)apply(v.expr_lhs());
+  (void)apply(v.expr_rhs());
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()(scalar_le const &v) {
+  (void)apply(v.expr_lhs());
+  (void)apply(v.expr_rhs());
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()(scalar_ge const &v) {
+  (void)apply(v.expr_lhs());
+  (void)apply(v.expr_rhs());
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()(scalar_eq const &v) {
+  (void)apply(v.expr_lhs());
+  (void)apply(v.expr_rhs());
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()(scalar_ne const &v) {
+  (void)apply(v.expr_lhs());
+  (void)apply(v.expr_rhs());
+  m_result = {dir::unknown};
+}
+
 } // namespace numsim::cas

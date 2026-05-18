@@ -239,6 +239,56 @@ void scalar_latex_printer<Stream>::operator()(scalar_acos const &visitable) {
   print_unary("\\arccos", visitable);
 }
 
+// ─── Comparison nodes (#136) ───────────────────────────────────────
+template <typename Stream>
+void scalar_latex_printer<Stream>::operator()(scalar_lt const &v) {
+  m_out << "\\left(";
+  apply(v.expr_lhs());
+  m_out << " < ";
+  apply(v.expr_rhs());
+  m_out << "\\right)";
+}
+template <typename Stream>
+void scalar_latex_printer<Stream>::operator()(scalar_gt const &v) {
+  m_out << "\\left(";
+  apply(v.expr_lhs());
+  m_out << " > ";
+  apply(v.expr_rhs());
+  m_out << "\\right)";
+}
+template <typename Stream>
+void scalar_latex_printer<Stream>::operator()(scalar_le const &v) {
+  m_out << "\\left(";
+  apply(v.expr_lhs());
+  m_out << " \\le ";
+  apply(v.expr_rhs());
+  m_out << "\\right)";
+}
+template <typename Stream>
+void scalar_latex_printer<Stream>::operator()(scalar_ge const &v) {
+  m_out << "\\left(";
+  apply(v.expr_lhs());
+  m_out << " \\ge ";
+  apply(v.expr_rhs());
+  m_out << "\\right)";
+}
+template <typename Stream>
+void scalar_latex_printer<Stream>::operator()(scalar_eq const &v) {
+  m_out << "\\left(";
+  apply(v.expr_lhs());
+  m_out << " = ";
+  apply(v.expr_rhs());
+  m_out << "\\right)";
+}
+template <typename Stream>
+void scalar_latex_printer<Stream>::operator()(scalar_ne const &v) {
+  m_out << "\\left(";
+  apply(v.expr_lhs());
+  m_out << " \\ne ";
+  apply(v.expr_rhs());
+  m_out << "\\right)";
+}
+
 template class scalar_latex_printer<std::ostream>;
 template class scalar_latex_printer<std::stringstream>;
 

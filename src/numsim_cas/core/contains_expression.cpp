@@ -78,6 +78,38 @@ public:
     check(v.expr());
   }
 
+  // ─── Comparison nodes (#136) ─────────────────────────────────────
+  void operator()(scalar_lt const &v) override {
+    check(v.expr_lhs());
+    if (!m_found)
+      check(v.expr_rhs());
+  }
+  void operator()(scalar_gt const &v) override {
+    check(v.expr_lhs());
+    if (!m_found)
+      check(v.expr_rhs());
+  }
+  void operator()(scalar_le const &v) override {
+    check(v.expr_lhs());
+    if (!m_found)
+      check(v.expr_rhs());
+  }
+  void operator()(scalar_ge const &v) override {
+    check(v.expr_lhs());
+    if (!m_found)
+      check(v.expr_rhs());
+  }
+  void operator()(scalar_eq const &v) override {
+    check(v.expr_lhs());
+    if (!m_found)
+      check(v.expr_rhs());
+  }
+  void operator()(scalar_ne const &v) override {
+    check(v.expr_lhs());
+    if (!m_found)
+      check(v.expr_rhs());
+  }
+
 private:
   void check(expr_holder_t const &expr) {
     if (m_found)

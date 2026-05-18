@@ -227,6 +227,46 @@ template<typename Stream>
   print_unary("acos", visitable);
 }
 
+// ─── Comparison nodes (#136) ───────────────────────────────────────
+// Printed in C-style infix form, parenthesised so the indicator
+// product `(a < b) * x` stays unambiguous.
+namespace {
+template <typename Stream, typename Node>
+void print_comparison(Stream &m_out, Node const &v, const char *op,
+                      auto apply_fn) {
+  m_out << "(";
+  apply_fn(v.expr_lhs());
+  m_out << " " << op << " ";
+  apply_fn(v.expr_rhs());
+  m_out << ")";
+}
+} // namespace
+
+template <typename Stream>
+void scalar_printer<Stream>::operator()(scalar_lt const &v) {
+  print_comparison(m_out, v, "<", [this](auto const &e) { apply(e); });
+}
+template <typename Stream>
+void scalar_printer<Stream>::operator()(scalar_gt const &v) {
+  print_comparison(m_out, v, ">", [this](auto const &e) { apply(e); });
+}
+template <typename Stream>
+void scalar_printer<Stream>::operator()(scalar_le const &v) {
+  print_comparison(m_out, v, "<=", [this](auto const &e) { apply(e); });
+}
+template <typename Stream>
+void scalar_printer<Stream>::operator()(scalar_ge const &v) {
+  print_comparison(m_out, v, ">=", [this](auto const &e) { apply(e); });
+}
+template <typename Stream>
+void scalar_printer<Stream>::operator()(scalar_eq const &v) {
+  print_comparison(m_out, v, "==", [this](auto const &e) { apply(e); });
+}
+template <typename Stream>
+void scalar_printer<Stream>::operator()(scalar_ne const &v) {
+  print_comparison(m_out, v, "!=", [this](auto const &e) { apply(e); });
+}
+
 template class scalar_printer<std::ostream>;
 template class scalar_printer<std::stringstream>;
 
