@@ -174,6 +174,45 @@ TEST(ScalarComparison, AssumptionFold_SqrtAgainstNegative) {
   EXPECT_TRUE(is_same<scalar_one>(ne(neg_one, sqrt(x))));
 }
 
+TEST(ScalarComparison, AssumptionFold_ExpIsStrictlyPositive) {
+  // exp(x) > 0 for all real x ⇒ lt(exp(x), 0) → 0, le(exp(x), 0) → 0,
+  // gt(exp(x), 0) → 1, ne(exp(x), 0) → 1. Locks in the *strict* positive
+  // cone, which is different from the nonneg cone covered by abs/sqrt.
+  auto [x] = make_scalar_variable("x");
+  auto zero = make_scalar_constant(0);
+  EXPECT_TRUE(is_same<scalar_zero>(lt(exp(x), zero)));
+  EXPECT_TRUE(is_same<scalar_zero>(le(exp(x), zero)));
+  EXPECT_TRUE(is_same<scalar_one>(gt(exp(x), zero)));
+  EXPECT_TRUE(is_same<scalar_one>(ne(exp(x), zero)));
+}
+
+// --- 3c. Cross-rank equality and structural commutativity.
+
+TEST(ScalarComparison, ConstantFolding_CrossRank_Equal) {
+  // int(1) == double(1.0) numerically ⇒ eq folds to 1, ne to 0,
+  // le/ge to 1, lt/gt to 0. Inverse of the cross-rank lt test above.
+  auto i1 = make_scalar_constant(1);
+  auto d1 = make_scalar_constant(1.0);
+  EXPECT_TRUE(is_same<scalar_one>(eq(i1, d1)));
+  EXPECT_TRUE(is_same<scalar_zero>(ne(i1, d1)));
+  EXPECT_TRUE(is_same<scalar_one>(le(i1, d1)));
+  EXPECT_TRUE(is_same<scalar_one>(ge(i1, d1)));
+  EXPECT_TRUE(is_same<scalar_zero>(lt(i1, d1)));
+  EXPECT_TRUE(is_same<scalar_zero>(gt(i1, d1)));
+}
+
+TEST(ScalarComparison, IdentityFolding_CommutativeMul) {
+  // The n_ary_tree stores mul children unordered (hash-keyed), so x*y
+  // and y*x are the same expression_holder structurally. The identity
+  // fold should fire on rearranged-but-equivalent expressions.
+  auto [x, y] = make_scalar_variable("x", "y");
+  EXPECT_EQ(x * y, y * x);
+  EXPECT_TRUE(is_same<scalar_one>(eq(x * y, y * x)));
+  EXPECT_TRUE(is_same<scalar_zero>(ne(x * y, y * x)));
+  EXPECT_TRUE(is_same<scalar_one>(le(x * y, y * x)));
+  EXPECT_TRUE(is_same<scalar_one>(ge(x * y, y * x)));
+}
+
 // --- 4. Evaluator: indicator semantics — true ⇒ 1.0, false ⇒ 0.0.
 
 TEST(ScalarComparison, EvaluatorIndicator_Lt) {

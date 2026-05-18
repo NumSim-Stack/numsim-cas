@@ -46,6 +46,12 @@ public:
   void operator()(scalar_ne const &) override;
 
 private:
+  // Shared body for all six comparison overrides — recurses into both
+  // sides (to populate the inference cache) and writes the standard
+  // indicator assumptions into m_result.
+  template <typename BinaryNode>
+  void handle_comparison_node(BinaryNode const &v);
+
   numeric_assumption_manager m_result;
 };
 

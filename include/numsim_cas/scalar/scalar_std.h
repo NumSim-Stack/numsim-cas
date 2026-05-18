@@ -43,9 +43,12 @@ to_string(expression_holder<scalar_expression> const &expr);
 
 namespace detail {
 // Extract a scalar_number from `e` if it represents a literal value:
-// scalar_zero, scalar_one, scalar_constant, or a negation of any of those.
-// Returns nullopt otherwise. Shared by pow() constant folding and by the
-// six comparison free functions below.
+// scalar_zero, scalar_one, scalar_constant, or a (possibly nested)
+// negation of any of those. Returns nullopt otherwise. Shared by
+// pow() constant folding and by the six comparison free functions
+// below. Recursion through negation defends against the rare path
+// where `make_expression<scalar_negative>` is called twice without
+// going through `operator-` (which would have collapsed `-(-x)`).
 inline std::optional<scalar_number>
 try_extract_scalar_number(expression_holder<scalar_expression> const &e) {
   if (is_same<scalar_zero>(e))
@@ -55,13 +58,10 @@ try_extract_scalar_number(expression_holder<scalar_expression> const &e) {
   if (is_same<scalar_constant>(e))
     return e.template get<scalar_constant>().value();
   if (is_same<scalar_negative>(e)) {
-    auto const &n = e.template get<scalar_negative>().expr();
-    if (is_same<scalar_zero>(n))
-      return scalar_number{0};
-    if (is_same<scalar_one>(n))
-      return -scalar_number{1};
-    if (is_same<scalar_constant>(n))
-      return -n.template get<scalar_constant>().value();
+    auto inner =
+        try_extract_scalar_number(e.template get<scalar_negative>().expr());
+    if (inner)
+      return -*inner;
   }
   return std::nullopt;
 }
@@ -260,10 +260,10 @@ namespace detail {
 // Strategy tags — values returned by the per-op sign hook.
 enum class comp_reduce { fold_one, fold_zero, no_fold };
 
-// Sign cone collected from the four `is_*` query helpers. The four
-// flags are not mutually exclusive: e.g. a known-zero expression has
-// both `nonneg` and `nonpos` set; a known-strict-positive has both
-// `pos` and `nonneg`. The per-op hooks consume these as half-planes:
+// Sign cone collected from the assumption tags on an expression.
+// The four flags are not mutually exclusive: a known-zero expression
+// has both `nonneg` and `nonpos`; a known-strict-positive has both
+// `pos` and `nonneg`. Half-plane meanings:
 //   * pos ⇒ value > 0
 //   * neg ⇒ value < 0
 //   * nonneg ⇒ value ≥ 0
@@ -275,16 +275,56 @@ struct sign_cone {
   bool nonpos;
 };
 
+// Build a `sign_cone` with a single `infer_assumptions` call.
+// `is_positive(e)` etc. each infer-then-query, so calling all four
+// would re-enter the inferred-flag check four times. Here we do it
+// once and read the resulting assumption set directly.
 inline sign_cone make_sign_cone(expression_holder<scalar_expression> const &e) {
-  return {is_positive(e), is_negative(e), is_nonnegative(e), is_nonpositive(e)};
+  infer_assumptions(e);
+  auto const &a = e.data()->assumptions();
+  return {a.contains(positive{}), a.contains(negative{}),
+          a.contains(nonnegative{}), a.contains(nonpositive{})};
 }
 
-// Generic comparison constructor.
+// `lt(a, b) = a < b` — the canonical sign-cone analysis. All other
+// op sign hooks are expressed by mirroring this one (swap-arguments
+// for gt/ge/le, equality for eq/ne) further down.
 //
-// Op carries:
+//   a ≥ 0 AND b ≤ 0  →  a ≥ 0 ≥ b  →  a < b impossible       → fold_0
+//   a < 0 AND b ≥ 0  →  a < 0 ≤ b                            → fold_1
+//   a ≤ 0 AND b > 0  →  a ≤ 0 < b                            → fold_1
+inline comp_reduce lt_signs(sign_cone const &a, sign_cone const &b) {
+  if (a.nonneg && b.nonpos)
+    return comp_reduce::fold_zero;
+  if ((a.neg && b.nonneg) || (a.nonpos && b.pos))
+    return comp_reduce::fold_one;
+  return comp_reduce::no_fold;
+}
+
+// eq(a, b) folds when the sign cones force the values to differ.
+// One side strictly outside an inclusive interval containing the
+// other is enough.
+inline bool eq_signs_force_unequal(sign_cone const &a, sign_cone const &b) {
+  return (a.pos && b.nonpos) || (a.nonneg && b.neg) || (a.nonpos && b.pos) ||
+         (a.neg && b.nonneg);
+}
+
+inline comp_reduce flip_fold(comp_reduce r) {
+  switch (r) {
+  case comp_reduce::fold_one:
+    return comp_reduce::fold_zero;
+  case comp_reduce::fold_zero:
+    return comp_reduce::fold_one;
+  case comp_reduce::no_fold:
+    return comp_reduce::no_fold;
+  }
+  return comp_reduce::no_fold;
+}
+
+// Generic comparison constructor. Op carries:
 //   * `node_type` — the node to construct on no-fold;
-//   * `identity_holds` — what `cmp(x, x)` should fold to (true → one);
-//   * `from_numeric(a, b)` → bool — the numeric meaning;
+//   * `identity_holds` — what `cmp(x, x)` should fold to;
+//   * `from_numeric(a, b)` → bool — numeric meaning;
 //   * `from_signs(lhs_cone, rhs_cone)` → comp_reduce.
 template <typename Op, scalar_expr_holder L, scalar_expr_holder R>
 [[nodiscard]] auto make_comparison(L &&lhs, R &&rhs, Op op) {
@@ -311,10 +351,11 @@ template <typename Op, scalar_expr_holder L, scalar_expr_holder R>
                                                  std::forward<R>(rhs));
 }
 
-// Sign-cone analysis for `lt(a, b) = a < b`.
-//   a ≥ 0 AND b ≤ 0  →  a ≥ 0 ≥ b  →  a < b impossible       → fold_0
-//   a < 0 AND b ≥ 0  →  a < 0 ≤ b                            → fold_1
-//   a ≤ 0 AND b > 0  →  a ≤ 0 < b                            → fold_1
+// ─── Six op strategies, derived from `lt` and `eq` ──────────────────
+// `gt(a,b) = lt(b,a)`. `le(a,b) = !lt(b,a)` (wait — actually
+// `le(a,b) = a ≤ b = !(a > b) = !lt(b,a)`. So le inverts gt's truth).
+// `ge(a,b) = !lt(a,b)`. `ne` inverts `eq`.
+
 struct lt_op {
   using node_type = scalar_lt;
   static constexpr bool identity_holds = false;
@@ -322,11 +363,7 @@ struct lt_op {
     return numeric_less(a, b);
   }
   static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
-    if (a.nonneg && b.nonpos)
-      return comp_reduce::fold_zero;
-    if ((a.neg && b.nonneg) || (a.nonpos && b.pos))
-      return comp_reduce::fold_one;
-    return comp_reduce::no_fold;
+    return lt_signs(a, b);
   }
 };
 
@@ -334,14 +371,10 @@ struct gt_op {
   using node_type = scalar_gt;
   static constexpr bool identity_holds = false;
   static bool from_numeric(scalar_number const &a, scalar_number const &b) {
-    return numeric_less(b, a);
+    return lt_op::from_numeric(b, a);
   }
   static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
-    if (a.nonpos && b.nonneg)
-      return comp_reduce::fold_zero;
-    if ((a.pos && b.nonpos) || (a.nonneg && b.neg))
-      return comp_reduce::fold_one;
-    return comp_reduce::no_fold;
+    return lt_signs(b, a);
   }
 };
 
@@ -349,14 +382,10 @@ struct le_op {
   using node_type = scalar_le;
   static constexpr bool identity_holds = true;
   static bool from_numeric(scalar_number const &a, scalar_number const &b) {
-    return !numeric_less(b, a);
+    return !gt_op::from_numeric(a, b);
   }
   static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
-    if (a.nonpos && b.nonneg)
-      return comp_reduce::fold_one;
-    if ((a.pos && b.nonpos) || (a.nonneg && b.neg))
-      return comp_reduce::fold_zero;
-    return comp_reduce::no_fold;
+    return flip_fold(lt_signs(b, a)); // !gt
   }
 };
 
@@ -364,20 +393,13 @@ struct ge_op {
   using node_type = scalar_ge;
   static constexpr bool identity_holds = true;
   static bool from_numeric(scalar_number const &a, scalar_number const &b) {
-    return !numeric_less(a, b);
+    return !lt_op::from_numeric(a, b);
   }
   static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
-    if (a.nonneg && b.nonpos)
-      return comp_reduce::fold_one;
-    if ((a.neg && b.nonneg) || (a.nonpos && b.pos))
-      return comp_reduce::fold_zero;
-    return comp_reduce::no_fold;
+    return flip_fold(lt_signs(a, b)); // !lt
   }
 };
 
-// eq(a, b) folds when the sign cones force the values to differ.
-// One side strictly outside an inclusive interval containing the
-// other is enough.
 struct eq_op {
   using node_type = scalar_eq;
   static constexpr bool identity_holds = true;
@@ -385,9 +407,8 @@ struct eq_op {
     return a == b;
   }
   static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
-    bool forces_unequal = (a.pos && b.nonpos) || (a.nonneg && b.neg) ||
-                          (a.nonpos && b.pos) || (a.neg && b.nonneg);
-    return forces_unequal ? comp_reduce::fold_zero : comp_reduce::no_fold;
+    return eq_signs_force_unequal(a, b) ? comp_reduce::fold_zero
+                                        : comp_reduce::no_fold;
   }
 };
 
@@ -395,12 +416,11 @@ struct ne_op {
   using node_type = scalar_ne;
   static constexpr bool identity_holds = false;
   static bool from_numeric(scalar_number const &a, scalar_number const &b) {
-    return !(a == b);
+    return !eq_op::from_numeric(a, b);
   }
   static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
-    bool forces_unequal = (a.pos && b.nonpos) || (a.nonneg && b.neg) ||
-                          (a.nonpos && b.pos) || (a.neg && b.nonneg);
-    return forces_unequal ? comp_reduce::fold_one : comp_reduce::no_fold;
+    return eq_signs_force_unequal(a, b) ? comp_reduce::fold_one
+                                        : comp_reduce::no_fold;
   }
 };
 

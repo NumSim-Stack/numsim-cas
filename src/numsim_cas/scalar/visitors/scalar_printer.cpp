@@ -5,6 +5,7 @@
 
 #include <numsim_cas/core/print_mul_fractions.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
+#include <numsim_cas/scalar/visitors/scalar_comparison_print_helper.h>
 #include <numsim_cas/scalar/visitors/scalar_printer.h>
 
 namespace numsim::cas {
@@ -230,22 +231,11 @@ template<typename Stream>
 // ─── Comparison nodes (#136) ───────────────────────────────────────
 // Printed in C-style infix form, parenthesised so the indicator
 // product `(a < b) * x` stays unambiguous.
-namespace {
-template <typename Stream, typename Node, typename ApplyFn>
-void print_comparison(Stream &out, Node const &v, const char *op,
-                      ApplyFn apply) {
-  out << "(";
-  apply(v.expr_lhs());
-  out << " " << op << " ";
-  apply(v.expr_rhs());
-  out << ")";
-}
-} // namespace
-
 #define NUMSIM_DEFINE_PRINT_COMPARISON(Node, OpStr)                            \
   template <typename Stream>                                                   \
   void scalar_printer<Stream>::operator()(Node const &v) {                     \
-    print_comparison(m_out, v, OpStr, [this](auto const &e) { apply(e); });    \
+    detail::print_infix_comparison(m_out, v, "(", OpStr, ")",                  \
+                                   [this](auto const &e) { apply(e); });       \
   }
 
 NUMSIM_DEFINE_PRINT_COMPARISON(scalar_lt, "<")

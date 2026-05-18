@@ -322,34 +322,32 @@ void set_indicator_assumptions(numeric_assumption_manager &r) {
   r.insert(integer{});
   r.insert(nonnegative{});
 }
-
-template <typename BinaryNode>
-void handle_comparison(scalar_assumption_propagator &prop,
-                       numeric_assumption_manager &result,
-                       BinaryNode const &v) {
-  prop.apply(v.expr_lhs());
-  prop.apply(v.expr_rhs());
-  set_indicator_assumptions(result);
-}
 } // namespace
 
+template <typename BinaryNode>
+void scalar_assumption_propagator::handle_comparison_node(BinaryNode const &v) {
+  apply(v.expr_lhs());
+  apply(v.expr_rhs());
+  set_indicator_assumptions(m_result);
+}
+
 void scalar_assumption_propagator::operator()(scalar_lt const &v) {
-  handle_comparison(*this, m_result, v);
+  handle_comparison_node(v);
 }
 void scalar_assumption_propagator::operator()(scalar_gt const &v) {
-  handle_comparison(*this, m_result, v);
+  handle_comparison_node(v);
 }
 void scalar_assumption_propagator::operator()(scalar_le const &v) {
-  handle_comparison(*this, m_result, v);
+  handle_comparison_node(v);
 }
 void scalar_assumption_propagator::operator()(scalar_ge const &v) {
-  handle_comparison(*this, m_result, v);
+  handle_comparison_node(v);
 }
 void scalar_assumption_propagator::operator()(scalar_eq const &v) {
-  handle_comparison(*this, m_result, v);
+  handle_comparison_node(v);
 }
 void scalar_assumption_propagator::operator()(scalar_ne const &v) {
-  handle_comparison(*this, m_result, v);
+  handle_comparison_node(v);
 }
 
 // ─── Convenience function ──────────────────────────────────────────
