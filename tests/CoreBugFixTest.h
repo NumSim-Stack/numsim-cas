@@ -456,6 +456,9 @@ TEST(CoreBugFix, InvLiftsNestedScalarFactor) {
   EXPECT_TRUE(is_same<tensor_inv>(r.get<tensor_scalar_mul>().expr_rhs()))
       << "Inner tensor should be tensor_inv directly (collapsed), got: "
       << to_string(r);
+}
+
+// ---------------------------------------------------------------------------
 // Division-by-reciprocal canonicalisation (issue #49).
 // `a * (1/b)` should canonicalise to `a/b`. Both produce the same
 // pow(b, -1)-based structural form on construction (comment in
