@@ -311,13 +311,13 @@ All node types are well-defined with consistent patterns:
 Well-structured with clear separation of concerns:
 - Leaf: `tensor`, `tensor_zero`, `identity_tensor`, `kronecker_delta`, `tensor_projector`
 - Arithmetic: `tensor_add`, `tensor_mul`, `tensor_pow`, `tensor_negative`, `tensor_scalar_mul`
-- Products: `inner_product_wrapper`, `outer_product_wrapper`, `basis_change_imp`, `simple_outer_product`
+- Products: `inner_product_wrapper`, `outer_product_wrapper`, `permute_indices_wrapper`, `simple_outer_product`
 - Special: `tensor_inv`, `tensor_to_scalar_with_tensor_mul`
 
 **Issues**:
 - **`tensor_mul` uses `n_ary_vector`** (non-commutative) but tensor products are associative. The current implementation treats `A*B*C` as `((A*B)*C)` which is correct but the vector storage doesn't enforce associativity.
 - **`simple_outer_product`**: Used internally by evaluator but also a node type. Its relationship to `outer_product_wrapper` could be confusing.
-- **No `tensor_transpose`** node -- transpose is handled via `basis_change_imp` with indices `{2,1}`. This is mathematically correct but makes it harder to detect transposition in simplifiers.
+- **No `tensor_transpose`** node -- transpose is handled via `permute_indices_wrapper` with indices `{2,1}`. This is mathematically correct but makes it harder to detect transposition in simplifiers.
 
 ### 5.2 Tensor Space System
 

@@ -333,8 +333,10 @@ void tensor_differentiation::operator()(
   m_result = std::move(result);
 }
 
-// basis_change_imp: d(permute(A, indices))/dX = permute(dA, extended_indices)
-void tensor_differentiation::operator()(basis_change_imp const &visitable) {
+// permute_indices_wrapper: d(permute(A, indices))/dX = permute(dA,
+// extended_indices)
+void tensor_differentiation::operator()(
+    permute_indices_wrapper const &visitable) {
   auto const &child = visitable.expr();
   auto const &indices = visitable.indices();
 

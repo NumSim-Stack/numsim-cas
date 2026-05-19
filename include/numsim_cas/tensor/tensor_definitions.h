@@ -1,9 +1,9 @@
 #ifndef TENSOR_DEFINITIONS_H
 #define TENSOR_DEFINITIONS_H
 
-#include <numsim_cas/tensor/functions/basis_change.h>
 #include <numsim_cas/tensor/functions/inner_product_wrapper.h>
 #include <numsim_cas/tensor/functions/outer_product_wrapper.h>
+#include <numsim_cas/tensor/functions/permute_indices.h>
 #include <numsim_cas/tensor/functions/simple_outer_product.h>
 #include <numsim_cas/tensor/functions/tensor_inv.h>
 #include <numsim_cas/tensor/functions/tensor_pow.h>
