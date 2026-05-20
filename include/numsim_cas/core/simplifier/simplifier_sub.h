@@ -137,16 +137,33 @@ public:
   }
 
   // constant - (coeff + x) --> (constant-coeff) + (-x)
+  //
+  // Coefficient is guarded: if `rhs.coeff()` is invalid (the common case
+  // when rhs is x+y with no constant term), `m_lhs - rhs.coeff()` would
+  // call operator- on an invalid holder and throw. Mirrors the guard
+  // pattern in n_ary_sub_dispatch::dispatch(add_type) from PR #98.
+  //
+  // Children are negated and pushed via merge_or_insert (not push_back)
+  // so a `-child` that collides with another entry in the result is
+  // combined rather than throwing duplicate-child internal_error.
+  //
+  // Final result goes through finalize_add for trivial-case collapse —
+  // e.g. `2 - (2 + x) = -x` reaches the single-child-no-coeff path.
   expr_holder_t dispatch([[maybe_unused]]
                          typename Traits::add_type const &rhs) {
     auto add_expr{make_expression<typename Traits::add_type>()};
     auto &add{add_expr.template get<typename Traits::add_type>()};
-    auto coeff{base::m_lhs - rhs.coeff()};
-    add.set_coeff(std::move(coeff));
-    for (auto &child : rhs.symbol_map() | std::views::values) {
-      add.push_back(-child);
+    if (rhs.coeff().is_valid()) {
+      auto coeff = base::m_lhs - rhs.coeff();
+      if (!is_same<typename Traits::zero_type>(coeff))
+        add.set_coeff(std::move(coeff));
+    } else {
+      add.set_coeff(base::m_lhs);
     }
-    return add_expr;
+    for (auto &child : rhs.symbol_map() | std::views::values) {
+      add.merge_or_insert(-child);
+    }
+    return finalize_add<Traits>(std::move(add_expr));
   }
 
   // constant - 1
