@@ -141,10 +141,10 @@ det(expression_holder<tensor_expression> const &expr) {
     return make_expression<tensor_to_scalar_one>() / det(inv_node.expr());
   }
 
-  // det(trans(A)) -> det(A). basis_change_imp with indices {2,1} is
+  // det(trans(A)) -> det(A). permute_indices_wrapper with indices {2,1} is
   // transpose for rank-2.
-  if (is_same<basis_change_imp>(expr)) {
-    auto const &bc = expr.get<basis_change_imp>();
+  if (is_same<permute_indices_wrapper>(expr)) {
+    auto const &bc = expr.get<permute_indices_wrapper>();
     if (bc.indices() == sequence{2, 1})
       return det(bc.expr());
   }
