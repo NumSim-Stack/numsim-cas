@@ -18,6 +18,7 @@
 #include "TensorToScalarEvaluatorTest.h"
 #include "TensorToScalarExpressionTest.h"
 #include "TensorToScalarLatexPrinterTest.h"
+#include "TensorToScalarPrinterTest.h"
 #include "TensorToScalarSubstitutionTest.h"
 #include "gtest/gtest.h"
 

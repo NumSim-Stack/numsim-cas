@@ -404,6 +404,27 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// Scalar-times-tensor squaring (issue #75).
+// (X_tr * x) * (X_tr * x) should canonicalize to pow(x * X_tr, 2). The
+// existing mul_dispatch::get_default's `if (m_lhs == m_rhs) return pow(.,2)`
+// rule already covers this, but the issue body's testcase wasn't locked in
+// by a named test — adding one here to prevent future regressions.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, ScalarTensorMulSquaring) {
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  auto [x] = make_scalar_variable("x");
+  auto X_tr = trans(X);
+  // (X_tr * x) * (X_tr * x) should simplify to pow(x * X_tr, 2). Both sides
+  // are pow nodes wrapping the same tensor_scalar_mul; operator== verifies
+  // structural equality.
+  auto sq = (X_tr * x) * (X_tr * x);
+  auto expected = pow(x * X_tr, 2);
+  EXPECT_TRUE(is_same<tensor_pow>(sq));
+  EXPECT_EQ(sq, expected);
+}
+
 // trace() simplification rules (issue #72).
 // Existing: trace(0)=0, trace(I)=dim, trace(alpha*A)=alpha*trace(A),
 // trace(A+B+...)=trace(A)+trace(B)+... .
@@ -467,8 +488,8 @@ TEST(CoreBugFix, InvLiftsThenRejectsSkewInner) {
       make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
   auto two = make_scalar_constant(2);
   auto sA = skew(A);
-  EXPECT_THROW(
-      { [[maybe_unused]] auto r = inv(two * sA); }, invalid_expression_error);
+  EXPECT_THROW({ [[maybe_unused]] auto r = inv(two * sA); },
+               invalid_expression_error);
 }
 
 TEST(CoreBugFix, InvLiftsNestedScalarFactor) {

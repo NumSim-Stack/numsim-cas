@@ -70,9 +70,9 @@ trace(expression_holder<tensor_expression> const &expr) {
   }
 
   // trace(trans(A)) -> trace(A). Trace is invariant under transpose for
-  // rank-2 tensors (basis_change_imp with indices {2,1} is the transpose).
-  if (is_same<basis_change_imp>(expr)) {
-    auto const &bc = expr.get<basis_change_imp>();
+  // rank-2 tensors (permute_indices_wrapper with indices {2,1} is the transpose).
+  if (is_same<permute_indices_wrapper>(expr)) {
+    auto const &bc = expr.get<permute_indices_wrapper>();
     if (bc.indices() == sequence{2, 1})
       return trace(bc.expr());
   }
