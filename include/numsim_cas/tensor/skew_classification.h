@@ -2,8 +2,6 @@
 #define NUMSIM_CAS_TENSOR_SKEW_CLASSIFICATION_H
 
 #include <numsim_cas/basic_functions.h>
-#include <numsim_cas/tensor/functions/inner_product_wrapper.h>
-#include <numsim_cas/tensor/functions/permute_indices.h>
 #include <numsim_cas/tensor/operators/scalar/tensor_scalar_mul.h>
 #include <numsim_cas/tensor/operators/tensor/tensor_add.h>
 #include <numsim_cas/tensor/operators/tensor/tensor_mul.h>
@@ -11,6 +9,8 @@
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_negative.h>
+#include <numsim_cas/tensor/wrappers/inner_product_wrapper.h>
+#include <numsim_cas/tensor/wrappers/permute_indices.h>
 #include <variant>
 
 namespace numsim::cas {

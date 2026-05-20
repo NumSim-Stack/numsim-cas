@@ -2,8 +2,8 @@
 #define PROJECTOR_ALGEBRA_H
 
 #include <numsim_cas/basic_functions.h>
-#include <numsim_cas/tensor/functions/inner_product_wrapper.h>
 #include <numsim_cas/tensor/projection_tensor.h>
+#include <numsim_cas/tensor/wrappers/inner_product_wrapper.h>
 #include <optional>
 #include <utility>
 

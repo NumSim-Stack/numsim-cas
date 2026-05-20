@@ -332,15 +332,15 @@ private:
                    return TensorExprInfo{-sub.expr, sub.rank, sub.used_vars};
                  });
 
-    this->add_op("scalar_mul", 5,
-                 [](FuzzyTensorMachine &m,
-                    std::size_t depth) -> std::optional<TensorExprInfo> {
-                   auto sub = m.generate(depth - 1);
-                   int sv = m.pick_nonzero_scalar();
-                   auto sc = make_scalar_constant(sv);
-                   return TensorExprInfo{sc * sub.expr, sub.rank,
-                                         sub.used_vars};
-                 });
+    this->add_op(
+        "scalar_mul", 5,
+        [](FuzzyTensorMachine &m,
+           std::size_t depth) -> std::optional<TensorExprInfo> {
+          auto sub = m.generate(depth - 1);
+          int sv = m.pick_nonzero_scalar();
+          auto sc = make_scalar_constant(sv);
+          return TensorExprInfo{sc * sub.expr, sub.rank, sub.used_vars};
+        });
 
     this->add_op("addition", 10,
                  [](FuzzyTensorMachine &m,
