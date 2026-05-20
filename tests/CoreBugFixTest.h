@@ -435,12 +435,12 @@ TEST(CoreBugFix, DetOuterProductIsZero) {
   auto r = det(otimes(u, v));
   EXPECT_TRUE(is_same<tensor_to_scalar_zero>(r));
 }
-  
+
 // inv(alpha * A) -> (1/alpha) * inv(A) (issue #71)
 // Scalar factor is lifted outside the inverse so the canonical form keeps
 // the tensor inverse on the inner operand.
 // ---------------------------------------------------------------------------
-  
+
 TEST(CoreBugFix, InvLiftsConstantScalarFactor) {
   auto [A] =
       make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
