@@ -488,8 +488,8 @@ TEST(CoreBugFix, InvLiftsThenRejectsSkewInner) {
       make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
   auto two = make_scalar_constant(2);
   auto sA = skew(A);
-  EXPECT_THROW(
-      { [[maybe_unused]] auto r = inv(two * sA); }, invalid_expression_error);
+  EXPECT_THROW({ [[maybe_unused]] auto r = inv(two * sA); },
+               invalid_expression_error);
 }
 
 TEST(CoreBugFix, InvLiftsNestedScalarFactor) {
