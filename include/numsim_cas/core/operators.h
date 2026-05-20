@@ -37,10 +37,11 @@ concept cas_operand = requires { typename to_expr_result_t<T>; };
 
 template <class L, class R>
 concept cas_binary_op =
-    (is_expression_holder_v<L> || is_expression_holder_v<R>) &&
-    (is_expression_holder_v<L> ||
-     std::is_arithmetic_v<std::remove_cvref_t<L>>) &&
-    (is_expression_holder_v<R> || std::is_arithmetic_v<std::remove_cvref_t<R>>);
+    (is_expression_holder_v<L> || is_expression_holder_v<R>)&&(
+        is_expression_holder_v<L> ||
+        std::is_arithmetic_v<std::remove_cvref_t<
+            L>>)&&(is_expression_holder_v<R> ||
+                   std::is_arithmetic_v<std::remove_cvref_t<R>>);
 
 template <class Holder>
 using holder_base_t = typename std::remove_cvref_t<Holder>::expr_type;
@@ -54,8 +55,8 @@ template <class H, class T> constexpr auto to_holder_like(T &&v) {
 
 template <class L, class R>
 requires numsim::cas::detail::cas_binary_op<L, R>
-constexpr auto operator+(L &&lhs,
-                         R &&rhs) -> numsim::cas::result_expression_t<L, R> {
+constexpr auto operator+(L &&lhs, R &&rhs)
+    -> numsim::cas::result_expression_t<L, R> {
   using namespace numsim::cas::detail;
   if constexpr (is_expression_holder_v<L> && is_expression_holder_v<R>) {
     return binary_add(std::forward<L>(lhs), std::forward<R>(rhs));
@@ -70,8 +71,8 @@ constexpr auto operator+(L &&lhs,
 
 template <class L, class R>
 requires numsim::cas::detail::cas_binary_op<L, R>
-constexpr auto operator-(L &&lhs,
-                         R &&rhs) -> numsim::cas::result_expression_t<L, R> {
+constexpr auto operator-(L &&lhs, R &&rhs)
+    -> numsim::cas::result_expression_t<L, R> {
   using namespace numsim::cas::detail;
   if constexpr (is_expression_holder_v<L> && is_expression_holder_v<R>) {
     return binary_sub(std::forward<L>(lhs), std::forward<R>(rhs));
@@ -86,8 +87,8 @@ constexpr auto operator-(L &&lhs,
 
 template <class L, class R>
 requires numsim::cas::detail::cas_binary_op<L, R>
-constexpr auto operator*(L &&lhs,
-                         R &&rhs) -> numsim::cas::result_expression_t<L, R> {
+constexpr auto operator*(L &&lhs, R &&rhs)
+    -> numsim::cas::result_expression_t<L, R> {
   using namespace numsim::cas::detail;
   if constexpr (is_expression_holder_v<L> && is_expression_holder_v<R>) {
     return binary_mul(std::forward<L>(lhs), std::forward<R>(rhs));
@@ -102,8 +103,8 @@ constexpr auto operator*(L &&lhs,
 
 template <class L, class R>
 requires numsim::cas::detail::cas_binary_op<L, R>
-constexpr auto operator/(L &&lhs,
-                         R &&rhs) -> numsim::cas::result_expression_t<L, R> {
+constexpr auto operator/(L &&lhs, R &&rhs)
+    -> numsim::cas::result_expression_t<L, R> {
   using namespace numsim::cas::detail;
   if constexpr (is_expression_holder_v<L> && is_expression_holder_v<R>) {
     return binary_div(std::forward<L>(lhs), std::forward<R>(rhs));

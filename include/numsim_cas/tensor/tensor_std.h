@@ -6,8 +6,10 @@
 #include <numsim_cas/scalar/scalar_one.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_zero.h>
+#include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
 #include <numsim_cas/tensor/wrappers/tensor_pow.h>
@@ -56,6 +58,29 @@ template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
   if (is_same<tensor_pow>(expr_lhs)) {
     auto const &inner = expr_lhs.template get<tensor_pow>();
     return pow(inner.expr_lhs(), inner.expr_rhs() * expr_rhs);
+  }
+
+  // pow(I, n) → I  (identity is idempotent under exponentiation; this covers
+  // both kronecker_delta and identity_tensor representations of "I").
+  // Rank-agnostic: identity_tensor may be rank-2 (δ_ij) or rank-4 (the minor
+  // identity δ_ik δ_jl). For ranks where tensor `pow` isn't standard the
+  // earlier construction would have produced a tensor_pow node that wouldn't
+  // evaluate anyway; returning the identity is no worse and is the right
+  // result for the rank-2 case.
+  if (is_same<kronecker_delta>(expr_lhs) ||
+      is_same<identity_tensor>(expr_lhs)) {
+    return std::forward<ExprLHS>(expr_lhs);
+  }
+
+  // pow(inv(A), n) → inv(pow(A, n))
+  // Push inv outermost so other simplifications keying on inv() (e.g.
+  // contains_skew_factor in inv() rejection, or future inv-of-X rules)
+  // see the canonical shape. Routes through inv() rather than
+  // make_expression<tensor_inv> so the construction-time checks (inv(I)
+  // collapse, skew-odd-dim rejection) still run on the new operand.
+  if (is_same<tensor_inv>(expr_lhs)) {
+    auto const &inv_node = expr_lhs.template get<tensor_inv>();
+    return inv(pow(inv_node.expr(), expr_rhs));
   }
 
   return numsim::cas::make_expression<numsim::cas::tensor_pow>(
