@@ -1,6 +1,8 @@
 repos:
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v16.0.6  # Match your clang-format version
+    rev: v18.1.3  # Must match CI (.github/workflows/clang-format-check.yml)
     hooks:
       - id: clang-format
-        files: ^(include/|tests/|benchmark/|examples/).*\.(cpp|h|hpp|c|cc)$
+        files: \.(cpp|hpp|c|h)$
+        exclude: ^(build|build-.*)/
+        stages: [pre-commit, pre-push]

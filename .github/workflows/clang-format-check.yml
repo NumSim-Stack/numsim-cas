@@ -12,15 +12,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install clang-format-18
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format-18
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
-      - name: Run clang-format
-        run: |
-          find . -regex '.*\.\(cpp\|hpp\|c\|h\)' \
-            -not -path './build/*' \
-            -not -path './.git/*' \
-            -print0 \
-          | xargs -0 clang-format-18 --dry-run --Werror
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run clang-format via pre-commit
+        run: pre-commit run --all-files --show-diff-on-failure clang-format
