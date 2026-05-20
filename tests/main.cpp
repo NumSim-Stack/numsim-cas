@@ -5,6 +5,7 @@
 #include "ScalarEvaluatorTest.h"
 #include "ScalarExpressionTest.h"
 #include "ScalarLatexPrinterTest.h"
+#include "ScalarPrinterTest.h"
 #include "ScalarSubstitutionTest.h"
 #include "SolveTest.h"
 #include "TensorDifferentiationTest.h"
