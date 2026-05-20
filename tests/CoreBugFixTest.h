@@ -404,6 +404,38 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
+// det() simplification rules (issue #70).
+// Existing: det(0)=0, det(I)=1, det(alpha*A)=alpha^dim*det(A),
+// det(A*B)=det(A)*det(B). New: det(inv(A))=1/det(A), det(trans(A))=det(A),
+// det(otimes(u,v))=0.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, DetInvIsReciprocal) {
+  // det(inv(A)) -> 1/det(A)
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto r = det(inv(A));
+  EXPECT_EQ(r, make_expression<tensor_to_scalar_one>() / det(A));
+}
+
+TEST(CoreBugFix, DetTransIsSelf) {
+  // det(trans(A)) -> det(A)
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  auto r = det(trans(A));
+  EXPECT_EQ(r, det(A));
+}
+
+TEST(CoreBugFix, DetOuterProductIsZero) {
+  // det(otimes(u, v)) -> 0  (outer product of rank-1 vectors gives a
+  // singular rank-2 matrix).
+  auto [u, v] =
+      make_tensor_variable(std::tuple{"u", std::size_t{3}, std::size_t{1}},
+                           std::tuple{"v", std::size_t{3}, std::size_t{1}});
+  auto r = det(otimes(u, v));
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(r));
+}
+
 // Scalar-times-tensor squaring (issue #75).
 // (X_tr * x) * (X_tr * x) should canonicalize to pow(x * X_tr, 2). The
 // existing mul_dispatch::get_default's `if (m_lhs == m_rhs) return pow(.,2)`
@@ -488,8 +520,8 @@ TEST(CoreBugFix, InvLiftsThenRejectsSkewInner) {
       make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
   auto two = make_scalar_constant(2);
   auto sA = skew(A);
-  EXPECT_THROW({ [[maybe_unused]] auto r = inv(two * sA); },
-               invalid_expression_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = inv(two * sA); }, invalid_expression_error);
 }
 
 TEST(CoreBugFix, InvLiftsNestedScalarFactor) {

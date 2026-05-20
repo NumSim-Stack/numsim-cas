@@ -70,7 +70,8 @@ trace(expression_holder<tensor_expression> const &expr) {
   }
 
   // trace(trans(A)) -> trace(A). Trace is invariant under transpose for
-  // rank-2 tensors (permute_indices_wrapper with indices {2,1} is the transpose).
+  // rank-2 tensors (permute_indices_wrapper with indices {2,1} is the
+  // transpose).
   if (is_same<permute_indices_wrapper>(expr)) {
     auto const &bc = expr.get<permute_indices_wrapper>();
     if (bc.indices() == sequence{2, 1})
@@ -132,6 +133,29 @@ det(expression_holder<tensor_expression> const &expr) {
         result = det(child);
     }
     return result;
+  }
+
+  // det(inv(A)) -> 1 / det(A).
+  if (is_same<tensor_inv>(expr)) {
+    auto const &inv_node = expr.get<tensor_inv>();
+    return make_expression<tensor_to_scalar_one>() / det(inv_node.expr());
+  }
+
+  // det(trans(A)) -> det(A). permute_indices_wrapper with indices {2,1} is
+  // transpose for rank-2.
+  if (is_same<permute_indices_wrapper>(expr)) {
+    auto const &bc = expr.get<permute_indices_wrapper>();
+    if (bc.indices() == sequence{2, 1})
+      return det(bc.expr());
+  }
+
+  // det(otimes(u, v)) -> 0 when the outer product yields a rank-1 matrix
+  // (rank-1 in the linear-algebra sense, i.e. a rank-2 tensor formed by
+  // u_i * v_j). The outer product of two rank-1 vectors always satisfies
+  // this; since we're inside det()'s rank-2 assertion, any outer product
+  // here has rank-1 operands.
+  if (is_same<outer_product_wrapper>(expr)) {
+    return make_expression<tensor_to_scalar_zero>();
   }
 
   return make_expression<tensor_det>(expr);
