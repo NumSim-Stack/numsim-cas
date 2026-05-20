@@ -64,6 +64,27 @@ trace(expression_holder<tensor_expression> const &expr) {
     return result;
   }
 
+  // trace(-A) -> -trace(A). Linearity through unary negation.
+  if (is_same<tensor_negative>(expr)) {
+    return -trace(expr.get<tensor_negative>().expr());
+  }
+
+  // trace(trans(A)) -> trace(A). Trace is invariant under transpose for
+  // rank-2 tensors (basis_change_imp with indices {2,1} is the transpose).
+  if (is_same<basis_change_imp>(expr)) {
+    auto const &bc = expr.get<basis_change_imp>();
+    if (bc.indices() == sequence{2, 1})
+      return trace(bc.expr());
+  }
+
+  // trace(u ⊗ v) -> u · v. The trace assertion (rank == 2) means any
+  // outer_product_wrapper reaching this point has rank-1 operands; their
+  // inner product is u_i v_i.
+  if (is_same<outer_product_wrapper>(expr)) {
+    auto const &op = expr.get<outer_product_wrapper>();
+    return dot_product(op.expr_lhs(), sequence{1}, op.expr_rhs(), sequence{1});
+  }
+
   return make_expression<tensor_trace>(expr);
 }
 

@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <numsim_cas/core/cas_error.h>
+#include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/data/tensor_data_make_imp.h>
 #include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/projection_tensor.h>
@@ -292,15 +293,15 @@ template <tensor_expr_holder Expr>
   }
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
-  if (is_same<basis_change_imp>(expr)) {
-    auto &tensor{expr.template get<basis_change_imp>()};
+  if (is_same<permute_indices_wrapper>(expr)) {
+    auto &tensor{expr.template get<permute_indices_wrapper>()};
     const auto &t_indices{tensor.indices()};
     sequence new_order(t_indices.size());
     for (std::size_t i{0}; i < t_indices.size(); ++i) {
       new_order[i] = indices[t_indices[i]];
     }
-    return make_expression<basis_change_imp>(tensor.expr(),
-                                             std::move(new_order));
+    return make_expression<permute_indices_wrapper>(tensor.expr(),
+                                                    std::move(new_order));
   }
 
   if (is_same<outer_product_wrapper>(expr)) {
@@ -319,7 +320,7 @@ template <tensor_expr_holder Expr>
     indices_new_rhs.reserve(indices_rhs.size());
 
     // Permute: new[k] = perm[old[k]]  (all 0-based)
-    // Same composition as basis_change_imp folding above.
+    // Same composition as permute_indices_wrapper folding above.
     for (std::size_t k{0}; k < indices_old.size(); ++k) {
       indices_new[k] = indices[indices_old[k]];
     }
@@ -334,8 +335,8 @@ template <tensor_expr_holder Expr>
   }
 
   // outer_product_wrapper
-  return make_expression<basis_change_imp>(std::forward<Expr>(expr),
-                                           std::move(indices));
+  return make_expression<permute_indices_wrapper>(std::forward<Expr>(expr),
+                                                  std::move(indices));
 }
 
 template <tensor_expr_holder Expr>
@@ -350,13 +351,13 @@ template <tensor_expr_holder Expr>
   }
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
-  if (is_same<basis_change_imp>(expr)) {
-    auto const &bc = expr.template get<basis_change_imp>();
+  if (is_same<permute_indices_wrapper>(expr)) {
+    auto const &bc = expr.template get<permute_indices_wrapper>();
     if (bc.indices() == sequence{2, 1})
       return bc.expr();
   }
-  return make_expression<basis_change_imp>(std::forward<Expr>(expr),
-                                           sequence{2, 1});
+  return make_expression<permute_indices_wrapper>(std::forward<Expr>(expr),
+                                                  sequence{2, 1});
 }
 
 template <tensor_expr_holder Expr>
@@ -371,6 +372,21 @@ template <tensor_expr_holder Expr>
     return std::forward<Expr>(expr);
   if (is_same<kronecker_delta>(expr))
     return std::forward<Expr>(expr);
+  // inv(alpha * A) -> (1/alpha) * inv(A). Lift the scalar factor out before
+  // any skew rejection check so the canonical form is consistent. The
+  // recursive inv(A) runs its own checks (inv(inv) -> A, identity short-
+  // circuits, skew-odd-dim rejection); if A is singular, the recursion
+  // throws and the new rule produces the same overall error.
+  if (is_same<tensor_scalar_mul>(expr)) {
+    auto const &sm = expr.template get<tensor_scalar_mul>();
+    // Construct the lifted scalar*inv(A) directly via make_expression so this
+    // header doesn't have to include tensor_operators.h — which would form a
+    // cycle through the tensor simplifier headers.
+    auto reciprocal = get_scalar_one() / sm.expr_lhs();
+    auto inv_inner = inv(sm.expr_rhs());
+    return make_expression<tensor_scalar_mul>(std::move(reciprocal),
+                                              std::move(inv_inner));
+  }
   // A skew-symmetric matrix in odd dimensions is singular (det = 0) by the
   // determinant theorem det(-A^T) = (-1)^n det(A). contains_skew_factor also
   // catches expressions that aren't themselves skew but contain a skew factor
