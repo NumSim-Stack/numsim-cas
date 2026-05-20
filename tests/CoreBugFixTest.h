@@ -245,38 +245,38 @@ TEST(CoreBugFix, ScalarPowDiffBothConstWrtArg) {
 // not regress to the duplicate-child internal_error.
 // ---------------------------------------------------------------------------
 
-TEST(CoreBugFix, AddCompoundConstructionSmoke) {
+TEST(CoreBugFix, AddCompoundConstructionValue) {
+  // (cos²(x)+sin²(x)+y) + (1+1+y) should construct without throwing and
+  // evaluate correctly. The Pythagorean rule in scalar_simplifier_add
+  // reduces cos²+sin² to 1, so the sum is 3+2y. At y=5 → 13.
+  // Upgraded from no-throw-only smoke test per issue #113 / PR #114-style
+  // value-assertion principle.
   auto [x, y] = make_scalar_variable("x", "y");
   auto one = make_scalar_constant(1);
-  EXPECT_NO_THROW({
-    auto lhs = pow(cos(x), 2) + pow(sin(x), 2) + y;
-    auto rhs = one + one + y;
-    auto sum = lhs + rhs;
-    (void)sum;
-  });
+  auto lhs = pow(cos(x), 2) + pow(sin(x), 2) + y;
+  auto rhs = one + one + y;
+  auto sum = lhs + rhs;
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.5); // any x: cos²+sin² = 1
+  ev.set(y, 5.0);
+  EXPECT_NEAR(ev.apply(sum), 13.0, 1e-12);
 }
 
-TEST(CoreBugFix, SubSymbolDispatchSmoke) {
-  // Exercises merge_or_insert on n_ary_sub_dispatch::dispatch(symbol):
-  // lhs is an add expression, rhs matches one of its children, and the
-  // combined entry is re-inserted via merge_or_insert.
-  auto [x, y, z] = make_scalar_variable("x", "y", "z");
-  EXPECT_NO_THROW({
-    auto lhs = x + y + z;
-    auto diff = lhs - x;
-    (void)diff;
-  });
-}
+// NOTE: SubSymbolDispatchSmoke was superseded by
+// NArySubSymbolDispatchCancelsCleanly in PR #100 (the value-asserting
+// version of the same path). Deleted per issue #113.
 
-TEST(CoreBugFix, NegativeSubAddDispatchSmoke) {
-  // Exercises merge_or_insert on negative_sub_dispatch::dispatch(add):
-  // lhs is a negative, rhs is an add — the inner expr is folded into the
-  // rhs add via merge_or_insert before being wrapped in the outer negation.
+TEST(CoreBugFix, NegativeSubAddDispatchValue) {
+  // -x - (y+z) at (x=2, y=3, z=4) = -2 - 7 = -9.
+  // Exercises merge_or_insert on negative_sub_dispatch::dispatch(add).
+  // Upgraded from no-throw-only smoke test per issue #113.
   auto [x, y, z] = make_scalar_variable("x", "y", "z");
-  EXPECT_NO_THROW({
-    auto diff = -x - (y + z);
-    (void)diff;
-  });
+  auto diff = -x - (y + z);
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  ev.set(y, 3.0);
+  ev.set(z, 4.0);
+  EXPECT_NEAR(ev.apply(diff), -9.0, 1e-12);
 }
 
 TEST(CoreBugFix, NArySubAddDispatchScalar) {
