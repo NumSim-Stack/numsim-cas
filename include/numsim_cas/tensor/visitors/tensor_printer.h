@@ -481,20 +481,6 @@ public:
     end(precedence, parent_precedence);
   }
 
-  // void
-  // operator()([[maybe_unused]] tensor_to_scalar_with_tensor_div const
-  // &visitable,
-  //            [[maybe_unused]] Precedence parent_precedence) {
-  //   constexpr auto precedence{Precedence::Multiplication};
-  //       const auto parent_precedence{m_parent_precedence};
-  //   tensor_to_scalar_printer<StreamType> printer(m_out);
-  //   begin(precedence, parent_precedence);
-  //   apply(visitable.expr_lhs(), Precedence::Division_LHS);
-  //   m_out << "/";
-  //   printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
-  //   end(precedence, parent_precedence);
-  // }
-
   void operator()(tensor_inv const &visitable) override {
     print_unary("inv", visitable);
   }

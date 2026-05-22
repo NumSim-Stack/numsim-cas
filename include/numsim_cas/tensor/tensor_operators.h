@@ -271,9 +271,7 @@ inline expression_holder<tensor_expression> tag_invoke(div_fn, L &&lhs,
 // tensor ÷ tensor_to_scalar — routed through `lhs × pow(rhs, -1)`, the
 // same pattern used by the t2s ÷ t2s, t2s ÷ scalar, and scalar ÷ t2s
 // overloads in tensor_to_scalar_operators.h. The result reuses the
-// tensor × t2s mul path (#145) plus the t2s pow simplifier; the dead
-// `tensor_to_scalar_with_tensor_div` node is intentionally not used
-// (see issue #147 for the rationale).
+// tensor × t2s mul path (#145) plus the t2s pow simplifier.
 template <class L, class R>
 requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>> &&
