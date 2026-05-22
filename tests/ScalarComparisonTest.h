@@ -109,6 +109,24 @@ TEST(ScalarComparison, ConstantFolding_Rationals) {
   EXPECT_TRUE(is_same<scalar_one>(gt(half, make_scalar_constant(0))));
 }
 
+// Locks in #142: rational cross-multiplication must not overflow.
+// `10^18 / 3` and `10^18 / 2` have numerator * denominator products
+// around 2*10^18 and 3*10^18 — both well past INT64_MAX (~9.2*10^18
+// fits, but with such large numerators we'd hit overflow at the
+// next size up). Without the __int128 / long-double-fallback path
+// in `rat_less`, naive `num * den` wraps to negative and the
+// comparison flips. Mathematically `10^18/3 < 10^18/2`.
+TEST(ScalarComparison, ConstantFolding_Rationals_LargeNumerators) {
+  constexpr std::int64_t big = 1'000'000'000'000'000'000LL; // 10^18
+  auto big_over_3 = make_scalar_constant(rational_t{big, 3});
+  auto big_over_2 = make_scalar_constant(rational_t{big, 2});
+  // big/3 ≈ 3.33e17 < big/2 = 5e17
+  EXPECT_TRUE(is_same<scalar_one>(lt(big_over_3, big_over_2)));
+  EXPECT_TRUE(is_same<scalar_zero>(gt(big_over_3, big_over_2)));
+  // Symmetric: bigger denominator → smaller value
+  EXPECT_TRUE(is_same<scalar_one>(gt(big_over_2, big_over_3)));
+}
+
 // --- 2. Structural identity: same expression on both sides folds.
 
 TEST(ScalarComparison, IdentityFolding_EqLeGe_ToOne) {
