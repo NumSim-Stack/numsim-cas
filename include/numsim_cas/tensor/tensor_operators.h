@@ -16,6 +16,7 @@
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_one.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_zero.h>
 
 namespace numsim::cas::detail {
@@ -265,6 +266,38 @@ inline expression_holder<tensor_expression> tag_invoke(div_fn, L &&lhs,
     return std::forward<L>(lhs);
   }
   return lhs * pow(rhs, -get_scalar_one());
+}
+
+// tensor ÷ tensor_to_scalar — routed through `lhs × pow(rhs, -1)`, the
+// same pattern used by the t2s ÷ t2s, t2s ÷ scalar, and scalar ÷ t2s
+// overloads in tensor_to_scalar_operators.h. The result reuses the
+// tensor × t2s mul path (#145) plus the t2s pow simplifier; the dead
+// `tensor_to_scalar_with_tensor_div` node is intentionally not used
+// (see issue #147 for the rationale).
+template <class L, class R>
+requires std::same_as<std::remove_cvref_t<L>,
+                      expression_holder<tensor_expression>> &&
+         std::same_as<std::remove_cvref_t<R>,
+                      expression_holder<tensor_to_scalar_expression>>
+inline expression_holder<tensor_expression> tag_invoke(div_fn, L &&lhs,
+                                                       R &&rhs) {
+  if (is_same<tensor_zero>(lhs)) {
+    return std::forward<L>(lhs);
+  }
+  if (is_same<tensor_to_scalar_one>(rhs)) {
+    return std::forward<L>(lhs);
+  }
+  // Wrapper unwrap: a t2s that's just a scalar in disguise should
+  // route through the existing tensor ÷ scalar path so its full
+  // simplifier is reused (no duplication of scalar-division logic).
+  if (is_same<tensor_to_scalar_scalar_wrapper>(rhs)) {
+    return std::forward<L>(lhs) /
+           rhs.template get<tensor_to_scalar_scalar_wrapper>().expr();
+  }
+  return std::forward<L>(lhs) *
+         pow(std::forward<R>(rhs),
+             make_expression<tensor_to_scalar_scalar_wrapper>(
+                 -get_scalar_one()));
 }
 
 template <class T>
