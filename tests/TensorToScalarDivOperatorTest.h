@@ -145,6 +145,15 @@ TYPED_TEST(TensorToScalarDivOperatorTest, DivByPowFlattensExponent) {
   auto const &pow_node = node.expr_rhs().template get<tensor_to_scalar_pow>();
   EXPECT_EQ(pow_node.expr_lhs(), trace(X));
   EXPECT_FALSE(is_same<tensor_to_scalar_pow>(pow_node.expr_lhs()));
+
+  // The exponent must be exactly -2 (the product `2 * (-1)` from the
+  // pow-of-pow merge). Without this assertion a bug that left the
+  // exponent at 0, 5, or unfolded `2 * scalar_negative(scalar_one)`
+  // would still pass the structural-shape checks above. Mirrors the
+  // exponent lock-in in `ResultShapeIsMulPow`.
+  auto expected_exponent = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_scalar_constant(-2));
+  EXPECT_EQ(pow_node.expr_rhs(), expected_exponent);
 }
 
 // --- 6. Evaluator round-trip: numeric A/trace(A) matches tmech.
