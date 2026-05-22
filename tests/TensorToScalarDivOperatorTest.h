@@ -33,11 +33,10 @@ protected:
   using scalar_t = expression_holder<scalar_expression>;
 
   TensorToScalarDivOperatorTest() {
-    std::tie(X, Y) =
-        make_tensor_variable(std::tuple{"X", Dim, 2}, std::tuple{"Y", Dim, 2});
+    std::tie(X) = make_tensor_variable(std::tuple{"X", Dim, 2});
   }
 
-  tensor_t X, Y;
+  tensor_t X;
 };
 
 TYPED_TEST_SUITE(TensorToScalarDivOperatorTest, TestDims);
@@ -58,6 +57,13 @@ TYPED_TEST(TensorToScalarDivOperatorTest, CompileSmokeBothFunctions) {
 
 // --- 2. Result shape: produces `tensor × pow(t2s, -1)` (#145 mul node
 //        with a pow rhs), not the dedicated div node.
+//
+// This pins the *current* shape produced by the div operator. If t2s
+// pow ever folds `pow(x, -1)` into a different node (e.g. a dedicated
+// reciprocal), this test will need updating even though the
+// behaviour-level contract (evaluator round-trip below) still holds.
+// The shape lock-in is deliberate — if someone changes the
+// implementation strategy they should re-confirm the test intent.
 
 TYPED_TEST(TensorToScalarDivOperatorTest, ResultShapeIsMulPow) {
   auto &X = this->X;
@@ -97,10 +103,12 @@ TYPED_TEST(TensorToScalarDivOperatorTest, WrapperUnwrapsToScalarPath) {
   auto wrapped = make_expression<tensor_to_scalar_scalar_wrapper>(two);
 
   auto result = X / wrapped;
-  // Going through the tensor / scalar overload yields `X * pow(2, -1)`,
-  // i.e. a tensor_scalar_mul with a scalar coefficient — not the new
-  // t2s-with-tensor-mul shape and not the dead div node.
-  EXPECT_FALSE(is_same<tensor_to_scalar_with_tensor_mul>(result));
+  // Positive lock-in: the wrapper-unwrap branch is supposed to route
+  // through the existing tensor ÷ scalar path, which yields a
+  // tensor_scalar_mul with the scalar coefficient pow(2, -1). Assert
+  // that exact result type — a weaker `EXPECT_FALSE(t2s_with_tensor_mul)`
+  // would pass for any non-t2s-mul shape, including buggy fallbacks.
+  EXPECT_TRUE(is_same<tensor_scalar_mul>(result));
 }
 
 // --- 6. Evaluator round-trip: numeric A/trace(A) matches tmech.
@@ -136,6 +144,13 @@ TEST(TensorToScalarDivOperatorEval, EvaluatorMatchesTmech) {
 }
 
 // --- 7. Round-trip equivalence: A/t2s ≡ A * (t2s_one/t2s).
+//
+// Uses `norm(A)` rather than `trace(A)` because norm is always
+// strictly positive (modulus of components), guaranteeing the
+// denominator is never zero across whatever random values the
+// evaluator happens to see. `trace(A)` can be zero for non-degenerate
+// inputs (any matrix on the deviatoric subspace), which would flip
+// this from a behaviour check into an undefined-arithmetic check.
 
 TEST(TensorToScalarDivOperatorEval, DivEquivalentToMulReciprocal) {
   constexpr double tol = 1e-12;

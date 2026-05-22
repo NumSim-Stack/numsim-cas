@@ -294,10 +294,11 @@ inline expression_holder<tensor_expression> tag_invoke(div_fn, L &&lhs,
     return std::forward<L>(lhs) /
            rhs.template get<tensor_to_scalar_scalar_wrapper>().expr();
   }
-  return std::forward<L>(lhs) *
-         pow(std::forward<R>(rhs),
-             make_expression<tensor_to_scalar_scalar_wrapper>(
-                 -get_scalar_one()));
+  // The t2s `pow(t2s, scalar)` overload (tensor_to_scalar_std.h:73)
+  // already wraps a bare scalar in tensor_to_scalar_scalar_wrapper,
+  // so we pass `-get_scalar_one()` directly rather than constructing
+  // the wrapper here ourselves.
+  return std::forward<L>(lhs) * pow(std::forward<R>(rhs), -get_scalar_one());
 }
 
 template <class T>
