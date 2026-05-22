@@ -114,11 +114,17 @@ core/             ── shared infrastructure (n_ary_tree, domain_traits, visit
 
 Each domain follows the same pattern: expression base class, node types, a virtual visitor for dispatch, and construction-time simplifiers that produce canonical forms.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, code style, and DCO requirements.
+
+Changes are tracked in [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 NumSim-CAS is available under a dual-license model:
 
-- **Open Source:** GNU General Public License v3.0 (GPL-3.0-only) — see [LICENSE](LICENSE)
-- **Commercial:** A separate commercial license is available for proprietary/closed-source use.
+- **Open Source:** GNU General Public License v3.0 (GPL-3.0-only) — see [LICENSE](LICENSE).
+- **Commercial:** A separate commercial license is available for proprietary/closed-source use — see [COMMERCIAL.md](COMMERCIAL.md).
 
 If you want to use NumSim-CAS in a closed-source product, you must obtain a commercial license.
