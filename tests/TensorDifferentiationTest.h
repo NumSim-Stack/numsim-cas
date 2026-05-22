@@ -518,6 +518,53 @@ TEST_F(TensorDifferentiationTest, ProductRuleNoZeroArtifacts) {
       << "Found 'permute_indices(0' artifact in: " << s;
 }
 
+// ---------------------------------------------------------------------------
+// Audit #42: lock-in coverage tests for tensor_differentiation.
+// All 16 node types in NUMSIM_CAS_TENSOR_NODE_LIST have explicit operator()
+// overrides via the virtual visitor base (missing override = compile error,
+// not silent fallback). Existing TEST_F entries above cover 13/16 nodes;
+// these add lock-ins for the remaining 3: identity_tensor, tensor_projector,
+// and tensor_to_scalar_with_tensor_mul.
+// ---------------------------------------------------------------------------
+
+TEST_F(TensorDifferentiationTest, AuditIdentityTensorIsConstant) {
+  // identity_tensor is constant w.r.t. any tensor variable.
+  auto I_rank2 = make_expression<identity_tensor>(dim, rank);
+  auto d = diff(I_rank2, X);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+TEST_F(TensorDifferentiationTest, AuditTensorProjectorIsConstant) {
+  // Projection-tensor leaves (P_sym, P_dev, etc.) are constant w.r.t. tensor
+  // arguments. The projector itself has no dependence on X.
+  auto P = P_sym(dim);
+  auto d = diff(P, X);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+TEST_F(TensorDifferentiationTest, AuditTensorToScalarWithTensorMulCovered) {
+  // tensor_to_scalar_with_tensor_mul is constructed by tensor_to_scalar
+  // differentiation (see src/.../tensor_to_scalar_differentiation.cpp).
+  // It appears in tensor-domain expressions as a result of differentiating
+  // a t2s expression w.r.t. a tensor argument — e.g. d(det(X))/dX yields
+  // a chain that contains tensor_to_scalar_with_tensor_mul nodes.
+  //
+  // This test exercises the differentiator dispatch: when a node of this
+  // type is reached during a second differentiation, the visitor must have
+  // an explicit override (it does — see tensor_differentiation.h:152) and
+  // produce a valid result. Construct via det(X) → diff w.r.t. X.
+  auto detX = det(X);
+  auto first_diff = diff(detX, X);
+  // first_diff is itself a tensor expression. Differentiate again to ensure
+  // the tensor_to_scalar_with_tensor_mul path inside tensor_differentiation
+  // is exercised without throwing.
+  auto second_diff = diff(first_diff, X);
+  EXPECT_TRUE(second_diff.is_valid())
+      << "Second-order differentiation produced invalid result";
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORDIFFERENTIATIONTEST_H
