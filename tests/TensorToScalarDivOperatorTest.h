@@ -72,9 +72,19 @@ TYPED_TEST(TensorToScalarDivOperatorTest, ResultShapeIsMulPow) {
 
   auto const &node = result.template get<tensor_to_scalar_with_tensor_mul>();
   // The t2s side should be a pow expression of trace(X).
-  EXPECT_TRUE(is_same<tensor_to_scalar_pow>(node.expr_rhs()));
+  ASSERT_TRUE(is_same<tensor_to_scalar_pow>(node.expr_rhs()));
   // Tensor side untouched.
   EXPECT_EQ(node.expr_lhs(), X);
+
+  // Pin the pow's structure exactly — base is trace(X), exponent is
+  // -1 (wrapped as a t2s_scalar_wrapper). Without these two checks the
+  // test would silently pass if a sign-flip bug ever made the operator
+  // emit `pow(trace(X), +1)` or `pow(trace(X), 0)`.
+  auto const &pow_node = node.expr_rhs().template get<tensor_to_scalar_pow>();
+  EXPECT_EQ(pow_node.expr_lhs(), trace(X));
+  auto expected_exponent =
+      make_expression<tensor_to_scalar_scalar_wrapper>(-get_scalar_one());
+  EXPECT_EQ(pow_node.expr_rhs(), expected_exponent);
 }
 
 // --- 3. Zero fold: tensor_zero / anything → tensor_zero.
@@ -109,6 +119,32 @@ TYPED_TEST(TensorToScalarDivOperatorTest, WrapperUnwrapsToScalarPath) {
   // that exact result type — a weaker `EXPECT_FALSE(t2s_with_tensor_mul)`
   // would pass for any non-t2s-mul shape, including buggy fallbacks.
   EXPECT_TRUE(is_same<tensor_scalar_mul>(result));
+}
+
+// --- 5b. Dividing by a pow exponent should flatten via t2s pow-of-pow.
+//
+// `A / pow(trace(A), 2)` routes through `A * pow(pow(trace(A), 2), -1)`.
+// The t2s pow simplifier folds `pow(pow(x, m), n) → pow(x, m*n)`, so
+// the resulting tree should be `A * pow(trace(A), -2)` — *not* a
+// nested `pow(pow(...))`. This locks in the interaction between the
+// new div operator and the existing t2s pow flattening.
+
+TYPED_TEST(TensorToScalarDivOperatorTest, DivByPowFlattensExponent) {
+  auto &X = this->X;
+  auto two = make_scalar_constant(2);
+
+  auto result = X / pow(trace(X), two);
+  ASSERT_TRUE(is_same<tensor_to_scalar_with_tensor_mul>(result));
+
+  auto const &node = result.template get<tensor_to_scalar_with_tensor_mul>();
+  ASSERT_TRUE(is_same<tensor_to_scalar_pow>(node.expr_rhs()));
+
+  // The pow's base is the inner trace(X) — the outer pow node from the
+  // user-written `pow(trace(X), 2)` is gone, collapsed away by the
+  // flattening rule.
+  auto const &pow_node = node.expr_rhs().template get<tensor_to_scalar_pow>();
+  EXPECT_EQ(pow_node.expr_lhs(), trace(X));
+  EXPECT_FALSE(is_same<tensor_to_scalar_pow>(pow_node.expr_lhs()));
 }
 
 // --- 6. Evaluator round-trip: numeric A/trace(A) matches tmech.
