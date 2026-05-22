@@ -341,20 +341,6 @@ public:
   //   * @param visitable The simple outer product expression to be printed.
   //   * @param parent_precedence The precedence of the parent expression.
   //   */
-  //  void operator()(simple_outer_product &visitable, Precedence
-  //  parent_precedence) {
-  //    //constexpr auto precedence{Precedence::Multiplication};
-  //    m_out << "simple_outer(";
-  //    //bool first = true;
-  ////    for (auto &child : visitable) {
-  ////      if (!first) {
-  ////        m_out << ", ";
-  ////      }
-  ////      apply(child, precedence);
-  ////      first = false;
-  ////    }
-  //    m_out << ")";
-  //  }
 
   /**
    * @brief Prints a tensor scalar multiplication expression.
