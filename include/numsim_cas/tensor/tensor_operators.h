@@ -12,7 +12,11 @@
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_mul.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_sub.h>
 #include <numsim_cas/tensor/simplifier/tensor_with_scalar_simplifier_mul.h>
+#include <numsim_cas/tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_mul.h>
 #include <numsim_cas/tensor/tensor_zero.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_one.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_zero.h>
 
 namespace numsim::cas::detail {
 
@@ -187,6 +191,51 @@ inline expression_holder<tensor_expression> tag_invoke(mul_fn, L &&lhs,
   tensor_with_scalar_detail::simplifier::mul_base visitor(std::forward<L>(lhs),
                                                           std::forward<R>(rhs));
   return _rhs.accept(visitor);
+}
+
+// tensor × tensor_to_scalar — produces a tensor result via the
+// `tensor_to_scalar_with_tensor_mul` node. Mirrors the depth of the
+// tensor × scalar path: zero/one/wrapper short-circuits inline, with
+// the no-fold case dispatching to the dedicated simplifier visitor
+// for nested-mul collapse and scalar-coefficient bubbling.
+//
+// (See issue #145 for the user-facing gap this closes — diff already
+// produces this node internally; user arithmetic now matches.)
+template <class L, class R>
+requires std::same_as<std::remove_cvref_t<L>,
+                      expression_holder<tensor_expression>> &&
+         std::same_as<std::remove_cvref_t<R>,
+                      expression_holder<tensor_to_scalar_expression>>
+inline expression_holder<tensor_expression> tag_invoke(mul_fn, L &&lhs,
+                                                       R &&rhs) {
+  if (is_same<tensor_zero>(lhs) || is_same<tensor_to_scalar_zero>(rhs)) {
+    return make_expression<tensor_zero>(lhs.get().dim(), lhs.get().rank());
+  }
+  if (is_same<tensor_to_scalar_one>(rhs)) {
+    return std::forward<L>(lhs);
+  }
+  // Wrapper unwrap: a t2s that's a thin shell around a scalar should
+  // not double-wrap — route through the existing tensor × scalar path
+  // so its full simplifier (tensor_with_scalar) is reused.
+  if (is_same<tensor_to_scalar_scalar_wrapper>(rhs)) {
+    return std::forward<L>(lhs) *
+           rhs.template get<tensor_to_scalar_scalar_wrapper>().expr();
+  }
+
+  auto &_lhs{lhs.template get<tensor_visitable_t>()};
+  tensor_with_tensor_to_scalar_detail::simplifier::mul_base visitor(
+      std::forward<L>(lhs), std::forward<R>(rhs));
+  return _lhs.accept(visitor);
+}
+
+template <class L, class R>
+requires std::same_as<std::remove_cvref_t<L>,
+                      expression_holder<tensor_to_scalar_expression>> &&
+         std::same_as<std::remove_cvref_t<R>,
+                      expression_holder<tensor_expression>>
+inline expression_holder<tensor_expression> tag_invoke(mul_fn, L &&lhs,
+                                                       R &&rhs) {
+  return std::forward<R>(rhs) * std::forward<L>(lhs);
 }
 
 template <class L, class R>
