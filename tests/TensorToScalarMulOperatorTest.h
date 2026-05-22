@@ -47,8 +47,13 @@ protected:
 TYPED_TEST_SUITE(TensorToScalarMulOperatorTest, TestDims);
 
 // --- 1. Compile-smoke + node identity.
+//
+// (Test 2 below locks in actual structural equality of the two
+// directions; this test only verifies each operand order produces the
+// correct node *type* — both must be t2s_with_tensor_mul, not the
+// dedicated div node or something else.)
 
-TYPED_TEST(TensorToScalarMulOperatorTest, BothDirectionsConstructTheSameNode) {
+TYPED_TEST(TensorToScalarMulOperatorTest, BothDirectionsProduceMulNode) {
   auto &X = this->X;
   auto trX = trace(X);
 
@@ -110,6 +115,12 @@ TYPED_TEST(TensorToScalarMulOperatorTest, WrapperUnwrapsToScalarPath) {
 }
 
 // --- 6. Nested-mul collapse: (T × f) × g → T × (f*g).
+//
+// Beyond just confirming the structural flattening, we explicitly
+// verify *both* t2s factors survive on the result's t2s side via
+// contains_expression. Without that check, a buggy collapse that
+// silently dropped one factor (e.g. `(T × f) × g → T × g`) would
+// pass the structural shape assertion.
 
 TYPED_TEST(TensorToScalarMulOperatorTest, NestedT2sMulCollapses) {
   auto &X = this->X;
@@ -131,6 +142,11 @@ TYPED_TEST(TensorToScalarMulOperatorTest, NestedT2sMulCollapses) {
   // tensor_to_scalar_with_tensor_mul.
   EXPECT_FALSE(is_same<tensor_to_scalar_with_tensor_mul>(as_node.expr_lhs()));
   EXPECT_EQ(as_node.expr_lhs(), X);
+  // Both t2s factors survive on the t2s side: the collapsed t2s
+  // operand is *exactly* the canonical t2s product of trX and dX.
+  // n_ary commutativity guarantees `trX * dX == dX * trX`, so the
+  // order in which we wrote them at the call sites doesn't matter.
+  EXPECT_EQ(as_node.expr_rhs(), trX * dX);
 }
 
 // --- 7. Scalar coefficient bubbles outward: (s × T) × g → s × (T × g).

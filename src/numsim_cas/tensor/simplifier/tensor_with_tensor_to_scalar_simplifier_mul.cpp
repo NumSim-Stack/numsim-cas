@@ -24,6 +24,14 @@ mul_base::dispatch(tensor_to_scalar_with_tensor_mul const &lhs) noexcept {
 // tensor_scalar_mul nor a t2s-with-tensor-mul under the canonicalised
 // build path). The outer s × (...) routes through the existing
 // tensor × scalar operator.
+//
+// `tensor_scalar_mul` operand convention: `expr_lhs()` is the
+// *scalar* coefficient and `expr_rhs()` is the *tensor* body. (Yes
+// it's lhs=scalar even though the node is named "tensor_scalar_mul";
+// match the convention used by tensor_with_scalar_simplifier_mul.cpp,
+// which also computes `rhs.expr_lhs() * scalar` to merge
+// coefficients.) Misreading this swap would silently corrupt the
+// product — read either site to confirm before changing.
 mul_base::expr_holder_tensor_t
 mul_base::dispatch(tensor_scalar_mul const &lhs) noexcept {
   return lhs.expr_lhs() * (lhs.expr_rhs() * m_rhs);
