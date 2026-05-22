@@ -16,6 +16,7 @@
 #include "TensorSpacePropagationTest.h"
 #include "TensorSubstitutionTest.h"
 #include "TensorToScalarDifferentiationTest.h"
+#include "TensorToScalarDivOperatorTest.h"
 #include "TensorToScalarEvaluatorTest.h"
 #include "TensorToScalarExpressionTest.h"
 #include "TensorToScalarLatexPrinterTest.h"
