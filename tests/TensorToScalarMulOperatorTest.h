@@ -91,6 +91,22 @@ TYPED_TEST(TensorToScalarMulOperatorTest, T2sZeroFold) {
   EXPECT_TRUE(is_same<tensor_zero>(t2s_zero * X));
 }
 
+// --- 3c. Zero-precedence when *both* sides could trigger the fold.
+//
+// The operator chains `is_same<tensor_zero>(lhs) || is_same<t2s_zero>(rhs)`
+// — so when both sides are zero, the lhs check fires first and the
+// result is a fresh `tensor_zero` stamped with lhs's dim/rank.
+// Without this test the precedence is only asserted by inference,
+// not by code. See #154.
+
+TYPED_TEST(TensorToScalarMulOperatorTest, ZeroPrecedence_BothSidesZero) {
+  constexpr std::size_t Dim = TestFixture::Dim;
+  auto Z = make_expression<tensor_zero>(Dim, 2);
+  auto t2s_zero = make_expression<tensor_to_scalar_zero>();
+  EXPECT_TRUE(is_same<tensor_zero>(Z * t2s_zero));
+  EXPECT_TRUE(is_same<tensor_zero>(t2s_zero * Z));
+}
+
 // --- 4. One fold.
 
 TYPED_TEST(TensorToScalarMulOperatorTest, T2sOneFoldReturnsTensor) {
@@ -149,6 +165,39 @@ TYPED_TEST(TensorToScalarMulOperatorTest, NestedT2sMulCollapses) {
   EXPECT_EQ(as_node.expr_rhs(), trX * dX);
 }
 
+// --- 6b. Deep nesting: 4-level collapse via recursive dispatch (#153).
+//
+// The visitor's `dispatch(tensor_to_scalar_with_tensor_mul const &lhs)`
+// recurses by re-entering the operator on the inner side. Each level
+// peels off one t2s factor and merges it into the accumulating
+// product. We exercise depth 4 to verify the recursion terminates
+// correctly and the canonical form is a *single* t2s_with_tensor_mul
+// with all four t2s factors in the rhs:
+//
+//   ((((X × trX) × dX) × normX) × dotX)
+//          ↓
+//     X × (trX × dX × normX × dotX)
+
+TYPED_TEST(TensorToScalarMulOperatorTest, DeepNesting_FourFactorsCollapse) {
+  auto &X = this->X;
+  auto trX = trace(X);
+  auto dX = det(X);
+  auto normX = norm(X);
+  auto dotX = dot(X);
+
+  auto outer = (((X * trX) * dX) * normX) * dotX;
+
+  // Single t2s_with_tensor_mul at the top — no nesting survived.
+  ASSERT_TRUE(is_same<tensor_to_scalar_with_tensor_mul>(outer));
+  auto const &as_node = outer.template get<tensor_to_scalar_with_tensor_mul>();
+  EXPECT_EQ(as_node.expr_lhs(), X);
+  EXPECT_FALSE(is_same<tensor_to_scalar_with_tensor_mul>(as_node.expr_lhs()));
+
+  // All four t2s factors landed on the rhs as a single canonical
+  // n_ary product. Hash-based equality is order-independent.
+  EXPECT_EQ(as_node.expr_rhs(), trX * dX * normX * dotX);
+}
+
 // --- 7. Scalar coefficient bubbles outward: (s × T) × g → s × (T × g).
 
 TYPED_TEST(TensorToScalarMulOperatorTest, ScalarCoefficientBubblesOutward) {
@@ -163,7 +212,21 @@ TYPED_TEST(TensorToScalarMulOperatorTest, ScalarCoefficientBubblesOutward) {
   // (s × X) × trX should bubble the scalar outward → s × (X × trX),
   // i.e. the outer node is a tensor_scalar_mul (not the new node).
   auto outer = scaled * trX;
-  EXPECT_TRUE(is_same<tensor_scalar_mul>(outer));
+  ASSERT_TRUE(is_same<tensor_scalar_mul>(outer));
+
+  // Pin the *inner* structure too (closes #152). Without this a buggy
+  // bubble-outward that dropped `trX` (producing `s × X` again) or
+  // dropped `X` (producing `s × trX`) would still pass the outer
+  // type check. We assert the full shape:
+  //   * outer.lhs is the scalar `x`
+  //   * outer.rhs is `tensor_to_scalar_with_tensor_mul(X, trX)`.
+  auto const &outer_node = outer.template get<tensor_scalar_mul>();
+  EXPECT_EQ(outer_node.expr_lhs(), x);
+  ASSERT_TRUE(is_same<tensor_to_scalar_with_tensor_mul>(outer_node.expr_rhs()));
+  auto const &inner =
+      outer_node.expr_rhs().template get<tensor_to_scalar_with_tensor_mul>();
+  EXPECT_EQ(inner.expr_lhs(), X);
+  EXPECT_EQ(inner.expr_rhs(), trX);
 }
 
 // --- 8. Evaluator round-trip.

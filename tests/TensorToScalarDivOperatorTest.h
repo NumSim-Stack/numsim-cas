@@ -4,9 +4,7 @@
 // Lock-in tests for `tag_invoke(div_fn, …)` on (tensor, t2s) (#147).
 // Closes the symmetric gap to the mul operator added in #145. The
 // no-fold path routes through `lhs × pow(rhs, -1)`, reusing the
-// tensor × t2s mul (#145) and the existing t2s pow simplifier — the
-// dead `tensor_to_scalar_with_tensor_div` node is deliberately not
-// constructed.
+// tensor × t2s mul (#145) and the existing t2s pow simplifier.
 
 #include "cas_test_helpers.h"
 #include "numsim_cas/numsim_cas.h"
@@ -49,14 +47,14 @@ TYPED_TEST(TensorToScalarDivOperatorTest, CompileSmokeBothFunctions) {
   auto e_det = X / det(X);
   ASSERT_TRUE(e_tr.is_valid());
   ASSERT_TRUE(e_det.is_valid());
-  // Both go through the mul path (the dead t2s_with_tensor_div node
-  // is deliberately bypassed — see #147 rationale).
+  // Both go through the mul path — division is implemented as
+  // `lhs × pow(rhs, -1)`; see the operator overload in tensor_operators.h.
   EXPECT_TRUE(is_same<tensor_to_scalar_with_tensor_mul>(e_tr));
   EXPECT_TRUE(is_same<tensor_to_scalar_with_tensor_mul>(e_det));
 }
 
 // --- 2. Result shape: produces `tensor × pow(t2s, -1)` (#145 mul node
-//        with a pow rhs), not the dedicated div node.
+//        with a pow rhs).
 //
 // This pins the *current* shape produced by the div operator. If t2s
 // pow ever folds `pow(x, -1)` into a different node (e.g. a dedicated
@@ -95,6 +93,21 @@ TYPED_TEST(TensorToScalarDivOperatorTest, TensorZeroFold) {
   auto Z = make_expression<tensor_zero>(Dim, 2);
   EXPECT_TRUE(is_same<tensor_zero>(Z / trace(X)));
   EXPECT_TRUE(is_same<tensor_zero>(Z / det(X)));
+}
+
+// --- 3b. Zero-precedence: tensor_zero / t2s_zero.
+//
+// `0/0` is IEEE-undefined, but this CAS resolves it the same way the
+// scalar domain does: the lhs-zero check fires first, returning
+// tensor_zero. Documented behaviour, but unverified by test before
+// #154 — pinned here so any reordering of the zero-fold checks in the
+// div operator surfaces immediately.
+
+TYPED_TEST(TensorToScalarDivOperatorTest, ZeroPrecedence_ZeroOverZero) {
+  constexpr std::size_t Dim = TestFixture::Dim;
+  auto Z = make_expression<tensor_zero>(Dim, 2);
+  auto t2s_zero = make_expression<tensor_to_scalar_zero>();
+  EXPECT_TRUE(is_same<tensor_zero>(Z / t2s_zero));
 }
 
 // --- 4. One fold: tensor / tensor_to_scalar_one → tensor.
