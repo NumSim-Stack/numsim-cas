@@ -272,6 +272,12 @@ inline expression_holder<tensor_expression> tag_invoke(div_fn, L &&lhs,
 // same pattern used by the t2s ÷ t2s, t2s ÷ scalar, and scalar ÷ t2s
 // overloads in tensor_to_scalar_operators.h. The result reuses the
 // tensor × t2s mul path (#145) plus the t2s pow simplifier.
+//
+// CONTRACT: this overload depends on `pow(t2s, -1)` producing a regular
+// `tensor_to_scalar_pow` node (not a dedicated reciprocal). See the
+// matching CONTRACT NOTE above the t2s `pow(t2s, t2s)` overload in
+// `tensor_to_scalar_std.h` — if you change the inverse representation
+// here, also update that note and the lock-in tests it references.
 template <class L, class R>
 requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>> &&
