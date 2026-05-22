@@ -109,6 +109,45 @@ TEST(ScalarComparison, ConstantFolding_Rationals) {
   EXPECT_TRUE(is_same<scalar_one>(gt(half, make_scalar_constant(0))));
 }
 
+// Locks in #143: NaN handling. The structural-identity fold treats
+// hash-equal nodes as equal, so two scalar_constant(NaN) compare as
+// equal — folding `eq(NaN, NaN)` to 1, `ne(NaN, NaN)` to 0,
+// `lt(NaN, NaN)` to 0. IEEE-754 says NaN compares not-equal to
+// anything including itself, so this is a deliberate-but-non-IEEE
+// contract. Tests pin the current behaviour; tightening would be
+// an API change.
+TEST(ScalarComparison, EdgeCase_NaN_StructuralIdentity) {
+  auto nan_const =
+      make_scalar_constant(std::numeric_limits<double>::quiet_NaN());
+  // Both eq/le/ge fold to 1 via identity (lhs == rhs structurally).
+  EXPECT_TRUE(is_same<scalar_one>(eq(nan_const, nan_const)));
+  EXPECT_TRUE(is_same<scalar_one>(le(nan_const, nan_const)));
+  EXPECT_TRUE(is_same<scalar_one>(ge(nan_const, nan_const)));
+  // lt/gt/ne fold to 0.
+  EXPECT_TRUE(is_same<scalar_zero>(lt(nan_const, nan_const)));
+  EXPECT_TRUE(is_same<scalar_zero>(gt(nan_const, nan_const)));
+  EXPECT_TRUE(is_same<scalar_zero>(ne(nan_const, nan_const)));
+}
+
+// Locks in #144: complex ordering. `numeric_less` uses real-then-imag
+// tiebreak for complex values — a total order needed by sort
+// containers, but not a mathematically meaningful ordering. Documents
+// the choice so any future change is deliberate.
+TEST(ScalarComparison, EdgeCase_Complex_RealThenImagOrdering) {
+  using namespace std::complex_literals;
+  auto c_1_5 =
+      make_scalar_constant(scalar_number{std::complex<double>{1.0, 5.0}});
+  auto c_1_3 =
+      make_scalar_constant(scalar_number{std::complex<double>{1.0, 3.0}});
+  auto c_2_0 =
+      make_scalar_constant(scalar_number{std::complex<double>{2.0, 0.0}});
+  // Same real component → imag breaks the tie: 5 > 3 so c_1_5 > c_1_3
+  EXPECT_TRUE(is_same<scalar_one>(gt(c_1_5, c_1_3)));
+  EXPECT_TRUE(is_same<scalar_zero>(lt(c_1_5, c_1_3)));
+  // Different real components → real wins regardless of imag: 1 < 2
+  EXPECT_TRUE(is_same<scalar_one>(lt(c_1_5, c_2_0)));
+}
+
 // Locks in #142: rational cross-multiplication must not overflow.
 // `10^18 / 3` and `10^18 / 2` have numerator * denominator products
 // around 2*10^18 and 3*10^18 — both well past INT64_MAX (~9.2*10^18

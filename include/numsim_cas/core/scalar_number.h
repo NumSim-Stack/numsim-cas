@@ -66,8 +66,26 @@ public:
   /// Unlike `operator<` (which is a total order for sort containers, with
   /// rank-lexicographic ordering across variant alternatives), this compares
   /// values numerically after cross-rank promotion — so `int(3) < double(3.0)`
-  /// is `false`. Complex pairs are ordered real-then-imag for totality; this
-  /// suits indicator folding where complex inputs shouldn't normally appear.
+  /// is `false`.
+  ///
+  /// **Known limitations** (locked in by tests in ScalarComparisonTest.h):
+  ///
+  /// - **Complex pairs are ordered real-then-imag** for totality. This is
+  ///   *not* a mathematically meaningful ordering — complex numbers have no
+  ///   natural order. The behaviour exists so the comparison operators can
+  ///   produce a deterministic answer on complex inputs (which shouldn't
+  ///   normally appear in constitutive-modelling use cases). See #144.
+  ///
+  /// - **NaN inputs are not handled per IEEE-754**. The structural-identity
+  ///   fold in `make_comparison` (scalar_std.h) treats two `scalar_constant`
+  ///   nodes holding NaN as equal, since they hash identically — so
+  ///   `eq(NaN, NaN)` folds to 1 instead of 0. The CAS does not validate
+  ///   NaN at construction; if your inputs can be NaN, do not rely on
+  ///   comparison-fold semantics. See #143.
+  ///
+  /// Both behaviours are documented contracts; tightening either (e.g.
+  /// refusing NaN at `make_scalar_constant`, asserting on complex inputs)
+  /// would be a deliberate API change.
   friend bool numeric_less(scalar_number const &a, scalar_number const &b);
 
   [[nodiscard]] scalar_number abs() const noexcept;
