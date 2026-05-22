@@ -1,6 +1,7 @@
 #include "CoreBugFixTest.h"
 #include "LimitVisitorTest.h"
 #include "ScalarAssumptionTest.h"
+#include "ScalarComparisonTest.h"
 #include "ScalarDifferentiationTest.h"
 #include "ScalarEvaluatorTest.h"
 #include "ScalarExpressionTest.h"

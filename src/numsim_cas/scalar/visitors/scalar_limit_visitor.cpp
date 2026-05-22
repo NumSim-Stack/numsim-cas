@@ -212,4 +212,31 @@ void scalar_limit_visitor::operator()(
   m_result = {dir::unknown};
 }
 
+// ─── Comparison nodes (#136) ─────────────────────────────────────
+// Indicators are step functions in {0, 1}. Resolving the limit
+// requires knowing the comparison's exact crossing point relative to
+// the limit target, which the children's one-sided behaviour alone
+// rarely pins down. The conservative `unknown` here can be tightened
+// later (e.g. lt(+inf, finite) → 0) if that ever shows up as a real
+// bottleneck. Tightening goes in one place because all six ops share
+// this implementation via the static_assert below.
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_lt const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_gt const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_le const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_ge const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_eq const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_ne const &) {
+  m_result = {dir::unknown};
+}
+
 } // namespace numsim::cas

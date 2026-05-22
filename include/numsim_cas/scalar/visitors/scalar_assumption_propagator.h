@@ -37,7 +37,21 @@ public:
   void operator()(scalar_atan const &) override;
   void operator()(scalar_named_expression const &) override;
 
+  // ─── Comparison nodes (#136) — evaluate to 0/1 (Real) ──────────────
+  void operator()(scalar_lt const &) override;
+  void operator()(scalar_gt const &) override;
+  void operator()(scalar_le const &) override;
+  void operator()(scalar_ge const &) override;
+  void operator()(scalar_eq const &) override;
+  void operator()(scalar_ne const &) override;
+
 private:
+  // Shared body for all six comparison overrides — recurses into both
+  // sides (to populate the inference cache) and writes the standard
+  // indicator assumptions into m_result.
+  template <typename BinaryNode>
+  void handle_comparison_node(BinaryNode const &v);
+
   numeric_assumption_manager m_result;
 };
 

@@ -265,6 +265,14 @@ public:
   void operator()(scalar_acos const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/) override;
 
+  // ─── Comparison nodes (#136) ─────────────────────────────────────
+  void operator()(scalar_lt const &visitable) override;
+  void operator()(scalar_gt const &visitable) override;
+  void operator()(scalar_le const &visitable) override;
+  void operator()(scalar_ge const &visitable) override;
+  void operator()(scalar_eq const &visitable) override;
+  void operator()(scalar_ne const &visitable) override;
+
   /**
    * @brief Default overload for safty reasons.
    */

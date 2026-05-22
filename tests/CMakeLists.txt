@@ -35,6 +35,7 @@ add_numsim_cas_test(numsim_cas_test
     SolveTest.h
     LimitVisitorTest.h
     ScalarAssumptionTest.h
+    ScalarComparisonTest.h
     ScalarDifferentiationTest.h
     ScalarEvaluatorTest.h
     ScalarExpressionTest.h

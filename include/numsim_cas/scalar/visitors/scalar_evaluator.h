@@ -166,6 +166,37 @@ public:
     m_result = apply(visitable.expr());
   }
 
+  // ─── Comparison nodes (#136) ─────────────────────────────────────
+  // Each evaluates to ValueType{1} when the comparison holds and {0}
+  // otherwise — the indicator-function representation that makes
+  // `(a < b) * x` work directly as a damage-activation pattern and
+  // gives if_then_else a uniform Real-typed condition.
+
+  void operator()(scalar_lt const &v) override {
+    m_result =
+        apply(v.expr_lhs()) < apply(v.expr_rhs()) ? ValueType{1} : ValueType{0};
+  }
+  void operator()(scalar_gt const &v) override {
+    m_result =
+        apply(v.expr_lhs()) > apply(v.expr_rhs()) ? ValueType{1} : ValueType{0};
+  }
+  void operator()(scalar_le const &v) override {
+    m_result = apply(v.expr_lhs()) <= apply(v.expr_rhs()) ? ValueType{1}
+                                                          : ValueType{0};
+  }
+  void operator()(scalar_ge const &v) override {
+    m_result = apply(v.expr_lhs()) >= apply(v.expr_rhs()) ? ValueType{1}
+                                                          : ValueType{0};
+  }
+  void operator()(scalar_eq const &v) override {
+    m_result = apply(v.expr_lhs()) == apply(v.expr_rhs()) ? ValueType{1}
+                                                          : ValueType{0};
+  }
+  void operator()(scalar_ne const &v) override {
+    m_result = apply(v.expr_lhs()) != apply(v.expr_rhs()) ? ValueType{1}
+                                                          : ValueType{0};
+  }
+
   template <class T> void operator()([[maybe_unused]] T const &) noexcept {
     static_assert(sizeof(T) == 0,
                   "scalar_evaluator: missing overload for this node type");

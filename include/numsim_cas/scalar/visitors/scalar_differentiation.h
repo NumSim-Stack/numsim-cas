@@ -273,6 +273,28 @@ public:
    */
   void operator()(scalar_log const &visitable) override;
 
+  // Comparison nodes (#136) — derivative is the sub-gradient zero almost
+  // everywhere (Dirac contributions at the boundary are measure-zero in
+  // the constitutive-modelling use cases that motivated comparisons).
+  void operator()([[maybe_unused]] scalar_lt const &) override {
+    m_result = get_scalar_zero();
+  }
+  void operator()([[maybe_unused]] scalar_gt const &) override {
+    m_result = get_scalar_zero();
+  }
+  void operator()([[maybe_unused]] scalar_le const &) override {
+    m_result = get_scalar_zero();
+  }
+  void operator()([[maybe_unused]] scalar_ge const &) override {
+    m_result = get_scalar_zero();
+  }
+  void operator()([[maybe_unused]] scalar_eq const &) override {
+    m_result = get_scalar_zero();
+  }
+  void operator()([[maybe_unused]] scalar_ne const &) override {
+    m_result = get_scalar_zero();
+  }
+
   /**
    * @brief Default overload for safety reasons.
    */

@@ -15,23 +15,57 @@
 #include <numsim_cas/scalar/scalar_binary_simplify_fwd.h>
 #include <numsim_cas/scalar/scalar_constant.h>
 #include <numsim_cas/scalar/scalar_cos.h>
+#include <numsim_cas/scalar/scalar_eq.h>
 #include <numsim_cas/scalar/scalar_exp.h>
 #include <numsim_cas/scalar/scalar_expression.h>
+#include <numsim_cas/scalar/scalar_ge.h>
 #include <numsim_cas/scalar/scalar_globals.h>
+#include <numsim_cas/scalar/scalar_gt.h>
 #include <numsim_cas/scalar/scalar_io.h>
+#include <numsim_cas/scalar/scalar_le.h>
 #include <numsim_cas/scalar/scalar_log.h>
+#include <numsim_cas/scalar/scalar_lt.h>
 #include <numsim_cas/scalar/scalar_make_constant.h>
+#include <numsim_cas/scalar/scalar_ne.h>
+#include <numsim_cas/scalar/scalar_negative.h>
 #include <numsim_cas/scalar/scalar_one.h>
 #include <numsim_cas/scalar/scalar_power.h>
 #include <numsim_cas/scalar/scalar_sign.h>
 #include <numsim_cas/scalar/scalar_sin.h>
 #include <numsim_cas/scalar/scalar_sqrt.h>
 #include <numsim_cas/scalar/scalar_tan.h>
+#include <numsim_cas/scalar/scalar_zero.h>
 
 namespace numsim::cas {
 
 [[nodiscard]] std::string
 to_string(expression_holder<scalar_expression> const &expr);
+
+namespace detail {
+// Extract a scalar_number from `e` if it represents a literal value:
+// scalar_zero, scalar_one, scalar_constant, or a (possibly nested)
+// negation of any of those. Returns nullopt otherwise. Shared by
+// pow() constant folding and by the six comparison free functions
+// below. Recursion through negation defends against the rare path
+// where `make_expression<scalar_negative>` is called twice without
+// going through `operator-` (which would have collapsed `-(-x)`).
+inline std::optional<scalar_number>
+try_extract_scalar_number(expression_holder<scalar_expression> const &e) {
+  if (is_same<scalar_zero>(e))
+    return scalar_number{0};
+  if (is_same<scalar_one>(e))
+    return scalar_number{1};
+  if (is_same<scalar_constant>(e))
+    return e.template get<scalar_constant>().value();
+  if (is_same<scalar_negative>(e)) {
+    auto inner =
+        try_extract_scalar_number(e.template get<scalar_negative>().expr());
+    if (inner)
+      return -*inner;
+  }
+  return std::nullopt;
+}
+} // namespace detail
 
 template <scalar_expr_holder L, scalar_expr_holder R>
 [[nodiscard]] auto pow(L &&expr_lhs, R &&expr_rhs) {
@@ -57,31 +91,8 @@ template <scalar_expr_holder L, scalar_expr_holder R>
 
   // Constant folding: pow(numeric, numeric) → numeric
   {
-    auto try_num = [](auto const &e) -> std::optional<scalar_number> {
-      if (is_same<scalar_zero>(e))
-        return scalar_number{0};
-      if (is_same<scalar_one>(e))
-        return scalar_number{1};
-      if (is_same<scalar_constant>(e))
-        return e.template get<scalar_constant>().value();
-      if (is_same<scalar_negative>(e)) {
-        auto inner = [&]() -> std::optional<scalar_number> {
-          auto const &neg = e.template get<scalar_negative>().expr();
-          if (is_same<scalar_zero>(neg))
-            return scalar_number{0};
-          if (is_same<scalar_one>(neg))
-            return scalar_number{1};
-          if (is_same<scalar_constant>(neg))
-            return neg.template get<scalar_constant>().value();
-          return std::nullopt;
-        }();
-        if (inner)
-          return -(*inner);
-      }
-      return std::nullopt;
-    };
-    auto lhs_val = try_num(expr_lhs);
-    auto rhs_val = try_num(expr_rhs);
+    auto lhs_val = detail::try_extract_scalar_number(expr_lhs);
+    auto rhs_val = detail::try_extract_scalar_number(expr_rhs);
     if (lhs_val && rhs_val) {
       auto result = pow(*lhs_val, *rhs_val);
       if (result) {
@@ -226,6 +237,229 @@ template <scalar_expr_holder E> [[nodiscard]] auto log(E &&e) {
       return p.expr_rhs() * log(p.expr_lhs());
   }
   return make_expression<scalar_log>(std::forward<E>(e));
+}
+
+// ─── Comparison free functions (#136) ────────────────────────────────
+//
+// Each returns a Real *indicator* expression: 1.0 when the comparison
+// holds, 0.0 otherwise. This lets `(eps > eps0) * sigma` work directly
+// as the damage-activation idiom and gives if_then_else a single
+// Real-typed condition.
+//
+// NB: `eq(a, b)` (CAS comparison node, value-based) is NOT the same as
+// `a == b` (structural equality on expression_holder, used for hashing
+// and sorting). They live in different namespaces of meaning.
+//
+// Construction-time simplifications applied in order:
+//  1. structural identity → resolves immediately;
+//  2. both sides extractable as scalar_number → numeric fold;
+//  3. one side numeric + the other side's sign is known via
+//     is_{positive,negative,nonnegative,nonpositive} → sign-based fold.
+namespace detail {
+
+// Strategy tags — values returned by the per-op sign hook.
+enum class comp_reduce { fold_one, fold_zero, no_fold };
+
+// Sign cone collected from the assumption tags on an expression.
+// The four flags are not mutually exclusive: a known-zero expression
+// has both `nonneg` and `nonpos`; a known-strict-positive has both
+// `pos` and `nonneg`. Half-plane meanings:
+//   * pos ⇒ value > 0
+//   * neg ⇒ value < 0
+//   * nonneg ⇒ value ≥ 0
+//   * nonpos ⇒ value ≤ 0
+struct sign_cone {
+  bool pos;
+  bool neg;
+  bool nonneg;
+  bool nonpos;
+};
+
+// Build a `sign_cone` with a single `infer_assumptions` call.
+// `is_positive(e)` etc. each infer-then-query, so calling all four
+// would re-enter the inferred-flag check four times. Here we do it
+// once and read the resulting assumption set directly.
+inline sign_cone make_sign_cone(expression_holder<scalar_expression> const &e) {
+  infer_assumptions(e);
+  auto const &a = e.data()->assumptions();
+  return {a.contains(positive{}), a.contains(negative{}),
+          a.contains(nonnegative{}), a.contains(nonpositive{})};
+}
+
+// `lt(a, b) = a < b` — the canonical sign-cone analysis. All other
+// op sign hooks are expressed by mirroring this one (swap-arguments
+// for gt/ge/le, equality for eq/ne) further down.
+//
+//   a ≥ 0 AND b ≤ 0  →  a ≥ 0 ≥ b  →  a < b impossible       → fold_0
+//   a < 0 AND b ≥ 0  →  a < 0 ≤ b                            → fold_1
+//   a ≤ 0 AND b > 0  →  a ≤ 0 < b                            → fold_1
+inline comp_reduce lt_signs(sign_cone const &a, sign_cone const &b) {
+  if (a.nonneg && b.nonpos)
+    return comp_reduce::fold_zero;
+  if ((a.neg && b.nonneg) || (a.nonpos && b.pos))
+    return comp_reduce::fold_one;
+  return comp_reduce::no_fold;
+}
+
+// eq(a, b) folds when the sign cones force the values to differ.
+// One side strictly outside an inclusive interval containing the
+// other is enough.
+inline bool eq_signs_force_unequal(sign_cone const &a, sign_cone const &b) {
+  return (a.pos && b.nonpos) || (a.nonneg && b.neg) || (a.nonpos && b.pos) ||
+         (a.neg && b.nonneg);
+}
+
+inline comp_reduce flip_fold(comp_reduce r) {
+  switch (r) {
+  case comp_reduce::fold_one:
+    return comp_reduce::fold_zero;
+  case comp_reduce::fold_zero:
+    return comp_reduce::fold_one;
+  case comp_reduce::no_fold:
+    return comp_reduce::no_fold;
+  }
+  return comp_reduce::no_fold;
+}
+
+// Generic comparison constructor. Op carries:
+//   * `node_type` — the node to construct on no-fold;
+//   * `identity_holds` — what `cmp(x, x)` should fold to;
+//   * `from_numeric(a, b)` → bool — numeric meaning;
+//   * `from_signs(lhs_cone, rhs_cone)` → comp_reduce.
+template <typename Op, scalar_expr_holder L, scalar_expr_holder R>
+[[nodiscard]] auto make_comparison(L &&lhs, R &&rhs, Op op) {
+  assert(lhs.is_valid() && rhs.is_valid());
+
+  if (lhs == rhs)
+    return op.identity_holds ? get_scalar_one() : get_scalar_zero();
+
+  auto na = try_extract_scalar_number(lhs);
+  auto nb = try_extract_scalar_number(rhs);
+  if (na && nb)
+    return op.from_numeric(*na, *nb) ? get_scalar_one() : get_scalar_zero();
+
+  switch (op.from_signs(make_sign_cone(lhs), make_sign_cone(rhs))) {
+  case comp_reduce::fold_one:
+    return get_scalar_one();
+  case comp_reduce::fold_zero:
+    return get_scalar_zero();
+  case comp_reduce::no_fold:
+    break;
+  }
+
+  return make_expression<typename Op::node_type>(std::forward<L>(lhs),
+                                                 std::forward<R>(rhs));
+}
+
+// ─── Six op strategies, derived from `lt` and `eq` ──────────────────
+// `gt(a,b) = lt(b,a)`. `le(a,b) = !lt(b,a)` (wait — actually
+// `le(a,b) = a ≤ b = !(a > b) = !lt(b,a)`. So le inverts gt's truth).
+// `ge(a,b) = !lt(a,b)`. `ne` inverts `eq`.
+
+struct lt_op {
+  using node_type = scalar_lt;
+  static constexpr bool identity_holds = false;
+  static bool from_numeric(scalar_number const &a, scalar_number const &b) {
+    return numeric_less(a, b);
+  }
+  static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
+    return lt_signs(a, b);
+  }
+};
+
+struct gt_op {
+  using node_type = scalar_gt;
+  static constexpr bool identity_holds = false;
+  static bool from_numeric(scalar_number const &a, scalar_number const &b) {
+    return lt_op::from_numeric(b, a);
+  }
+  static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
+    return lt_signs(b, a);
+  }
+};
+
+struct le_op {
+  using node_type = scalar_le;
+  static constexpr bool identity_holds = true;
+  static bool from_numeric(scalar_number const &a, scalar_number const &b) {
+    return !gt_op::from_numeric(a, b);
+  }
+  static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
+    return flip_fold(lt_signs(b, a)); // !gt
+  }
+};
+
+struct ge_op {
+  using node_type = scalar_ge;
+  static constexpr bool identity_holds = true;
+  static bool from_numeric(scalar_number const &a, scalar_number const &b) {
+    return !lt_op::from_numeric(a, b);
+  }
+  static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
+    return flip_fold(lt_signs(a, b)); // !lt
+  }
+};
+
+struct eq_op {
+  using node_type = scalar_eq;
+  static constexpr bool identity_holds = true;
+  static bool from_numeric(scalar_number const &a, scalar_number const &b) {
+    return a == b;
+  }
+  static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
+    return eq_signs_force_unequal(a, b) ? comp_reduce::fold_zero
+                                        : comp_reduce::no_fold;
+  }
+};
+
+struct ne_op {
+  using node_type = scalar_ne;
+  static constexpr bool identity_holds = false;
+  static bool from_numeric(scalar_number const &a, scalar_number const &b) {
+    return !eq_op::from_numeric(a, b);
+  }
+  static comp_reduce from_signs(sign_cone const &a, sign_cone const &b) {
+    return eq_signs_force_unequal(a, b) ? comp_reduce::fold_one
+                                        : comp_reduce::no_fold;
+  }
+};
+
+} // namespace detail
+
+template <scalar_expr_holder L, scalar_expr_holder R>
+[[nodiscard]] auto lt(L &&lhs, R &&rhs) {
+  return detail::make_comparison(std::forward<L>(lhs), std::forward<R>(rhs),
+                                 detail::lt_op{});
+}
+
+template <scalar_expr_holder L, scalar_expr_holder R>
+[[nodiscard]] auto gt(L &&lhs, R &&rhs) {
+  return detail::make_comparison(std::forward<L>(lhs), std::forward<R>(rhs),
+                                 detail::gt_op{});
+}
+
+template <scalar_expr_holder L, scalar_expr_holder R>
+[[nodiscard]] auto le(L &&lhs, R &&rhs) {
+  return detail::make_comparison(std::forward<L>(lhs), std::forward<R>(rhs),
+                                 detail::le_op{});
+}
+
+template <scalar_expr_holder L, scalar_expr_holder R>
+[[nodiscard]] auto ge(L &&lhs, R &&rhs) {
+  return detail::make_comparison(std::forward<L>(lhs), std::forward<R>(rhs),
+                                 detail::ge_op{});
+}
+
+template <scalar_expr_holder L, scalar_expr_holder R>
+[[nodiscard]] auto eq(L &&lhs, R &&rhs) {
+  return detail::make_comparison(std::forward<L>(lhs), std::forward<R>(rhs),
+                                 detail::eq_op{});
+}
+
+template <scalar_expr_holder L, scalar_expr_holder R>
+[[nodiscard]] auto ne(L &&lhs, R &&rhs) {
+  return detail::make_comparison(std::forward<L>(lhs), std::forward<R>(rhs),
+                                 detail::ne_op{});
 }
 
 } // namespace numsim::cas

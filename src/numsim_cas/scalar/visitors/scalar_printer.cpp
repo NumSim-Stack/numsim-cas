@@ -5,6 +5,7 @@
 
 #include <numsim_cas/core/print_mul_fractions.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
+#include <numsim_cas/scalar/visitors/scalar_comparison_print_helper.h>
 #include <numsim_cas/scalar/visitors/scalar_printer.h>
 
 namespace numsim::cas {
@@ -226,6 +227,25 @@ template<typename Stream>
                    [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("acos", visitable);
 }
+
+// ─── Comparison nodes (#136) ───────────────────────────────────────
+// Printed in C-style infix form, parenthesised so the indicator
+// product `(a < b) * x` stays unambiguous.
+#define NUMSIM_DEFINE_PRINT_COMPARISON(Node, OpStr)                            \
+  template <typename Stream>                                                   \
+  void scalar_printer<Stream>::operator()(Node const &v) {                     \
+    detail::print_infix_comparison(m_out, v, "(", OpStr, ")",                  \
+                                   [this](auto const &e) { apply(e); });       \
+  }
+
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_lt, "<")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_gt, ">")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_le, "<=")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_ge, ">=")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_eq, "==")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_ne, "!=")
+
+#undef NUMSIM_DEFINE_PRINT_COMPARISON
 
 template class scalar_printer<std::ostream>;
 template class scalar_printer<std::stringstream>;

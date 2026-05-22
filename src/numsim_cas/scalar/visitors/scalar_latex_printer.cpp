@@ -5,6 +5,7 @@
 
 #include <numsim_cas/core/print_mul_fractions.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
+#include <numsim_cas/scalar/visitors/scalar_comparison_print_helper.h>
 #include <numsim_cas/scalar/visitors/scalar_latex_printer.h>
 #include <numsim_cas/scalar/visitors/scalar_printer.h>
 
@@ -238,6 +239,26 @@ template <typename Stream>
 void scalar_latex_printer<Stream>::operator()(scalar_acos const &visitable) {
   print_unary("\\arccos", visitable);
 }
+
+// ─── Comparison nodes (#136) ───────────────────────────────────────
+// Printed as `\left( lhs op rhs \right)` for all six ops; the only
+// per-op variation is the operator glyph.
+#define NUMSIM_DEFINE_LATEX_COMPARISON(Node, OpStr)                            \
+  template <typename Stream>                                                   \
+  void scalar_latex_printer<Stream>::operator()(Node const &v) {               \
+    detail::print_infix_comparison(this->m_out, v, "\\left(", OpStr,           \
+                                   "\\right)",                                 \
+                                   [this](auto const &e) { apply(e); });       \
+  }
+
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_lt, "<")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_gt, ">")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_le, "\\le")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_ge, "\\ge")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_eq, "=")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_ne, "\\ne")
+
+#undef NUMSIM_DEFINE_LATEX_COMPARISON
 
 template class scalar_latex_printer<std::ostream>;
 template class scalar_latex_printer<std::stringstream>;
