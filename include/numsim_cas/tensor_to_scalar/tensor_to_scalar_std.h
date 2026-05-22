@@ -16,6 +16,16 @@ to_string(const expression_holder<tensor_to_scalar_expression> &expr) {
   return ss.str();
 }
 
+// CONTRACT NOTE: `pow(x, -1)` is deliberately NOT short-circuited to a
+// dedicated reciprocal node. The tensor ÷ tensor_to_scalar operator
+// (tensor_operators.h, see #147) implements division as
+// `lhs × pow(rhs, -1)` and relies on the result being a regular
+// `tensor_to_scalar_pow` node so the existing pow-of-pow flatten
+// (`pow(pow(x, m), n) → pow(x, m*n)`) handles further composition. If
+// you add a `pow(x, -1) → reciprocal_node` rule here, also update the
+// div operator to construct that node directly, and update the lock-in
+// tests in `tests/TensorToScalarDivOperatorTest.h::ResultShapeIsMulPow`
+// and `DivByPowFlattensExponent`.
 template <tensor_to_scalar_expr_holder ExprLHS,
           tensor_to_scalar_expr_holder ExprRHS>
 [[nodiscard]] auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {

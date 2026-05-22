@@ -95,6 +95,21 @@ TYPED_TEST(TensorToScalarDivOperatorTest, TensorZeroFold) {
   EXPECT_TRUE(is_same<tensor_zero>(Z / det(X)));
 }
 
+// --- 3b. Zero-precedence: tensor_zero / t2s_zero.
+//
+// `0/0` is IEEE-undefined, but this CAS resolves it the same way the
+// scalar domain does: the lhs-zero check fires first, returning
+// tensor_zero. Documented behaviour, but unverified by test before
+// #154 — pinned here so any reordering of the zero-fold checks in the
+// div operator surfaces immediately.
+
+TYPED_TEST(TensorToScalarDivOperatorTest, ZeroPrecedence_ZeroOverZero) {
+  constexpr std::size_t Dim = TestFixture::Dim;
+  auto Z = make_expression<tensor_zero>(Dim, 2);
+  auto t2s_zero = make_expression<tensor_to_scalar_zero>();
+  EXPECT_TRUE(is_same<tensor_zero>(Z / t2s_zero));
+}
+
 // --- 4. One fold: tensor / tensor_to_scalar_one → tensor.
 
 TYPED_TEST(TensorToScalarDivOperatorTest, T2sOneFoldReturnsTensor) {

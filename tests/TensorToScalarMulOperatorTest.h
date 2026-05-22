@@ -91,6 +91,22 @@ TYPED_TEST(TensorToScalarMulOperatorTest, T2sZeroFold) {
   EXPECT_TRUE(is_same<tensor_zero>(t2s_zero * X));
 }
 
+// --- 3c. Zero-precedence when *both* sides could trigger the fold.
+//
+// The operator chains `is_same<tensor_zero>(lhs) || is_same<t2s_zero>(rhs)`
+// — so when both sides are zero, the lhs check fires first and the
+// result is a fresh `tensor_zero` stamped with lhs's dim/rank.
+// Without this test the precedence is only asserted by inference,
+// not by code. See #154.
+
+TYPED_TEST(TensorToScalarMulOperatorTest, ZeroPrecedence_BothSidesZero) {
+  constexpr std::size_t Dim = TestFixture::Dim;
+  auto Z = make_expression<tensor_zero>(Dim, 2);
+  auto t2s_zero = make_expression<tensor_to_scalar_zero>();
+  EXPECT_TRUE(is_same<tensor_zero>(Z * t2s_zero));
+  EXPECT_TRUE(is_same<tensor_zero>(t2s_zero * Z));
+}
+
 // --- 4. One fold.
 
 TYPED_TEST(TensorToScalarMulOperatorTest, T2sOneFoldReturnsTensor) {
