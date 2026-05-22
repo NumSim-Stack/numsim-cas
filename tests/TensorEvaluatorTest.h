@@ -17,6 +17,20 @@
 
 namespace numsim::cas {
 
+// ---------------------------------------------------------------------------
+// Audit #43 (2026-05-17): tensor_evaluator overload coverage verified.
+// All 16 node types in NUMSIM_CAS_TENSOR_NODE_LIST have explicit operator()
+// overrides in tensor_evaluator (header-only, see tensor/visitors/
+// tensor_evaluator.h). Fallback uses static_assert(sizeof(T) == 0, ...) so
+// a new node type without an override is a compile error.
+//
+// The issue body's concern about "apply() returns std::move(m_data) without
+// initialization or visiting" is stale — the current apply() calls
+// accept(*this) correctly and dispatches through the virtual visitor.
+//
+// All 16 node types have explicit EvalTensor* / Eval* lock-in tests below.
+// ---------------------------------------------------------------------------
+
 namespace {
 
 using tensor_expr_t = expression_holder<tensor_expression>;
