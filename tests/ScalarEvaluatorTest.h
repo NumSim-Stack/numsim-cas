@@ -17,6 +17,18 @@ namespace {
 using expr_t = expression_holder<scalar_expression>;
 } // namespace
 
+// ---------------------------------------------------------------------------
+// Audit #44 (2026-05-17): scalar_evaluator overload coverage verified.
+// All 20 node types in NUMSIM_CAS_SCALAR_NODE_LIST have explicit operator()
+// overrides in scalar_evaluator (header-only, see scalar/visitors/
+// scalar_evaluator.h). Fallback uses static_assert(sizeof(T) == 0, ...) so
+// adding a new node type without an override is a compile error.
+// All 20 nodes have explicit EvalScalar* lock-in tests below. The audit's
+// concern about "empty stubs" mentioned in the issue body is not present
+// — every visitor produces a value via std::* primitives or recurses into
+// children. No code changes required.
+// ---------------------------------------------------------------------------
+
 // --- Individual operator() tests ---
 
 TEST(ScalarEval, EvalScalarSymbol) {
