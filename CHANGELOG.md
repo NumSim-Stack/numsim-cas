@@ -11,6 +11,7 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 
 - DCO (Developer Certificate of Origin) enforcement via `.github/workflows/dco-check.yml`. Non-merge PR commits must carry a `Signed-off-by:` trailer. Closes part of #171.
 - `NOTICE` file at the repo root asserting petlenz's copyright and the GPL-3.0 OR commercial dual-license model, with SPDX identifiers. Closes part of #171.
+- `LICENSES/LicenseRef-Commercial.txt` so REUSE-compliant tooling can resolve the SPDX `LicenseRef-Commercial` identifier; points at COMMERCIAL.md for the actual acquisition path.
 - Linear elasticity example (`examples/linear_elasticity.cpp`) demonstrating symbolic strain-energy → automatic differentiation → numerical evaluation. Includes programmatic assertions and a CTest entry so CI catches bit-rot. Closes #160, #172.
 - `tag_invoke(mul_fn, …)` for `tensor × tensor_to_scalar` (and the symmetric pair) with full visitor coverage and a dedicated simplifier handling nested-mul collapse and scalar-coefficient bubbling. Closes #145.
 - `tag_invoke(div_fn, tensor, t2s)` routing through `lhs × pow(rhs, -1)` for `tensor ÷ tensor_to_scalar`. Closes #147.

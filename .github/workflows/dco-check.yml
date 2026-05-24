@@ -16,6 +16,12 @@ permissions:
   contents: read
   pull-requests: read
 
+# Cancel an in-progress check when a new commit is pushed to the same
+# PR, so the latest push gets the authoritative result.
+concurrency:
+  group: dco-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   dco-check:
     runs-on: ubuntu-latest
@@ -27,9 +33,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Verify Signed-off-by on every non-merge PR commit
+        # Pass SHAs via env vars rather than inline ${{ }} interpolation
+        # — GitHub Actions security best-practice avoids script-injection
+        # from PR metadata fields. Both SHAs are hex-only and GitHub-
+        # controlled, so this is brittle-not-broken, but the env pattern
+        # is the documented safe form.
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          base="${{ github.event.pull_request.base.sha }}"
-          head="${{ github.event.pull_request.head.sha }}"
           missing=0
           # --no-merges skips merge commits, which typically don't carry
           # signoffs (e.g. when a PR branch pulls in main).
@@ -39,10 +51,10 @@ jobs:
               author="$(git log -1 --format='%an <%ae>' "$sha")"
               echo "::error::Commit $sha has no Signed-off-by trailer."
               echo "  Author: $author"
-              echo "  Fix:    git rebase --signoff $base"
+              echo "  Fix:    git rebase --signoff $PR_BASE_SHA"
               missing=$((missing + 1))
             fi
-          done < <(git rev-list --no-merges "$base..$head")
+          done < <(git rev-list --no-merges "$PR_BASE_SHA..$PR_HEAD_SHA")
           if [ "$missing" -gt 0 ]; then
             echo ""
             echo "DCO check failed: $missing commit(s) missing Signed-off-by."
