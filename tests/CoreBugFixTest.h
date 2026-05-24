@@ -404,41 +404,45 @@ TEST(CoreBugFix, NArySubAddDispatchT2s) {
 }
 
 // ---------------------------------------------------------------------------
-// merge_or_insert loop instrumentation (issue #92).
+// merge_or_insert public-state contract (issue #92 remains open for the
+// multi-iteration deterministic case).
 // ---------------------------------------------------------------------------
 
-TEST(CoreBugFix, MergeOrInsertNoCollisionSingleInsert) {
-  // No collision: counter stays at 0 (one insert, no iteration).
+TEST(CoreBugFix, MergeOrInsertNoCollisionAddsChild) {
+  // No collision: both children remain present as distinct entries.
   auto [x, y] = make_scalar_variable("x", "y");
   auto add_node = std::make_shared<scalar_add>();
   add_node->push_back(x);
   add_node->merge_or_insert(y);
-  EXPECT_EQ(scalar_add::s_last_merge_iterations, 0u);
   EXPECT_EQ(add_node->size(), 2u);
 }
 
-TEST(CoreBugFix, MergeOrInsertCollisionOneIteration) {
-  // Collision case: pushing x when x is already there triggers one
-  // iteration of the merge loop. The combined entry has the same key
-  // (n_ary_tree hash excludes the coefficient) so the loop terminates
-  // after one round.
+TEST(CoreBugFix, MergeOrInsertCollisionMergesIntoSingleEntry) {
+  // Collision case: pushing x when x is already there triggers the
+  // merge path and the two entries collapse into one. n_ary_tree's hash
+  // excludes the coefficient, so x and x map to the same key; the
+  // resulting single entry's key matches x.
   auto [x] = make_scalar_variable("x");
   auto add_node = std::make_shared<scalar_add>();
   add_node->push_back(x);
   add_node->merge_or_insert(x);
-  EXPECT_EQ(scalar_add::s_last_merge_iterations, 1u);
-  EXPECT_EQ(add_node->size(), 1u); // x + x = 2*x stored under key x
+  ASSERT_EQ(add_node->size(), 1u);
+  // The merged entry is `x + x = 2*x`. n_ary_tree stores the combined
+  // expression under itself as the map key (hash excludes the
+  // coefficient so 2*x and x hash to the same bucket).
+  EXPECT_EQ(add_node->symbol_map().begin()->first, make_scalar_constant(2) * x);
 }
 
-TEST(CoreBugFix, MergeOrInsertResetsCounterBetweenCalls) {
-  // The counter is reset at the start of each call, not accumulated.
+TEST(CoreBugFix, MergeOrInsertSequentialCallsAreIndependent) {
+  // A collision followed by a non-collision must leave the tree in the
+  // expected final shape: two entries (x with coeff 2 from the collision,
+  // y standalone). This is the lock-in for "calls don't bleed state."
   auto [x, y] = make_scalar_variable("x", "y");
   auto add_node = std::make_shared<scalar_add>();
   add_node->push_back(x);
-  add_node->merge_or_insert(x); // 1 iteration (collision)
-  EXPECT_EQ(scalar_add::s_last_merge_iterations, 1u);
-  add_node->merge_or_insert(y); // 0 iterations (no collision)
-  EXPECT_EQ(scalar_add::s_last_merge_iterations, 0u);
+  add_node->merge_or_insert(x); // collision: x -> 2*x
+  add_node->merge_or_insert(y); // no collision: y added
+  EXPECT_EQ(add_node->size(), 2u);
 }
 
 // NOTE: a deterministic multi-iteration (>1) test would require the
@@ -450,8 +454,7 @@ TEST(CoreBugFix, MergeOrInsertResetsCounterBetweenCalls) {
 // "no path exists" claim is best read as "no obvious path found." The
 // loop's multi-iteration safety is forward-protection against future
 // simplifier additions; the fuzz suite remains the witness if a chain
-// is produced. The instrumentation counter above lets the
-// day-it-happens regression land cleanly.
+// is produced. See issue #92 for the deterministic-coverage follow-up.
 // t2s_eval rebuild correctness lock-in (issue #94) — the per-visit rebuild
 // path in tensor_evaluator::operator()(tensor_to_scalar_with_tensor_mul)
 // is functionally correct but pays construction + symbol-table copy cost

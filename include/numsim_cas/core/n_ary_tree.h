@@ -64,43 +64,17 @@ public:
   // n_ary_add_dispatch) build a fresh result tree and discard it on throw,
   // so the partial state is never observed. Do not call this from a context
   // that catches the exception and continues using the tree.
-  //
-  // Instrumented: `s_last_merge_iterations` records the loop count of the
-  // most recent call so tests can verify the loop behaved as expected.
-  // Always on (rather than macro-gated) to avoid ODR risk across the
-  // library and test translation units. Cost is negligible (two memory
-  // writes per call).
   inline void merge_or_insert(expression_holder<expr_t> entry) {
-    s_last_merge_iterations = 0;
     while (true) {
       auto it = m_symbol_map.find(entry);
       if (it == m_symbol_map.end())
         break;
-      ++s_last_merge_iterations;
       auto combined = it->second + entry;
       m_symbol_map.erase(it);
       entry = std::move(combined);
     }
     insert_hash(std::move(entry));
   }
-
-  // Iteration count of the most recent merge_or_insert call. Public for
-  // test instrumentation; reset on each call.
-  //
-  // Limitations of the counter (not of merge_or_insert itself):
-  //   - Per-template-instantiation: each n_ary_tree<Base> has its own
-  //     counter, so reading it requires naming the concrete instantiation
-  //     (e.g. scalar_add::s_last_merge_iterations).
-  //   - Not thread-safe: two threads merging concurrently on the same
-  //     n_ary_tree<Base> race on the counter. The merge logic itself is
-  //     reentrant (operates on instance state), but the static counter
-  //     would report incorrect values under concurrent use.
-  //   - Sensitive to test execution order: if the test harness runs
-  //     tests in parallel (gtest --gtest_parallel etc.), one test's
-  //     counter read may include another test's merges.
-  // Fine for the single-threaded CAS construction model this library
-  // targets and the sequential gtest default.
-  static inline std::size_t s_last_merge_iterations{0};
 
   inline void reserve([[maybe_unused]] std::size_t size) noexcept {
     // m_symbol_map.reserve(size);
