@@ -108,12 +108,13 @@ TEST(TensorPrinterAudit, TensorInv) {
   EXPECT_NE(s.find("inv"), std::string::npos) << "got: " << s;
 }
 
-TEST(TensorPrinterAudit, BasisChange) {
+TEST(TensorPrinterAudit, PermuteIndices) {
   auto [A] =
       make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
   auto s = print(trans(A));
-  // trans(A) prints as basis_change-shaped output
-  EXPECT_FALSE(s.empty()) << "trans/basis_change print produced empty output";
+  // trans(A) prints as permute_indices-shaped output
+  EXPECT_FALSE(s.empty())
+      << "trans/permute_indices print produced empty output";
 }
 
 TEST(TensorPrinterAudit, InnerProduct) {

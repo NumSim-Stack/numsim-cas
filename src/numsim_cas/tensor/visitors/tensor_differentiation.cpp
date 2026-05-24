@@ -110,7 +110,7 @@ void tensor_differentiation::operator()(tensor_mul const &visitable) {
                            sequence{1});
 
       // Permute [L][D][R] → [L][R][D] to move derivative indices to end
-      // basis_change convention: output(args) = input(args[perm[0]], ...)
+      // permute_indices convention: output(args) = input(args[perm[0]], ...)
       // perm[k] maps input position k → output position that feeds into it
       auto total = term.get().rank();
       auto R = rank_rhs - 1;
@@ -215,7 +215,7 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
 
       // Permute: move derivative indices from middle to end
       // Layout is [lhs][factor_j_orig][D][rhs], desired
-      // [lhs][factor_j_orig][rhs][D] basis_change convention: perm[k] maps
+      // [lhs][factor_j_orig][rhs][D] permute_indices convention: perm[k] maps
       // input pos k → output pos
       auto L = rank_lhs + factors[j].get().rank();
       auto total = current_rank + rank_rhs;
@@ -295,7 +295,7 @@ void tensor_differentiation::operator()(
       // Need to reorder: put derivative indices (from arg) at the end
       // Original result: free_lhs indices, rank_arg indices, free_rhs indices
       // Desired: free_lhs indices, free_rhs indices, rank_arg indices
-      // basis_change convention: perm[k] maps input pos k → output pos
+      // permute_indices convention: perm[k] maps input pos k → output pos
       std::size_t new_rank = free_lhs + m_rank_arg + free_rhs;
       sequence reorder(new_rank);
       // L block (free_lhs): input 0..L-1 ← output 0..L-1

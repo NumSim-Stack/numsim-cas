@@ -159,7 +159,7 @@ TEST(TensorEval, EvalBasisChange) {
   ev.set(A, make_test_data<2, 2>({1.0, 2.0,
                                    3.0, 4.0}));
   // clang-format on
-  // trans(A) = basis_change(A, {2,1})
+  // trans(A) = permute_indices(A, {2,1})
   auto expr = trans(A);
   auto result = ev.apply(expr);
   ASSERT_NE(result, nullptr);
