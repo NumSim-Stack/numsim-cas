@@ -19,6 +19,8 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 ### Changed
 
 - Visitor type lists consolidated to a single `tensor_visitor_typedef.h` driven by the `NUMSIM_CAS_TENSOR_NODE_LIST` macro.
+- Renamed `basis_change_imp` → `permute_indices_wrapper`. The class permutes tensor indices (e.g. transpose is `{2,1}`) — it does not change basis. Closes #52.
+- Renamed folder `include/numsim_cas/tensor/functions/` → `include/numsim_cas/tensor/wrappers/`. The files in that directory are AST-node wrapper classes, not free functions; the new name matches the `_wrapper` suffix convention used by the class names themselves. Closes #55.
 
 ### Removed
 
