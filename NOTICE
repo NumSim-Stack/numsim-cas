@@ -1,0 +1,15 @@
+NumSim-CAS
+
+SPDX-FileCopyrightText: 2025-2026 Peter Lenz <peterlenz89.pl@gmail.com>
+SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Commercial
+
+This software is available under a dual-license model:
+
+  * Open source: GNU General Public License v3.0 (GPL-3.0-only).
+    See LICENSE for the full text.
+
+  * Commercial:  proprietary terms available for closed-source use.
+    See COMMERCIAL.md for details and the acquisition path.
+
+Contributions are accepted under both licenses via the Developer
+Certificate of Origin (DCO); see CONTRIBUTING.md.

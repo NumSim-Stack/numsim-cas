@@ -15,6 +15,7 @@
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -80,6 +81,11 @@ int main() {
   ev.set_scalar(mu, 76.9e9);
 
   auto sigma_num = ev.apply(sigma);
+  if (!sigma_num) {
+    std::cerr << "FAIL: evaluator returned null — symbolic σ failed to "
+                 "evaluate.\n";
+    return 1;
+  }
   std::cout << "Numerical σ at sample strain:\n";
   print_matrix_3x3(sigma_num->raw_data());
 
@@ -90,7 +96,10 @@ int main() {
   constexpr double mu_val = 76.9e9;
   constexpr double tr_eps_val = 0.001 + 0.003 + 0.004;
   constexpr double lambda_tr = lambda_val * tr_eps_val;
-  constexpr double abs_tol = 1.0; // 1 Pa tolerance on ~GPa magnitudes
+  // Relative tolerance scales with the magnitude of the expected
+  // value; falls back to absolute when expected is near zero.
+  constexpr double rel_tol = 1e-12;
+  constexpr double abs_floor = 1e-3;
   auto const *raw = sigma_num->raw_data();
   // clang-format off
   double const expected[9] = {
@@ -101,9 +110,10 @@ int main() {
   // clang-format on
   int fails = 0;
   for (int i = 0; i < 9; ++i) {
-    if (std::abs(raw[i] - expected[i]) > abs_tol) {
+    double const tol = std::max(abs_floor, rel_tol * std::abs(expected[i]));
+    if (std::abs(raw[i] - expected[i]) > tol) {
       std::cerr << "FAIL σ[" << (i / 3) << "][" << (i % 3) << "] = " << raw[i]
-                << ", expected " << expected[i] << "\n";
+                << ", expected " << expected[i] << " (tol " << tol << ")\n";
       ++fails;
     }
   }
@@ -111,7 +121,6 @@ int main() {
     std::cerr << "\n" << fails << " component(s) mismatched.\n";
     return 1;
   }
-  std::cout << "\nAll 9 components match λ·tr(ε)·I + 2μ·ε within " << abs_tol
-            << " Pa.\n";
+  std::cout << "\nAll 9 components match λ·tr(ε)·I + 2μ·ε within tolerance.\n";
   return 0;
 }

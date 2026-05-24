@@ -9,9 +9,9 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 
 ### Added
 
-- DCO (Developer Certificate of Origin) enforcement via CI workflow. All PR commits must carry a `Signed-off-by:` trailer matching the commit author. Closes part of #171.
+- DCO (Developer Certificate of Origin) enforcement via `.github/workflows/dco-check.yml`. Non-merge PR commits must carry a `Signed-off-by:` trailer. Closes part of #171.
+- `NOTICE` file at the repo root asserting petlenz's copyright and the GPL-3.0 OR commercial dual-license model, with SPDX identifiers. Closes part of #171.
 - Linear elasticity example (`examples/linear_elasticity.cpp`) demonstrating symbolic strain-energy → automatic differentiation → numerical evaluation. Includes programmatic assertions and a CTest entry so CI catches bit-rot. Closes #160, #172.
-- Copyright header on `LICENSE` asserting petlenz's ownership and the dual-license model (GPL-3.0-only OR Commercial). Closes part of #171.
 - `tag_invoke(mul_fn, …)` for `tensor × tensor_to_scalar` (and the symmetric pair) with full visitor coverage and a dedicated simplifier handling nested-mul collapse and scalar-coefficient bubbling. Closes #145.
 - `tag_invoke(div_fn, tensor, t2s)` routing through `lhs × pow(rhs, -1)` for `tensor ÷ tensor_to_scalar`. Closes #147.
 - Scalar comparison nodes (`lt`, `gt`, `le`, `ge`, `eq`, `ne`) producing Real-valued indicators (1.0 / 0.0) for the damage-activation idiom and the upcoming `if_then_else`. Closes #136.
