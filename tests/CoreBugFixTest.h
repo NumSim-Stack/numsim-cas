@@ -419,30 +419,42 @@ TEST(CoreBugFix, MergeOrInsertNoCollisionAddsChild) {
 
 TEST(CoreBugFix, MergeOrInsertCollisionMergesIntoSingleEntry) {
   // Collision case: pushing x when x is already there triggers the
-  // merge path and the two entries collapse into one. n_ary_tree's hash
-  // excludes the coefficient, so x and x map to the same key; the
-  // resulting single entry's key matches x.
+  // merge path and the two entries collapse into one. n_ary_tree's
+  // hash excludes the coefficient, so x and (x + x) hash to the same
+  // bucket — but the *stored key* is the combined expression itself
+  // (i.e. 2*x), not the original x.
   auto [x] = make_scalar_variable("x");
   auto add_node = std::make_shared<scalar_add>();
   add_node->push_back(x);
   add_node->merge_or_insert(x);
   ASSERT_EQ(add_node->size(), 1u);
-  // The merged entry is `x + x = 2*x`. n_ary_tree stores the combined
-  // expression under itself as the map key (hash excludes the
-  // coefficient so 2*x and x hash to the same bucket).
   EXPECT_EQ(add_node->symbol_map().begin()->first, make_scalar_constant(2) * x);
 }
 
 TEST(CoreBugFix, MergeOrInsertSequentialCallsAreIndependent) {
   // A collision followed by a non-collision must leave the tree in the
-  // expected final shape: two entries (x with coeff 2 from the collision,
-  // y standalone). This is the lock-in for "calls don't bleed state."
+  // expected final shape: the collided entry stored as 2*x, and y added
+  // alongside it. Asserting both keys (not just size()) is what makes
+  // this a real lock-in for "calls don't bleed state" — a bug where
+  // the second call corrupted the first call's stored entry would pass
+  // a size-only check but fail the key checks.
   auto [x, y] = make_scalar_variable("x", "y");
   auto add_node = std::make_shared<scalar_add>();
   add_node->push_back(x);
   add_node->merge_or_insert(x); // collision: x -> 2*x
   add_node->merge_or_insert(y); // no collision: y added
-  EXPECT_EQ(add_node->size(), 2u);
+  ASSERT_EQ(add_node->size(), 2u);
+  bool found_2x = false;
+  bool found_y = false;
+  auto const expected_2x = make_scalar_constant(2) * x;
+  for (auto const &[key, _] : add_node->symbol_map()) {
+    if (key == expected_2x)
+      found_2x = true;
+    else if (key == y)
+      found_y = true;
+  }
+  EXPECT_TRUE(found_2x) << "missing merged 2*x entry";
+  EXPECT_TRUE(found_y) << "missing standalone y entry";
 }
 
 // NOTE: a deterministic multi-iteration (>1) test would require the
