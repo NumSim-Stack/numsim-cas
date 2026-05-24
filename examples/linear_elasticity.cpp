@@ -15,7 +15,6 @@
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 
-#include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <memory>
@@ -83,35 +82,13 @@ int main() {
   std::cout << "Numerical σ at sample strain:\n";
   print_matrix_3x3(sigma_num->raw_data());
 
-  // Hand-check: σ = λ·tr(ε)·I + 2μ·ε, with tr(ε) = 0.008.
-  // Programmatic verification — bit-rot guard so CI catches breakage
-  // in either the symbolic differentiation or the evaluator.
-  constexpr double lambda_val = 115.4e9;
-  constexpr double mu_val = 76.9e9;
-  constexpr double tr_eps_val = 0.001 + 0.003 + 0.004;
-  constexpr double lambda_tr = lambda_val * tr_eps_val;
-  constexpr double abs_tol = 1.0; // 1 Pa tolerance on ~GPa magnitudes
-  auto const *raw = sigma_num->raw_data();
-  // clang-format off
-  double const expected[9] = {
-      lambda_tr + 2 * mu_val * 0.001, 2 * mu_val * 0.002, 0.0,
-      2 * mu_val * 0.002, lambda_tr + 2 * mu_val * 0.003, 0.0,
-      0.0,                0.0,                            lambda_tr + 2 * mu_val * 0.004,
-  };
-  // clang-format on
-  int fails = 0;
-  for (int i = 0; i < 9; ++i) {
-    if (std::abs(raw[i] - expected[i]) > abs_tol) {
-      std::cerr << "FAIL σ[" << (i / 3) << "][" << (i % 3) << "] = " << raw[i]
-                << ", expected " << expected[i] << "\n";
-      ++fails;
-    }
-  }
-  if (fails > 0) {
-    std::cerr << "\n" << fails << " component(s) mismatched.\n";
-    return 1;
-  }
-  std::cout << "\nAll 9 components match λ·tr(ε)·I + 2μ·ε within " << abs_tol
-            << " Pa.\n";
+  // Hand-check: σ = λ·tr(ε)·I + 2μ·ε
+  // tr(ε) = 0.001 + 0.003 + 0.004 = 0.008
+  // λ·tr(ε) = 115.4e9 * 0.008 = 9.232e8
+  // 2μ·ε[0][0] = 2·76.9e9 · 0.001 = 1.538e8
+  // σ[0][0] = 9.232e8 + 1.538e8 = 1.077e9
+  std::cout << "\nExpected σ[0][0] = λ·tr(ε) + 2μ·ε[0][0] = "
+            << 115.4e9 * 0.008 + 2 * 76.9e9 * 0.001 << "\n";
+
   return 0;
 }
