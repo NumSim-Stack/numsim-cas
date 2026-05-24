@@ -310,8 +310,8 @@ TEST_F(TensorDifferentiationTest, OuterProductDiff) {
   EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 6>(*result), numdiff, 1e-6));
 }
 
-// d(trans(X))/dX — basis change differentiation
-TEST_F(TensorDifferentiationTest, BasisChangeDiff) {
+// d(trans(X))/dX — permute_indices differentiation
+TEST_F(TensorDifferentiationTest, PermuteIndicesDiff) {
   auto expr = trans(X);
   auto d = diff(expr, X);
   ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for trans(X)";

@@ -152,7 +152,7 @@ TEST(TensorEval, EvalTensorScalarMul) {
   EXPECT_TRUE(tmech::almost_equal(as_tmech<2, 2>(*result), expected, tol));
 }
 
-TEST(TensorEval, EvalBasisChange) {
+TEST(TensorEval, EvalPermuteIndices) {
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
   // clang-format off

@@ -240,9 +240,9 @@ public:
   }
 
   /**
-   * @brief Prints a basis change expression.
+   * @brief Prints a permute_indices expression.
    *
-   * @param visitable The basis change expression to be printed.
+   * @param visitable The permute_indices expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()(permute_indices_wrapper const &visitable) override {

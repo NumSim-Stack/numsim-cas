@@ -319,7 +319,7 @@ index bookkeeping.
 | `inner_product_wrapper` | `.cpp` |
 | `outer_product_wrapper` | `.cpp` |
 
-### Basis change (index permutation)
+### Permute indices
 
 $$
 \frac{\partial}{\partial \mathbf{X}}
