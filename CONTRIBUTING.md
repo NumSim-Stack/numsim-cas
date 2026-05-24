@@ -57,8 +57,6 @@ git commit -s -m "Your commit message"
 
 The `-s` flag adds the trailer automatically. See the [DCO text](https://developercertificate.org/) for the full certification.
 
-**This is enforced in CI** (`.github/workflows/dco-check.yml`). PRs whose commits lack a `Signed-off-by:` trailer matching the author will fail the DCO check and cannot be merged. If you forgot, fix the history with `git rebase --signoff <base>` and force-push.
-
 If you're contributing under your employer's name, ensure they're aware and have authorized the contribution under DCO terms.
 
 ## Issue triage
