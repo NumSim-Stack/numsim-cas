@@ -9,6 +9,10 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 
 ### Added
 
+- DCO (Developer Certificate of Origin) enforcement via `.github/workflows/dco-check.yml`. Non-merge PR commits must carry a `Signed-off-by:` trailer. Closes part of #171.
+- `NOTICE` file at the repo root asserting petlenz's copyright and the GPL-3.0 OR commercial dual-license model, with SPDX identifiers. Closes part of #171.
+- `LICENSES/LicenseRef-Commercial.txt` so REUSE-compliant tooling can resolve the SPDX `LicenseRef-Commercial` identifier; points at COMMERCIAL.md for the actual acquisition path.
+- Linear elasticity example (`examples/linear_elasticity.cpp`) demonstrating symbolic strain-energy → automatic differentiation → numerical evaluation. Includes programmatic assertions and a CTest entry so CI catches bit-rot. Closes #160, #172.
 - `tag_invoke(mul_fn, …)` for `tensor × tensor_to_scalar` (and the symmetric pair) with full visitor coverage and a dedicated simplifier handling nested-mul collapse and scalar-coefficient bubbling. Closes #145.
 - `tag_invoke(div_fn, tensor, t2s)` routing through `lhs × pow(rhs, -1)` for `tensor ÷ tensor_to_scalar`. Closes #147.
 - Scalar comparison nodes (`lt`, `gt`, `le`, `ge`, `eq`, `ne`) producing Real-valued indicators (1.0 / 0.0) for the damage-activation idiom and the upcoming `if_then_else`. Closes #136.
@@ -29,6 +33,7 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 ### Fixed
 
 - Rational comparison overflow in `numeric_less` / `operator<` for numerators near 2^63. Closes #142.
+- Replaced the regression test for #142 with one that actually exercises int64 overflow (the original test's numerators were divisible by 3 and normalized away from the overflow path). Closes #170.
 
 ### Documentation
 

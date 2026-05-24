@@ -1,0 +1,19 @@
+NumSim-CAS Commercial License (Reference)
+
+This file is a SPDX-compliant placeholder declaring the existence of a
+proprietary commercial license offered alongside the GPL-3.0-only open
+source license (see ../LICENSE).
+
+The commercial license is negotiated per acquisition. Typical terms
+permit use of NumSim-CAS in closed-source / proprietary products
+(e.g. embedding in commercial FEM solvers) without triggering the
+GPL-3.0 source-disclosure obligation.
+
+To obtain commercial terms, see the acquisition path in COMMERCIAL.md
+at the repository root.
+
+This text exists so REUSE-compliant tooling (https://reuse.software/)
+can resolve the SPDX `LicenseRef-Commercial` identifier referenced by
+NOTICE and any per-file SPDX headers. It is NOT itself a license
+grant; the actual commercial terms are agreed bilaterally with the
+copyright holder.

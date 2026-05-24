@@ -127,4 +127,6 @@ NumSim-CAS is available under a dual-license model:
 - **Open Source:** GNU General Public License v3.0 (GPL-3.0-only) — see [LICENSE](LICENSE).
 - **Commercial:** A separate commercial license is available for proprietary/closed-source use — see [COMMERCIAL.md](COMMERCIAL.md).
 
+Copyright assertion and SPDX identifier live in [NOTICE](NOTICE). The LICENSE file itself is the verbatim GPL-3.0 text for compatibility with license-compliance tooling.
+
 If you want to use NumSim-CAS in a closed-source product, you must obtain a commercial license.
