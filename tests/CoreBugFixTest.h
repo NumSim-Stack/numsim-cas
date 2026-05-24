@@ -433,6 +433,30 @@ TEST(CoreBugFix, ScalarAtanhOfZeroIsZero) {
   EXPECT_TRUE(is_same<scalar_zero>(atanh(get_scalar_zero())));
 }
 
+// Lock-in: the "no new AST nodes, diff derives automatically through
+// composition" promise of #33's overloads. If a refactor breaks the
+// chain rule for log/exp/sqrt/pow, these wouldn't blow up structurally
+// — they'd just produce wrong numbers. Test pins the numerical
+// derivative against the closed-form identity:
+//
+//   d/dx sinh(x) = cosh(x)   (and similarly cosh derives via sinh).
+//
+// `tanh` is currently *broken*: diff(tanh(x), x) throws because the
+// composition has shared sub-expressions that the n_ary_tree's
+// duplicate-child guard rejects. Filed as #180; once fixed, extend
+// this test to cover tanh, asinh, acosh, atanh as well.
+TEST(CoreBugFix, ScalarHyperbolicDerivativesMatchClosedForm) {
+  auto [x] = make_scalar_variable("x");
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.5);
+
+  auto d_sinh = diff(sinh(x), x);
+  EXPECT_NEAR(ev.apply(d_sinh), std::cosh(0.5), 1e-12);
+
+  auto d_cosh = diff(cosh(x), x);
+  EXPECT_NEAR(ev.apply(d_cosh), std::sinh(0.5), 1e-12);
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
