@@ -156,7 +156,7 @@ public:
     op.evaluate(visitable.dim(), rhs_data->rank(), lhs_data->rank());
   }
 
-  void operator()(basis_change_imp const &visitable) override {
+  void operator()(permute_indices_wrapper const &visitable) override {
     auto temp = apply(visitable.expr());
     m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
     tensor_data_basis_change<ValueType> bc(*m_result, *temp,

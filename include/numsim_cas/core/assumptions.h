@@ -312,7 +312,7 @@ template <typename L, typename R> using set = std::set<relation<L, R>>;
 
 // } // namespace detail
 
-// // tensor = 1/size(seq) sum_seq basis_change<seq_i>(tensor)
+// // tensor = 1/size(seq) sum_seq permute_indices<seq_i>(tensor)
 // struct symmetric {
 //   std::vector<sequence> m_sequences;
 // };

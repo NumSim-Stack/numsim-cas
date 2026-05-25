@@ -310,8 +310,8 @@ TEST_F(TensorDifferentiationTest, OuterProductDiff) {
   EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 6>(*result), numdiff, 1e-6));
 }
 
-// d(trans(X))/dX — basis change differentiation
-TEST_F(TensorDifferentiationTest, BasisChangeDiff) {
+// d(trans(X))/dX — permute_indices differentiation
+TEST_F(TensorDifferentiationTest, PermuteIndicesDiff) {
   auto expr = trans(X);
   auto d = diff(expr, X);
   ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for trans(X)";
@@ -369,7 +369,7 @@ TEST_F(TensorDifferentiationTest, TensorMulSameVariable) {
 }
 
 // Regression: d(permute_indices(inner_product(C, {1}, E, {3}), {3,1,2}))/dC
-// Tests basis_change_imp permutation composition in differentiation
+// Tests permute_indices_wrapper permutation composition in differentiation
 TEST_F(TensorDifferentiationTest, PermuteInnerProductDiff) {
   auto C = make_expression<tensor>("C", 3, 2);
   auto E = make_expression<tensor>("E", 3, 3);

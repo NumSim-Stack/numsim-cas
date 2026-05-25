@@ -152,14 +152,14 @@ TEST(TensorEval, EvalTensorScalarMul) {
   EXPECT_TRUE(tmech::almost_equal(as_tmech<2, 2>(*result), expected, tol));
 }
 
-TEST(TensorEval, EvalBasisChange) {
+TEST(TensorEval, EvalPermuteIndices) {
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
   // clang-format off
   ev.set(A, make_test_data<2, 2>({1.0, 2.0,
                                    3.0, 4.0}));
   // clang-format on
-  // trans(A) = basis_change(A, {2,1})
+  // trans(A) = permute_indices(A, {2,1})
   auto expr = trans(A);
   auto result = ev.apply(expr);
   ASSERT_NE(result, nullptr);

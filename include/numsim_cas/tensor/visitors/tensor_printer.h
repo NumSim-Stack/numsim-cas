@@ -240,12 +240,12 @@ public:
   }
 
   /**
-   * @brief Prints a basis change expression.
+   * @brief Prints a permute_indices expression.
    *
-   * @param visitable The basis change expression to be printed.
+   * @param visitable The permute_indices expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(basis_change_imp const &visitable) override {
+  void operator()(permute_indices_wrapper const &visitable) override {
     auto const &indices_temp = visitable.indices();
     if (indices_temp == sequence{2, 1}) {
       m_out << "trans(";

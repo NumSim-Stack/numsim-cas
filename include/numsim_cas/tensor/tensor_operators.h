@@ -21,16 +21,16 @@
 
 namespace numsim::cas::detail {
 
-// True iff `a` is trans(X), i.e. a basis_change_imp with index pattern {2,1}
-// over an inner expression matching `inner_target`. Used by the add and sub
-// operators to recognize trans(A) ± A (or its commutation) and annotate the
+// True iff `a` is trans(X), i.e. a permute_indices_wrapper with index pattern
+// {2,1} over an inner expression matching `inner_target`. Used by the add and
+// sub operators to recognize trans(A) ± A (or its commutation) and annotate the
 // result as Skew at construction time.
 inline bool
 is_trans_of(expression_holder<tensor_expression> const &a,
             expression_holder<tensor_expression> const &inner_target) {
-  if (!is_same<basis_change_imp>(a))
+  if (!is_same<permute_indices_wrapper>(a))
     return false;
-  auto const &bc = a.template get<basis_change_imp>();
+  auto const &bc = a.template get<permute_indices_wrapper>();
   if (bc.indices() != sequence{2, 1})
     return false;
   return bc.expr() == inner_target;

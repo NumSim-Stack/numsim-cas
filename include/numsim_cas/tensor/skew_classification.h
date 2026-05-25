@@ -2,8 +2,6 @@
 #define NUMSIM_CAS_TENSOR_SKEW_CLASSIFICATION_H
 
 #include <numsim_cas/basic_functions.h>
-#include <numsim_cas/tensor/functions/basis_change.h>
-#include <numsim_cas/tensor/functions/inner_product_wrapper.h>
 #include <numsim_cas/tensor/operators/scalar/tensor_scalar_mul.h>
 #include <numsim_cas/tensor/operators/tensor/tensor_add.h>
 #include <numsim_cas/tensor/operators/tensor/tensor_mul.h>
@@ -11,6 +9,8 @@
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_negative.h>
+#include <numsim_cas/tensor/wrappers/inner_product_wrapper.h>
+#include <numsim_cas/tensor/wrappers/permute_indices.h>
 #include <variant>
 
 namespace numsim::cas {
@@ -54,9 +54,9 @@ is_provably_skew(expression_holder<tensor_expression> const &e) {
       ++it;
       auto const &c1 = it->second;
       auto trans_of_neg = [](auto const &a, auto const &b) {
-        if (!is_same<basis_change_imp>(a))
+        if (!is_same<permute_indices_wrapper>(a))
           return false;
-        auto const &bc = a.template get<basis_change_imp>();
+        auto const &bc = a.template get<permute_indices_wrapper>();
         if (bc.indices() != sequence{2, 1})
           return false;
         if (!is_same<tensor_negative>(b))

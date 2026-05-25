@@ -319,7 +319,7 @@ index bookkeeping.
 | `inner_product_wrapper` | `.cpp` |
 | `outer_product_wrapper` | `.cpp` |
 
-### Basis change (index permutation)
+### Permute indices
 
 $$
 \frac{\partial}{\partial \mathbf{X}}
@@ -335,7 +335,7 @@ indices introduced by the derivative.
 
 | Node | Location |
 |------|----------|
-| `basis_change_imp` | `.cpp` |
+| `permute_indices_wrapper` | `.cpp` |
 
 ### Cross-domain: scalar-tensor product
 
@@ -660,7 +660,7 @@ assert(to_string(d) == to_string(2 * Y));
 | 5 | `tensor_power_diff` | contracts with $\partial\mathbf{A}/\partial\mathbf{X}$ | `.cpp` |
 | 6 | `tensor_negative` | $-\partial\mathbf{A}/\partial\mathbf{X}$ | `.h` |
 | 7 | `inner_product_wrapper` | product rule + index shift | `.cpp` |
-| 8 | `basis_change_imp` | extended permutation | `.cpp` |
+| 8 | `permute_indices_wrapper` | extended permutation | `.cpp` |
 | 9 | `outer_product_wrapper` | product rule (outer) | `.cpp` |
 | 10 | `kronecker_delta` | $\mathbf{0}$ | `.h` |
 | 11 | `simple_outer_product` | product rule (outer, n-ary) | `.cpp` |
