@@ -5,8 +5,6 @@
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/hash_functions.h>
-#include <numsim_cas/expression_crtp.h>
-#include <numsim_cas/is_symbol.h>
 #include <numsim_cas/numsim_cas_forward.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
 #include <ranges>
