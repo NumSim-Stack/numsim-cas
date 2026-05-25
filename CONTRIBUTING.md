@@ -16,7 +16,7 @@ See [README.md](README.md) for the full set of CMake options.
 
 - **C++23**. The repo builds with GCC 14+, Clang 18+, and MSVC.
 - **Strict warnings**. CI enforces `-Wall -Wextra -Wpedantic -Werror` (GCC/Clang) and `/WX` (MSVC). Submissions must compile cleanly.
-- **clang-format**. Run before committing — CI verifies. Project style is in `.clang-format`.
+- **clang-format**. Run before committing — CI verifies. Project style is in `.clang-format`. CI uses **clang-format-18**; the pre-commit hook is pinned to a matching v18 release in `.pre-commit-config.yaml`. If your distro ships an older `clang-format`, install v18 explicitly (e.g. `sudo apt-get install -y clang-format-18`) so local runs match CI.
 - **clang-tidy**. Runs in CI; new violations are blocking.
 - **No comments that describe what the code does**. Comments should explain *why*, not *what*. Identifiers carry the *what*.
 
