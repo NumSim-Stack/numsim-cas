@@ -62,8 +62,9 @@ public:
 
     // tensor_data_permute_indices convention: lhs(i0,...) = rhs(i_{m[0]}, ...).
     // new_basis maps output positions to original dimensions (new_basis[k] =
-    // which original dim goes to position k). permute_indices needs the inverse:
-    // m[k] = which output index feeds into the k-th slot of the source.
+    // which original dim goes to position k). permute_indices needs the
+    // inverse: m[k] = which output index feeds into the k-th slot of the
+    // source.
     std::vector<std::size_t> inv_basis_lhs(RankLHS);
     for (std::size_t i = 0; i < RankLHS; ++i)
       inv_basis_lhs[new_basis_lhs[i]] = i;

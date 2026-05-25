@@ -12,8 +12,8 @@ class tensor_data_permute_indices final
                                        ValueType> {
 public:
   tensor_data_permute_indices(tensor_data_base<ValueType> &lhs,
-                           tensor_data_base<ValueType> const &rhs,
-                           std::vector<std::size_t> const &indices)
+                              tensor_data_base<ValueType> const &rhs,
+                              std::vector<std::size_t> const &indices)
       : m_lhs(lhs), m_rhs(rhs), m_indices(indices) {}
 
   tensor_data_permute_indices(tensor_data_permute_indices const &) = delete;
