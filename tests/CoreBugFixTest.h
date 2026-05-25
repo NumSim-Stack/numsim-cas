@@ -840,8 +840,7 @@ TEST(CoreBugFix, ScalarHyperbolicDerivativesMatchClosedForm) {
   // sinh(e)/cosh(e) form threw "duplicate child insertion" here; the
   // exp(2x)-based reformulation makes diff() finite-fan-out.
   auto d_tanh = diff(tanh(x), x);
-  EXPECT_NEAR(ev.apply(d_tanh), 1.0 / (std::cosh(0.5) * std::cosh(0.5)),
-              1e-12);
+  EXPECT_NEAR(ev.apply(d_tanh), 1.0 / (std::cosh(0.5) * std::cosh(0.5)), 1e-12);
 }
 
 } // namespace numsim::cas
