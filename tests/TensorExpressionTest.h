@@ -661,6 +661,62 @@ TYPED_TEST(TensorExpressionTest, InvInvSimplification) {
 }
 
 // -----------------------------------------------------------------------------
+// inv() construction-time singularity / rank guards (#187, #192)
+// -----------------------------------------------------------------------------
+
+TYPED_TEST(TensorExpressionTest, InvZeroTensorThrowsSingular) {
+  // #187: inv(0) is undefined — the zero matrix has no inverse. Without
+  // the guard, evaluation would silently NaN/Inf via tmech::inv. Reject
+  // at construction so the error surfaces where the bug is, not at the
+  // remote evaluator call site.
+  auto &Zero = this->_Zero;
+  try {
+    [[maybe_unused]] auto r = numsim::cas::inv(Zero);
+    FAIL() << "Expected inv(tensor_zero) to throw";
+  } catch (numsim::cas::invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("singular"), std::string::npos)
+        << "error message should mention singularity; got: " << e.what();
+  }
+}
+
+TYPED_TEST(TensorExpressionTest, InvZeroFromScalarMulThrows) {
+  // Same as above via the composite path: 0 · A simplifies to tensor_zero
+  // at construction (via the existing tensor_scalar_mul zero rule), so
+  // inv(0 · A) hits the same guard. Locks in that the singularity
+  // detection isn't bypassed by a non-trivial construction path.
+  auto &A = this->A;
+  auto zero = numsim::cas::get_scalar_zero();
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = numsim::cas::inv(zero * A); },
+      numsim::cas::invalid_expression_error);
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4SymbolThrows) {
+  // #192: rank > 2 inversion has no canonical definition (the rank-4
+  // minor identity is an explicit special case handled separately).
+  // Reject rank-4 (and higher) symbols at construction.
+  auto &A = this->A; // rank-4 fixture variable
+  try {
+    [[maybe_unused]] auto r = numsim::cas::inv(A);
+    FAIL() << "Expected inv(rank-4 symbol) to throw";
+  } catch (numsim::cas::invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos)
+        << "error message should mention rank; got: " << e.what();
+  }
+}
+
+TYPED_TEST(TensorExpressionTest, InvIdentityTensorRank4SelfInverse) {
+  // The rank-4 identity_tensor (minor identity δ_ik · δ_jl) is its own
+  // inverse under the appropriate contraction. The rank guard must NOT
+  // reject it — the identity_tensor short-circuit fires first.
+  auto I4 = numsim::cas::make_expression<numsim::cas::identity_tensor>(
+      TestFixture::Dim, std::size_t{4});
+  auto r = numsim::cas::inv(I4);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::identity_tensor>(r));
+  EXPECT_EQ(r.get().rank(), 4u);
+}
+
+// -----------------------------------------------------------------------------
 // Zero early returns for tensor functions
 // -----------------------------------------------------------------------------
 TYPED_TEST(TensorExpressionTest, TransZeroReturnsZero) {

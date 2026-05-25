@@ -361,24 +361,39 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto inv(Expr &&expr) {
+  // inv(inv(A)) → A — collapse at any rank. By the time we see a
+  // tensor_inv the inner is already valid (would have been rejected at
+  // its own construction by the guards below if not).
   if (is_same<tensor_inv>(expr))
     return expr.template get<tensor_inv>().expr();
-  // identity_tensor and kronecker_delta are self-inverse. This also avoids
-  // creating symbolic inv() nodes that tmech::inv cannot evaluate for rank-4
-  // tensors lacking minor symmetry (e.g., the minor identity delta_ik
-  // delta_jl).
+  // identity_tensor and kronecker_delta are self-inverse. identity_tensor
+  // is self-inverse at any even rank (the minor identity is its own
+  // inverse under the appropriate contraction); kronecker_delta is
+  // rank-2 by definition. Short-circuit *before* the rank check below so
+  // these stay valid for rank ≥ 4.
   if (is_same<identity_tensor>(expr))
     return std::forward<Expr>(expr);
   if (is_same<kronecker_delta>(expr))
     return std::forward<Expr>(expr);
+  // Singular: inv(0) is undefined. Closes #187.
+  if (is_same<tensor_zero>(expr))
+    throw invalid_expression_error("inv: operand is the zero tensor "
+                                   "(singular)");
+  // Rank gate: only rank-2 inverses are supported. tmech::inv expects
+  // rank-2; higher-rank inversion has no canonical definition in this
+  // codebase (the rank-4 minor identity is a special case handled above).
+  // Reject at construction so downstream evaluation cannot produce
+  // NaN/Inf or a confusing tmech runtime error. Closes #192.
+  if (expr.get().rank() != 2)
+    throw invalid_expression_error(
+        "inv: only rank-2 tensors are supported (got rank " +
+        std::to_string(expr.get().rank()) + ")");
   // A skew-symmetric matrix in odd dimensions is singular (det = 0) by the
   // determinant theorem det(-A^T) = (-1)^n det(A). contains_skew_factor also
   // catches expressions that aren't themselves skew but contain a skew factor
-  // (e.g. B * skew(A)) — still singular. Reject at construction so downstream
-  // evaluation cannot produce NaN/Inf from a silently-invalid expression.
-  // Rank-2 only; rank-4 inverses are a separate concern.
-  if (expr.get().rank() == 2 && expr.get().dim() % 2 != 0 &&
-      contains_skew_factor(expr)) {
+  // (e.g. B * skew(A)) — still singular. The rank check above already
+  // filtered non-rank-2 inputs, so this guard only covers the rank-2 case.
+  if (expr.get().dim() % 2 != 0 && contains_skew_factor(expr)) {
     throw invalid_expression_error(
         "inv: operand contains a skew-symmetric factor in odd dimensions "
         "(singular)");
