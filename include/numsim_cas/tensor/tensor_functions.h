@@ -24,6 +24,13 @@ constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> dev(Expr &&expr) {
+  // Rank gate: deviatoric projection is defined for rank-2 tensors only.
+  // Reject other ranks at construction so silently-invalid expressions
+  // can't reach the evaluator. Closes #53.
+  if (expr.get().rank() != 2)
+    throw invalid_expression_error(
+        "dev: only rank-2 tensors are supported (got rank " +
+        std::to_string(expr.get().rank()) + ")");
   if (is_same<identity_tensor>(expr) && expr.get().rank() == 2)
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   if (auto const &sp = expr.get().space()) {
@@ -61,6 +68,10 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> sym(Expr &&expr) {
+  if (expr.get().rank() != 2)
+    throw invalid_expression_error(
+        "sym: only rank-2 tensors are supported (got rank " +
+        std::to_string(expr.get().rank()) + ")");
   if (is_same<identity_tensor>(expr) && expr.get().rank() == 2)
     return expr;
   if (auto const &sp = expr.get().space()) {
@@ -97,6 +108,10 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> vol(Expr &&expr) {
+  if (expr.get().rank() != 2)
+    throw invalid_expression_error(
+        "vol: only rank-2 tensors are supported (got rank " +
+        std::to_string(expr.get().rank()) + ")");
   if (is_same<identity_tensor>(expr) && expr.get().rank() == 2)
     return expr;
   if (auto const &sp = expr.get().space()) {
@@ -133,6 +148,10 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> skew(Expr &&expr) {
+  if (expr.get().rank() != 2)
+    throw invalid_expression_error(
+        "skew: only rank-2 tensors are supported (got rank " +
+        std::to_string(expr.get().rank()) + ")");
   if (is_same<identity_tensor>(expr) && expr.get().rank() == 2)
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   if (auto const &sp = expr.get().space()) {
@@ -283,6 +302,15 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto permute_indices(Expr &&expr,
                                                     sequence &&indices) {
+  // Size gate: the permutation must cover exactly the tensor's index
+  // positions. A mismatch would either drop or invent indices in the
+  // resulting expression — silently wrong.
+  if (indices.size() != expr.get().rank())
+    throw invalid_expression_error(
+        "permute_indices: indices size (" +
+        std::to_string(indices.size()) +
+        ") must equal tensor rank (" +
+        std::to_string(expr.get().rank()) + ")");
   // For symmetric rank-2 tensors, any permutation of two indices is identity
   if (expr.get().rank() == 2) {
     if (auto const &sp = expr.get().space()) {
@@ -340,6 +368,12 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto trans(Expr &&expr) {
+  // trans is rank-2 only (it's the {2,1} permutation). The internal
+  // permute_indices_wrapper this builds also assumes rank 2.
+  if (expr.get().rank() != 2)
+    throw invalid_expression_error(
+        "trans: only rank-2 tensors are supported (got rank " +
+        std::to_string(expr.get().rank()) + ")");
   // trans(X) = X when X is symmetric (or any symmetric subspace)
   // trans(X) = -X when X is skew-symmetric
   if (auto const &sp = expr.get().space()) {
