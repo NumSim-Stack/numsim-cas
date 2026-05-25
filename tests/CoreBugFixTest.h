@@ -366,11 +366,10 @@ TEST(CoreBugFix, NArySubSymbolDispatchNotFoundCombinesWithExisting) {
   auto [x, y] = make_scalar_variable("x", "y");
   // (-x + y) - x: lhs has -x and y, neither key matches x. Without the fix
   // push_back(-x) collides with the existing -x. With merge_or_insert,
-  // combine to (-2*x) + y.
-  EXPECT_NO_THROW({
-    auto r = (-x + y) - x;
-    (void)r;
-  });
+  // combine to (-2*x) + y. Lock in the value (not just no-throw) so a
+  // future regression that drops the term silently can't pass.
+  auto r = (-x + y) - x;
+  EXPECT_EQ(r, -2 * x + y);
 }
 
 TEST(CoreBugFix, FinalizeAddSingleChildWithCoeffReturnsUnchanged) {
