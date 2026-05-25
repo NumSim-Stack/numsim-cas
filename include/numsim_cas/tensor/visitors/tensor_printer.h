@@ -435,7 +435,6 @@ public:
   //   end(precedence, parent_precedence);
   // }
 
-
   void operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul const
                       &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
