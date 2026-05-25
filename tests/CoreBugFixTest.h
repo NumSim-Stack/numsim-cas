@@ -3,6 +3,7 @@
 
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
+#include <cmath>
 
 namespace numsim::cas {
 
@@ -668,6 +669,22 @@ TEST(CoreBugFix, SkewSpacePreservedAsTensorMulChild) {
 }
 
 // ---------------------------------------------------------------------------
+// Division-by-reciprocal canonicalisation (issue #49).
+// `a * (1/b)` should canonicalise to `a/b`. Both produce the same
+// pow(b, -1)-based structural form on construction (comment in
+// scalar_operators.h:106: "pow(c, -1) stays structural and the printer
+// formats as x/c"). The two are == today; this test locks the contract.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, ScalarMulByReciprocalEqualsDivide) {
+  auto [a, b] = make_scalar_variable("a", "b");
+  // a * (1/b) == a / b
+  EXPECT_EQ(a * pow(b, -1), a / b);
+  // (1/b) * a == a / b  (commutative case)
+  EXPECT_EQ(pow(b, -1) * a, a / b);
+}
+
+// ---------------------------------------------------------------------------
 // scalar_evaluator::forward_values_to filters non-scalar keys
 // ---------------------------------------------------------------------------
 
@@ -690,6 +707,136 @@ TEST(CoreBugFix, ForwardValuesToSkipsNonScalarKey) {
   // set_scalar that forward_values_to expects.
   tensor_evaluator<double> dst;
   EXPECT_NO_THROW(src.forward_values_to(dst));
+}
+
+// ---------------------------------------------------------------------------
+// #33: scalar std overloads — log10, sinh, cosh, tanh, asinh, acosh, atanh
+// Implemented as compositions of existing primitives. The functions should
+// produce expressions whose numerical evaluation matches the math definition.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, ScalarLog10MatchesNumerical) {
+  auto [x] = make_scalar_variable("x");
+  auto expr = log10(x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 100.0);
+  EXPECT_NEAR(ev.apply(expr), 2.0, 1e-12);
+}
+
+TEST(CoreBugFix, ScalarSinhMatchesNumerical) {
+  auto [x] = make_scalar_variable("x");
+  auto expr = sinh(x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.5);
+  EXPECT_NEAR(ev.apply(expr), std::sinh(0.5), 1e-12);
+}
+
+TEST(CoreBugFix, ScalarCoshMatchesNumerical) {
+  auto [x] = make_scalar_variable("x");
+  auto expr = cosh(x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.5);
+  EXPECT_NEAR(ev.apply(expr), std::cosh(0.5), 1e-12);
+}
+
+TEST(CoreBugFix, ScalarTanhMatchesNumerical) {
+  auto [x] = make_scalar_variable("x");
+  auto expr = tanh(x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.7);
+  EXPECT_NEAR(ev.apply(expr), std::tanh(0.7), 1e-12);
+}
+
+TEST(CoreBugFix, ScalarAsinhMatchesNumerical) {
+  auto [x] = make_scalar_variable("x");
+  auto expr = asinh(x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.5);
+  EXPECT_NEAR(ev.apply(expr), std::asinh(1.5), 1e-12);
+}
+
+TEST(CoreBugFix, ScalarAcoshMatchesNumerical) {
+  auto [x] = make_scalar_variable("x");
+  auto expr = acosh(x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.5); // domain: x >= 1
+  EXPECT_NEAR(ev.apply(expr), std::acosh(2.5), 1e-12);
+}
+
+TEST(CoreBugFix, ScalarAtanhMatchesNumerical) {
+  auto [x] = make_scalar_variable("x");
+  auto expr = atanh(x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.5); // domain: -1 < x < 1
+  EXPECT_NEAR(ev.apply(expr), std::atanh(0.5), 1e-12);
+}
+
+// ---------------------------------------------------------------------------
+// Construction-time short-circuits for the composition-based hyperbolic
+// functions. These mirror what the underlying primitives (exp/log/sqrt/pow)
+// already do for special arguments, but lift the simplification to the
+// public API so callers see a clean expression without round-tripping
+// through the composed form.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, ScalarSinhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<scalar_zero>(sinh(get_scalar_zero())));
+}
+
+TEST(CoreBugFix, ScalarCoshOfZeroIsOne) {
+  EXPECT_TRUE(is_same<scalar_one>(cosh(get_scalar_zero())));
+}
+
+TEST(CoreBugFix, ScalarCoshOfNegateFoldsToCosh) {
+  // cosh(-x) = cosh(x) — even function.
+  auto [x] = make_scalar_variable("x");
+  EXPECT_EQ(cosh(-x), cosh(x));
+}
+
+TEST(CoreBugFix, ScalarTanhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<scalar_zero>(tanh(get_scalar_zero())));
+}
+
+TEST(CoreBugFix, ScalarTanhOfNegateFoldsToNegTanh) {
+  // tanh(-x) = -tanh(x) — odd function.
+  auto [x] = make_scalar_variable("x");
+  EXPECT_EQ(tanh(-x), -tanh(x));
+}
+
+TEST(CoreBugFix, ScalarAsinhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<scalar_zero>(asinh(get_scalar_zero())));
+}
+
+TEST(CoreBugFix, ScalarAcoshOfOneIsZero) {
+  EXPECT_TRUE(is_same<scalar_zero>(acosh(get_scalar_one())));
+}
+
+TEST(CoreBugFix, ScalarAtanhOfZeroIsZero) {
+  EXPECT_TRUE(is_same<scalar_zero>(atanh(get_scalar_zero())));
+}
+
+// Lock-in: the "no new AST nodes, diff derives automatically through
+// composition" promise of #33's overloads. If a refactor breaks the
+// chain rule for log/exp/sqrt/pow, these wouldn't blow up structurally
+// — they'd just produce wrong numbers. Test pins the numerical
+// derivative against the closed-form identity:
+//
+//   d/dx sinh(x) = cosh(x)   (and similarly cosh derives via sinh).
+//
+// `tanh` is currently *broken*: diff(tanh(x), x) throws because the
+// composition has shared sub-expressions that the n_ary_tree's
+// duplicate-child guard rejects. Filed as #180; once fixed, extend
+// this test to cover tanh, asinh, acosh, atanh as well.
+TEST(CoreBugFix, ScalarHyperbolicDerivativesMatchClosedForm) {
+  auto [x] = make_scalar_variable("x");
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.5);
+
+  auto d_sinh = diff(sinh(x), x);
+  EXPECT_NEAR(ev.apply(d_sinh), std::cosh(0.5), 1e-12);
+
+  auto d_cosh = diff(cosh(x), x);
+  EXPECT_NEAR(ev.apply(d_cosh), std::sinh(0.5), 1e-12);
 }
 
 } // namespace numsim::cas
