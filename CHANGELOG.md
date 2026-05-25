@@ -25,11 +25,13 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 ### Changed
 
 - Visitor type lists consolidated to a single `tensor_visitor_typedef.h` driven by the `NUMSIM_CAS_TENSOR_NODE_LIST` macro.
+- Replaced the rank-2-only `kronecker_delta` node with the general `identity_tensor` node. The two were doing the same work at rank 2 (every visitor delegated to a common helper); the only behavioural difference was the printer. Differentiation results are now consistent across paths — both `diff(A, A)` and `diff(trace(A), A)` produce `identity_tensor`. Added comprehensive Doxygen to `identity_tensor.h` and a new "Identity Tensor" section in `docs/tensor.md` documenting the rank-2 (Kronecker delta) and rank-2R (minor identity) forms, plus the `tmech::eye` vs `tmech::otimesu` footgun for rank ≥ 4. Closes #188.
 - Renamed `basis_change_imp` → `permute_indices_wrapper`. The class permutes tensor indices (e.g. transpose is `{2,1}`) — it does not change basis. Closes #52.
 - Renamed folder `include/numsim_cas/tensor/functions/` → `include/numsim_cas/tensor/wrappers/`. The files in that directory are AST-node wrapper classes, not free functions; the new name matches the `_wrapper` suffix convention used by the class names themselves. Closes #55.
 
 ### Removed
 
+- `kronecker_delta` node and its header `include/numsim_cas/tensor/kronecker_delta.h`. Use `make_expression<identity_tensor>(dim, 2)` instead. Closes #188.
 - Dead `tensor_to_scalar_with_tensor_div` AST node (declared but never integrated with the visitor pattern). Closes #149.
 - Dead `tensor_type_defs.h` file (parallel-and-divergent visitor list).
 - Commented-out `tensor_to_scalar_with_tensor_div` printer override.

@@ -17,7 +17,6 @@
   NEXT(inner_product_wrapper)                                                  \
   NEXT(permute_indices_wrapper)                                                \
   NEXT(outer_product_wrapper)                                                  \
-  NEXT(kronecker_delta)                                                        \
   NEXT(simple_outer_product)                                                   \
   NEXT(tensor_inv)                                                             \
   NEXT(tensor_zero)                                                            \

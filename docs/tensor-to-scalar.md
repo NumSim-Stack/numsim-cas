@@ -307,7 +307,7 @@ auto dc = inner_product_to_scalar(A, sequence{1, 2}, B, sequence{1, 2});
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 
 auto tr = trace(X);
-auto d = diff(tr, X);        // kronecker_delta
+auto d = diff(tr, X);        // identity_tensor (rank-2)
 
 auto d2 = diff(det(X), X);   // det(X) * inv(trans(X))
 
