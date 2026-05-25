@@ -49,7 +49,13 @@ public:
 
   void operator()([[maybe_unused]] identity_tensor const &visitable) override {
     auto font = m_config.font_for_rank(visitable.rank());
-    m_out << font << "{I}^{(" << visitable.rank() << ")}";
+    // Rank-2 identity is the Kronecker delta — emit without the
+    // rank superscript. Higher ranks keep it so the minor-identity
+    // form stays distinguishable in printed math.
+    if (visitable.rank() == 2)
+      m_out << font << "{I}";
+    else
+      m_out << font << "{I}^{(" << visitable.rank() << ")}";
   }
 
   void operator()([[maybe_unused]] tensor_projector const &visitable) override {
@@ -255,10 +261,6 @@ public:
     }
     m_out << "\\right)";
     end(precedence, parent_precedence);
-  }
-
-  void operator()([[maybe_unused]] kronecker_delta const &visitable) override {
-    m_out << m_config.format_tensor("I", 2);
   }
 
   void operator()(tensor_scalar_mul const &visitable) override {

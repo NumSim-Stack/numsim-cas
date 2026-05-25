@@ -76,7 +76,7 @@ auto Y = make_expression<tensor>("Y", 3, 2);
 
 // Differentiate trace(X) with respect to X
 auto tr = trace(X);
-auto dtr = diff(tr, X);  // kronecker_delta (identity)
+auto dtr = diff(tr, X);  // identity_tensor (rank-2 Kronecker delta)
 
 // Differentiate determinant
 auto d = det(X);

@@ -19,7 +19,6 @@ classDiagram
 
     class tensor["tensor (symbol)"]
     class tensor_zero
-    class kronecker_delta
     class identity_tensor
     class tensor_projector
 
@@ -44,7 +43,6 @@ classDiagram
 
     tensor_expression <|-- tensor
     tensor_expression <|-- tensor_zero
-    tensor_expression <|-- kronecker_delta
     tensor_expression <|-- identity_tensor
     tensor_expression <|-- tensor_projector
     tensor_expression <|-- tensor_add
@@ -77,7 +75,6 @@ classDiagram
 | 7 | `inner_product_wrapper` | binary-like | Inner product with index specification |
 | 8 | `permute_indices_wrapper` | unary-like | Index permutation / transpose |
 | 9 | `outer_product_wrapper` | binary-like | Outer product with index specification |
-| 10 | `kronecker_delta` | leaf | Kronecker delta (rank-2 identity) |
 | 11 | `simple_outer_product` | `n_ary_vector` | N-ary outer product |
 | 12 | `tensor_symmetry` | unary-like | Symmetric part: sym(A) |
 | 13 | `tensor_deviatoric` | unary-like | Deviatoric part: dev(A) |
@@ -192,6 +189,66 @@ auto A2 = pow(A, 2);     // A^2 (integer exponent)
 auto An = pow(A, n);     // A^n (scalar expression exponent)
 ```
 
+## Identity Tensor
+
+The `identity_tensor` node represents the rank-`2R` identity at any even
+rank. It is the canonical constant tensor produced by differentiation and
+by `pow(A, 0)`.
+
+| Rank | Component formula | Print form | Typical source |
+|-----:|-------------------|------------|----------------|
+| 2    | `I_{ij} = δ_{ij}` (Kronecker delta) | `I` | `pow(A, 0)`, `diff(trace(A), A)`, `dev/vol/sym/skew` simplifiers |
+| 4    | `I_{ijkl} = δ_{ik} · δ_{jl}` (**minor** identity) | `I{4}` | `diff(A, A)` for rank-2 `A` |
+| 2R   | `I_{i₁…i_R, j₁…j_R} = ∏_k δ_{i_k j_k}` (general minor identity) | `I{2R}` | `diff(A, A)` for rank-`R` `A` |
+
+Odd ranks are rejected at evaluation time — the minor-identity product has
+no consistent definition for an odd number of indices.
+
+### Why `tmech::eye<T, D, R>` is not enough at rank ≥ 4
+
+`tmech::eye<T, D, 4>` is the *outer-product* identity:
+
+```
+eye<T,D,4>_{ijkl} = δ_{ij} · δ_{kl}        // outer-product pairing
+```
+
+For tensor self-differentiation we need the *minor* identity:
+
+```
+∂A_{ij} / ∂A_{kl} = δ_{ik} · δ_{jl}        // minor-identity pairing
+```
+
+The two are different fourth-order tensors. The evaluator (in
+`tensor_data_unary_wrapper.h::evaluate_imp`) therefore builds the rank-4
+identity as `tmech::otimesu(I2, I2)` rather than `tmech::eye<T, D, 4>`.
+For general rank-2R it walks the flat index space and tests
+`indices[k] == indices[R + k]` for all `k ∈ [0, R)`.
+
+### Construction-time simplifier rules
+
+Construction-time folds that fire on `identity_tensor` (all at rank 2
+unless noted):
+
+- `dev(I) → 0`
+- `vol(I) → I`
+- `sym(I) → I`
+- `skew(I) → 0`
+- `inv(I) → I` (at any rank — self-inverse for the minor identity)
+- `trace(I) → dim`
+- `det(I) → 1`
+- `tensor_mul`: `X · I → X` and `I · X → X` (rank-2; higher-rank
+  `identity_tensor` falls through to the default since `tensor_mul` is the
+  rank-2 contraction)
+
+### History
+
+A separate `kronecker_delta` node previously existed for the rank-2 case
+(printing as `"I"`). It was removed in favour of this unified node so
+that all identity-tensor logic lives in one place and so the
+differentiation result type is consistent across paths (`diff(A, A)` and
+`diff(trace(A), A)` both produce `identity_tensor` now). See #188 for the
+refactor.
+
 ## Operators
 
 Implemented via `tag_invoke` in `tensor/tensor_operators.h`.
@@ -237,7 +294,7 @@ Located in `tensor/simplifier/`.
 | LHS Type | Visitor | Key Rule |
 |----------|---------|----------|
 | `tensor_pow` | `tensor_pow_mul` | Combine powers |
-| `kronecker_delta` | `kronecker_delta_mul` | Identity contraction |
+| `identity_tensor` | `identity_tensor_mul` | Identity contraction (rank-2 only) |
 | `tensor` | `symbol_mul` | `X * X = pow(X, 2)` |
 | `tensor_mul` | `n_ary_mul` | Merge products |
 | (other) | `mul_default<void>` | Default product |
@@ -348,7 +405,6 @@ auto dInv = diff(inv(X), X);// -inv(X) * dX * inv(X)
 | `tensor/tensor_expression.h` | Base expression with dim/rank |
 | `tensor/tensor.h` | Symbol node |
 | `tensor/tensor_zero.h` | Zero tensor |
-| `tensor/kronecker_delta.h` | Kronecker delta |
 | `tensor/identity_tensor.h` | Identity tensor |
 | `tensor/tensor_negative.h` | Negation node |
 | `tensor/tensor_functions.h` | inner_product, otimes, trans, inv, dev, etc. |

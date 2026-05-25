@@ -37,7 +37,7 @@ protected:
   TensorDifferentiationTest() {
     std::tie(X, Y) = make_tensor_variable(std::tuple{"X", dim, rank},
                                           std::tuple{"Y", dim, rank});
-    I = make_expression<kronecker_delta>(dim);
+    I = make_expression<identity_tensor>(dim, std::size_t{2});
     Zero = make_expression<tensor_zero>(dim, rank);
     Zero4 = make_expression<tensor_zero>(dim, 4);
   }

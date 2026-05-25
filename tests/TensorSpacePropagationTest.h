@@ -41,7 +41,7 @@ protected:
     // X has no assumption
     X = std::get<0>(make_tensor_variable(std::tuple{"X", dim, 2}));
 
-    I = make_expression<kronecker_delta>(dim);
+    I = make_expression<identity_tensor>(dim, std::size_t{2});
 
     std::tie(_2, _3) = make_scalar_constant(2, 3);
     std::tie(x) = make_scalar_variable("x");
@@ -201,16 +201,15 @@ TEST_F(TensorSpacePropagationTest, InvRejectsScaledSkewFactorInTensorMul) {
   // the contract for paths where the annotation might be lost (the recursive
   // walk into tensor_mul children is the structural fallback).
   auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
-  EXPECT_THROW(
-      { [[maybe_unused]] auto r = inv(B * (_2 * W)); },
-      invalid_expression_error);
+  EXPECT_THROW({ [[maybe_unused]] auto r = inv(B * (_2 * W)); },
+               invalid_expression_error);
 }
 
 TEST_F(TensorSpacePropagationTest, InvRejectsNegatedSkewFactorInTensorMul) {
   // Same contract for tensor_negative as the wrapper child.
   auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
-  EXPECT_THROW(
-      { [[maybe_unused]] auto r = inv(B * (-W)); }, invalid_expression_error);
+  EXPECT_THROW({ [[maybe_unused]] auto r = inv(B * (-W)); },
+               invalid_expression_error);
 }
 
 TEST_F(TensorSpacePropagationTest, TransMinusSelfIsAnnotatedSkewInEvenDim) {

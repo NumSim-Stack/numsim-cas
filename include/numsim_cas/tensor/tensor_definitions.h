@@ -2,7 +2,6 @@
 #define TENSOR_DEFINITIONS_H
 
 #include <numsim_cas/tensor/identity_tensor.h>
-#include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/operators/scalar/tensor_scalar_mul.h>
 #include <numsim_cas/tensor/operators/tensor/tensor_add.h>
 #include <numsim_cas/tensor/operators/tensor/tensor_mul.h>

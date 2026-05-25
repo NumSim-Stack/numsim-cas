@@ -78,7 +78,14 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()([[maybe_unused]] identity_tensor const &visitable) override {
-    m_out << "I{" << visitable.rank() << "}";
+    // Rank-2 identity is the Kronecker delta — print without the rank
+    // suffix for the common case. Higher even ranks (rank-4 minor
+    // identity etc.) carry the suffix to disambiguate from
+    // δ_ij ⊗ δ_kl-style outer products.
+    if (visitable.rank() == 2)
+      m_out << "I";
+    else
+      m_out << "I{" << visitable.rank() << "}";
   }
 
   /**
@@ -323,16 +330,6 @@ public:
     }
     m_out << ")";
     end(precedence, parent_precedence);
-  }
-
-  /**
-   * @brief Prints a Kronecker delta expression.
-   *
-   * @param visitable The Kronecker delta expression to be printed.
-   * @param parent_precedence The precedence of the parent expression.
-   */
-  void operator()([[maybe_unused]] kronecker_delta const &visitable) override {
-    m_out << "I";
   }
 
   //  /**

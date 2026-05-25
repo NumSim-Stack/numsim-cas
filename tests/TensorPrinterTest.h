@@ -44,9 +44,10 @@ TEST(TensorPrinterAudit, TensorZero) {
 }
 
 TEST(TensorPrinterAudit, KroneckerDelta) {
-  auto delta = make_expression<kronecker_delta>(3);
+  auto delta = make_expression<identity_tensor>(3, std::size_t{2});
   auto s = print(delta);
-  EXPECT_FALSE(s.empty()) << "kronecker_delta print produced empty output";
+  EXPECT_FALSE(s.empty())
+      << "identity_tensor (rank 2) print produced empty output";
 }
 
 TEST(TensorPrinterAudit, IdentityTensor) {
