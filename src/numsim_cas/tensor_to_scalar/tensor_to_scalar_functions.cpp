@@ -40,17 +40,8 @@ trace(expression_holder<tensor_expression> const &expr) {
     return make_expression<tensor_to_scalar_zero>();
 
   // trace(I) = dim. The asserted rank-2 input means any identity_tensor
-  // reaching here is the Kronecker delta (rank-2 identity).
-  if (is_same<identity_tensor>(expr)) {
-    auto dim = expr.get().dim();
-    return make_expression<tensor_to_scalar_scalar_wrapper>(
-        make_expression<scalar_constant>(static_cast<int>(dim)));
-  }
-
-  // trace(identity_tensor at rank 2) = dim. The general identity_tensor
-  // exists as a separate node from kronecker_delta because it carries a
-  // rank parameter for differentiation results; here it can only be rank
-  // 2 (enforced by the function's leading assert).
+  // reaching here is the rank-2 Kronecker delta (since #188 unified
+  // kronecker_delta into identity_tensor).
   if (is_same<identity_tensor>(expr)) {
     auto dim = expr.get().dim();
     return make_expression<tensor_to_scalar_scalar_wrapper>(
@@ -102,12 +93,8 @@ det(expression_holder<tensor_expression> const &expr) {
     return make_expression<tensor_to_scalar_zero>();
 
   // det(I) = 1 at rank 2 (the asserted rank-2 input means any
-  // identity_tensor reaching here is the rank-2 Kronecker delta).
-  if (is_same<identity_tensor>(expr))
-    return make_expression<tensor_to_scalar_one>();
-
-  // det(identity_tensor at rank 2) = 1. Like trace above, identity_tensor
-  // and kronecker_delta are distinct nodes; both fold at rank 2.
+  // identity_tensor reaching here is the rank-2 Kronecker delta;
+  // kronecker_delta was unified into identity_tensor by #188).
   if (is_same<identity_tensor>(expr))
     return make_expression<tensor_to_scalar_one>();
 

@@ -607,6 +607,33 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_DetExtendedRules) {
   }
 }
 
+// ---------- Composition: #70 × #71 interaction ----------
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_DetInvScalarComposition) {
+  auto &X = this->X;
+  auto &x = this->x;
+  constexpr auto Dim = TestFixture::Dim;
+
+  using numsim::cas::det;
+  using numsim::cas::inv;
+
+  // det(inv(inv(A))) → det(A). Tests that the inner inv(inv) collapses
+  // to A before det() sees it (rather than redundantly forming
+  // pow(pow(det(A),-1),-1)).
+  EXPECT_PRINT(det(inv(inv(X))), "det(X)");
+
+  // det(x · inv(A)) → x^dim / det(A). Exercises both rules together:
+  // the scalar pulls out as x^dim (existing rule), and the inv reduces
+  // to 1/det(A) (new #70 rule). Locks in the interaction.
+  if constexpr (Dim == 1) {
+    EXPECT_PRINT(det(x * inv(X)), "x/det(X)");
+  } else if constexpr (Dim == 2) {
+    EXPECT_PRINT(det(x * inv(X)), "pow(x,2)/det(X)");
+  } else if constexpr (Dim == 3) {
+    EXPECT_PRINT(det(x * inv(X)), "pow(x,3)/det(X)");
+  }
+}
+
 // ---------- norm() simplification ----------
 TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_NormSimplification) {
   auto &X = this->X;
