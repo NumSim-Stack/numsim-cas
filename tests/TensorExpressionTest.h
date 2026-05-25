@@ -717,6 +717,28 @@ TYPED_TEST(TensorExpressionTest, InvIdentityTensorRank4SelfInverse) {
 }
 
 // -----------------------------------------------------------------------------
+// #71: inv(α·A) → inv(A) / α
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, InvScalarMulSimplification) {
+  auto &X = this->X;
+  auto &x = this->x;
+  auto &_2 = this->_2;
+
+  // inv(x·A) → inv(A) / x (symbolic scalar)
+  EXPECT_PRINT(numsim::cas::inv(x * X), "inv(X)/x");
+
+  // inv(2·A) → (1/2)*inv(A). The numeric reciprocal is folded into a
+  // scalar coefficient at construction time (via the standard
+  // tensor_scalar_mul canonicalisation), so the printed form is
+  // "(1/2)*inv(X)" rather than "inv(X)/2".
+  EXPECT_PRINT(numsim::cas::inv(_2 * X), "(1/2)*inv(X)");
+
+  // Recurse: inv(x·inv(A)) → A / x  (the inner inv(inv(...)) collapses,
+  // the outer inv(x·A_inner) pulls out x).
+  EXPECT_PRINT(numsim::cas::inv(x * numsim::cas::inv(X)), "X/x");
+}
+
+// -----------------------------------------------------------------------------
 // Zero early returns for tensor functions
 // -----------------------------------------------------------------------------
 TYPED_TEST(TensorExpressionTest, TransZeroReturnsZero) {
