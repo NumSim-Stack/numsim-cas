@@ -62,7 +62,7 @@ classDiagram
     tensor_expression <|-- tensor_to_scalar_with_tensor_mul
 ```
 
-## Node Types (20)
+## Node Types (19)
 
 | # | Node | Base Class | Purpose |
 |---|------|-----------|---------|
@@ -75,16 +75,16 @@ classDiagram
 | 7 | `inner_product_wrapper` | binary-like | Inner product with index specification |
 | 8 | `permute_indices_wrapper` | unary-like | Index permutation / transpose |
 | 9 | `outer_product_wrapper` | binary-like | Outer product with index specification |
-| 11 | `simple_outer_product` | `n_ary_vector` | N-ary outer product |
-| 12 | `tensor_symmetry` | unary-like | Symmetric part: sym(A) |
-| 13 | `tensor_deviatoric` | unary-like | Deviatoric part: dev(A) |
-| 14 | `tensor_volumetric` | unary-like | Volumetric part: vol(A) |
-| 15 | `tensor_inv` | unary-like | Matrix inverse (rank 2) |
-| 16 | `tensor_zero` | leaf | Zero tensor (any rank) |
-| 17 | `tensor_projector` | leaf | Projection tensor |
-| 18 | `identity_tensor` | leaf | Identity tensor (any rank) |
-| 19 | `tensor_scalar_mul` | `binary_op` | Scalar * tensor (cross-domain) |
-| 20 | `tensor_to_scalar_with_tensor_mul` | `binary_op` | T2S * tensor (cross-domain) |
+| 10 | `simple_outer_product` | `n_ary_vector` | N-ary outer product |
+| 11 | `tensor_symmetry` | unary-like | Symmetric part: sym(A) |
+| 12 | `tensor_deviatoric` | unary-like | Deviatoric part: dev(A) |
+| 13 | `tensor_volumetric` | unary-like | Volumetric part: vol(A) |
+| 14 | `tensor_inv` | unary-like | Matrix inverse (rank 2) |
+| 15 | `tensor_zero` | leaf | Zero tensor (any rank) |
+| 16 | `tensor_projector` | leaf | Projection tensor |
+| 17 | `identity_tensor` | leaf | Identity tensor (any rank) |
+| 18 | `tensor_scalar_mul` | `binary_op` | Scalar * tensor (cross-domain) |
+| 19 | `tensor_to_scalar_with_tensor_mul` | `binary_op` | T2S * tensor (cross-domain) |
 
 ### `tensor_expression` Base
 
@@ -401,7 +401,7 @@ auto dInv = diff(inv(X), X);// -inv(X) * dX * inv(X)
 
 | File | Purpose |
 |------|---------|
-| `tensor/tensor_node_list.h` | Node list macro (20 types) |
+| `tensor/tensor_node_list.h` | Node list macro (19 types) |
 | `tensor/tensor_expression.h` | Base expression with dim/rank |
 | `tensor/tensor.h` | Symbol node |
 | `tensor/tensor_zero.h` | Zero tensor |
