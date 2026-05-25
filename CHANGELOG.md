@@ -38,6 +38,8 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 
 - Rational comparison overflow in `numeric_less` / `operator<` for numerators near 2^63. Closes #142.
 - Replaced the regression test for #142 with one that actually exercises int64 overflow (the original test's numerators were divisible by 3 and normalized away from the overflow path). Closes #170.
+- `inv()` now rejects the zero tensor at construction (`inv(tensor_zero)` and the composite `inv(0 · A)` form) with a clear "singular" error instead of silently building a symbolic `inv(0)` node that would NaN/Inf during evaluation. Closes #187.
+- `inv()` now rejects rank > 2 inputs at construction. Previously the function accepted them and built a symbolic `tensor_inv` node that would fail at the tmech evaluator (which is rank-2 only) or silently produce wrong results. The `identity_tensor` short-circuit still fires first, so the rank-4 minor identity remains self-inverse. Closes #192.
 
 ### Documentation
 
