@@ -435,22 +435,6 @@ public:
   //   end(precedence, parent_precedence);
   // }
 
-  /**
-   * @brief Prints a tensor scalar division expression.
-   *
-   * @param visitable The tensor scalar division expression to be printed.
-   * @param parent_precedence The precedence of the parent expression.
-   */
-  // void operator()([[maybe_unused]] tensor_scalar_div const &visitable,
-  //                 [[maybe_unused]] Precedence parent_precedence) {
-  //   constexpr auto precedence{Precedence::Multiplication};
-  //   begin(precedence, parent_precedence);
-  //   scalar_printer<StreamType> scalar_printer(m_out);
-  //   apply(visitable.expr_lhs(), Precedence::Division_LHS);
-  //   m_out << "/";
-  //   scalar_printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
-  //   end(precedence, parent_precedence);
-  // }
 
   void operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul const
                       &visitable) override {
