@@ -686,8 +686,9 @@ TYPED_TEST(TensorExpressionTest, InvZeroFromScalarMulThrows) {
   // detection isn't bypassed by a non-trivial construction path.
   auto &A = this->A;
   auto zero = numsim::cas::get_scalar_zero();
-  EXPECT_THROW({ [[maybe_unused]] auto r = numsim::cas::inv(zero * A); },
-               numsim::cas::invalid_expression_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = numsim::cas::inv(zero * A); },
+      numsim::cas::invalid_expression_error);
 }
 
 TYPED_TEST(TensorExpressionTest, InvRank4SymbolThrows) {
