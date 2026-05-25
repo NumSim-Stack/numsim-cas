@@ -47,6 +47,7 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 - Replaced the regression test for #142 with one that actually exercises int64 overflow (the original test's numerators were divisible by 3 and normalized away from the overflow path). Closes #170.
 - `inv()` now rejects the zero tensor at construction (`inv(tensor_zero)` and the composite `inv(0 · A)` form) with a clear "singular" error instead of silently building a symbolic `inv(0)` node that would NaN/Inf during evaluation. Closes #187.
 - `inv()` now rejects rank > 2 inputs at construction. Previously the function accepted them and built a symbolic `tensor_inv` node that would fail at the tmech evaluator (which is rank-2 only) or silently produce wrong results. The `identity_tensor` short-circuit still fires first, so the rank-4 minor identity remains self-inverse. Closes #192.
+- `diff(tanh(x), x)` no longer throws `"duplicate child insertion"`. `tanh` was defined as `sinh(e) / cosh(e)`, which expands to a sum/difference of `exp(x)` and `exp(-x)`; the quotient-rule differentiation then tried to insert the same `exp(x)` child twice into a single `n_ary_add`, tripping the duplicate-child guard. Re-defined `tanh(x) = (exp(2x) - 1) / (exp(2x) + 1)` — algebraically identical, single `exp()` term, no duplicate fan-out. The derivative now evaluates to `sech²(x)` within `1e-12` across the sampled range. Closes #180.
 
 ### Documentation
 
