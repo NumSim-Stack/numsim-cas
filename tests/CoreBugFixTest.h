@@ -245,46 +245,343 @@ TEST(CoreBugFix, ScalarPowDiffBothConstWrtArg) {
 // not regress to the duplicate-child internal_error.
 // ---------------------------------------------------------------------------
 
-TEST(CoreBugFix, AddCompoundConstructionSmoke) {
+TEST(CoreBugFix, AddCompoundConstructionValue) {
+  // (cos²(x)+sin²(x)+y) + (1+1+y) should construct without throwing and
+  // evaluate correctly. The Pythagorean rule in scalar_simplifier_add
+  // reduces cos²+sin² to 1, so the sum is 3+2y. At y=5 → 13.
+  // Upgraded from no-throw-only smoke test per issue #113 / PR #114-style
+  // value-assertion principle.
   auto [x, y] = make_scalar_variable("x", "y");
   auto one = make_scalar_constant(1);
-  EXPECT_NO_THROW({
-    auto lhs = pow(cos(x), 2) + pow(sin(x), 2) + y;
-    auto rhs = one + one + y;
-    auto sum = lhs + rhs;
-    (void)sum;
-  });
+  auto lhs = pow(cos(x), 2) + pow(sin(x), 2) + y;
+  auto rhs = one + one + y;
+  auto sum = lhs + rhs;
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.5); // any x: cos²+sin² = 1
+  ev.set(y, 5.0);
+  EXPECT_NEAR(ev.apply(sum), 13.0, 1e-12);
 }
 
-TEST(CoreBugFix, SubSymbolDispatchSmoke) {
-  // Exercises merge_or_insert on n_ary_sub_dispatch::dispatch(symbol):
-  // lhs is an add expression, rhs matches one of its children, and the
-  // combined entry is re-inserted via merge_or_insert.
+// NOTE: SubSymbolDispatchSmoke was superseded by
+// NArySubSymbolDispatchCancelsCleanly in PR #100 (the value-asserting
+// version of the same path). Deleted per issue #113.
+
+TEST(CoreBugFix, NegativeSubAddDispatchValue) {
+  // -x - (y+z) at (x=2, y=3, z=4) = -2 - 7 = -9.
+  // Exercises merge_or_insert on negative_sub_dispatch::dispatch(add).
+  // Upgraded from no-throw-only smoke test per issue #113.
   auto [x, y, z] = make_scalar_variable("x", "y", "z");
-  EXPECT_NO_THROW({
-    auto lhs = x + y + z;
-    auto diff = lhs - x;
-    (void)diff;
-  });
+  auto diff = -x - (y + z);
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  ev.set(y, 3.0);
+  ev.set(z, 4.0);
+  EXPECT_NEAR(ev.apply(diff), -9.0, 1e-12);
 }
 
-TEST(CoreBugFix, NegativeSubAddDispatchSmoke) {
-  // Exercises merge_or_insert on negative_sub_dispatch::dispatch(add):
-  // lhs is a negative, rhs is an add — the inner expr is folded into the
-  // rhs add via merge_or_insert before being wrapped in the outer negation.
+TEST(CoreBugFix, NArySubAddDispatchScalar) {
+  // Regression for issue #91. Previously n_ary_sub_dispatch::dispatch(add, add)
+  // combined coefficients with `+` (instead of `-`) and was unguarded against
+  // invalid coefficients — the latter making (x+y+z) - (x+y) throw on the
+  // unguarded `+` of two invalid holders.
   auto [x, y, z] = make_scalar_variable("x", "y", "z");
-  EXPECT_NO_THROW({
-    auto diff = -x - (y + z);
-    (void)diff;
-  });
+  auto [a, b] = make_scalar_variable("a", "b");
+  auto two = make_scalar_constant(2);
+  auto one = make_scalar_constant(1);
+
+  // (x+y+z) - (x+y) -> z
+  EXPECT_EQ((x + y + z) - (x + y), z);
+  // (2+x) - (1+x) -> 1
+  EXPECT_EQ((two + x) - (one + x), one);
+  // (a+b) - (a+b) -> 0
+  EXPECT_TRUE(is_same<scalar_zero>((a + b) - (a + b)));
 }
 
-// NOTE: a third smoke test for n_ary_sub_dispatch::dispatch(add, add)
-// — e.g. (a+b+c) - (a+b) — would surface a separate, pre-existing latent
-// bug in that dispatch: it computes lhs.coeff() + rhs.coeff() unguarded
-// against invalid coefficients, and uses `+` where `-` would be correct
-// for subtraction semantics. Out of scope for this PR; documenting the
-// gap rather than re-introducing the failing test.
+// ---------------------------------------------------------------------------
+// finalize_add<Traits> direct unit tests — the trivial-result collapse helper
+// extracted from n_ary_sub_dispatch in #99.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, FinalizeAddEmptyAndCoeffReturnsCoeff) {
+  using Traits = domain_traits<scalar_expression>;
+  auto two = make_scalar_constant(2);
+  auto node = std::make_shared<scalar_add>();
+  node->set_coeff(two);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, two);
+}
+
+TEST(CoreBugFix, FinalizeAddEmptyNoCoeffReturnsZero) {
+  using Traits = domain_traits<scalar_expression>;
+  auto node = std::make_shared<scalar_add>();
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_TRUE(is_same<scalar_zero>(result));
+}
+
+TEST(CoreBugFix, FinalizeAddSingleChildNoCoeffReturnsChild) {
+  using Traits = domain_traits<scalar_expression>;
+  auto [x] = make_scalar_variable("x");
+  auto node = std::make_shared<scalar_add>();
+  node->push_back(x);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, x);
+}
+
+TEST(CoreBugFix, FinalizeAddNonTrivialReturnsUnchanged) {
+  using Traits = domain_traits<scalar_expression>;
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto node = std::make_shared<scalar_add>();
+  node->push_back(x);
+  node->push_back(y);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, expr);
+}
+
+TEST(CoreBugFix, NArySubSymbolDispatchCancelsCleanly) {
+  // Regression: dispatch(SymbolType) used to leak a stray zero child when
+  // the symbol matched a child and the cancellation x-x=0 was pushed back
+  // via merge_or_insert without filtering. (2+x)-x produced "2+0" instead
+  // of "2"; (x+y+z)-x produced a 3-child add (the stray 0 plus y, z)
+  // instead of the 2-child y+z.
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto two = make_scalar_constant(2);
+
+  // (2+x) - x -> 2 (empty children + valid coeff: finalize_add returns coeff)
+  EXPECT_EQ((two + x) - x, two);
+  // (x+y+z) - x -> y+z (two children survive; finalize_add returns the add)
+  EXPECT_EQ((x + y + z) - x, y + z);
+  // (x+y) - x -> y (one child + no coeff: finalize_add returns the child)
+  EXPECT_EQ((x + y) - x, y);
+}
+
+TEST(CoreBugFix, NArySubSymbolDispatchNotFoundCombinesWithExisting) {
+  // Regression: when m_rhs is not in lhs's symbol_map but -m_rhs is, the
+  // dispatch used push_back(-m_rhs) which hit the duplicate-child guard.
+  // Switched to merge_or_insert so the negation combines with the existing
+  // entry instead.
+  auto [x, y] = make_scalar_variable("x", "y");
+  // (-x + y) - x: lhs has -x and y, neither key matches x. Without the fix
+  // push_back(-x) collides with the existing -x. With merge_or_insert,
+  // combine to (-2*x) + y. Lock in the value (not just no-throw) so a
+  // future regression that drops the term silently can't pass.
+  auto r = (-x + y) - x;
+  EXPECT_EQ(r, -2 * x + y);
+}
+
+TEST(CoreBugFix, FinalizeAddSingleChildWithCoeffReturnsUnchanged) {
+  // One child + valid coeff is a meaningful add (e.g. 1+x); not trivial.
+  using Traits = domain_traits<scalar_expression>;
+  auto [x] = make_scalar_variable("x");
+  auto one = make_scalar_constant(1);
+  auto node = std::make_shared<scalar_add>();
+  node->set_coeff(one);
+  node->push_back(x);
+  expression_holder<scalar_expression> expr{node};
+  auto result = detail::finalize_add<Traits>(expr);
+  EXPECT_EQ(result, expr);
+}
+
+TEST(CoreBugFix, NArySubAddDispatchT2s) {
+  // The #91 fix lives in a generic dispatcher template instantiated by both
+  // scalar_traits and tensor_to_scalar_traits. This test locks in the t2s
+  // path; tensor doesn't instantiate it because tensor_traits::mul_type is
+  // void.
+  auto [X, Y, Z] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"Y", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"Z", std::size_t{3}, std::size_t{2}});
+
+  // (trace(X) + trace(Y) + trace(Z)) - (trace(X) + trace(Y)) -> trace(Z)
+  EXPECT_EQ((trace(X) + trace(Y) + trace(Z)) - (trace(X) + trace(Y)), trace(Z));
+  // (trace(X) + trace(Y)) - (trace(X) + trace(Y)) -> 0
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>((trace(X) + trace(Y)) -
+                                             (trace(X) + trace(Y))));
+}
+
+// ---------------------------------------------------------------------------
+// merge_or_insert public-state contract (issue #92 remains open for the
+// multi-iteration deterministic case).
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, MergeOrInsertNoCollisionAddsChild) {
+  // No collision: both children remain present as distinct entries.
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto add_node = std::make_shared<scalar_add>();
+  add_node->push_back(x);
+  add_node->merge_or_insert(y);
+  EXPECT_EQ(add_node->size(), 2u);
+}
+
+TEST(CoreBugFix, MergeOrInsertCollisionMergesIntoSingleEntry) {
+  // Collision case: pushing x when x is already there triggers the
+  // merge path and the two entries collapse into one. n_ary_tree's
+  // hash excludes the coefficient, so x and (x + x) hash to the same
+  // bucket — but the *stored key* is the combined expression itself
+  // (i.e. 2*x), not the original x.
+  auto [x] = make_scalar_variable("x");
+  auto add_node = std::make_shared<scalar_add>();
+  add_node->push_back(x);
+  add_node->merge_or_insert(x);
+  ASSERT_EQ(add_node->size(), 1u);
+  EXPECT_EQ(add_node->symbol_map().begin()->first, make_scalar_constant(2) * x);
+}
+
+TEST(CoreBugFix, MergeOrInsertSequentialCallsAreIndependent) {
+  // A collision followed by a non-collision must leave the tree in the
+  // expected final shape: the collided entry stored as 2*x, and y added
+  // alongside it. Asserting both keys (not just size()) is what makes
+  // this a real lock-in for "calls don't bleed state" — a bug where
+  // the second call corrupted the first call's stored entry would pass
+  // a size-only check but fail the key checks.
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto add_node = std::make_shared<scalar_add>();
+  add_node->push_back(x);
+  add_node->merge_or_insert(x); // collision: x -> 2*x
+  add_node->merge_or_insert(y); // no collision: y added
+  ASSERT_EQ(add_node->size(), 2u);
+  bool found_2x = false;
+  bool found_y = false;
+  auto const expected_2x = make_scalar_constant(2) * x;
+  for (auto const &[key, _] : add_node->symbol_map()) {
+    if (key == expected_2x)
+      found_2x = true;
+    else if (key == y)
+      found_y = true;
+  }
+  EXPECT_TRUE(found_2x) << "missing merged 2*x entry";
+  EXPECT_TRUE(found_y) << "missing standalone y entry";
+}
+
+// NOTE: a deterministic multi-iteration (>1) test would require the
+// codebase to expose an algebraic simplification that transitions the
+// combined entry's hash key to one matching another existing entry.
+// No such chain is reachable via construction-time operators as far as
+// the simplifier dispatchers were checked during PR #100 — but the
+// audit was not exhaustive across every per-domain wrapper, so the
+// "no path exists" claim is best read as "no obvious path found." The
+// loop's multi-iteration safety is forward-protection against future
+// simplifier additions; the fuzz suite remains the witness if a chain
+// is produced. See issue #92 for the deterministic-coverage follow-up.
+// t2s_eval rebuild correctness lock-in (issue #94) — the per-visit rebuild
+// path in tensor_evaluator::operator()(tensor_to_scalar_with_tensor_mul)
+// is functionally correct but pays construction + symbol-table copy cost
+// on every visit. Optimization is non-trivial because of the include
+// cycle between tensor_evaluator.h and tensor_to_scalar_evaluator.h
+// (see #94 for the architectural constraint). This test verifies the
+// rebuild path produces correct results across many visits — any future
+// optimization that caches or shares state must preserve the contract.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, TensorToScalarWithTensorMulCorrectness) {
+  // Construct a tensor_to_scalar_with_tensor_mul node directly (mirroring
+  // the existing TensorEvaluatorTest pattern) and verify evaluation
+  // produces correct results. The dispatcher for this node rebuilds a
+  // fresh tensor_to_scalar_evaluator on every visit (issue #94); any
+  // future optimization that caches the inner evaluator must preserve
+  // the value contract this test locks in.
+  //
+  // Result access uses raw_data() rather than a static_cast back to the
+  // concrete tensor_data<T,Dim,Rank> type — the raw buffer view doesn't
+  // depend on the underlying representation, so a future optimization
+  // that changed how the result is stored still satisfies the contract.
+  auto A = make_expression<tensor>("A", std::size_t{3}, std::size_t{2});
+  auto t2s_expr = trace(A);
+  auto expr = make_expression<tensor_to_scalar_with_tensor_mul>(A, t2s_expr);
+
+  // A = diag(1, 2, 3); trace(A) = 6; result = 6 * A.
+  auto A_data = std::make_shared<tensor_data<double, 3, 2>>();
+  auto *Araw = A_data->raw_data();
+  for (std::size_t i = 0; i < 9; ++i)
+    Araw[i] = 0.0;
+  Araw[0] = 1.0;
+  Araw[4] = 2.0;
+  Araw[8] = 3.0;
+
+  // Row-major indices 0,4,8 are the diagonal in a 3x3.
+  auto check_diag = [](tensor_data_base<double> const &result) {
+    auto const *raw = result.raw_data();
+    EXPECT_NEAR(raw[0], 6.0, 1e-12);
+    EXPECT_NEAR(raw[4], 12.0, 1e-12);
+    EXPECT_NEAR(raw[8], 18.0, 1e-12);
+    // off-diagonals
+    EXPECT_NEAR(raw[1], 0.0, 1e-12);
+    EXPECT_NEAR(raw[2], 0.0, 1e-12);
+    EXPECT_NEAR(raw[5], 0.0, 1e-12);
+  };
+
+  tensor_evaluator<double> ev;
+  ev.set(A, A_data);
+  auto result = ev.apply(expr);
+  ASSERT_NE(result, nullptr);
+  check_diag(*result);
+
+  // Re-apply with the same evaluator: the rebuild fires again, result
+  // must be identical. Locks in idempotence across visits — a future
+  // optimization that caches the inner t2s_eval must not leak state
+  // from the first call into the second.
+  auto result2 = ev.apply(expr);
+  ASSERT_NE(result2, nullptr);
+  check_diag(*result2);
+}
+
+// constant_sub_dispatch(add) bug fix (issue #102) — same pattern as #91.
+// constant - (coeff + x) was computing m_lhs - rhs.coeff() unguarded against
+// invalid rhs.coeff() (the common case when rhs has no constant term);
+// `2 - (x + y)` threw on the unguarded operator-. Children were also pushed
+// via push_back (collides with existing entries) and the result wasn't
+// collapsed when trivial.
+// ---------------------------------------------------------------------------
+
+// Helper: evaluate scalar expression at a fixed point. The result of
+// constant_sub_dispatch's rewrite produces `scalar_add{coeff, neg-children}`
+// which can equivalent algebraically to `-(1+x+y)` (a scalar_negative
+// wrapping the add) but differs structurally — comparison by numerical
+// evaluation avoids the canonical-form ambiguity.
+namespace {
+double eval2(expression_holder<scalar_expression> const &expr,
+             expression_holder<scalar_expression> const &x, double x_val,
+             expression_holder<scalar_expression> const &y, double y_val) {
+  scalar_evaluator<double> ev;
+  ev.set(x, x_val);
+  ev.set(y, y_val);
+  return ev.apply(expr);
+}
+} // namespace
+
+TEST(CoreBugFix, ConstantSubAddNoRhsCoeff) {
+  // 2 - (x + y) used to throw because m_lhs - rhs.coeff() called operator-
+  // on an invalid holder. Verify no-throw and that the result evaluates
+  // correctly at a fixed point: 2 - (3 + 4) = -5.
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto two = make_scalar_constant(2);
+  expression_holder<scalar_expression> result;
+  ASSERT_NO_THROW({ result = two - (x + y); });
+  EXPECT_NEAR(eval2(result, x, 3.0, y, 4.0), -5.0, 1e-12);
+}
+
+TEST(CoreBugFix, ConstantSubAddWithRhsCoeff) {
+  // 2 - (3 + x + y) at (x=2, y=3): 2 - (3+2+3) = -6.
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto two = make_scalar_constant(2);
+  auto three = make_scalar_constant(3);
+  auto result = two - (three + x + y);
+  EXPECT_NEAR(eval2(result, x, 2.0, y, 3.0), -6.0, 1e-12);
+}
+
+TEST(CoreBugFix, ConstantSubAddCoeffCancels) {
+  // 2 - (2 + x) -> -x  (coeff cancels via the `c_l - c_r == 0` filter,
+  // single child + no coeff: finalize_add collapses to the bare child).
+  // Verify the structural collapse explicitly.
+  auto [x] = make_scalar_variable("x");
+  auto two = make_scalar_constant(2);
+  auto result = two - (two + x);
+  EXPECT_TRUE(is_same<scalar_negative>(result));
+  EXPECT_EQ(result.get<scalar_negative>().expr(), x);
+}
 
 // ---------------------------------------------------------------------------
 // Scalar-times-tensor squaring (issue #75).
@@ -375,11 +672,12 @@ TEST(CoreBugFix, SkewSpacePreservedAsTensorMulChild) {
 // ---------------------------------------------------------------------------
 
 TEST(CoreBugFix, ForwardValuesToSkipsNonScalarKey) {
-  // scalar_evaluator::set is templated on ExprBase, so callers could mistakenly
-  // store a tensor symbol in the scalar evaluator's map. The forwarding loop
-  // uses dynamic_pointer_cast<scalar_expression> to skip such keys instead of
-  // force-casting them (which would be UB the next time the destination tried
-  // to treat the holder as a scalar). Confirm the loop survives the bad key.
+  // scalar_evaluator::set is templated on ExprBase, so callers could
+  // mistakenly store a tensor symbol in the scalar evaluator's map. The
+  // forwarding loop uses dynamic_pointer_cast<scalar_expression> to skip such
+  // keys instead of force-casting them (which would be UB the next time the
+  // destination tried to treat the holder as a scalar). Confirm the loop
+  // survives the bad key.
   auto [x] = make_scalar_variable("x");
   auto T = std::get<0>(
       make_tensor_variable(std::tuple{"T", std::size_t{3}, std::size_t{2}}));
