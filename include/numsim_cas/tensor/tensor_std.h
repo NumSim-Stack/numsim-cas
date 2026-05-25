@@ -6,7 +6,7 @@
 #include <numsim_cas/scalar/scalar_one.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_zero.h>
-#include <numsim_cas/tensor/kronecker_delta.h>
+#include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
@@ -42,7 +42,8 @@ template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
   if (is_same<scalar_zero>(expr_rhs) ||
       (is_same<scalar_constant>(expr_rhs) &&
        expr_rhs.template get<scalar_constant>().value() == scalar_number{0})) {
-    return make_expression<kronecker_delta>(expr_lhs.get().dim());
+    return make_expression<identity_tensor>(expr_lhs.get().dim(),
+                                            std::size_t{2});
   }
 
   // pow(A, 1) → A

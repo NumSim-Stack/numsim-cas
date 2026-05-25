@@ -39,7 +39,9 @@ trace(expression_holder<tensor_expression> const &expr) {
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_to_scalar_zero>();
 
-  if (is_same<kronecker_delta>(expr)) {
+  // trace(I) = dim. The asserted rank-2 input means any identity_tensor
+  // reaching here is the Kronecker delta (rank-2 identity).
+  if (is_same<identity_tensor>(expr)) {
     auto dim = expr.get().dim();
     return make_expression<tensor_to_scalar_scalar_wrapper>(
         make_expression<scalar_constant>(static_cast<int>(dim)));
@@ -89,7 +91,9 @@ det(expression_holder<tensor_expression> const &expr) {
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_to_scalar_zero>();
 
-  if (is_same<kronecker_delta>(expr))
+  // det(I) = 1 at rank 2 (the asserted rank-2 input means any
+  // identity_tensor reaching here is the rank-2 Kronecker delta).
+  if (is_same<identity_tensor>(expr))
     return make_expression<tensor_to_scalar_one>();
 
   if (is_same<tensor_scalar_mul>(expr)) {

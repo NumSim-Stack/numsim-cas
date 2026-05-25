@@ -53,7 +53,7 @@ public:
   }
 
   // expr * I
-  constexpr inline auto operator()(kronecker_delta const &) {
+  constexpr inline auto operator()(identity_tensor const &) {
     if (m_lhs.get().rank() == 2 && sequence{2} == m_seq_lhs &&
         sequence{1} == m_seq_rhs) {
       return std::forward<ExprLHS>(m_lhs);
@@ -63,7 +63,7 @@ public:
 
   // expr [*] otimesu(I,I)
   constexpr inline auto operator()(outer_product_wrapper const &) {
-    const detail::otimes_check<kronecker_delta, kronecker_delta> check(
+    const detail::otimes_check<identity_tensor, identity_tensor> check(
         sequence{0, 2}, sequence{1, 3});
     if (((m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{1, 2}) ||
          (m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{3, 4})) &&
@@ -130,14 +130,14 @@ protected:
 };
 
 template <typename ExprLHS, typename ExprRHS>
-class inner_product_simplifier_kronecker_delta final
+class inner_product_simplifier_identity_tensor final
     : public inner_product_simplifier_default<ExprLHS, ExprRHS> {
 public:
   using base = inner_product_simplifier_default<ExprLHS, ExprRHS>;
   using base::operator();
   using base::get_default;
 
-  inner_product_simplifier_kronecker_delta(ExprLHS &&lhs,
+  inner_product_simplifier_identity_tensor(ExprLHS &&lhs,
                                            sequence &&sequence_lhs,
                                            ExprRHS &&rhs,
                                            sequence &&sequence_rhs)
@@ -235,7 +235,7 @@ public:
 
   template <typename Expr> constexpr inline auto operator()(Expr const &rhs) {
     // otimesu(I,I) : expr --> expr
-    const detail::otimes_check<value_type, kronecker_delta, kronecker_delta>
+    const detail::otimes_check<value_type, identity_tensor, identity_tensor>
         check(sequence{0, 2}, sequence{1, 3});
     if (((m_seq_lhs == sequence{3, 4} && m_seq_rhs == sequence{1, 2}) ||
          (m_seq_lhs == sequence{1, 2} && m_seq_rhs == sequence{1, 2})) &&
@@ -299,9 +299,9 @@ public:
         m_seq_lhs(sequence_lhs), m_seq_rhs(sequence_rhs) {}
 
   // I [*] expr
-  constexpr inline auto operator()(kronecker_delta const &) {
+  constexpr inline auto operator()(identity_tensor const &) {
     return std::visit(
-        inner_product_simplifier_kronecker_delta<ExprLHS, ExprRHS>(
+        inner_product_simplifier_identity_tensor<ExprLHS, ExprRHS>(
             std::forward<ExprLHS>(m_lhs), std::move(m_seq_lhs),
             std::forward<ExprRHS>(m_rhs), std::move(m_seq_rhs)),
         *m_rhs);

@@ -36,11 +36,11 @@
 #include <numsim_cas/scalar/visitors/scalar_printer.h>
 
 #include <numsim_cas/scalar/scalar_latex_io.h>
+#include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/tensor_latex_io.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_latex_io.h>
 
 // tensor expression
-#include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/tensor.h>
 #include <numsim_cas/tensor/tensor_negative.h>
 #include <numsim_cas/tensor/tensor_operators.h>

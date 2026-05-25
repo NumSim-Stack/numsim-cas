@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/tensor/data/tensor_data_make_imp.h>
-#include <numsim_cas/tensor/kronecker_delta.h>
+#include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/projection_tensor.h>
 #include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/sequence.h>
@@ -24,7 +24,7 @@ constexpr inline auto make_tensor_data(std::size_t dim, std::size_t rank) {
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> dev(Expr &&expr) {
-  if (is_same<kronecker_delta>(expr))
+  if (is_same<identity_tensor>(expr) && expr.get().rank() == 2)
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   if (auto const &sp = expr.get().space()) {
     if (auto rule = contraction_rule(ProjKind::Dev, classify_space(*sp))) {
@@ -61,7 +61,7 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> sym(Expr &&expr) {
-  if (is_same<kronecker_delta>(expr))
+  if (is_same<identity_tensor>(expr) && expr.get().rank() == 2)
     return expr;
   if (auto const &sp = expr.get().space()) {
     if (auto rule = contraction_rule(ProjKind::Sym, classify_space(*sp))) {
@@ -97,7 +97,7 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> vol(Expr &&expr) {
-  if (is_same<kronecker_delta>(expr))
+  if (is_same<identity_tensor>(expr) && expr.get().rank() == 2)
     return expr;
   if (auto const &sp = expr.get().space()) {
     if (auto rule = contraction_rule(ProjKind::Vol, classify_space(*sp))) {
@@ -133,7 +133,7 @@ template <tensor_expr_holder Expr>
 
 template <tensor_expr_holder Expr>
 [[nodiscard]] inline expression_holder<tensor_expression> skew(Expr &&expr) {
-  if (is_same<kronecker_delta>(expr))
+  if (is_same<identity_tensor>(expr) && expr.get().rank() == 2)
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
   if (auto const &sp = expr.get().space()) {
     if (auto rule = contraction_rule(ProjKind::Skew, classify_space(*sp))) {
@@ -366,14 +366,12 @@ template <tensor_expr_holder Expr>
   // its own construction by the guards below if not).
   if (is_same<tensor_inv>(expr))
     return expr.template get<tensor_inv>().expr();
-  // identity_tensor and kronecker_delta are self-inverse. identity_tensor
-  // is self-inverse at any even rank (the minor identity is its own
-  // inverse under the appropriate contraction); kronecker_delta is
-  // rank-2 by definition. Short-circuit *before* the rank check below so
-  // these stay valid for rank ≥ 4.
+  // identity_tensor is self-inverse at any even rank (the minor identity
+  // is its own inverse under the appropriate contraction). Short-circuit
+  // *before* the rank check below so the rank-4 minor identity stays
+  // valid. (The former kronecker_delta short-circuit is gone — that node
+  // was unified into identity_tensor in #188.)
   if (is_same<identity_tensor>(expr))
-    return std::forward<Expr>(expr);
-  if (is_same<kronecker_delta>(expr))
     return std::forward<Expr>(expr);
   // Singular: inv(0) is undefined. Closes #187.
   if (is_same<tensor_zero>(expr))

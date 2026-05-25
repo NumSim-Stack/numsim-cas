@@ -29,14 +29,18 @@ tensor_pow_mul::dispatch([[maybe_unused]] tensor_pow const &rhs) {
   return get_default();
 }
 
-kronecker_delta_mul::kronecker_delta_mul(expr_holder_t lhs, expr_holder_t rhs)
+identity_tensor_mul::identity_tensor_mul(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
-      m_lhs_node{base::m_lhs.template get<kronecker_delta>()} {}
+      m_lhs_node{base::m_lhs.template get<identity_tensor>()} {}
 
-// I_ij*expr_jkmnop.... --> expr_ikmnop....
+// I_ij*expr_jkmnop.... --> expr_ikmnop.... (rank-2 identity only;
+// higher-rank identity_tensors fall through to the default since
+// tensor_mul is a rank-2 contraction).
 template <typename Expr>
-kronecker_delta_mul::expr_holder_t
-kronecker_delta_mul::dispatch([[maybe_unused]] Expr const &rhs) {
+identity_tensor_mul::expr_holder_t
+identity_tensor_mul::dispatch([[maybe_unused]] Expr const &rhs) {
+  if (m_lhs_node.rank() != 2)
+    return get_default();
   return std::move(m_rhs);
 }
 
@@ -108,9 +112,9 @@ mul_base::expr_holder_t mul_base::dispatch(tensor_pow const &) {
   return _rhs.accept(visitor);
 }
 
-mul_base::expr_holder_t mul_base::dispatch(kronecker_delta const &) {
+mul_base::expr_holder_t mul_base::dispatch(identity_tensor const &) {
   auto &_rhs{m_rhs.template get<tensor_visitable_t>()};
-  kronecker_delta_mul visitor(std::move(m_lhs), std::move(m_rhs));
+  identity_tensor_mul visitor(std::move(m_lhs), std::move(m_rhs));
   return _rhs.accept(visitor);
 }
 

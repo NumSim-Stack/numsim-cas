@@ -41,7 +41,7 @@ protected:
     // X has no assumption
     X = std::get<0>(make_tensor_variable(std::tuple{"X", dim, 2}));
 
-    I = make_expression<kronecker_delta>(dim);
+    I = make_expression<identity_tensor>(dim, std::size_t{2});
 
     std::tie(_2, _3) = make_scalar_constant(2, 3);
     std::tie(x) = make_scalar_variable("x");
