@@ -540,6 +540,14 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceSimplification) {
   // trace(I) → dim
   EXPECT_PRINT(trace(One), std::to_string(TestFixture::Dim));
 
+  // #72: trace(identity_tensor) → dim. identity_tensor is a separate
+  // node from kronecker_delta (kronecker_delta is rank-2-only; the
+  // general identity_tensor carries a rank parameter and arises from
+  // differentiation results).
+  auto Ident = numsim::cas::make_expression<numsim::cas::identity_tensor>(
+      TestFixture::Dim, 2);
+  EXPECT_PRINT(trace(Ident), std::to_string(TestFixture::Dim));
+
   // trace(s*A) → s*trace(A)
   EXPECT_PRINT(trace(_2 * X), "2*tr(X)");
   EXPECT_PRINT(trace(x * X), "x*tr(X)");
@@ -559,11 +567,44 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_DetSimplification) {
   // det(0) → 0
   EXPECT_PRINT(det(Zero), "0");
 
-  // det(I) → 1
+  // det(I) → 1 (kronecker_delta form)
   EXPECT_PRINT(det(One), "1");
 
   // normal case unchanged
   EXPECT_PRINT(det(X), "det(X)");
+}
+
+// ---------- det() construction-time rules added by #70 ----------
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_DetExtendedRules) {
+  auto &X = this->X;
+  constexpr auto Dim = TestFixture::Dim;
+
+  using numsim::cas::det;
+  using numsim::cas::inv;
+  using numsim::cas::otimes;
+  using numsim::cas::trans;
+
+  // #70: det(identity_tensor) → 1 (general identity, distinct node from
+  // kronecker_delta which is already covered above).
+  auto Ident =
+      numsim::cas::make_expression<numsim::cas::identity_tensor>(Dim, 2);
+  EXPECT_PRINT(det(Ident), "1");
+
+  // #70: det(inv(A)) → 1/det(A)
+  EXPECT_PRINT(det(inv(X)), "pow(det(X),-1)");
+
+  // #70: det(trans(A)) → det(A)
+  EXPECT_PRINT(det(trans(X)), "det(X)");
+
+  // #70: det(u ⊗ v) → 0 for dim ≥ 2. For dim = 1 the outer product is
+  // a 1×1 scalar whose determinant is the scalar itself — don't fold.
+  auto u = numsim::cas::make_expression<numsim::cas::tensor>(
+      "u", static_cast<std::size_t>(Dim), std::size_t{1});
+  auto v = numsim::cas::make_expression<numsim::cas::tensor>(
+      "v", static_cast<std::size_t>(Dim), std::size_t{1});
+  if constexpr (Dim >= 2) {
+    EXPECT_PRINT(det(otimes(u, v)), "0");
+  }
 }
 
 // ---------- norm() simplification ----------
