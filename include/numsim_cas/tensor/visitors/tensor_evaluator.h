@@ -14,9 +14,9 @@
 #include <numsim_cas/scalar/visitors/scalar_evaluator.h>
 #include <numsim_cas/tensor/data/tensor_data.h>
 #include <numsim_cas/tensor/data/tensor_data_add.h>
-#include <numsim_cas/tensor/data/tensor_data_basis_change.h>
 #include <numsim_cas/tensor/data/tensor_data_inner_product.h>
 #include <numsim_cas/tensor/data/tensor_data_outer_product.h>
+#include <numsim_cas/tensor/data/tensor_data_permute_indices.h>
 #include <numsim_cas/tensor/data/tensor_data_projector.h>
 #include <numsim_cas/tensor/data/tensor_data_scalar_mul.h>
 #include <numsim_cas/tensor/data/tensor_data_sub.h>
@@ -157,8 +157,8 @@ public:
   void operator()(permute_indices_wrapper const &visitable) override {
     auto temp = apply(visitable.expr());
     m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
-    tensor_data_basis_change<ValueType> bc(*m_result, *temp,
-                                           visitable.indices().indices());
+    tensor_data_permute_indices<ValueType> bc(*m_result, *temp,
+                                              visitable.indices().indices());
     bc.evaluate(visitable.dim(), visitable.rank());
   }
 
