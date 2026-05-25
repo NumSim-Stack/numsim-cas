@@ -496,7 +496,26 @@ template <scalar_expr_holder E> [[nodiscard]] auto tanh(E const &e) {
   // tanh(-x) = -tanh(x)
   if (is_same<scalar_negative>(e))
     return -tanh(e.template get<scalar_negative>().expr());
-  return sinh(e) / cosh(e);
+  // tanh(x) = (exp(2x) - 1) / (exp(2x) + 1). The naive sinh(e)/cosh(e)
+  // form expands to a sum/difference of exp(x) and exp(-x), and the
+  // quotient-rule differentiation of that quotient tries to insert the
+  // shared exp(x) child twice into the same n_ary_add — tripping
+  // n_ary_tree::insert_hash's duplicate guard (#180). The alt form has
+  // only one exp() term so diff() doesn't fan out into colliding adds.
+  // The two forms are algebraically identical:
+  //   (e^x - e^{-x}) / (e^x + e^{-x}) = (e^{2x} - 1) / (e^{2x} + 1).
+  // Closes #180.
+  expression_holder<scalar_expression> one = get_scalar_one();
+  expression_holder<scalar_expression> two =
+      make_expression<scalar_constant>(scalar_number{2});
+  auto e2x = exp(std::move(two) * e);
+  // Bind numerator and denominator first; C++'s unspecified evaluation
+  // order for `/` arguments combined with `std::move(e2x)` in one branch
+  // could move `e2x` before the other branch uses it (mirror of the
+  // atanh evaluation-order fix in this same file).
+  auto num = e2x - one;
+  auto den = std::move(e2x) + std::move(one);
+  return std::move(num) / std::move(den);
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto asinh(E const &e) {

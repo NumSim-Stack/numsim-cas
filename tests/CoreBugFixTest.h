@@ -823,10 +823,8 @@ TEST(CoreBugFix, ScalarAtanhOfZeroIsZero) {
 //
 //   d/dx sinh(x) = cosh(x)   (and similarly cosh derives via sinh).
 //
-// `tanh` is currently *broken*: diff(tanh(x), x) throws because the
-// composition has shared sub-expressions that the n_ary_tree's
-// duplicate-child guard rejects. Filed as #180; once fixed, extend
-// this test to cover tanh, asinh, acosh, atanh as well.
+// (#180 was fixed by re-defining tanh as (exp(2x)-1)/(exp(2x)+1) — only
+// one exp() term, so diff doesn't fan out into duplicate adds.)
 TEST(CoreBugFix, ScalarHyperbolicDerivativesMatchClosedForm) {
   auto [x] = make_scalar_variable("x");
   scalar_evaluator<double> ev;
@@ -837,6 +835,12 @@ TEST(CoreBugFix, ScalarHyperbolicDerivativesMatchClosedForm) {
 
   auto d_cosh = diff(cosh(x), x);
   EXPECT_NEAR(ev.apply(d_cosh), std::sinh(0.5), 1e-12);
+
+  // #180 lock-in: tanh' = sech²(x) = 1/cosh²(x). The earlier
+  // sinh(e)/cosh(e) form threw "duplicate child insertion" here; the
+  // exp(2x)-based reformulation makes diff() finite-fan-out.
+  auto d_tanh = diff(tanh(x), x);
+  EXPECT_NEAR(ev.apply(d_tanh), 1.0 / (std::cosh(0.5) * std::cosh(0.5)), 1e-12);
 }
 
 } // namespace numsim::cas
