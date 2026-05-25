@@ -1,5 +1,5 @@
-#ifndef TENSOR_DATA_BASIS_CHANGE_H
-#define TENSOR_DATA_BASIS_CHANGE_H
+#ifndef TENSOR_DATA_PERMUTE_INDICES_H
+#define TENSOR_DATA_PERMUTE_INDICES_H
 
 #include "tensor_data.h"
 #include <numsim_cas/core/cas_error.h>
@@ -7,20 +7,20 @@
 namespace numsim::cas {
 
 template <typename ValueType>
-class tensor_data_basis_change final
-    : public tensor_data_eval_up_unary<tensor_data_basis_change<ValueType>,
+class tensor_data_permute_indices final
+    : public tensor_data_eval_up_unary<tensor_data_permute_indices<ValueType>,
                                        ValueType> {
 public:
-  tensor_data_basis_change(tensor_data_base<ValueType> &lhs,
+  tensor_data_permute_indices(tensor_data_base<ValueType> &lhs,
                            tensor_data_base<ValueType> const &rhs,
                            std::vector<std::size_t> const &indices)
       : m_lhs(lhs), m_rhs(rhs), m_indices(indices) {}
 
-  tensor_data_basis_change(tensor_data_basis_change const &) = delete;
-  tensor_data_basis_change(tensor_data_basis_change &&) = delete;
-  ~tensor_data_basis_change() = default;
-  const tensor_data_basis_change &
-  operator=(tensor_data_basis_change const &) = delete;
+  tensor_data_permute_indices(tensor_data_permute_indices const &) = delete;
+  tensor_data_permute_indices(tensor_data_permute_indices &&) = delete;
+  ~tensor_data_permute_indices() = default;
+  const tensor_data_permute_indices &
+  operator=(tensor_data_permute_indices const &) = delete;
 
   template <std::size_t Dim, std::size_t Rank>
   inline void evaluate_imp() noexcept {
@@ -37,12 +37,12 @@ public:
 
   inline void mismatch(std::size_t dim, std::size_t rank) {
     if (dim > this->MaxDim_ || dim == 0) {
-      throw evaluation_error("tensor_data_basis_change::evaluate(dim, rank) "
+      throw evaluation_error("tensor_data_permute_indices::evaluate(dim, rank) "
                              "dim > MaxDim || dim == 0");
     }
     if (rank > this->MaxRank_ || rank == 0) {
       throw evaluation_error(
-          "tensor_data_basis_change::evaluate(dim, rank) rank "
+          "tensor_data_permute_indices::evaluate(dim, rank) rank "
           "> MaxRank || rank == 0");
     }
   }
@@ -62,4 +62,4 @@ private:
 
 } // namespace numsim::cas
 
-#endif // TENSOR_DATA_BASIS_CHANGE_H
+#endif // TENSOR_DATA_PERMUTE_INDICES_H
