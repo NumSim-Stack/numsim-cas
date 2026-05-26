@@ -280,6 +280,22 @@ NUMSIM_DEFINE_LATEX_MINMAX(scalar_min, "min")
 
 #undef NUMSIM_DEFINE_LATEX_MINMAX
 
+// ─── if_then_else (#135) ───────────────────────────────────────────
+// Typeset as a Iverson-bracket-style ternary: `\left\{ then : cond,
+// else : \text{otherwise} \right\}`. Compact and unambiguous in
+// math contexts; LaTeX's array environment would be heavier and
+// often misformat inside inline math.
+template <typename Stream>
+void scalar_latex_printer<Stream>::operator()(scalar_if_then_else const &v) {
+  this->m_out << "\\operatorname{if\\_then\\_else}\\!\\left(";
+  apply(v.expr_cond());
+  this->m_out << ", ";
+  apply(v.expr_then());
+  this->m_out << ", ";
+  apply(v.expr_else());
+  this->m_out << "\\right)";
+}
+
 template class scalar_latex_printer<std::ostream>;
 template class scalar_latex_printer<std::stringstream>;
 

@@ -422,6 +422,17 @@ void scalar_assumption_propagator::operator()(scalar_min const &v) {
   propagate_min_signs(cl, cr, m_result);
 }
 
+// if_then_else (#135). Recurse through all three subexpressions to
+// populate the inference cache. Result range is the union of the
+// then- and else-branch ranges, but without interval-union
+// machinery we report unknown (the safe default).
+void scalar_assumption_propagator::operator()(scalar_if_then_else const &v) {
+  apply(v.expr_cond());
+  apply(v.expr_then());
+  apply(v.expr_else());
+  m_result = numeric_assumption_manager{};
+}
+
 // ─── Convenience function ──────────────────────────────────────────
 
 numeric_assumption_manager
@@ -741,6 +752,19 @@ public:
     auto const &cr = ensure_assumptions(v.expr_rhs());
     m_result = {};
     propagate_min_signs(cl, cr, m_result);
+  }
+
+  // ─── if_then_else (#135) ─────────────────────────────────────────
+  // The result is real iff both branches are real. The condition
+  // assumptions don't propagate (they describe a 0/1 indicator,
+  // not the selected value).
+  void operator()(scalar_if_then_else const &v) override {
+    ensure_assumptions(v.expr_cond());
+    auto const &ct = ensure_assumptions(v.expr_then());
+    auto const &ce = ensure_assumptions(v.expr_else());
+    m_result = {};
+    if (ct.contains(real_tag{}) && ce.contains(real_tag{}))
+      m_result.insert(real_tag{});
   }
 
 private:

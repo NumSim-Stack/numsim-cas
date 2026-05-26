@@ -90,6 +90,13 @@ public:
   void operator()(scalar_max const &v) override { check_binary(v); }
   void operator()(scalar_min const &v) override { check_binary(v); }
 
+  // ─── if_then_else (#135) ─────────────────────────────────────────
+  void operator()(scalar_if_then_else const &v) override {
+    check(v.expr_cond());
+    check(v.expr_then());
+    check(v.expr_else());
+  }
+
 private:
   void check(expr_holder_t const &expr) {
     if (m_found)
