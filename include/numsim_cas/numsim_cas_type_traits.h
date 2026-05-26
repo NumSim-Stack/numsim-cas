@@ -37,6 +37,8 @@ struct visitor_output {};
 struct visitor_evaluate {};
 struct visitor_derivative {};
 
+template <typename Derived, typename Base> class expression_crtp;
+
 struct scalar_expr_less {
   template <typename Expr>
   bool operator()(expression_holder<Expr> const &a,
@@ -120,6 +122,7 @@ class tensor_norm;
 class tensor_to_scalar_negative;
 class tensor_to_scalar_add;
 class tensor_to_scalar_mul;
+class tensor_to_scalar_div;
 class tensor_to_scalar_pow;
 class tensor_inner_product_to_scalar;
 class tensor_to_scalar_zero;
