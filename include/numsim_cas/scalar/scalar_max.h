@@ -25,6 +25,15 @@ namespace numsim::cas {
  * Differentiation uses the sub-gradient at the boundary `a == b`. Will be
  * upgraded to `if_then_else(a > b, da/dx, db/dx)` once #135 lands.
  *
+ * ## Note: `using namespace` clash with `std::max`
+ *
+ * The free `numsim::cas::max(...)` factory is ADL-found for any expression
+ * argument. Inside test or user code that also has `std::max` in scope
+ * (via `<algorithm>`), an unqualified `max(x, y)` may produce an ambiguous
+ * overload error when either operand is a literal numeric type. Either
+ * qualify (`numsim::cas::max(x, y)`) or pull the CAS overload in via a
+ * `using numsim::cas::max;` declaration inside the scope.
+ *
  * Closes part of #137.
  */
 class scalar_max final : public binary_op<scalar_node_base_t<scalar_max>> {

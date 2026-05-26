@@ -11,7 +11,9 @@ namespace numsim::cas {
  * @brief Two-argument minimum: `min(a, b)`.
  *
  * Symmetric counterpart to `scalar_max`. See `scalar_max.h` for the design
- * rationale (dedicated node vs. derivation from `if_then_else`).
+ * rationale (dedicated node vs. derivation from `if_then_else`) and for
+ * the `using namespace` clash note (the same ADL caveat applies here
+ * vs. `std::min`).
  *
  * Differentiation uses the sub-gradient at the boundary `a == b`. Will be
  * upgraded to `if_then_else(a < b, da/dx, db/dx)` once #135 lands.

@@ -352,18 +352,74 @@ void scalar_assumption_propagator::operator()(scalar_ne const &v) {
 
 // Min / max (#137). Recurse into both children to populate the inference
 // cache; the result range is bounded by the operand ranges in the obvious
-// way (max ≥ both, min ≤ both) but without inference machinery for
-// numeric_assumption_manager that intersects intervals, we just clear the
-// result to "unknown".
+// Sign-monotonicity propagation (review of #207):
+//
+//   max(a, b) ≥ max(lower(a), lower(b))   ⇒ either side ≥ 0 ⇒ max ≥ 0
+//   min(a, b) ≤ min(upper(a), upper(b))   ⇒ either side ≤ 0 ⇒ min ≤ 0
+//
+// In particular for max:
+//   - either operand positive       → max positive
+//   - either operand nonnegative    → max nonnegative
+//   - both operands nonpositive     → max nonpositive
+//   - both operands negative        → max negative
+// And symmetric facts for min. `real_tag` propagates when both operands
+// are real. Used by the Macauley-bracket downstream consumer (#138) so
+// that `max(x, 0) ≥ 0` and `min(x, 0) ≤ 0` aren't dropped.
+namespace {
+
+inline void propagate_max_signs(numeric_assumption_manager const &cl,
+                                numeric_assumption_manager const &cr,
+                                numeric_assumption_manager &out) {
+  if (cl.contains(real_tag{}) && cr.contains(real_tag{}))
+    out.insert(real_tag{});
+  if (cl.contains(positive{}) || cr.contains(positive{})) {
+    out.insert(positive{});
+    out.insert(nonnegative{});
+    out.insert(nonzero{});
+  } else if (cl.contains(nonnegative{}) || cr.contains(nonnegative{})) {
+    out.insert(nonnegative{});
+  } else if (cl.contains(negative{}) && cr.contains(negative{})) {
+    out.insert(negative{});
+    out.insert(nonpositive{});
+    out.insert(nonzero{});
+  } else if (cl.contains(nonpositive{}) && cr.contains(nonpositive{})) {
+    out.insert(nonpositive{});
+  }
+}
+
+inline void propagate_min_signs(numeric_assumption_manager const &cl,
+                                numeric_assumption_manager const &cr,
+                                numeric_assumption_manager &out) {
+  if (cl.contains(real_tag{}) && cr.contains(real_tag{}))
+    out.insert(real_tag{});
+  if (cl.contains(negative{}) || cr.contains(negative{})) {
+    out.insert(negative{});
+    out.insert(nonpositive{});
+    out.insert(nonzero{});
+  } else if (cl.contains(nonpositive{}) || cr.contains(nonpositive{})) {
+    out.insert(nonpositive{});
+  } else if (cl.contains(positive{}) && cr.contains(positive{})) {
+    out.insert(positive{});
+    out.insert(nonnegative{});
+    out.insert(nonzero{});
+  } else if (cl.contains(nonnegative{}) && cr.contains(nonnegative{})) {
+    out.insert(nonnegative{});
+  }
+}
+
+} // namespace
+
 void scalar_assumption_propagator::operator()(scalar_max const &v) {
-  apply(v.expr_lhs());
-  apply(v.expr_rhs());
+  auto const cl = apply(v.expr_lhs());
+  auto const cr = apply(v.expr_rhs());
   m_result = numeric_assumption_manager{};
+  propagate_max_signs(cl, cr, m_result);
 }
 void scalar_assumption_propagator::operator()(scalar_min const &v) {
-  apply(v.expr_lhs());
-  apply(v.expr_rhs());
+  auto const cl = apply(v.expr_lhs());
+  auto const cr = apply(v.expr_rhs());
   m_result = numeric_assumption_manager{};
+  propagate_min_signs(cl, cr, m_result);
 }
 
 // ─── Convenience function ──────────────────────────────────────────
@@ -674,22 +730,24 @@ public:
   // The result is real iff both operands are real (real numbers are
   // totally ordered, so min/max is well-defined). Conservatively
   // assume nothing beyond that.
-  void operator()(scalar_max const &v) override { handle_minmax(v); }
-  void operator()(scalar_min const &v) override { handle_minmax(v); }
+  void operator()(scalar_max const &v) override {
+    auto const &cl = ensure_assumptions(v.expr_lhs());
+    auto const &cr = ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    propagate_max_signs(cl, cr, m_result);
+  }
+  void operator()(scalar_min const &v) override {
+    auto const &cl = ensure_assumptions(v.expr_lhs());
+    auto const &cr = ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    propagate_min_signs(cl, cr, m_result);
+  }
 
 private:
   template <typename BinaryNode> void handle_comparison(BinaryNode const &v) {
     ensure_assumptions(v.expr_lhs());
     ensure_assumptions(v.expr_rhs());
     set_indicator_assumptions(m_result);
-  }
-
-  template <typename BinaryNode> void handle_minmax(BinaryNode const &v) {
-    auto const &cl = ensure_assumptions(v.expr_lhs());
-    auto const &cr = ensure_assumptions(v.expr_rhs());
-    m_result = {};
-    if (cl.contains(real_tag{}) && cr.contains(real_tag{}))
-      m_result.insert(real_tag{});
   }
 
   numeric_assumption_manager m_result;
