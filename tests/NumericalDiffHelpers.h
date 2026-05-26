@@ -15,6 +15,25 @@
 // magnitude threshold for stiff-region skipping is intentionally
 // dropped — curated tests should only pick non-stiff evaluation
 // points to begin with.
+//
+// ## Boundary-region fragility (don't add tests that straddle junctions)
+//
+// Central difference samples f at `x0 ± h`. If the expression is
+// non-smooth at some point `xj` (e.g. `max(x, c)` has a kink at
+// `x = c`; `abs(x)` has one at 0; `if_then_else(gt(x, c), …)` has
+// one at `x = c`) and the chosen evaluation point sits within `h`
+// of `xj`, the numerical estimate averages both slopes while the
+// symbolic answer commits to one side — they will disagree. Concrete
+// failure mode: `EXPECT_DIFF_MATCHES(max(x, _1), x, 1.000005)` with
+// the default `h = 1e-5` straddles the junction and produces
+// `num ≈ 0.5` vs `sym = 1` (or 0, depending on float rounding).
+//
+// Rule of thumb when adding tests: `|x0 - <any junction>| > h`.
+// For the default `h = 1e-5` that means stay at least 1e-4 away from
+// every kink (a 10× safety margin). The non-smooth operators with
+// kinks worth keeping in mind: `abs(x)` at 0, `max(x, c)`/`min(x, c)`
+// at `x = c`, `macauley_plus`/`macauley_minus` at 0, and any
+// `if_then_else(cond(x), …)` at `cond(x) = 0`.
 
 #include "cas_test_helpers.h"
 
@@ -29,7 +48,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <sstream>
+#include <utility>
 
 namespace numsim::cas::numerical_diff_test {
 
@@ -118,7 +139,59 @@ check_symbolic_diff_matches(scalar_expr const &expr, scalar_expr const &var,
   return ::testing::AssertionFailure() << oss.str();
 }
 
-// 5-point variant for stiff-but-smooth cases.
+// Multi-variable variant: differentiate w.r.t. `var` after binding any
+// number of other variables to fixed values via `env`. Use when the
+// expression depends on more than just the differentiation variable
+// — e.g. `if_then_else(gt(y, 0), sin(x), cos(x))` differentiated
+// w.r.t. x while y is held at 1.7 (sets the condition to true).
+//
+// The single-variable EXPECT_DIFF_MATCHES creates a fresh evaluator
+// per call; here we set up one evaluator with the environment and
+// reuse it for the three FD points + the symbolic evaluation.
+inline ::testing::AssertionResult check_symbolic_diff_matches_with_env(
+    scalar_expr const &expr, std::map<scalar_expr, double> const &env,
+    scalar_expr const &var, double x0, double abs_tol = 1e-6,
+    double rel_tol = 1e-4, double h = 1e-5) {
+  auto d = diff(expr, var);
+  if (!d.is_valid()) {
+    return ::testing::AssertionFailure()
+           << "diff(expr, var) returned an invalid expression";
+  }
+  scalar_evaluator<double> ev;
+  for (auto const &[k, v] : env) {
+    ev.set(k, v);
+  }
+  ev.set(var, x0 + h);
+  double f_plus = ev.apply(expr);
+  ev.set(var, x0 - h);
+  double f_minus = ev.apply(expr);
+  ev.set(var, x0);
+  double sym = ev.apply(d);
+  double num = (f_plus - f_minus) / (2.0 * h);
+  if (!std::isfinite(sym) || !std::isfinite(num)) {
+    return ::testing::AssertionFailure()
+           << "non-finite value at " << var << " = " << x0
+           << "\n  symbolic   = " << sym << "\n  numerical  = " << num;
+  }
+  double err = std::abs(sym - num);
+  double mag = std::max(std::abs(sym), std::abs(num));
+  if (err <= abs_tol || err <= rel_tol * mag) {
+    return ::testing::AssertionSuccess();
+  }
+  std::ostringstream oss;
+  oss << "symbolic vs numerical mismatch at " << var << " = " << x0
+      << "\n  symbolic   = " << sym << "\n  numerical  = " << num
+      << "\n  abs error  = " << err << "\n  rel error  = "
+      << (mag > 0 ? err / mag : std::numeric_limits<double>::infinity())
+      << "\n  symbolic d/dx = " << d;
+  return ::testing::AssertionFailure() << oss.str();
+}
+
+// 5-point variant for stiff-but-smooth cases. Strictly more
+// accurate than 2-point central diff but pays in two extra eval
+// calls per check — reach for it only when 2-point's O(h^2)
+// truncation actually eats the tolerance budget (e.g. inverse
+// trig within ~5% of a domain edge).
 inline ::testing::AssertionResult
 check_symbolic_diff_matches_5pt(scalar_expr const &expr, scalar_expr const &var,
                                 double x0, double abs_tol = 1e-6,
@@ -157,6 +230,15 @@ check_symbolic_diff_matches_5pt(scalar_expr const &expr, scalar_expr const &var,
 #define EXPECT_DIFF_MATCHES(expr, var, x0)                                     \
   EXPECT_TRUE(::numsim::cas::numerical_diff_test::check_symbolic_diff_matches( \
       (expr), (var), (x0)))
+
+// EXPECT_DIFF_MATCHES_WITH_ENV(expr, env, var, x0)
+//   Multi-variable form: `env` is `{ {other_var, value}, ... }`.
+//   Used when the expression depends on more than just `var` —
+//   bind the others first, then differentiate w.r.t. `var` at x0.
+#define EXPECT_DIFF_MATCHES_WITH_ENV(expr, env, var, x0)                       \
+  EXPECT_TRUE(                                                                 \
+      ::numsim::cas::numerical_diff_test::                                     \
+          check_symbolic_diff_matches_with_env((expr), (env), (var), (x0)))
 
 // EXPECT_DIFF_MATCHES_5PT(expr, var, x0)
 //   Same contract, 5-point central difference — for stiff-but-smooth
