@@ -25,9 +25,9 @@
 #include <numsim_cas/scalar/scalar_le.h>
 #include <numsim_cas/scalar/scalar_log.h>
 #include <numsim_cas/scalar/scalar_lt.h>
+#include <numsim_cas/scalar/scalar_make_constant.h>
 #include <numsim_cas/scalar/scalar_max.h>
 #include <numsim_cas/scalar/scalar_min.h>
-#include <numsim_cas/scalar/scalar_make_constant.h>
 #include <numsim_cas/scalar/scalar_ne.h>
 #include <numsim_cas/scalar/scalar_negative.h>
 #include <numsim_cas/scalar/scalar_one.h>
@@ -498,7 +498,8 @@ template <scalar_expr_holder L, scalar_expr_holder R>
   if (lhs.get().hash_value() > rhs.get().hash_value())
     return make_expression<scalar_max>(std::forward<R>(rhs),
                                        std::forward<L>(lhs));
-  return make_expression<scalar_max>(std::forward<L>(lhs), std::forward<R>(rhs));
+  return make_expression<scalar_max>(std::forward<L>(lhs),
+                                     std::forward<R>(rhs));
 }
 
 template <scalar_expr_holder L, scalar_expr_holder R>
@@ -520,7 +521,8 @@ template <scalar_expr_holder L, scalar_expr_holder R>
   if (lhs.get().hash_value() > rhs.get().hash_value())
     return make_expression<scalar_min>(std::forward<R>(rhs),
                                        std::forward<L>(lhs));
-  return make_expression<scalar_min>(std::forward<L>(lhs), std::forward<R>(rhs));
+  return make_expression<scalar_min>(std::forward<L>(lhs),
+                                     std::forward<R>(rhs));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto log10(E &&e) {
