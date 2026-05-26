@@ -232,17 +232,64 @@ TEST_F(NumericalDiffFixture, SmoothedMacauleySmoothEverywhere) {
 }
 
 // ─── Recently-landed operators: if_then_else ───────────────────────
-// d/dx if_then_else(C, A, B) where C is constant (doesn't depend on
-// x) is if_then_else(C, dA, dB). Use a comparison that doesn't
-// involve x so the condition acts as a static branch selector.
-TEST_F(NumericalDiffFixture, IfThenElseSmoothBranchesConstantCond) {
-  // Compares two constants — C is a numeric 1.0 indicator regardless
-  // of x. d/dx of the picked branch is what matters.
-  auto cond = gt(_2, _1); // always true → returns sin(x)
-  auto e = if_then_else(cond, sin(x), cos(x));
+// A condition built from two literal constants folds at construction
+// (`gt(_2, _1) → 1`, then `if_then_else(1, then, else) → then`),
+// so the if_then_else node never reaches the differentiator. Lock
+// in that the folded expression still differentiates correctly —
+// regression coverage for the cond-fold path interaction with diff.
+TEST_F(NumericalDiffFixture, IfThenElseConstantCondFoldsAtConstruction) {
+  auto cond = gt(_2, _1);                      // folds to scalar_one
+  auto e = if_then_else(cond, sin(x), cos(x)); // folds to sin(x)
+  // Sanity: the construction-time fold should have collapsed the
+  // outer node. The result must NOT still be an if_then_else.
+  EXPECT_FALSE(::numsim::cas::is_same<scalar_if_then_else>(e))
+      << "construction-time fold for constant cond did not fire";
   EXPECT_DIFF_MATCHES(e, x, 0.0);
   EXPECT_DIFF_MATCHES(e, x, 0.7);
   EXPECT_DIFF_MATCHES(e, x, -1.4);
+}
+
+// True symbolic-cond test: condition depends on another variable
+// (y) that is held constant during differentiation w.r.t. x. The
+// if_then_else node survives construction (cond is non-constant)
+// so diff really exercises the if_then_else differentiation rule.
+TEST_F(NumericalDiffFixture, IfThenElseSymbolicCondPreservesNode) {
+  auto cond = gt(y, _zero); // y is symbolic — does not fold
+  auto e = if_then_else(cond, sin(x), cos(x));
+  EXPECT_TRUE(::numsim::cas::is_same<scalar_if_then_else>(e))
+      << "non-constant cond should keep if_then_else node alive";
+
+  // Bind y to a strictly positive value and check that d/dx
+  // matches cos(x) (the "then" branch). Use the manual setup
+  // because the EXPECT_DIFF_MATCHES macro only binds one var.
+  auto dx_expr = ::numsim::cas::diff(e, x);
+  scalar_evaluator<double> ev;
+  ev.set(y, 1.7); // cond true → e behaves as sin(x)
+  for (double x0 : {0.0, 0.7, -1.4}) {
+    ev.set(x, x0 + 1e-5);
+    double f_plus = ev.apply(e);
+    ev.set(x, x0 - 1e-5);
+    double f_minus = ev.apply(e);
+    ev.set(x, x0);
+    double sym = ev.apply(dx_expr);
+    double num = (f_plus - f_minus) / 2e-5;
+    EXPECT_NEAR(sym, num, 1e-5)
+        << "y=1.7 (cond true) at x=" << x0 << ": sym=" << sym << " num=" << num;
+  }
+
+  // Bind y negative — cond false, e behaves as cos(x).
+  ev.set(y, -1.7);
+  for (double x0 : {0.0, 0.7, -1.4}) {
+    ev.set(x, x0 + 1e-5);
+    double f_plus = ev.apply(e);
+    ev.set(x, x0 - 1e-5);
+    double f_minus = ev.apply(e);
+    ev.set(x, x0);
+    double sym = ev.apply(dx_expr);
+    double num = (f_plus - f_minus) / 2e-5;
+    EXPECT_NEAR(sym, num, 1e-5) << "y=-1.7 (cond false) at x=" << x0
+                                << ": sym=" << sym << " num=" << num;
+  }
 }
 
 // When the condition depends on x but we evaluate strictly on one
