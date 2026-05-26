@@ -45,8 +45,8 @@ protected:
 
     _Zero = tensor_t{
         numsim::cas::make_expression<numsim::cas::tensor_zero>(Dim, 2)};
-    _One = tensor_t{numsim::cas::make_expression<numsim::cas::identity_tensor>(
-        Dim, std::size_t{2})};
+    _One = tensor_t{
+        numsim::cas::make_expression<numsim::cas::kronecker_delta>(Dim)};
   }
 
   tensor_t X, Y, Z;

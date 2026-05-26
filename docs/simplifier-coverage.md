@@ -93,7 +93,7 @@ expressions (e.g. mul × mul, symbol × mul) goes through the base dispatcher's
 |---|---|---|
 | Add | `add_default<Derived>`, `n_ary_add`, `symbol_add`, **`tensor_scalar_mul_add`**, `add_negative` | **Does not inherit generic.** Hand-written because `tensor_traits::mul_type` is `void` (no n-ary scalar multiplication node in this domain — see [`tensor_domain_traits.h`](../include/numsim_cas/tensor/tensor_domain_traits.h)). `tensor_scalar_mul_add` is domain-specific. |
 | Sub | `sub_default<Derived>`, `negative_sub`, `n_ary_sub`, `symbol_sub` | Same architectural note as add. |
-| Mul | `mul_default<Derived>`, `tensor_pow_mul`, `identity_tensor_mul`, `symbol_mul`, `n_ary_mul` | Hand-written. `identity_tensor_mul` handles index contraction; `symbol_mul`: `x·x → pow(x,2)`. |
+| Mul | `mul_default<Derived>`, `tensor_pow_mul`, `kronecker_delta_mul`, `symbol_mul`, `n_ary_mul` | Hand-written. `kronecker_delta_mul` handles index contraction; `symbol_mul`: `x·x → pow(x,2)`. |
 | Pow | **— absent —** | No `tensor_simplifier_pow.h` file. Rules like `pow(pow(A,m), n) → pow(A, m·n)` and `pow(inv(A), n)` have no construction-time handling. → tracked separately. |
 
 Additional domain-specific simplifiers (not in the dispatcher hierarchy):

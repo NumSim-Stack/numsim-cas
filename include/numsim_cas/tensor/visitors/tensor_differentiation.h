@@ -6,7 +6,7 @@
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/core/operators.h>
-#include <numsim_cas/tensor/identity_tensor.h>
+#include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/projection_tensor.h>
 #include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/tensor_expression.h>
@@ -43,7 +43,7 @@ public:
   explicit tensor_differentiation(tensor_holder_t const &arg) : m_arg(arg) {
     m_dim = arg.get().dim();
     m_rank_arg = arg.get().rank();
-    m_I = make_expression<identity_tensor>(m_dim, std::size_t{2});
+    m_I = make_expression<kronecker_delta>(m_dim);
   }
 
   tensor_differentiation(tensor_differentiation const &) = delete;
@@ -99,6 +99,10 @@ public:
 
   void operator()(tensor_zero const &) override {
     // derivative of zero is zero (handled by apply returning zero)
+  }
+
+  void operator()(kronecker_delta const &) override {
+    // constant -> zero
   }
 
   void operator()(identity_tensor const &) override {

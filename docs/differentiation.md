@@ -28,8 +28,8 @@ automatically.
 
 | Symbol | Meaning |
 |--------|---------|
-| $\delta_{ij}$ | Kronecker delta — the rank-2 form of `identity_tensor` (prints as `I`) |
-| $\mathbb{I}_{ijkl}$ | Fourth-order minor identity — rank-4 form of `identity_tensor` (prints as `I{4}`); see [Identity Tensor](tensor.md#identity-tensor) for the minor- vs outer-product-identity distinction |
+| $\delta_{ij}$ | Kronecker delta (`kronecker_delta`, rank 2) |
+| $\mathbb{I}_{ijkl}$ | Fourth-order identity tensor (`identity_tensor`, rank 4) |
 | $\mathbf{0}$ | Zero tensor (`tensor_zero`, any rank) |
 
 ### Return type and rank rules
@@ -135,7 +135,7 @@ tensor_differentiation.cpp        tensor_to_scalar_differentiation.cpp
 
 ## Tensor Differentiation Rules
 
-The `tensor_differentiation` visitor handles all **19 node types** in the
+The `tensor_differentiation` visitor handles all **20 node types** in the
 tensor node list.  Simple rules are defined inline in the header; complex or
 cross-domain rules are defined in the `.cpp` file.
 
@@ -145,7 +145,8 @@ cross-domain rules are defined in the `.cpp` file.
 |------|------|----------|
 | `tensor` (symbol) | $\dfrac{\partial \mathbf{X}}{\partial \mathbf{X}} = \mathbb{I}$, &ensp; $\dfrac{\partial \mathbf{Y}}{\partial \mathbf{X}} = \mathbf{0}$ | `.h` |
 | `tensor_zero` | $\mathbf{0}$ | `.h` |
-| `identity_tensor` | $\mathbf{0}$ (constant, any rank) | `.h` |
+| `kronecker_delta` | $\mathbf{0}$ (constant) | `.h` |
+| `identity_tensor` | $\mathbf{0}$ (constant) | `.h` |
 | `tensor_projector` | $\mathbf{0}$ (constant) | `.h` |
 
 Variable matching is performed by comparing hash values:
@@ -524,7 +525,7 @@ public:
 ```
 
 **Constructor** stores the differentiation variable and caches its dimension,
-rank, and a rank-2 `identity_tensor` (the Kronecker delta $\boldsymbol{\delta}$).
+rank, and a Kronecker delta $\boldsymbol{\delta}$.
 
 **`apply()`** resets internal state, dispatches to the appropriate
 `operator()` via `accept(*this)`, and returns the result (or `tensor_zero` if
@@ -585,9 +586,9 @@ auto d3 = diff(X + Y, X);
 
 auto trY = trace(Y);
 auto d = diff(trY, Y);
-// d is identity_tensor (rank 2; prints as "I")
+// d is kronecker_delta (I)
 
-auto I = make_expression<identity_tensor>(3, 2);
+auto I = make_expression<kronecker_delta>(3);
 assert(to_string(d) == to_string(I));
 ```
 
@@ -626,7 +627,7 @@ assert(to_string(d) == to_string(2 * Y));
 |------|---------|
 | `core/diff.h` | `diff_fn` CPO definition |
 | `tensor/tensor_diff.h` | `tag_invoke` for `diff(tensor, tensor)` |
-| `tensor/visitors/tensor_differentiation.h` | Visitor class (19 node handlers) |
+| `tensor/visitors/tensor_differentiation.h` | Visitor class (20 node handlers) |
 | `tensor_to_scalar/tensor_to_scalar_diff.h` | `tag_invoke` for `diff(t2s, tensor)` |
 | `tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h` | Visitor class (13 node handlers) |
 
@@ -648,7 +649,7 @@ assert(to_string(d) == to_string(2 * Y));
 
 ## Node Coverage Matrix
 
-### Tensor nodes (19/19)
+### Tensor nodes (20/20)
 
 | # | Node | Rule | Impl |
 |---|------|------|------|
@@ -661,16 +662,17 @@ assert(to_string(d) == to_string(2 * Y));
 | 7 | `inner_product_wrapper` | product rule + index shift | `.cpp` |
 | 8 | `permute_indices_wrapper` | extended permutation | `.cpp` |
 | 9 | `outer_product_wrapper` | product rule (outer) | `.cpp` |
-| 10 | `simple_outer_product` | product rule (outer, n-ary) | `.cpp` |
-| 11 | `tensor_symmetry` | symmetrised derivative | `.h` |
-| 12 | `tensor_deviatoric` | deviatoric projection | `.h` |
-| 13 | `tensor_volumetric` | volumetric projection | `.h` |
-| 14 | `tensor_inv` | $-\mathbf{A}^{-1}\,d\mathbf{A}\,\mathbf{A}^{-1}$ | `.cpp` |
-| 15 | `tensor_zero` | $\mathbf{0}$ | `.h` |
-| 16 | `tensor_projector` | $\mathbf{0}$ | `.h` |
-| 17 | `identity_tensor` | $\mathbf{0}$ | `.h` |
-| 18 | `tensor_scalar_mul` | $c \cdot \partial\mathbf{A}/\partial\mathbf{X}$ | `.h` |
-| 19 | `tensor_to_scalar_with_tensor_mul` | $f\,d\mathbf{A} + \mathbf{A}\otimes df$ | `.cpp` |
+| 10 | `kronecker_delta` | $\mathbf{0}$ | `.h` |
+| 11 | `simple_outer_product` | product rule (outer, n-ary) | `.cpp` |
+| 12 | `tensor_symmetry` | symmetrised derivative | `.h` |
+| 13 | `tensor_deviatoric` | deviatoric projection | `.h` |
+| 14 | `tensor_volumetric` | volumetric projection | `.h` |
+| 15 | `tensor_inv` | $-\mathbf{A}^{-1}\,d\mathbf{A}\,\mathbf{A}^{-1}$ | `.cpp` |
+| 16 | `tensor_zero` | $\mathbf{0}$ | `.h` |
+| 17 | `tensor_projector` | $\mathbf{0}$ | `.h` |
+| 18 | `identity_tensor` | $\mathbf{0}$ | `.h` |
+| 19 | `tensor_scalar_mul` | $c \cdot \partial\mathbf{A}/\partial\mathbf{X}$ | `.h` |
+| 20 | `tensor_to_scalar_with_tensor_mul` | $f\,d\mathbf{A} + \mathbf{A}\otimes df$ | `.cpp` |
 
 ### Tensor-to-scalar nodes (13/13)
 

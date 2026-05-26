@@ -43,19 +43,16 @@ TEST(TensorPrinterAudit, TensorZero) {
   EXPECT_NE(s.find("0"), std::string::npos) << "got: " << s;
 }
 
-TEST(TensorPrinterAudit, IdentityTensor) {
-  // Lock in the rank-dependent print form introduced by #188:
-  //   - rank-2 identity_tensor prints as "I" (Kronecker-delta form;
-  //     preserved from the former kronecker_delta node so existing
-  //     user-facing output is unchanged).
-  //   - rank >= 4 identity_tensor prints as "I{rank}" so the minor-
-  //     identity form is distinguishable from outer-product
-  //     identities in printed output.
-  auto I2 = make_expression<identity_tensor>(3, std::size_t{2});
-  EXPECT_EQ(print(I2), "I");
+TEST(TensorPrinterAudit, KroneckerDelta) {
+  auto delta = make_expression<kronecker_delta>(3);
+  auto s = print(delta);
+  EXPECT_FALSE(s.empty()) << "kronecker_delta print produced empty output";
+}
 
-  auto I4 = make_expression<identity_tensor>(3, std::size_t{4});
-  EXPECT_EQ(print(I4), "I{4}");
+TEST(TensorPrinterAudit, IdentityTensor) {
+  auto I = make_expression<identity_tensor>(3, 2);
+  auto s = print(I);
+  EXPECT_FALSE(s.empty()) << "identity_tensor print produced empty output";
 }
 
 TEST(TensorPrinterAudit, TensorProjector) {

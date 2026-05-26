@@ -91,7 +91,7 @@ TEST(TensorEval, EvalTensorZero) {
 
 TEST(TensorEval, EvalKroneckerDelta) {
   tensor_evaluator<double> ev;
-  auto delta = make_expression<identity_tensor>(3, std::size_t{2});
+  auto delta = make_expression<kronecker_delta>(3);
   auto result = ev.apply(delta);
   ASSERT_NE(result, nullptr);
   auto expected = tmech::eye<double, 3, 2>();

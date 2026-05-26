@@ -30,7 +30,7 @@ protected:
     nY = norm(Y);
     detY = det(Y);
 
-    I = make_expression<identity_tensor>(dim, std::size_t{2});
+    I = make_expression<kronecker_delta>(dim);
     Zero = make_expression<tensor_zero>(dim, rank);
   }
 

@@ -22,15 +22,7 @@ public:
   // expr * 0 --> 0
   expr_holder_t dispatch(tensor_zero const &) { return m_rhs; }
 
-  expr_holder_t dispatch(identity_tensor const &n) {
-    // Rank-2 identity is the multiplicative identity for tensor_mul
-    // (which is the rank-2 contraction): X · I = X. Higher-rank
-    // identity_tensors aren't the multiplicative identity for tensor_mul
-    // — fall through to the default.
-    if (n.rank() == 2)
-      return m_lhs;
-    return get_default();
-  }
+  expr_holder_t dispatch(kronecker_delta const &) { return m_lhs; }
 
   template <typename Expr> expr_holder_t dispatch(Expr const &) {
     return get_default();
@@ -85,23 +77,23 @@ private:
   tensor_pow const &m_lhs_node;
 };
 
-class identity_tensor_mul final : public mul_default<identity_tensor_mul> {
+class kronecker_delta_mul final : public mul_default<kronecker_delta_mul> {
 public:
   using expr_holder_t = expression_holder<tensor_expression>;
-  using base = mul_default<identity_tensor_mul>;
+  using base = mul_default<kronecker_delta_mul>;
   using base::dispatch;
   using base::get_default;
 
-  identity_tensor_mul(expr_holder_t lhs, expr_holder_t rhs);
+  kronecker_delta_mul(expr_holder_t lhs, expr_holder_t rhs);
 
-  // I_ij*expr_jkmnop.... --> expr_ikmnop....  (only valid at rank 2)
+  // I_ij*expr_jkmnop.... --> expr_ikmnop....
   template <typename Expr>
   expr_holder_t dispatch([[maybe_unused]] Expr const &rhs);
 
 private:
   using base::m_lhs;
   using base::m_rhs;
-  identity_tensor const &m_lhs_node;
+  kronecker_delta const &m_lhs_node;
 };
 
 class symbol_mul final : public mul_default<symbol_mul> {
@@ -166,7 +158,7 @@ protected:
 
   expr_holder_t dispatch(tensor_pow const &);
 
-  expr_holder_t dispatch(identity_tensor const &);
+  expr_holder_t dispatch(kronecker_delta const &);
 
   expr_holder_t dispatch(tensor_mul const &);
 

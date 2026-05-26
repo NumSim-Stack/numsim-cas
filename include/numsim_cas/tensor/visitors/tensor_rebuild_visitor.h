@@ -36,6 +36,7 @@ public:
   // Leaf nodes: return as-is
   void operator()(tensor const &) override { m_result = m_current; }
   void operator()(tensor_zero const &) override { m_result = m_current; }
+  void operator()(kronecker_delta const &) override { m_result = m_current; }
   void operator()(identity_tensor const &) override { m_result = m_current; }
   void operator()(tensor_projector const &) override { m_result = m_current; }
 

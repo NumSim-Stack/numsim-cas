@@ -67,6 +67,8 @@ public:
     m_result = make_tensor_data<ValueType>(v.dim(), v.rank());
   }
 
+  void operator()(kronecker_delta const &v) override { eval_identity(v); }
+
   void operator()(identity_tensor const &v) override { eval_identity(v); }
 
   // ─── Arithmetic ──────────────────────────────────────────────

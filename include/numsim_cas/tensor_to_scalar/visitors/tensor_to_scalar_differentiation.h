@@ -3,7 +3,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/diff.h>
-#include <numsim_cas/tensor/identity_tensor.h>
+#include <numsim_cas/tensor/kronecker_delta.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
@@ -37,7 +37,7 @@ public:
       : m_arg(arg) {
     m_dim = arg.get().dim();
     m_rank_arg = arg.get().rank();
-    m_I = make_expression<identity_tensor>(m_dim, std::size_t{2});
+    m_I = make_expression<kronecker_delta>(m_dim);
   }
 
   tensor_to_scalar_differentiation(tensor_to_scalar_differentiation const &) =

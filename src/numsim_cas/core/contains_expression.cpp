@@ -124,6 +124,7 @@ public:
   void operator()(tensor const &) override {}
   void operator()(tensor_zero const &) override {}
   void operator()(identity_tensor const &) override {}
+  void operator()(kronecker_delta const &) override {}
   void operator()(tensor_projector const &) override {}
 
   void operator()(tensor_add const &v) override {
