@@ -26,6 +26,9 @@ namespace numsim::cas {
  * - `if_then_else(scalar_zero, a, b) → b`
  * - `if_then_else(scalar_one, a, b) → a`
  * - `if_then_else(scalar_constant{c}, a, b) → a if c != 0 else b`
+ *   (also fires for `scalar_negative(scalar_constant{c})` and any
+ *   expression that `try_extract_scalar_number` resolves to a numeric
+ *   value — the fold is a numeric check, not a structural one)
  * - `if_then_else(cond, a, a) → a` (then and else identical)
  *
  * Differentiation assumes the condition does not depend on the

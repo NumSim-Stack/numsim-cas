@@ -422,15 +422,36 @@ void scalar_assumption_propagator::operator()(scalar_min const &v) {
   propagate_min_signs(cl, cr, m_result);
 }
 
-// if_then_else (#135). Recurse through all three subexpressions to
-// populate the inference cache. Result range is the union of the
-// then- and else-branch ranges, but without interval-union
-// machinery we report unknown (the safe default).
+// if_then_else (#135). The result is either expr_then or expr_else,
+// so any assumption tag they BOTH carry is also carried by the
+// if_then_else as a whole — i.e. the intersection. We don't need
+// interval-union machinery for this; tag intersection is enough to
+// catch the common cases (both branches nonnegative ⇒ result
+// nonnegative, both real ⇒ real, etc.). #209 review.
+namespace {
+inline void
+propagate_if_then_else_intersection(numeric_assumption_manager const &ct,
+                                    numeric_assumption_manager const &ce,
+                                    numeric_assumption_manager &out) {
+  auto intersect = [&](auto tag) {
+    if (ct.contains(tag) && ce.contains(tag))
+      out.insert(tag);
+  };
+  intersect(positive{});
+  intersect(negative{});
+  intersect(nonzero{});
+  intersect(nonnegative{});
+  intersect(nonpositive{});
+  intersect(real_tag{});
+  intersect(integer{});
+}
+} // namespace
 void scalar_assumption_propagator::operator()(scalar_if_then_else const &v) {
   apply(v.expr_cond());
-  apply(v.expr_then());
-  apply(v.expr_else());
+  auto const ct = apply(v.expr_then());
+  auto const ce = apply(v.expr_else());
   m_result = numeric_assumption_manager{};
+  propagate_if_then_else_intersection(ct, ce, m_result);
 }
 
 // ─── Convenience function ──────────────────────────────────────────
@@ -763,8 +784,7 @@ public:
     auto const &ct = ensure_assumptions(v.expr_then());
     auto const &ce = ensure_assumptions(v.expr_else());
     m_result = {};
-    if (ct.contains(real_tag{}) && ce.contains(real_tag{}))
-      m_result.insert(real_tag{});
+    propagate_if_then_else_intersection(ct, ce, m_result);
   }
 
 private:

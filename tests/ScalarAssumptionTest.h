@@ -327,4 +327,50 @@ TEST_F(AssumptionFixture, InferMacauleyMinusIsNonnegative) {
   EXPECT_TRUE(numsim::cas::is_nonnegative(e));
 }
 
+// ─── if_then_else branch-intersection assumptions (#209 review) ──────
+//
+// if_then_else(cond, A, B) returns either A or B, so any assumption
+// tag they BOTH carry holds for the result. Concretely: both branches
+// nonnegative ⇒ result nonnegative; both real ⇒ real; etc.
+
+TEST_F(AssumptionFixture, InferIfThenElseBothNonnegResultNonneg) {
+  numsim::cas::assume(x, numsim::cas::nonnegative{});
+  numsim::cas::assume(y, numsim::cas::nonnegative{});
+  auto e = numsim::cas::if_then_else(z, x, y);
+  EXPECT_TRUE(numsim::cas::is_nonnegative(e));
+}
+
+TEST_F(AssumptionFixture, InferIfThenElseBothPositiveResultPositive) {
+  numsim::cas::assume(x, numsim::cas::positive{});
+  numsim::cas::assume(y, numsim::cas::positive{});
+  auto e = numsim::cas::if_then_else(z, x, y);
+  EXPECT_TRUE(numsim::cas::is_positive(e));
+  EXPECT_TRUE(numsim::cas::is_nonzero(e));
+}
+
+TEST_F(AssumptionFixture, InferIfThenElseBothNegativeResultNegative) {
+  numsim::cas::assume(x, numsim::cas::negative{});
+  numsim::cas::assume(y, numsim::cas::negative{});
+  auto e = numsim::cas::if_then_else(z, x, y);
+  EXPECT_TRUE(numsim::cas::is_negative(e));
+}
+
+TEST_F(AssumptionFixture, InferIfThenElseMixedBranchesDropsSign) {
+  // One positive, one negative — intersection is empty.
+  numsim::cas::assume(x, numsim::cas::positive{});
+  numsim::cas::assume(y, numsim::cas::negative{});
+  auto e = numsim::cas::if_then_else(z, x, y);
+  EXPECT_FALSE(numsim::cas::is_positive(e));
+  EXPECT_FALSE(numsim::cas::is_negative(e));
+}
+
+TEST_F(AssumptionFixture, InferMaxDiffResultIsNonnegative) {
+  // d/dx max(a, b) emits if_then_else(gt(a, b), 1, 0). Both branches
+  // (scalar_one, scalar_zero) are nonnegative, so the diff result
+  // should be inferable as nonnegative. Cross-validates that #209's
+  // intersection rule combines with #207's max-diff path.
+  auto e = numsim::cas::diff(numsim::cas::max(x, y), x);
+  EXPECT_TRUE(numsim::cas::is_nonnegative(e));
+}
+
 #endif // SCALARASSUMPTIONTEST_H
