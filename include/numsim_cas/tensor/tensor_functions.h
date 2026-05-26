@@ -386,15 +386,6 @@ template <tensor_expr_holder Expr>
     throw invalid_expression_error(
         "inv: only rank-2 tensors are supported (got rank " +
         std::to_string(expr.get().rank()) + ")");
-  // inv(α·A) = inv(A) / α. The scalar pulls out of the inverse as its
-  // reciprocal. Recurse so e.g. inv(α·inv(A)) folds via tensor_inv → A,
-  // not just one layer. (Placed after the rank gate so rank > 2 inputs
-  // produce the dedicated "rank not supported" error rather than
-  // recursing into a deeper inv call.) Closes #71.
-  if (is_same<tensor_scalar_mul>(expr)) {
-    auto const &sm = expr.template get<tensor_scalar_mul>();
-    return inv(sm.expr_rhs()) / sm.expr_lhs();
-  }
   // A skew-symmetric matrix in odd dimensions is singular (det = 0) by the
   // determinant theorem det(-A^T) = (-1)^n det(A). contains_skew_factor also
   // catches expressions that aren't themselves skew but contain a skew factor
