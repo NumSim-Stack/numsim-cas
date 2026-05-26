@@ -205,6 +205,18 @@ public:
     m_result = std::min(apply(v.expr_lhs()), apply(v.expr_rhs()));
   }
 
+  // ─── if_then_else (#135) ─────────────────────────────────────────
+  // Condition evaluates to a scalar; non-zero ⇒ take the `then` arm.
+  // Lazy evaluation: only apply the selected branch to avoid
+  // triggering symbolic errors in the non-taken arm (e.g. evaluating
+  // log(x) when x ≤ 0 in the wrong branch).
+  void operator()(scalar_if_then_else const &v) override {
+    if (apply(v.expr_cond()) != ValueType{0})
+      m_result = apply(v.expr_then());
+    else
+      m_result = apply(v.expr_else());
+  }
+
   template <class T> void operator()([[maybe_unused]] T const &) noexcept {
     static_assert(sizeof(T) == 0,
                   "scalar_evaluator: missing overload for this node type");

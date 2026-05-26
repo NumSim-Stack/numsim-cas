@@ -16,6 +16,7 @@
 #include "scalar_globals.h"
 #include "scalar_gt.h"
 #include "scalar_le.h"
+#include "scalar_if_then_else.h"
 #include "scalar_log.h"
 #include "scalar_lt.h"
 #include "scalar_max.h"
