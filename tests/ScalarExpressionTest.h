@@ -788,4 +788,115 @@ TEST_F(ScalarFixture, MaxDiffThrowsUntilIfThenElseLands) {
       numsim::cas::not_implemented_error);
 }
 
+// ---------------------------------------------------------------------------
+// #138 — Macauley bracket / ramp / Heaviside (composed from #137 + #136)
+// ---------------------------------------------------------------------------
+
+TEST_F(ScalarFixture, MacauleyPlusEvaluatorPositive) {
+  using numsim::cas::macauley_plus;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, 3.0);
+  EXPECT_DOUBLE_EQ(ev.apply(macauley_plus(x)), 3.0);
+}
+
+TEST_F(ScalarFixture, MacauleyPlusEvaluatorNegative) {
+  using numsim::cas::macauley_plus;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, -2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(macauley_plus(x)), 0.0);
+}
+
+TEST_F(ScalarFixture, MacauleyPlusEvaluatorAtZero) {
+  using numsim::cas::macauley_plus;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.0);
+  EXPECT_DOUBLE_EQ(ev.apply(macauley_plus(x)), 0.0);
+}
+
+TEST_F(ScalarFixture, MacauleyMinusEvaluatorPositive) {
+  // <3>- = 0  (positive operand has no negative part)
+  using numsim::cas::macauley_minus;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, 3.0);
+  EXPECT_DOUBLE_EQ(ev.apply(macauley_minus(x)), 0.0);
+}
+
+TEST_F(ScalarFixture, MacauleyMinusEvaluatorNegative) {
+  // <-2>- = 2  (magnitude of the negative part)
+  using numsim::cas::macauley_minus;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, -2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(macauley_minus(x)), 2.0);
+}
+
+TEST_F(ScalarFixture, MacauleyPlusIdempotent) {
+  // <<x>+>+ = <x>+. The positive part is non-negative by construction;
+  // applying the bracket again is a no-op. Listed in #138's
+  // construction-time simplifications acceptance criteria.
+  using numsim::cas::macauley_plus;
+  EXPECT_EQ(macauley_plus(macauley_plus(x)), macauley_plus(x));
+}
+
+TEST_F(ScalarFixture, MacauleyPlusOfNegatedFoldsToMacauleyMinus) {
+  // <-x>+ = -min(x, 0) = <x>-. The fold is detected via
+  // scalar_negative pattern matching in macauley_plus().
+  using numsim::cas::macauley_minus;
+  using numsim::cas::macauley_plus;
+  EXPECT_EQ(macauley_plus(-x), macauley_minus(x));
+  EXPECT_EQ(macauley_minus(-x), macauley_plus(x));
+}
+
+TEST_F(ScalarFixture, HeavisideEvaluatesAsRightContinuousStep) {
+  // Standard right-continuous Heaviside: H(0) = 1, H(eps>0) = 1,
+  // H(eps<0) = 0. Implemented via ge(e, 0) so it inherits the
+  // comparison node's exact-equality behaviour.
+  using numsim::cas::heaviside;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, -0.1);
+  EXPECT_DOUBLE_EQ(ev.apply(heaviside(x)), 0.0);
+  ev.set(x, 0.0);
+  EXPECT_DOUBLE_EQ(ev.apply(heaviside(x)), 1.0);
+  ev.set(x, 1.5);
+  EXPECT_DOUBLE_EQ(ev.apply(heaviside(x)), 1.0);
+}
+
+TEST_F(ScalarFixture, SmoothedMacauleyConvergesToMacauleyPlusAsEpsShrinks) {
+  // (x + sqrt(x² + ε²)) / 2 → max(x, 0) as ε → 0.
+  // At x = -1 the limit is 0; smoothed values are ε²/(4·|x|) to
+  // leading order. Lock in the limit-direction by checking a
+  // monotone sequence.
+  using numsim::cas::macauley_plus;
+  using numsim::cas::scalar_evaluator;
+  using numsim::cas::smoothed_macauley;
+  scalar_evaluator<double> ev;
+  ev.set(x, -1.0);
+  double prev = std::numeric_limits<double>::infinity();
+  for (double eps : {1.0, 0.1, 0.01, 0.001}) {
+    auto eps_const = numsim::cas::make_scalar_constant(eps);
+    double smooth = ev.apply(smoothed_macauley(x, eps_const));
+    EXPECT_GT(smooth, 0.0);             // smoothed always > non-smooth at x<0
+    EXPECT_LT(smooth, prev);            // monotone decrease as ε ↓
+    prev = smooth;
+  }
+  // Far below ε the smoothed value is essentially 0.
+  EXPECT_NEAR(prev, 0.0, 1e-5);
+}
+
+TEST_F(ScalarFixture, SmoothedMacauleyAtPositive) {
+  // At x = 1, ε small: smoothed ≈ 1 + ε²/4.
+  using numsim::cas::scalar_evaluator;
+  using numsim::cas::smoothed_macauley;
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  double smooth =
+      ev.apply(smoothed_macauley(x, numsim::cas::make_scalar_constant(0.01)));
+  EXPECT_NEAR(smooth, 1.0, 1e-3);
+}
+
 #endif // SCALAREXPRESSIONTEST_H
