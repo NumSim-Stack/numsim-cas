@@ -639,7 +639,8 @@ template <scalar_expr_holder E> [[nodiscard]] auto macauley_plus(E &&e) {
   // the bracket has no dedicated AST node.
   if (is_same<scalar_max>(e)) {
     auto const &m = e.template get<scalar_max>();
-    if (is_same<scalar_zero>(m.expr_lhs()) || is_same<scalar_zero>(m.expr_rhs()))
+    if (is_same<scalar_zero>(m.expr_lhs()) ||
+        is_same<scalar_zero>(m.expr_rhs()))
       return std::forward<E>(e);
   }
   return max(std::forward<E>(e), get_scalar_zero());
