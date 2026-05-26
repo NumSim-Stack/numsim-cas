@@ -95,7 +95,8 @@ public:
    * suffix is always shown because ε's rank is fixed by dim — so the
    * suffix uniquely identifies the symbol.
    */
-  void operator()([[maybe_unused]] levi_civita_tensor const &visitable) override {
+  void
+  operator()([[maybe_unused]] levi_civita_tensor const &visitable) override {
     m_out << "eps{" << visitable.dim() << "}";
   }
 
