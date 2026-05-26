@@ -260,35 +260,15 @@ TEST_F(NumericalDiffFixture, IfThenElseSymbolicCondPreservesNode) {
       << "non-constant cond should keep if_then_else node alive";
 
   // Bind y to a strictly positive value and check that d/dx
-  // matches cos(x) (the "then" branch). Use the manual setup
-  // because the EXPECT_DIFF_MATCHES macro only binds one var.
-  auto dx_expr = ::numsim::cas::diff(e, x);
-  scalar_evaluator<double> ev;
-  ev.set(y, 1.7); // cond true → e behaves as sin(x)
+  // matches d(sin(x))/dx (the "then" branch).
+  std::map<scalar_expr, double> env_true{{y, 1.7}};
   for (double x0 : {0.0, 0.7, -1.4}) {
-    ev.set(x, x0 + 1e-5);
-    double f_plus = ev.apply(e);
-    ev.set(x, x0 - 1e-5);
-    double f_minus = ev.apply(e);
-    ev.set(x, x0);
-    double sym = ev.apply(dx_expr);
-    double num = (f_plus - f_minus) / 2e-5;
-    EXPECT_NEAR(sym, num, 1e-5)
-        << "y=1.7 (cond true) at x=" << x0 << ": sym=" << sym << " num=" << num;
+    EXPECT_DIFF_MATCHES_WITH_ENV(e, env_true, x, x0);
   }
-
   // Bind y negative — cond false, e behaves as cos(x).
-  ev.set(y, -1.7);
+  std::map<scalar_expr, double> env_false{{y, -1.7}};
   for (double x0 : {0.0, 0.7, -1.4}) {
-    ev.set(x, x0 + 1e-5);
-    double f_plus = ev.apply(e);
-    ev.set(x, x0 - 1e-5);
-    double f_minus = ev.apply(e);
-    ev.set(x, x0);
-    double sym = ev.apply(dx_expr);
-    double num = (f_plus - f_minus) / 2e-5;
-    EXPECT_NEAR(sym, num, 1e-5) << "y=-1.7 (cond false) at x=" << x0
-                                << ": sym=" << sym << " num=" << num;
+    EXPECT_DIFF_MATCHES_WITH_ENV(e, env_false, x, x0);
   }
 }
 
@@ -324,28 +304,10 @@ TEST_F(NumericalDiffFixture, SmoothedRampTimesTrig) {
 // differentiation visitor.
 TEST_F(NumericalDiffFixture, MultiVariableSeparability) {
   auto e = sin(x) * exp(y) + x * x * y;
-  scalar_evaluator<double> ev;
-  ev.set(y, 1.3);
-  // d/dx at x=0.5, y=1.3
-  auto dx_expr = diff(e, x);
-  ev.set(x, 0.5 + 1e-5);
-  double fpx = ev.apply(e);
-  ev.set(x, 0.5 - 1e-5);
-  double fmx = ev.apply(e);
-  ev.set(x, 0.5);
-  double sym_dx = ev.apply(dx_expr);
-  double num_dx = (fpx - fmx) / 2e-5;
-  EXPECT_NEAR(sym_dx, num_dx, 1e-5);
-  // d/dy at x=0.5, y=1.3
-  auto dy_expr = diff(e, y);
-  ev.set(y, 1.3 + 1e-5);
-  double fpy = ev.apply(e);
-  ev.set(y, 1.3 - 1e-5);
-  double fmy = ev.apply(e);
-  ev.set(y, 1.3);
-  double sym_dy = ev.apply(dy_expr);
-  double num_dy = (fpy - fmy) / 2e-5;
-  EXPECT_NEAR(sym_dy, num_dy, 1e-5);
+  EXPECT_DIFF_MATCHES_WITH_ENV(e, (std::map<scalar_expr, double>{{y, 1.3}}), x,
+                               0.5);
+  EXPECT_DIFF_MATCHES_WITH_ENV(e, (std::map<scalar_expr, double>{{x, 0.5}}), y,
+                               1.3);
 }
 
 } // namespace numsim::cas::numerical_diff_test
