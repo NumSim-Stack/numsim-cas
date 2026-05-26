@@ -23,6 +23,7 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 - `numeric_less(scalar_number, scalar_number)` with `__int128`-based safe cross-multiplication for rational comparisons (long-double fallback on MSVC). Closes #142.
 - CONTRACT NOTE comments documenting the bilateral dependency between the t2s pow simplifier and the tensor ÷ t2s div operator (cross-referenced at both sites).
 - Lock-in tests for: cross-rank constant folding, commutative multiplication identity, deep-nesting collapse, zero-precedence in mul / div, pow-of-pow flattening, NaN / complex edge cases.
+- Curated numerical-diff golden tests (`tests/NumericalDiffTest.h`) with a reusable harness header (`tests/NumericalDiffHelpers.h`) providing `EXPECT_DIFF_MATCHES(expr, var, x0)` and a 5-point variant. Complements the random fuzz tests by giving deterministic, named per-operator coverage and explicit smooth-side checks for non-smooth operators (max, min, macauley, abs, if_then_else) that the fuzz tester intentionally skips. 30 new tests across polynomial / trig / inverse trig / exp / log / sqrt / pow / abs / max / min / macauley / smoothed-macauley / if_then_else / multi-variable separability. Closes #85.
 
 ### Changed
 
