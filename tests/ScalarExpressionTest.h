@@ -880,8 +880,8 @@ TEST_F(ScalarFixture, SmoothedMacauleyConvergesToMacauleyPlusAsEpsShrinks) {
   for (double eps : {1.0, 0.1, 0.01, 0.001}) {
     auto eps_const = numsim::cas::make_scalar_constant(eps);
     double smooth = ev.apply(smoothed_macauley(x, eps_const));
-    EXPECT_GT(smooth, 0.0);             // smoothed always > non-smooth at x<0
-    EXPECT_LT(smooth, prev);            // monotone decrease as ε ↓
+    EXPECT_GT(smooth, 0.0);  // smoothed always > non-smooth at x<0
+    EXPECT_LT(smooth, prev); // monotone decrease as ε ↓
     prev = smooth;
   }
   // Far below ε the smoothed value is essentially 0.
