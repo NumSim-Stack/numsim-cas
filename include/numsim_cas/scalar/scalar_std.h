@@ -649,8 +649,25 @@ template <scalar_expr_holder E> [[nodiscard]] auto macauley_plus(E &&e) {
 /**
  * @brief Macauley negative part: `<e>- = -min(e, 0)`.
  *
- * Symmetric to `macauley_plus`. Used for plastic dissipation rate,
+ * Symmetric to `macauley_plus` in role, but with an important asymmetry
+ * in idempotence (see below). Used for plastic dissipation rate,
  * negative-stress contributions, asymmetric damage.
+ *
+ * ## Idempotence asymmetry vs. `macauley_plus`
+ *
+ * `macauley_plus` folds `<<x>+>+ → <x>+` because the positive part is
+ * nonnegative and `<·>+` applied to a nonnegative argument is the
+ * identity. The negative part has *no* corresponding fold, because
+ * applying `<·>-` twice gives identically zero, NOT `<x>-`:
+ *
+ *     <x>-  = max(0, -x)    ≥ 0 for all x
+ *     <<x>->- = max(0, -<x>-) = max(0, nonpositive) = 0
+ *
+ * The evaluator handles this correctly (the inner `-min(x, 0)` ≥ 0,
+ * so the outer `min(·, 0) = 0`, and `-0 = 0`); we just don't emit a
+ * dedicated symbolic-form fold. Adding one would require either an
+ * assumption-aware `min(nonneg, 0) → 0` rule at construction time, or
+ * a dedicated `macauley_minus` AST node — both out of scope here.
  */
 template <scalar_expr_holder E> [[nodiscard]] auto macauley_minus(E &&e) {
   // <-x>- = -min(-x, 0) = max(x, 0) = <x>+.
@@ -667,10 +684,10 @@ template <scalar_expr_holder E> [[nodiscard]] auto macauley_minus(E &&e) {
  * the standard right-continuous step (H(0) = 1).
  *
  * The issue body originally suggested implementing this via
- * `if_then_else` (#135); using `ge` instead removes the #135
- * dependency and produces the same evaluation result. Once #135
- * lands, both routes simplify to indicator + comparison combinations
- * that the simplifier can collapse uniformly.
+ * `if_then_else` (#135). Using `ge` instead removes the #135
+ * dependency and produces the same evaluation result; a future
+ * simplifier rule could canonicalise both representations to the
+ * same comparison-indicator form, but no such rule exists today.
  */
 template <scalar_expr_holder E> [[nodiscard]] auto heaviside(E &&e) {
   return ge(std::forward<E>(e), get_scalar_zero());

@@ -306,4 +306,25 @@ TEST_F(AssumptionFixture, InferMinOfXAndZeroIsNonpositive) {
   EXPECT_TRUE(numsim::cas::is_nonpositive(e));
 }
 
+// ─── Macauley brackets sign-propagation (#208 review) ────────────────
+//
+// macauley_plus(x) = max(x, 0)   should infer nonnegative.
+// macauley_minus(x) = -min(x, 0) should infer nonnegative too (because
+// min(x, 0) is nonpositive, and -nonpositive = nonnegative). These
+// tests cross-validate that the #207 sign-monotonicity fix flows all
+// the way through the constitutive-modelling primitives — the user
+// shouldn't need to assume() these manually.
+
+TEST_F(AssumptionFixture, InferMacauleyPlusIsNonnegative) {
+  auto e = numsim::cas::macauley_plus(x);
+  EXPECT_TRUE(numsim::cas::is_nonnegative(e));
+}
+
+TEST_F(AssumptionFixture, InferMacauleyMinusIsNonnegative) {
+  // <x>- = -min(x, 0). min(x, 0) is nonpositive (one operand is 0),
+  // so the negation is nonnegative.
+  auto e = numsim::cas::macauley_minus(x);
+  EXPECT_TRUE(numsim::cas::is_nonnegative(e));
+}
+
 #endif // SCALARASSUMPTIONTEST_H
