@@ -58,6 +58,15 @@ public:
       m_out << font << "{I}^{(" << visitable.rank() << ")}";
   }
 
+  void
+  operator()([[maybe_unused]] levi_civita_tensor const &visitable) override {
+    auto font = m_config.font_for_rank(visitable.rank());
+    // Levi-Civita symbol is conventionally typeset as ε with the
+    // dimension annotated as a superscript. Always keep the dim
+    // marker since rank-2 ε in 2D is distinct from rank-3 ε in 3D.
+    m_out << font << "{\\varepsilon}^{(" << visitable.dim() << ")}";
+  }
+
   void operator()([[maybe_unused]] tensor_projector const &visitable) override {
     tensor_trace_print_visitor perm_trace_printer(visitable);
     auto label = perm_trace_printer.apply();

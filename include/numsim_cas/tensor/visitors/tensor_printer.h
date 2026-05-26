@@ -89,6 +89,17 @@ public:
   }
 
   /**
+   * @brief Prints the Levi-Civita symbol.
+   *
+   * Prints as `eps{N}` where N is the dimension (and rank). The dim
+   * suffix is always shown because ε's rank is fixed by dim — so the
+   * suffix uniquely identifies the symbol.
+   */
+  void operator()([[maybe_unused]] levi_civita_tensor const &visitable) override {
+    m_out << "eps{" << visitable.dim() << "}";
+  }
+
+  /**
    * @brief Prints a projection tensor.
    *
    * @param visitable The projection tensor to be printed.

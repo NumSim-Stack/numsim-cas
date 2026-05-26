@@ -22,6 +22,7 @@
   NEXT(tensor_zero)                                                            \
   NEXT(tensor_projector)                                                       \
   NEXT(identity_tensor)                                                        \
+  NEXT(levi_civita_tensor)                                                     \
   NEXT(tensor_scalar_mul)                                                      \
   NEXT(tensor_to_scalar_with_tensor_mul)
 

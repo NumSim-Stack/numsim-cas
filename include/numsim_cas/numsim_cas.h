@@ -37,6 +37,7 @@
 
 #include <numsim_cas/scalar/scalar_latex_io.h>
 #include <numsim_cas/tensor/identity_tensor.h>
+#include <numsim_cas/tensor/levi_civita_tensor.h>
 #include <numsim_cas/tensor/tensor_latex_io.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_latex_io.h>
 
