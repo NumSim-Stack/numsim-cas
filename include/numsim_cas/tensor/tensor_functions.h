@@ -307,10 +307,8 @@ template <tensor_expr_holder Expr>
   // resulting expression — silently wrong.
   if (indices.size() != expr.get().rank())
     throw invalid_expression_error(
-        "permute_indices: indices size (" +
-        std::to_string(indices.size()) +
-        ") must equal tensor rank (" +
-        std::to_string(expr.get().rank()) + ")");
+        "permute_indices: indices size (" + std::to_string(indices.size()) +
+        ") must equal tensor rank (" + std::to_string(expr.get().rank()) + ")");
   // For symmetric rank-2 tensors, any permutation of two indices is identity
   if (expr.get().rank() == 2) {
     if (auto const &sp = expr.get().space()) {
