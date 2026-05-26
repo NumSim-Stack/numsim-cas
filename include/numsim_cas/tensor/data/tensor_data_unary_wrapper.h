@@ -114,6 +114,110 @@ private:
   tensor_data_base<ValueType> &m_result;
 };
 
+// ─── Levi-Civita tensor creation via parity counting ─────────────────────────
+//
+// Populates a `tensor_data<ValueType, Dim, Dim>` with the permutation symbol
+// ε_{i₁…i_Dim}. Rank is always equal to Dim (the LC symbol's rank is its
+// dimension by definition).
+//
+// We compute components directly from permutation parity rather than going
+// through `tmech::levi_civita`. The reason: tmech's 3D `operator()` uses
+// the formula `(j-i)(k-j)(i-k)/2`, which evaluates to −1 for the identity
+// permutation (i,j,k)=(0,1,2) instead of the +1 required by the standard
+// sign convention (the one for which det(I) = ε_{ijk} I_{1i} I_{2j} I_{3k}
+// yields +1). The dim-2 and dim-4 tmech formulae are consistent with the
+// standard convention, but the dim-3 sign flip would silently break
+// downstream uses (cross product, determinant, curl). A direct parity
+// implementation is also no harder to read and is independent of any
+// future tmech changes.
+//
+// **Evaluation domain.** The framework's `tensor_data_eval_up_unary` is
+// instantiated at `MaxDim = 3` (see `numsim_cas_type_traits.h`), so
+// `evaluate(dim=4, rank=4)` triggers the `mismatch()` path. Construction
+// of `levi_civita_tensor(4)` is still allowed at the symbolic layer — the
+// dim-4 case is useful inside expressions that ultimately collapse before
+// numerical evaluation — but `tensor_evaluator::apply` on a bare
+// `levi_civita_tensor(4)` will throw. Lifting that ceiling is part of the
+// broader MaxDim-bump effort tracked elsewhere.
+template <typename ValueType>
+class tensor_data_levi_civita final
+    : public tensor_data_eval_up_unary<tensor_data_levi_civita<ValueType>,
+                                       ValueType> {
+public:
+  explicit tensor_data_levi_civita(tensor_data_base<ValueType> &result)
+      : m_result(result) {}
+
+  template <std::size_t Dim, std::size_t Rank> void evaluate_imp() {
+    if constexpr (Dim == Rank && (Dim == 2 || Dim == 3 || Dim == 4)) {
+      using Tensor = tensor_data<ValueType, Dim, Rank>;
+      auto &data = static_cast<Tensor &>(m_result).data();
+      constexpr std::size_t total = []() {
+        std::size_t s = 1;
+        for (std::size_t i = 0; i < Rank; ++i)
+          s *= Dim;
+        return s;
+      }();
+      auto *raw = data.raw_data();
+      for (std::size_t idx = 0; idx < total; ++idx) {
+        std::size_t tmp = idx;
+        std::size_t indices[Rank];
+        for (std::size_t k = Rank; k > 0; --k) {
+          indices[k - 1] = tmp % Dim;
+          tmp /= Dim;
+        }
+        raw[idx] = parity_sign(indices);
+      }
+    } else {
+      throw evaluation_error("tensor_data_levi_civita: only Dim == Rank with "
+                             "Dim ∈ {2, 3, 4} are supported");
+    }
+  }
+
+  void mismatch(std::size_t dim, std::size_t rank) {
+    if (dim != rank) {
+      throw evaluation_error(
+          "tensor_data_levi_civita: rank must equal dim (LC at dim N is "
+          "rank-N by definition)");
+    }
+    if (dim < 2 || dim > 4) {
+      throw evaluation_error(
+          "tensor_data_levi_civita: only Dim ∈ {2, 3, 4} are supported");
+    }
+  }
+
+private:
+  // Computes ε_{indices} by bubble-sort parity counting.
+  // Returns 0 if any index repeats (the permutation is degenerate);
+  // otherwise +1 for an even permutation and -1 for an odd one.
+  // The choice of bubble sort is O(N²) but `Rank` is bounded by 4
+  // here — the work is negligible.
+  template <std::size_t Rank>
+  static constexpr ValueType parity_sign(std::size_t (&indices)[Rank]) {
+    std::size_t idx[Rank];
+    for (std::size_t i = 0; i < Rank; ++i) {
+      idx[i] = indices[i];
+    }
+    for (std::size_t i = 0; i < Rank; ++i) {
+      for (std::size_t j = i + 1; j < Rank; ++j) {
+        if (idx[i] == idx[j])
+          return ValueType{0};
+      }
+    }
+    std::size_t swaps = 0;
+    for (std::size_t i = 0; i + 1 < Rank; ++i) {
+      for (std::size_t j = i + 1; j < Rank; ++j) {
+        if (idx[i] > idx[j]) {
+          std::swap(idx[i], idx[j]);
+          ++swaps;
+        }
+      }
+    }
+    return (swaps % 2 == 0) ? ValueType{1} : ValueType{-1};
+  }
+
+  tensor_data_base<ValueType> &m_result;
+};
+
 // ─── tmech operation policy structs ──────────────────────────────────────────
 
 namespace tmech_ops {
