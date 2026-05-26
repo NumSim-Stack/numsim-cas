@@ -58,6 +58,20 @@ TEST(LeviCivita, ConstructDim4HasRank4) {
   EXPECT_EQ(eps.get().rank(), 4u);
 }
 
+TEST(LeviCivita, ConstructRejectsUnsupportedDim) {
+  // dim 0, 1, and ≥5 are invalid for the Levi-Civita symbol — must
+  // throw at construction time, not wait for evaluation.
+  EXPECT_THROW(levi_civita(0), invalid_expression_error);
+  EXPECT_THROW(levi_civita(1), invalid_expression_error);
+  EXPECT_THROW(levi_civita(5), invalid_expression_error);
+  EXPECT_THROW(levi_civita(100), invalid_expression_error);
+  // Same via explicit make_expression — same error surface.
+  EXPECT_THROW(make_expression<levi_civita_tensor>(0),
+               invalid_expression_error);
+  EXPECT_THROW(make_expression<levi_civita_tensor>(7),
+               invalid_expression_error);
+}
+
 // ─── Printing ──────────────────────────────────────────────────────
 
 TEST(LeviCivita, PrintIncludesDimSuffix) {
@@ -174,23 +188,41 @@ TEST(LeviCivita, EvalDim4ThrowsDueToMaxDimCeiling) {
 
 // ─── Differentiation ──────────────────────────────────────────────
 
-TEST(LeviCivita, DiffWithRespectToTensorIsZeroAccumulator) {
-  // ε is a constant — d(ε)/d(A) for any A should accumulate to zero.
-  // The implementation marks ε as a constant leaf, so applying
-  // differentiation to a sum or product that mixes ε with a
-  // differentiable child must drop the ε branch entirely.
+TEST(LeviCivita, DiffOfEpsAloneIsTensorZeroOrInvalid) {
+  // ε is constant w.r.t. any user variable, so its derivative is the
+  // zero tensor (or an invalid holder which downstream treats as
+  // zero — the diff visitor leaves m_result default-constructed in
+  // that case, mirroring identity_tensor's diff override).
   auto eps = levi_civita(3);
   auto A = make_expression<tensor>("A", 3, 3);
-  // diff(eps + A, A) must equal diff(A, A) = the rank-(3+3)=rank-6
-  // minor identity, NOT depend on eps. We can't easily compare rank-6
-  // structures here, but we CAN confirm that diff drops the eps
-  // branch — substitute B for A and check the result is unchanged
-  // for the eps part.
+  auto d = diff(eps, A);
+  // Either is acceptable: tensor_zero of appropriate rank, or an
+  // invalid holder. Anything else would mean ε has spurious
+  // dependence on A.
+  if (d.is_valid()) {
+    EXPECT_TRUE(is_same<tensor_zero>(d))
+        << "diff(eps, A) should be tensor_zero, got: " << to_string(d);
+  }
+  // The relevant invariant either way: there is no path through which
+  // diff(eps, A) reuses eps's value or shape.
+}
+
+TEST(LeviCivita, DiffOfEpsPlusADropsEpsBranch) {
+  // diff(eps + A, A) should equal diff(A, A) — i.e. ε contributes 0.
+  // Verify structurally: rebuild diff(A, A) on its own and compare
+  // to the result of diff(eps + A, A). Both should produce the same
+  // tensor expression (the rank-(3+3) minor identity).
+  auto eps = levi_civita(3);
+  auto A = make_expression<tensor>("A", 3, 3);
   auto sum = eps + A;
-  auto d = diff(sum, A);
-  // Just check the derivative is valid (the diff visitor handled
-  // levi_civita_tensor without throwing or asserting).
-  EXPECT_TRUE(d.is_valid());
+  auto d_sum = diff(sum, A);
+  auto d_a = diff(A, A);
+  ASSERT_TRUE(d_sum.is_valid());
+  ASSERT_TRUE(d_a.is_valid());
+  EXPECT_EQ(d_sum, d_a)
+      << "diff(eps + A, A) should equal diff(A, A); the eps branch "
+         "must contribute nothing.\n  diff(eps + A, A) = "
+      << to_string(d_sum) << "\n  diff(A, A)       = " << to_string(d_a);
 }
 
 // ─── Rebuild round-trip ────────────────────────────────────────────

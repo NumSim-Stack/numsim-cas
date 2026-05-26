@@ -1,6 +1,7 @@
 #ifndef LEVI_CIVITA_TENSOR_H
 #define LEVI_CIVITA_TENSOR_H
 
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
@@ -35,10 +36,20 @@ namespace numsim::cas {
  *
  * ## Supported dimensions
  *
- * Dimensions 2, 3, and 4 are supported (matching `tmech::levi_civita`'s
- * coverage). The rank-2 case (ε_{ij} in 2D) is the 2×2 skew unit
- * `[[0, 1], [−1, 0]]`. The runtime evaluator
- * `tensor_data_levi_civita` rejects other dimensions at evaluation time.
+ * Dimensions 2, 3, and 4 are supported. The rank-2 case (ε_{ij} in 2D)
+ * is the 2×2 skew unit `[[0, 1], [−1, 0]]`. Other dimensions are
+ * rejected at *construction* time (this constructor throws
+ * `invalid_expression_error`); the data-layer evaluator
+ * `tensor_data_levi_civita` then doesn't need to handle invalid input.
+ *
+ * Note: the data-layer evaluator computes components from permutation
+ * parity directly, not via `tmech::levi_civita`. The latter's 3D
+ * formula uses the opposite sign convention from the standard one;
+ * see `tensor_data_levi_civita`'s doxygen for the full reasoning.
+ * For dim 4 the eval framework's `MaxDim = 3` ceiling still makes a
+ * bare numerical apply throw `evaluation_error`, even though the
+ * symbolic construction is allowed — that's a separate limitation
+ * tracked outside this node.
  *
  * ## Differentiation
  *
@@ -49,9 +60,11 @@ namespace numsim::cas {
  *
  * ## Construction
  *
- * - From user code: `levi_civita(dim)` (free function in `tensor_std.h`)
- *   or `levi_civita<3>()` if the dimension is a compile-time constant.
+ * - From user code: `levi_civita(dim)` (free function in `tensor_std.h`).
  * - Explicit: `make_expression<levi_civita_tensor>(dim)`.
+ *
+ * `dim` must be 2, 3, or 4. Any other value throws
+ * `invalid_expression_error` at construction time.
  *
  * @see `tensor_data_levi_civita` for the runtime evaluator.
  * @see #34 for the original feature request.
@@ -63,7 +76,16 @@ public:
   levi_civita_tensor() = delete;
 
   // Rank is fixed by dimension — base takes (dim, rank).
-  explicit levi_civita_tensor(std::size_t dim) : base(dim, dim) {}
+  // dim ∈ {2, 3, 4} is validated at construction time; other values
+  // throw immediately rather than waiting for the user to evaluate
+  // the symbolic form and hit a less-actionable error.
+  explicit levi_civita_tensor(std::size_t dim) : base(dim, dim) {
+    if (dim < 2 || dim > 4) {
+      throw invalid_expression_error(
+          "levi_civita_tensor: dim must be 2, 3, or 4; got " +
+          std::to_string(dim));
+    }
+  }
 
   levi_civita_tensor(levi_civita_tensor &&data) noexcept
       : base(static_cast<base &&>(data), data.dim(), data.rank()) {}
