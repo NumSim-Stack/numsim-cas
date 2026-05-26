@@ -61,15 +61,28 @@ TEST(LeviCivita, ConstructDim4HasRank4) {
 TEST(LeviCivita, ConstructRejectsUnsupportedDim) {
   // dim 0, 1, and ≥5 are invalid for the Levi-Civita symbol — must
   // throw at construction time, not wait for evaluation.
-  EXPECT_THROW(levi_civita(0), invalid_expression_error);
-  EXPECT_THROW(levi_civita(1), invalid_expression_error);
-  EXPECT_THROW(levi_civita(5), invalid_expression_error);
-  EXPECT_THROW(levi_civita(100), invalid_expression_error);
+  //
+  // The brace + `[[maybe_unused]] auto` form is required because
+  // `levi_civita()` and `make_expression<>()` are `[[nodiscard]]`;
+  // Apple Clang with -Werror,-Wunused-result rejects the bare
+  // EXPECT_THROW(call, ...) form (the macro's expansion doesn't
+  // visibly consume the result, even though the call always throws).
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = levi_civita(0); }, invalid_expression_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = levi_civita(1); }, invalid_expression_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = levi_civita(5); }, invalid_expression_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = levi_civita(100); },
+      invalid_expression_error);
   // Same via explicit make_expression — same error surface.
-  EXPECT_THROW(make_expression<levi_civita_tensor>(0),
-               invalid_expression_error);
-  EXPECT_THROW(make_expression<levi_civita_tensor>(7),
-               invalid_expression_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = make_expression<levi_civita_tensor>(0); },
+      invalid_expression_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = make_expression<levi_civita_tensor>(7); },
+      invalid_expression_error);
 }
 
 // ─── Printing ──────────────────────────────────────────────────────
