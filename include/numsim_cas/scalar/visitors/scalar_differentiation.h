@@ -295,6 +295,23 @@ public:
     m_result = get_scalar_zero();
   }
 
+  // Min / max (#137) — sub-gradient differentiation. At the boundary
+  // a == b max/min is not differentiable; elsewhere d/dx max(a, b) is
+  // either da/dx or db/dx. Without if_then_else (#135) we cannot
+  // express the piecewise result symbolically, so throw — surfacing
+  // the gap clearly rather than producing wrong zero or one side's
+  // derivative silently. Will be upgraded to
+  //   d/dx max(a, b) = if_then_else(a > b, da/dx, db/dx)
+  // once #135 lands.
+  void operator()([[maybe_unused]] scalar_max const &) override {
+    throw not_implemented_error(
+        "scalar_differentiation: d/dx max(a, b) requires if_then_else (#135)");
+  }
+  void operator()([[maybe_unused]] scalar_min const &) override {
+    throw not_implemented_error(
+        "scalar_differentiation: d/dx min(a, b) requires if_then_else (#135)");
+  }
+
   /**
    * @brief Default overload for safety reasons.
    */

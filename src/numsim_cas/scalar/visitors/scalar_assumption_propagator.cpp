@@ -350,6 +350,22 @@ void scalar_assumption_propagator::operator()(scalar_ne const &v) {
   handle_comparison_node(v);
 }
 
+// Min / max (#137). Recurse into both children to populate the inference
+// cache; the result range is bounded by the operand ranges in the obvious
+// way (max ≥ both, min ≤ both) but without inference machinery for
+// numeric_assumption_manager that intersects intervals, we just clear the
+// result to "unknown".
+void scalar_assumption_propagator::operator()(scalar_max const &v) {
+  apply(v.expr_lhs());
+  apply(v.expr_rhs());
+  m_result = numeric_assumption_manager{};
+}
+void scalar_assumption_propagator::operator()(scalar_min const &v) {
+  apply(v.expr_lhs());
+  apply(v.expr_rhs());
+  m_result = numeric_assumption_manager{};
+}
+
 // ─── Convenience function ──────────────────────────────────────────
 
 numeric_assumption_manager
@@ -654,11 +670,26 @@ public:
   void operator()(scalar_eq const &v) override { handle_comparison(v); }
   void operator()(scalar_ne const &v) override { handle_comparison(v); }
 
+  // ─── Min / max (#137) ────────────────────────────────────────────
+  // The result is real iff both operands are real (real numbers are
+  // totally ordered, so min/max is well-defined). Conservatively
+  // assume nothing beyond that.
+  void operator()(scalar_max const &v) override { handle_minmax(v); }
+  void operator()(scalar_min const &v) override { handle_minmax(v); }
+
 private:
   template <typename BinaryNode> void handle_comparison(BinaryNode const &v) {
     ensure_assumptions(v.expr_lhs());
     ensure_assumptions(v.expr_rhs());
     set_indicator_assumptions(m_result);
+  }
+
+  template <typename BinaryNode> void handle_minmax(BinaryNode const &v) {
+    auto const &cl = ensure_assumptions(v.expr_lhs());
+    auto const &cr = ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    if (cl.contains(real_tag{}) && cr.contains(real_tag{}))
+      m_result.insert(real_tag{});
   }
 
   numeric_assumption_manager m_result;

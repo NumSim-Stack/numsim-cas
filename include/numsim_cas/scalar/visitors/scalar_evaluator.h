@@ -197,6 +197,14 @@ public:
                                                           : ValueType{0};
   }
 
+  // ─── Min / max (#137) ────────────────────────────────────────────
+  void operator()(scalar_max const &v) override {
+    m_result = std::max(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_min const &v) override {
+    m_result = std::min(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+
   template <class T> void operator()([[maybe_unused]] T const &) noexcept {
     static_assert(sizeof(T) == 0,
                   "scalar_evaluator: missing overload for this node type");

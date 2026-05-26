@@ -247,6 +247,24 @@ NUMSIM_DEFINE_PRINT_COMPARISON(scalar_ne, "!=")
 
 #undef NUMSIM_DEFINE_PRINT_COMPARISON
 
+// ─── Min / max (#137) ──────────────────────────────────────────────
+// Function-call notation: `max(a, b)` / `min(a, b)`. Operands always
+// emitted at outermost precedence inside the parens.
+#define NUMSIM_DEFINE_PRINT_MINMAX(Node, FnName)                                \
+  template <typename Stream>                                                   \
+  void scalar_printer<Stream>::operator()(Node const &v) {                     \
+    m_out << FnName << "(";                                                    \
+    apply(v.expr_lhs(), Precedence::None);                                     \
+    m_out << ",";                                                              \
+    apply(v.expr_rhs(), Precedence::None);                                     \
+    m_out << ")";                                                              \
+  }
+
+NUMSIM_DEFINE_PRINT_MINMAX(scalar_max, "max")
+NUMSIM_DEFINE_PRINT_MINMAX(scalar_min, "min")
+
+#undef NUMSIM_DEFINE_PRINT_MINMAX
+
 template class scalar_printer<std::ostream>;
 template class scalar_printer<std::stringstream>;
 

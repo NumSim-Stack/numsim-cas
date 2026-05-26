@@ -694,4 +694,97 @@ TEST_F(ScalarFixture, OperatorEarlyExit_NegZero) {
   EXPECT_PRINT(-(-x), "x");
 }
 
+// ---------------------------------------------------------------------------
+// #137 — scalar min / max
+// ---------------------------------------------------------------------------
+
+TEST_F(ScalarFixture, MaxBasicPrint) {
+  using numsim::cas::max;
+  EXPECT_PRINT(max(x, y), "max(x,y)");
+}
+
+TEST_F(ScalarFixture, MinBasicPrint) {
+  using numsim::cas::min;
+  EXPECT_PRINT(min(x, y), "min(x,y)");
+}
+
+TEST_F(ScalarFixture, MaxIdempotentOnEqualOperands) {
+  using numsim::cas::max;
+  // max(x, x) → x. Equality is hash-based so equivalent compound
+  // expressions fold too — not just literal AST-equal operands.
+  EXPECT_PRINT(max(x, x), "x");
+  EXPECT_PRINT(max(x + y, x + y), "x+y");
+}
+
+TEST_F(ScalarFixture, MinIdempotentOnEqualOperands) {
+  using numsim::cas::min;
+  EXPECT_PRINT(min(x, x), "x");
+  EXPECT_PRINT(min(x + y, x + y), "x+y");
+}
+
+TEST_F(ScalarFixture, MaxConstantFolding) {
+  using numsim::cas::max;
+  EXPECT_PRINT(max(_3, _2), "3");
+  EXPECT_PRINT(max(_2, _3), "3");
+  EXPECT_PRINT(max(-_2, _2), "2");
+  EXPECT_PRINT(max(-_3, -_2), "-2");
+}
+
+TEST_F(ScalarFixture, MinConstantFolding) {
+  using numsim::cas::min;
+  EXPECT_PRINT(min(_3, _2), "2");
+  EXPECT_PRINT(min(_2, _3), "2");
+  EXPECT_PRINT(min(-_2, _2), "-2");
+  EXPECT_PRINT(min(-_3, -_2), "-3");
+}
+
+TEST_F(ScalarFixture, MaxMinEvaluator) {
+  using numsim::cas::max;
+  using numsim::cas::min;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.5);
+  ev.set(y, -2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(max(x, y)), 1.5);
+  EXPECT_DOUBLE_EQ(ev.apply(min(x, y)), -2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(max(x, _2)), 2.0); // 1.5 < 2 → max is 2
+  EXPECT_DOUBLE_EQ(ev.apply(min(x, _2)), 1.5); // 1.5 < 2 → min is 1.5
+}
+
+TEST_F(ScalarFixture, MaxMacauleyPlusEvaluator) {
+  // Macauley positive part <x>+ = max(x, 0). Motivating use case for
+  // the constitutive-modelling cluster (#139).
+  using numsim::cas::max;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, -1.0);
+  EXPECT_DOUBLE_EQ(ev.apply(max(x, _zero)), 0.0); // negative → 0
+  ev.set(x, 2.5);
+  EXPECT_DOUBLE_EQ(ev.apply(max(x, _zero)), 2.5); // positive → x
+}
+
+TEST_F(ScalarFixture, MaxMinCommutativeCanonicalForm) {
+  // max(x, y) == max(y, x) (and same for min). Without operand
+  // canonicalisation at construction these compared unequal under the
+  // structural hash. Lock in the canonical-form contract so a later
+  // refactor can't silently break it.
+  using numsim::cas::max;
+  using numsim::cas::min;
+  EXPECT_EQ(max(x, y), max(y, x));
+  EXPECT_EQ(min(x, y), min(y, x));
+  // Compound operands too: the canonicalisation operates on
+  // hash_value, which is structure-aware.
+  EXPECT_EQ(max(x + y, x - y), max(x - y, x + y));
+}
+
+TEST_F(ScalarFixture, MaxDiffThrowsUntilIfThenElseLands) {
+  // Pre-#135 the piecewise differentiation result can't be expressed
+  // symbolically. Lock in the throw so this test breaks (signalling
+  // the upgrade is needed) when #135 lands and the diff rule changes.
+  using numsim::cas::diff;
+  using numsim::cas::max;
+  EXPECT_THROW({ [[maybe_unused]] auto d = diff(max(x, y), x); },
+               numsim::cas::not_implemented_error);
+}
+
 #endif // SCALAREXPRESSIONTEST_H

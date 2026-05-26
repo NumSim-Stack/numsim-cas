@@ -127,6 +127,12 @@ public:
   void operator()(scalar_ne const &v) override {
     m_result = ne(apply(v.expr_lhs()), apply(v.expr_rhs()));
   }
+  void operator()(scalar_max const &v) override {
+    m_result = max(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_min const &v) override {
+    m_result = min(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
 
 protected:
   expr_holder_t m_current;

@@ -45,6 +45,10 @@ public:
   void operator()(scalar_eq const &) override;
   void operator()(scalar_ne const &) override;
 
+  // ─── Min / max (#137) ─────────────────────────────────────────────
+  void operator()(scalar_max const &) override;
+  void operator()(scalar_min const &) override;
+
 private:
   // Shared body for all six comparison overrides — recurses into both
   // sides (to populate the inference cache) and writes the standard

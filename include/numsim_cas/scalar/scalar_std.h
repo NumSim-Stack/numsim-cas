@@ -25,6 +25,8 @@
 #include <numsim_cas/scalar/scalar_le.h>
 #include <numsim_cas/scalar/scalar_log.h>
 #include <numsim_cas/scalar/scalar_lt.h>
+#include <numsim_cas/scalar/scalar_max.h>
+#include <numsim_cas/scalar/scalar_min.h>
 #include <numsim_cas/scalar/scalar_make_constant.h>
 #include <numsim_cas/scalar/scalar_ne.h>
 #include <numsim_cas/scalar/scalar_negative.h>
@@ -460,6 +462,65 @@ template <scalar_expr_holder L, scalar_expr_holder R>
 [[nodiscard]] auto ne(L &&lhs, R &&rhs) {
   return detail::make_comparison(std::forward<L>(lhs), std::forward<R>(rhs),
                                  detail::ne_op{});
+}
+
+// ─── Min / max (#137) ────────────────────────────────────────────────
+// max(a, b) and min(a, b) with construction-time folds:
+//   max(x, x) → x                       (idempotent on equal operands)
+//   max(numeric, numeric) → numeric     (constant folding)
+//   min(x, x) → x
+//   min(numeric, numeric) → numeric
+// The constant-fold path reuses `try_extract_scalar_number` from the pow
+// helper above — same pattern as pow's numeric folding. No deeper folds
+// like max(0, max(x, 0)) → max(x, 0) yet; those go in a future
+// simplifier pass.
+
+template <scalar_expr_holder L, scalar_expr_holder R>
+[[nodiscard]] auto max(L &&lhs, R &&rhs) {
+  assert(lhs.is_valid());
+  assert(rhs.is_valid());
+  // max(x, x) → x
+  if (lhs.get().hash_value() == rhs.get().hash_value())
+    return std::forward<L>(lhs);
+  // Constant folding
+  auto lval = detail::try_extract_scalar_number(lhs);
+  auto rval = detail::try_extract_scalar_number(rhs);
+  if (lval && rval) {
+    if (numeric_less(*lval, *rval))
+      return std::forward<R>(rhs);
+    return std::forward<L>(lhs);
+  }
+  // Canonical order: sort by hash so max(x, y) and max(y, x) build the
+  // same node. Mathematically max is commutative; without this
+  // canonicalisation the two would have different structural hashes
+  // (verified during #137 review) and downstream rules like
+  // "max(a, b) + max(b, a) → 2*max(a, b)" would never fire.
+  if (lhs.get().hash_value() > rhs.get().hash_value())
+    return make_expression<scalar_max>(std::forward<R>(rhs),
+                                       std::forward<L>(lhs));
+  return make_expression<scalar_max>(std::forward<L>(lhs), std::forward<R>(rhs));
+}
+
+template <scalar_expr_holder L, scalar_expr_holder R>
+[[nodiscard]] auto min(L &&lhs, R &&rhs) {
+  assert(lhs.is_valid());
+  assert(rhs.is_valid());
+  // min(x, x) → x
+  if (lhs.get().hash_value() == rhs.get().hash_value())
+    return std::forward<L>(lhs);
+  // Constant folding
+  auto lval = detail::try_extract_scalar_number(lhs);
+  auto rval = detail::try_extract_scalar_number(rhs);
+  if (lval && rval) {
+    if (numeric_less(*lval, *rval))
+      return std::forward<L>(lhs);
+    return std::forward<R>(rhs);
+  }
+  // Canonical order — see max() above for rationale.
+  if (lhs.get().hash_value() > rhs.get().hash_value())
+    return make_expression<scalar_min>(std::forward<R>(rhs),
+                                       std::forward<L>(lhs));
+  return make_expression<scalar_min>(std::forward<L>(lhs), std::forward<R>(rhs));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto log10(E &&e) {
