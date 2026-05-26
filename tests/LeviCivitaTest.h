@@ -19,24 +19,13 @@
 #include <numsim_cas/tensor/levi_civita_tensor.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_diff.h>
+#include <numsim_cas/tensor/tensor_latex_io.h>
 #include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
-#include <numsim_cas/tensor/visitors/tensor_latex_printer.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
 #include <numsim_cas/tensor/visitors/tensor_rebuild_visitor.h>
 
-#include <sstream>
-
 namespace numsim::cas::levi_civita_test {
-
-// Helper: stringify via LaTeX printer.
-inline std::string
-to_latex_local(expression_holder<tensor_expression> const &e) {
-  std::stringstream ss;
-  tensor_latex_printer<std::stringstream> lp(ss);
-  lp.apply(e);
-  return ss.str();
-}
 
 // ─── Construction ──────────────────────────────────────────────────
 
@@ -94,7 +83,14 @@ TEST(LeviCivita, PrintIncludesDimSuffix) {
 }
 
 TEST(LeviCivita, LatexPrintUsesVarepsilon) {
-  auto s = to_latex_local(levi_civita(3));
+  // Use the public `to_latex()` helper rather than constructing a
+  // tensor_latex_printer locally: the printer stores `m_config` by
+  // const-reference, and constructing it with the default
+  // `latex_config::default_config()` argument creates a temporary
+  // whose lifetime ends at the declaration's `;`, leaving the
+  // reference dangling. `to_latex()` is safe because its parameter
+  // keeps the temporary alive until the function returns.
+  auto s = to_latex(levi_civita(3));
   // Expect the LaTeX \varepsilon glyph and the dim superscript.
   EXPECT_NE(s.find("\\varepsilon"), std::string::npos)
       << "expected \\varepsilon glyph, got: " << s;
