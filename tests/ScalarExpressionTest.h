@@ -783,8 +783,9 @@ TEST_F(ScalarFixture, MaxDiffThrowsUntilIfThenElseLands) {
   // the upgrade is needed) when #135 lands and the diff rule changes.
   using numsim::cas::diff;
   using numsim::cas::max;
-  EXPECT_THROW({ [[maybe_unused]] auto d = diff(max(x, y), x); },
-               numsim::cas::not_implemented_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto d = diff(max(x, y), x); },
+      numsim::cas::not_implemented_error);
 }
 
 #endif // SCALAREXPRESSIONTEST_H

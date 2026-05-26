@@ -265,7 +265,7 @@ NUMSIM_DEFINE_LATEX_COMPARISON(scalar_ne, "\\ne")
 // `\!` is a thin-space corrector that pulls the operand block close
 // to the operator name in the typeset form, matching the usual
 // physics/math convention.
-#define NUMSIM_DEFINE_LATEX_MINMAX(Node, FnName)                                \
+#define NUMSIM_DEFINE_LATEX_MINMAX(Node, FnName)                               \
   template <typename Stream>                                                   \
   void scalar_latex_printer<Stream>::operator()(Node const &v) {               \
     this->m_out << "\\" FnName "\\!\\left(";                                   \
