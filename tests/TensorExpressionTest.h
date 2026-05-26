@@ -670,10 +670,10 @@ TYPED_TEST(TensorExpressionTest, TensorPowIdentitySelfPower) {
   // under tensor multiplication).
   auto I = numsim::cas::make_expression<numsim::cas::identity_tensor>(
       TestFixture::Dim, std::size_t{2});
-  EXPECT_TRUE(
-      numsim::cas::is_same<numsim::cas::identity_tensor>(numsim::cas::pow(I, 5)));
-  EXPECT_TRUE(
-      numsim::cas::is_same<numsim::cas::identity_tensor>(numsim::cas::pow(I, 0)));
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::identity_tensor>(
+      numsim::cas::pow(I, 5)));
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::identity_tensor>(
+      numsim::cas::pow(I, 0)));
 }
 
 TYPED_TEST(TensorExpressionTest, TensorPowOfInvLiftsToInvOfPow) {
