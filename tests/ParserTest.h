@@ -53,6 +53,11 @@ using numsim::cas::parser::type_mismatch_error;
 using numsim::cas::parser::unknown_function_error;
 using numsim::cas::parser::unknown_symbol_error;
 
+// numsim_cas core API used by integration tests.
+using numsim::cas::diff;
+using numsim::cas::identity_tensor;
+using numsim::cas::make_expression;
+
 // ─── symbol_table: scalar declarations ─────────────────────────────
 
 TEST(SymbolTable, ImplicitScalarOnFirstUse) {
@@ -1077,27 +1082,55 @@ TEST(ParserIntegration, PythagoreanDerivativeIsZero) {
 }
 
 TEST(ParserIntegration, TraceGradientEqualsIdentity) {
-  // d(trace(A))/dA = I (rank-2 identity tensor of matching dim).
-  // Catches the tensor declaration round-trip, the t2s trace path,
-  // and the tag_invoke routing for (t2s, tensor) → tensor diff.
+  // Two assertions woven into one test:
+  //
+  //  (a) The bare-`A` reference after `A{rank=2, dim=3}` resolves to
+  //      the SAME holder that lives inside the trace expression. The
+  //      diff result alone can't prove this — `diff(trace(A_x), A_y)`
+  //      would yield `identity_tensor` regardless of whether A_x and
+  //      A_y are literally the same holder, since the diff visitor
+  //      compares by value-equality on named tensors. The EXPECT_EQ
+  //      below is what actually pins phase 2d's lookup-first contract.
+  //  (b) d(trace(A))/dA = I (rank-2 identity tensor of matching dim).
+  //      Pins the (t2s, tensor) diff routing via tag_invoke.
   symbol_table syms;
-  auto e = parse_t2s("trace(A{rank=2, dim=3})", syms);
-  // Bare `A` after the declaration above resolves to the same holder
-  // via lookup-first identifier semantics (phase 2d).
-  auto A = parse_tensor("A", syms);
-  auto d = numsim::cas::diff(e, A);
-  auto I = numsim::cas::make_expression<numsim::cas::identity_tensor>(
-      std::size_t{3}, std::size_t{2});
+  auto trace_expr = parse_t2s("trace(A{rank=2, dim=3})", syms);
+  auto A_bare = parse_tensor("A", syms);
+  auto A_lookup = syms.get("A");
+  ASSERT_TRUE(A_lookup.has_value());
+  auto *A_in_syms =
+      std::get_if<expression_holder<tensor_expression>>(&*A_lookup);
+  ASSERT_NE(A_in_syms, nullptr);
+  EXPECT_EQ(A_bare, *A_in_syms)
+      << "Bare `A` must resolve to the SAME holder as the declared tensor.";
+
+  auto d = diff(trace_expr, A_bare);
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
   EXPECT_SAME_PRINT(d, I);
 }
 
-TEST(ParserIntegration, RightAssocPowerEvaluatesTo512) {
-  // 2 ^ 3 ^ 2 → 2 ^ (3 ^ 2) = 2^9 = 512. Left-assoc would give
-  // (2^3)^2 = 64. Locks in the grammar's right-recursive `power_tail`
-  // shape against a future regression that switched `^` to the default
-  // pegtl::list left-associativity.
+TEST(ParserIntegration, MultiVariablePolynomialEvaluatesAtSampledPoints) {
+  // Parse `a*x^2 + b*x + c`, implicitly declaring four scalars in one
+  // go, then evaluate at sample (a, b, c, x). With (1, -3, 2):
+  //   polynomial = x^2 - 3x + 2 = (x-1)(x-2), roots at x=1, x=2.
+  //
+  // Verifies the parser composes literals + named scalars + mixed
+  // operators (* with both name-name and name-literal, then `+`)
+  // into an AST the scalar_evaluator can walk, AND that the
+  // symbol_table threads four implicit scalar declarations through
+  // one parse without cross-pollution.
   symbol_table syms;
-  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("2 ^ 3 ^ 2", syms), syms), 512.0);
+  auto e = parse_scalar("a*x^2 + b*x + c", syms);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(e, syms, {{"a", 1}, {"b", -3}, {"c", 2}, {"x", 1.0}}), 0.0);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(e, syms, {{"a", 1}, {"b", -3}, {"c", 2}, {"x", 2.0}}), 0.0);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(e, syms, {{"a", 1}, {"b", -3}, {"c", 2}, {"x", 0.0}}), 2.0);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(e, syms, {{"a", 1}, {"b", -3}, {"c", 2}, {"x", 4.0}}), 6.0);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(e, syms, {{"a", 1}, {"b", -3}, {"c", 2}, {"x", -1.0}}), 6.0);
 }
 
 TEST(ParserIntegration, NumberLiteralIsLocaleIndependent) {
@@ -1109,16 +1142,21 @@ TEST(ParserIntegration, NumberLiteralIsLocaleIndependent) {
   //
   // CI runners may not have de_DE.UTF-8 installed; if no comma-decimal
   // locale is available, skip rather than fail.
-  // Try several common comma-decimal locales. en_DK.utf8 is unusual
-  // because it's Danish English (so locale -a often lists it on hosts
-  // that don't have de_DE) but it uses comma-decimal too. Adding the
-  // breadth here means the test actually runs on most CI runners
-  // instead of skipping out of the box.
+  // Try a broad set of comma-decimal locales — most Linux/macOS CI
+  // images ship at least one of these, even if `de_DE` is missing.
+  // en_DK.utf8 is unusual because it's Danish English (so it's
+  // installed on hosts that don't have any continental European
+  // locales) but it still uses comma-decimal.
   std::locale saved;
   bool locale_set = false;
-  for (auto const *loc_name :
-       {"de_DE.UTF-8", "de_DE.utf8", "de_DE", "fr_FR.UTF-8", "fr_FR.utf8",
-        "en_DK.UTF-8", "en_DK.utf8"}) {
+  for (auto const *loc_name : {"de_DE.UTF-8", "de_DE.utf8", "de_DE", //
+                               "fr_FR.UTF-8", "fr_FR.utf8", "fr_FR", //
+                               "it_IT.UTF-8", "it_IT.utf8",          //
+                               "es_ES.UTF-8", "es_ES.utf8",          //
+                               "nl_NL.UTF-8", "nl_NL.utf8",          //
+                               "pt_PT.UTF-8", "pt_PT.utf8",          //
+                               "ru_RU.UTF-8", "ru_RU.utf8",          //
+                               "en_DK.UTF-8", "en_DK.utf8"}) {
     try {
       saved = std::locale::global(std::locale(loc_name));
       locale_set = true;
