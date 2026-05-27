@@ -117,14 +117,20 @@ struct function_call_close : pegtl::one<')'> {};
 // Inside contraction-function arg lists (`inner_product`,
 // `dot_product`). Indices are 1-based positive integers; the action
 // converts to 0-based when constructing the `sequence`.
+//
+// `[` is the commit point: once consumed, the rest MUST follow.
+// That way malformed `[]` / `[1` / `[1, ]` raise an error pointing
+// at the actual problem inside the bracket-list rather than at the
+// outer function-call's `)` after generic backtracking. `[` doesn't
+// start any valid expression, so committing here can't smother a
+// legitimate alternative in `arg_item`.
 struct index_list_open : pegtl::one<'['> {};
 struct index_list_close : pegtl::one<']'> {};
 struct index_list_literal
-    : pegtl::seq<
-          index_list_open, ws,
-          pegtl::if_must<pegtl::list<integer_literal,
-                                     pegtl::pad<pegtl::one<','>, pegtl::space>>,
-                         ws, index_list_close>> {};
+    : pegtl::if_must<index_list_open, ws,
+                     pegtl::list<integer_literal,
+                                 pegtl::pad<pegtl::one<','>, pegtl::space>>,
+                     ws, index_list_close> {};
 
 // An arg in a function call is either an index_list literal or a
 // full expression. Order matters: index_list must come first so the

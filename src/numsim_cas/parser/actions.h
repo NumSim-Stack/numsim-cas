@@ -139,9 +139,12 @@ void combine_same_domain(parser_state &state, std::size_t pos, Op &&op,
         using R = std::decay_t<decltype(r)>;
         if constexpr (std::is_same_v<L, registry::index_list_value> ||
                       std::is_same_v<R, registry::index_list_value>) {
-          // Unreachable — guarded above.
+          // Unreachable — guarded above. The throw exists so the
+          // lambda compiles for those instantiations; if it ever
+          // does fire (logic bug), the message + real position keep
+          // the diagnostic useful instead of pointing at byte 0.
           throw type_mismatch_error("internal: index_list slipped past guard",
-                                    0, std::string_view{});
+                                    pos, state.source);
         } else if constexpr (std::is_same_v<L, R>) {
           return op(std::move(l), std::move(r));
         } else {
@@ -533,9 +536,11 @@ template <> struct action<grammar::function_call> {
 // ─── Bracket-list index literal: [i1, i2, ...] ────────────────────
 // Parses the matched range, extracting digit runs as 1-based indices.
 // Pushes an index_list_value onto the parser-internal value stack
-// for the enclosing function_call action to consume. Empty
-// `[]` is rejected — contraction functions require at least one
-// index per operand.
+// for the enclosing function_call action to consume.
+//
+// The grammar's `list<integer_literal, ...>` guarantees at least one
+// integer matched before this action fires, so we don't re-check for
+// emptiness here.
 template <> struct action<grammar::index_list_literal> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
@@ -552,6 +557,11 @@ template <> struct action<grammar::index_list_literal> {
         }
         std::size_t value = 0;
         auto [ptr, ec] = std::from_chars(sv.data() + i, sv.data() + j, value);
+        if (ec == std::errc::result_out_of_range) {
+          throw lexical_error(
+              "index in bracket-list exceeds maximum representable value",
+              pos + i, state.source);
+        }
         if (ec != std::errc{} || value < 1) {
           throw lexical_error(
               "index in bracket-list must be a positive 1-based integer",
@@ -562,10 +572,6 @@ template <> struct action<grammar::index_list_literal> {
       } else {
         ++i;
       }
-    }
-    if (v.indices.empty()) {
-      throw syntax_error("empty bracket-list '[]' not allowed", pos,
-                         state.source);
     }
     state.values.emplace_back(std::move(v));
   }
