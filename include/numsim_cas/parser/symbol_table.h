@@ -89,6 +89,18 @@ public:
   [[nodiscard]] std::optional<std::pair<std::size_t, std::size_t>>
   tensor_shape(std::string_view name) const;
 
+  /// Result of `get(name)` — a variant over the two declarable
+  /// holder types. Used by the parser's identifier action to
+  /// dispatch on the existing declaration's type instead of forcing
+  /// scalar.
+  using lookup_result = std::variant<expression_holder<scalar_expression>,
+                                     expression_holder<tensor_expression>>;
+
+  /// Look up an existing declaration. Returns `nullopt` if `name` is
+  /// unknown. Does NOT implicitly declare anything — distinct from
+  /// `get_or_declare_scalar`.
+  [[nodiscard]] std::optional<lookup_result> get(std::string_view name) const;
+
   /// Number of declarations currently in the table.
   [[nodiscard]] std::size_t size() const noexcept { return m_entries.size(); }
 

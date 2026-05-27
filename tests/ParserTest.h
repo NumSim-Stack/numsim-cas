@@ -582,6 +582,137 @@ TEST(ParserGrammar, FunctionCallMissingCloseParenThrows) {
       { [[maybe_unused]] auto e = parse_scalar("sin(x", syms); }, parse_error);
 }
 
+// ─── Phase 2d: tensor declarations, tensor & t2s functions ────────
+
+TEST(ParserGrammar, TensorDeclarationRegistersTensor) {
+  symbol_table syms;
+  auto e = parse_tensor("A{rank=2, dim=3}", syms);
+  EXPECT_TRUE(e.is_valid());
+  EXPECT_EQ(e.get().rank(), 2u);
+  EXPECT_EQ(e.get().dim(), 3u);
+  auto shape = syms.tensor_shape("A");
+  ASSERT_TRUE(shape.has_value());
+  EXPECT_EQ(shape->first, 2u);
+  EXPECT_EQ(shape->second, 3u);
+}
+
+TEST(ParserGrammar, TensorDeclarationKvOrderIndependent) {
+  symbol_table syms;
+  auto e1 = parse_tensor("A{rank=4, dim=3}", syms);
+  symbol_table syms2;
+  auto e2 = parse_tensor("A{dim=3, rank=4}", syms2);
+  EXPECT_EQ(e1.get().rank(), 4u);
+  EXPECT_EQ(e1.get().dim(), 3u);
+  EXPECT_EQ(e2.get().rank(), 4u);
+  EXPECT_EQ(e2.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, BareIdentAfterTensorDeclResolvesToTensor) {
+  symbol_table syms;
+  [[maybe_unused]] auto decl = parse_tensor("A{rank=2, dim=3}", syms);
+  auto result = parse("A", syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<tensor_expression>>(result))
+      << "Bare ident after tensor decl should resolve to the existing tensor.";
+}
+
+TEST(ParserGrammar, TensorDeclWithoutBothKvsThrows) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_tensor("A{rank=2}", syms); },
+      parse_error);
+}
+
+TEST(ParserGrammar, TensorRedeclarationMismatchThrows) {
+  symbol_table syms;
+  [[maybe_unused]] auto decl = parse_tensor("A{rank=2, dim=3}", syms);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_tensor("A{rank=4, dim=3}", syms); },
+      redeclaration_error);
+}
+
+TEST(ParserGrammar, TraceReturnsT2s) {
+  symbol_table syms;
+  auto result = parse("trace(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<tensor_to_scalar_expression>>(
+          result))
+      << "trace(tensor) should land in the tensor_to_scalar variant.";
+}
+
+TEST(ParserGrammar, TransReturnsTensor) {
+  symbol_table syms;
+  auto result = parse("trans(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<tensor_expression>>(result))
+      << "trans(tensor) should land in the tensor variant.";
+}
+
+TEST(ParserGrammar, InvOfTensorReturnsTensor) {
+  symbol_table syms;
+  auto result = parse_tensor("inv(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(result.is_valid());
+}
+
+TEST(ParserGrammar, TraceOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("trace(x)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, SinOfTensorThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("sin(A{rank=2, dim=3})", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, ScalarTimesTensorReturnsTensor) {
+  symbol_table syms;
+  auto result = parse("2 * A{rank=2, dim=3}", syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<tensor_expression>>(result));
+}
+
+TEST(ParserGrammar, TensorTimesScalarReturnsTensor) {
+  symbol_table syms;
+  auto result = parse("A{rank=2, dim=3} * 2", syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<tensor_expression>>(result));
+}
+
+TEST(ParserGrammar, TensorPlusScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("A{rank=2, dim=3} + 2", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, ScalarDivTensorThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("2 / A{rank=2, dim=3}", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, TraceCompositionAcrossTwoTensors) {
+  symbol_table syms;
+  auto result =
+      parse("trace(A{rank=2, dim=3}) + trace(B{rank=2, dim=3})", syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<tensor_to_scalar_expression>>(
+          result));
+}
+
+TEST(ParserGrammar, ScalarTimesTraceReturnsT2s) {
+  symbol_table syms;
+  auto result = parse("2 * trace(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<tensor_to_scalar_expression>>(
+          result));
+}
+
 } // namespace numsim::cas::parser_test
 
 #endif // NUMSIM_CAS_PARSER_ENABLED

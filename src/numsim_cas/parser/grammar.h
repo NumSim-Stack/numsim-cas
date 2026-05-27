@@ -18,9 +18,14 @@
 // the bare-identifier action doesn't fire when matching the prefix
 // of a call; if_must<(> commits once the open paren is consumed so
 // backtracking past it can't smear state.
-// (max/min/if_then_else/Macauley family are absent from the
-// registry on this branch — they live on unmerged PRs #207/#208/#209.
-// Once those land on main, extend `function_registry.h`.)
+// Phase 2d additions: tensor declarations (`A{rank=R, dim=D}`),
+// tensor→tensor functions (trans, inv) and tensor→t2s functions
+// (trace, det, norm, dot). Bare identifiers now look up their
+// existing declaration in the symbol_table and push the existing
+// holder (scalar or tensor) — only fall back to implicit scalar
+// declaration when the name is unknown.
+// Still deferred to a follow-up: bracket-list index notation for
+// `inner_product` / `outer_product` / `dot_product`.
 // Phase 2d will add tensor declarations + contraction syntax.
 
 #include <tao/pegtl.hpp>
@@ -102,18 +107,39 @@ struct function_call
                  pegtl::if_must<function_call_open, ws, pegtl::opt<arg_list>,
                                 ws, function_call_close>> {};
 
-// ─── Primary: literal | function_call | identifier | '(' expression ')'
-// Order matters: function_call must come before identifier so the
-// `name(` prefix doesn't get consumed as a bare scalar variable.
-// Both rules start with the same characters; PEGTL backtracks if
-// `function_call_open` fails to find a `(` after the name, then
-// retries with `identifier` from the same position.
+// ─── Tensor declarations: Name{rank=R, dim=D} ─────────────────────
+// Same no-action-on-name + if_must<brace> pattern as function_call.
+// The kv pairs may appear in either order. Re-declaration with a
+// different (rank, dim) raises redeclaration_error from the
+// symbol_table; identical re-declaration is a no-op.
+struct rank_keyword : pegtl::string<'r', 'a', 'n', 'k'> {};
+struct dim_keyword : pegtl::string<'d', 'i', 'm'> {};
+struct kv_eq : pegtl::one<'='> {};
+struct rank_kv : pegtl::seq<rank_keyword, ws, kv_eq, ws, integer_literal> {};
+struct dim_kv : pegtl::seq<dim_keyword, ws, kv_eq, ws, integer_literal> {};
+struct tensor_kv : pegtl::sor<rank_kv, dim_kv> {};
+struct tensor_kv_list
+    : pegtl::list<tensor_kv, pegtl::pad<pegtl::one<','>, pegtl::space>> {};
+
+struct tensor_name
+    : pegtl::seq<identifier_first, pegtl::star<identifier_rest>> {};
+struct tensor_decl_open : pegtl::one<'{'> {};
+struct tensor_decl_close : pegtl::one<'}'> {};
+struct tensor_decl
+    : pegtl::seq<tensor_name, ws,
+                 pegtl::if_must<tensor_decl_open, ws, tensor_kv_list, ws,
+                                tensor_decl_close>> {};
+
+// ─── Primary: literal | function_call | tensor_decl | identifier | parens
+// Order matters: function_call before tensor_decl before identifier
+// so `name(` / `name{` prefixes aren't consumed as bare scalar
+// variables. Both compound alternatives backtrack cleanly when their
+// distinguishing token (`(` or `{`) doesn't follow the name.
 struct paren_expression
     : pegtl::seq<pegtl::one<'('>, ws, expression, ws, pegtl::one<')'>> {};
 
-struct primary
-    : pegtl::sor<number_literal, function_call, identifier, paren_expression> {
-};
+struct primary : pegtl::sor<number_literal, function_call, tensor_decl,
+                            identifier, paren_expression> {};
 
 // ─── Power level (highest precedence): primary ('^' power)? ──────
 // Right-recursive: the `^`'s right operand is `power` itself, NOT

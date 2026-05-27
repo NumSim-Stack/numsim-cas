@@ -27,6 +27,8 @@
 #include <numsim_cas/parser/symbol_table.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
+#include <numsim_cas/tensor/tensor_operators.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
 
 #include <tao/pegtl.hpp>
 
@@ -66,6 +68,14 @@ struct parser_state {
   // Stack-of-marks supports nested calls like `max(sin(x), cos(x))`.
   std::vector<std::size_t> arg_marks;
 
+  // Pending kv pairs for the current tensor declaration. Both must be
+  // present by the time the closing brace fires the tensor_decl
+  // action. Flat fields (not a stack) because tensor_decl bodies
+  // can't nest — the RHS of `rank=` / `dim=` must be an integer
+  // literal, not an expression.
+  std::optional<std::size_t> pending_rank;
+  std::optional<std::size_t> pending_dim;
+
   symbol_table &syms;
   std::string_view source;
 
@@ -73,9 +83,8 @@ struct parser_state {
       : syms(s), source(src) {}
 };
 
-// Helper: extract a scalar holder from a value-stack entry. Phase 2a
-// expects every value to be scalar; mixed-domain combinations are a
-// later-phase concern.
+// Helper: extract a scalar holder from a value-stack entry. Used by
+// scalar-only operators (+, -, ^, comparisons, unary -).
 inline expression_holder<scalar_expression> &
 require_scalar(parsed_expression &v, std::size_t pos, std::string_view source) {
   if (auto *s = std::get_if<expression_holder<scalar_expression>>(&v))
@@ -84,10 +93,46 @@ require_scalar(parsed_expression &v, std::size_t pos, std::string_view source) {
                             pos, source);
 }
 
-// Pop the top two scalar operands. `pos` is the byte offset of the
-// operator for error reporting.
+// Same-domain combinator: lhs OP rhs only when both values are in
+// the SAME alternative of `parsed_expression`. Used by +, -, and
+// the comparison operators.
 template <typename Op>
-void combine_top_two(parser_state &state, std::size_t pos, Op &&op) {
+void combine_same_domain(parser_state &state, std::size_t pos, Op &&op,
+                         char const *op_name) {
+  if (state.values.size() < 2) {
+    throw syntax_error("operator missing left or right operand", pos,
+                       state.source);
+  }
+  auto rhs = std::move(state.values.back());
+  state.values.pop_back();
+  auto lhs = std::move(state.values.back());
+  state.values.pop_back();
+  if (lhs.index() != rhs.index()) {
+    throw type_mismatch_error(std::string("operator '") + op_name +
+                                  "' requires both operands in the same domain "
+                                  "(scalar+scalar, tensor+tensor, or t2s+t2s)",
+                              pos, state.source);
+  }
+  state.values.emplace_back(std::visit(
+      [&](auto &&l, auto &&r) -> parsed_expression {
+        using L = std::decay_t<decltype(l)>;
+        using R = std::decay_t<decltype(r)>;
+        if constexpr (std::is_same_v<L, R>) {
+          return op(std::move(l), std::move(r));
+        } else {
+          // Unreachable — guarded by lhs.index() == rhs.index() above.
+          throw type_mismatch_error("internal: domain mismatch slipped past "
+                                    "same-domain guard",
+                                    0, std::string_view{});
+        }
+      },
+      std::move(lhs), std::move(rhs)));
+}
+
+// Scalar-only combinator: both operands must be scalar. Used by ^
+// (power) and the six comparison operators.
+template <typename Op>
+void combine_scalar_only(parser_state &state, std::size_t pos, Op &&op) {
   if (state.values.size() < 2) {
     throw syntax_error("operator missing left or right operand", pos,
                        state.source);
@@ -99,8 +144,99 @@ void combine_top_two(parser_state &state, std::size_t pos, Op &&op) {
   state.values.emplace_back(op(std::move(lhs), std::move(rhs)));
 }
 
+// Compile-time table: which (L, R) pairs the codebase's `operator*`
+// supports as a user-facing call producing a valid result holder.
+// We hand-list rather than relying on `requires { l * r; }` SFINAE
+// because the codebase's `cas_binary_op` concept is permissive
+// enough to admit some pairs whose body then fails — the failure
+// is inside the operator, not at overload resolution, so SFINAE
+// doesn't filter it. Hand-listing matches the documented
+// type-coercion table in the plan.
+template <typename L, typename R>
+constexpr bool can_mul =
+    (std::is_same_v<L, expression_holder<scalar_expression>> &&
+     std::is_same_v<R, expression_holder<scalar_expression>>) ||
+    (std::is_same_v<L, expression_holder<scalar_expression>> &&
+     std::is_same_v<R, expression_holder<tensor_expression>>) ||
+    (std::is_same_v<L, expression_holder<tensor_expression>> &&
+     std::is_same_v<R, expression_holder<scalar_expression>>) ||
+    (std::is_same_v<L, expression_holder<scalar_expression>> &&
+     std::is_same_v<R, expression_holder<tensor_to_scalar_expression>>) ||
+    (std::is_same_v<L, expression_holder<tensor_to_scalar_expression>> &&
+     std::is_same_v<R, expression_holder<scalar_expression>>) ||
+    (std::is_same_v<L, expression_holder<tensor_to_scalar_expression>> &&
+     std::is_same_v<R, expression_holder<tensor_to_scalar_expression>>);
+
+// `operator/` has a NARROWER set: scalar denominators only, plus
+// the (t2s,t2s) same-domain case. (s/t) and (s/t2s) intentionally
+// excluded — these aren't in the codebase's tag_invoke surface.
+template <typename L, typename R>
+constexpr bool can_div =
+    (std::is_same_v<L, expression_holder<scalar_expression>> &&
+     std::is_same_v<R, expression_holder<scalar_expression>>) ||
+    (std::is_same_v<L, expression_holder<tensor_expression>> &&
+     std::is_same_v<R, expression_holder<scalar_expression>>) ||
+    (std::is_same_v<L, expression_holder<tensor_to_scalar_expression>> &&
+     std::is_same_v<R, expression_holder<scalar_expression>>) ||
+    (std::is_same_v<L, expression_holder<tensor_to_scalar_expression>> &&
+     std::is_same_v<R, expression_holder<tensor_to_scalar_expression>>);
+
+// Mixed-domain `*`: use `can_mul` table.
+template <typename Op>
+void combine_mul(parser_state &state, std::size_t pos, Op &&op) {
+  if (state.values.size() < 2) {
+    throw syntax_error("operator missing left or right operand", pos,
+                       state.source);
+  }
+  auto rhs = std::move(state.values.back());
+  state.values.pop_back();
+  auto lhs = std::move(state.values.back());
+  state.values.pop_back();
+  state.values.emplace_back(std::visit(
+      [&](auto &&l, auto &&r) -> parsed_expression {
+        using L = std::decay_t<decltype(l)>;
+        using R = std::decay_t<decltype(r)>;
+        if constexpr (can_mul<L, R>) {
+          return op(std::move(l), std::move(r));
+        } else {
+          throw type_mismatch_error(
+              "operator '*' is not defined for this combination of "
+              "operand types",
+              pos, state.source);
+        }
+      },
+      std::move(lhs), std::move(rhs)));
+}
+
+// Mixed-domain `/`: use `can_div` table.
+template <typename Op>
+void combine_div(parser_state &state, std::size_t pos, Op &&op) {
+  if (state.values.size() < 2) {
+    throw syntax_error("operator missing left or right operand", pos,
+                       state.source);
+  }
+  auto rhs = std::move(state.values.back());
+  state.values.pop_back();
+  auto lhs = std::move(state.values.back());
+  state.values.pop_back();
+  state.values.emplace_back(std::visit(
+      [&](auto &&l, auto &&r) -> parsed_expression {
+        using L = std::decay_t<decltype(l)>;
+        using R = std::decay_t<decltype(r)>;
+        if constexpr (can_div<L, R>) {
+          return op(std::move(l), std::move(r));
+        } else {
+          throw type_mismatch_error(
+              "operator '/' is not defined for this combination of "
+              "operand types",
+              pos, state.source);
+        }
+      },
+      std::move(lhs), std::move(rhs)));
+}
+
 // Pop the top scalar operand and replace it with op(top). Used by
-// unary minus.
+// unary minus (scalar-only on this branch).
 template <typename Op>
 void replace_top(parser_state &state, std::size_t pos, Op &&op) {
   if (state.values.empty()) {
@@ -143,17 +279,27 @@ template <> struct action<grammar::number_literal> {
   }
 };
 
-// identifier: look up (or implicitly declare) as a scalar variable
-// in the symbol table. Phase 2d will branch on tensor-vs-scalar.
+// identifier: look up the symbol table first — if `name` already
+// exists, push the existing entry (scalar or tensor). Only declare
+// as a fresh scalar when the name is unknown. This lets the user
+// do `A{rank=2, dim=3}` once and then refer to `A` bare in the
+// rest of the expression.
 template <> struct action<grammar::identifier> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
+    auto name = in.string_view();
+    if (auto existing = state.syms.get(name)) {
+      std::visit([&](auto const &expr) { state.values.emplace_back(expr); },
+                 *existing);
+      return;
+    }
     try {
-      auto expr = state.syms.get_or_declare_scalar(in.string_view());
+      auto expr = state.syms.get_or_declare_scalar(name);
       state.values.emplace_back(std::move(expr));
     } catch (parse_error const &e) {
       // symbol_table threw a position-less error; re-throw with our
-      // input context attached.
+      // input context attached. Shouldn't fire on the get-first path
+      // but kept defensively.
       throw type_collision_error(e.what(), in.position().byte, state.source);
     }
   }
@@ -166,29 +312,31 @@ template <> struct action<grammar::identifier> {
 template <> struct action<grammar::mul_tail_star> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return a * b; });
+    combine_mul(state, in.position().byte,
+                [](auto &&a, auto &&b) { return a * b; });
   }
 };
 template <> struct action<grammar::mul_tail_slash> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return a / b; });
+    combine_div(state, in.position().byte,
+                [](auto &&a, auto &&b) { return a / b; });
   }
 };
 template <> struct action<grammar::add_tail_plus> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return a + b; });
+    combine_same_domain(
+        state, in.position().byte, [](auto &&a, auto &&b) { return a + b; },
+        "+");
   }
 };
 template <> struct action<grammar::add_tail_minus> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return a - b; });
+    combine_same_domain(
+        state, in.position().byte, [](auto &&a, auto &&b) { return a - b; },
+        "-");
   }
 };
 
@@ -199,8 +347,8 @@ template <> struct action<grammar::add_tail_minus> {
 template <> struct action<grammar::power_tail> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return pow(a, b); });
+    combine_scalar_only(state, in.position().byte,
+                        [](auto &&a, auto &&b) { return pow(a, b); });
   }
 };
 
@@ -221,43 +369,43 @@ template <> struct action<grammar::unary_minus> {
 template <> struct action<grammar::cmp_tail_lt> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return lt(a, b); });
+    combine_scalar_only(state, in.position().byte,
+                        [](auto &&a, auto &&b) { return lt(a, b); });
   }
 };
 template <> struct action<grammar::cmp_tail_le> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return le(a, b); });
+    combine_scalar_only(state, in.position().byte,
+                        [](auto &&a, auto &&b) { return le(a, b); });
   }
 };
 template <> struct action<grammar::cmp_tail_gt> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return gt(a, b); });
+    combine_scalar_only(state, in.position().byte,
+                        [](auto &&a, auto &&b) { return gt(a, b); });
   }
 };
 template <> struct action<grammar::cmp_tail_ge> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return ge(a, b); });
+    combine_scalar_only(state, in.position().byte,
+                        [](auto &&a, auto &&b) { return ge(a, b); });
   }
 };
 template <> struct action<grammar::eq_tail_eq> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return eq(a, b); });
+    combine_scalar_only(state, in.position().byte,
+                        [](auto &&a, auto &&b) { return eq(a, b); });
   }
 };
 template <> struct action<grammar::eq_tail_ne> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
-    combine_top_two(state, in.position().byte,
-                    [](auto &&a, auto &&b) { return ne(a, b); });
+    combine_scalar_only(state, in.position().byte,
+                        [](auto &&a, auto &&b) { return ne(a, b); });
   }
 };
 
@@ -296,29 +444,143 @@ template <> struct action<grammar::function_call> {
     state.arg_marks.pop_back();
     auto arg_count = state.values.size() - mark;
 
-    // Resolve in the registry.
-    auto const &reg = registry::scalar_function_registry();
+    // Resolve in the polymorphic registry.
+    auto const &reg = registry::function_registry();
     auto it = reg.find(name);
     if (it == reg.end()) {
       throw unknown_function_error(std::move(name), pos, state.source);
     }
     auto const &entry = it->second;
-    if (arg_count != entry.arity) {
-      throw arity_error(std::move(name), entry.arity, arg_count, pos,
+    if (arg_count != entry.arg_kinds.size()) {
+      throw arity_error(std::move(name), entry.arg_kinds.size(), arg_count, pos,
                         state.source);
     }
 
-    // Collect args in source order. Stack has them in push order
-    // (source order); we pop from back and reverse at the end.
+    // Collect args in source order. The stack has them in push order
+    // (= source order); pop from back and reverse at the end.
     registry::arg_vec args;
     args.reserve(arg_count);
     for (std::size_t i = 0; i < arg_count; ++i) {
-      args.push_back(require_scalar(state.values.back(), pos, state.source));
+      args.push_back(std::move(state.values.back()));
       state.values.pop_back();
     }
     std::reverse(args.begin(), args.end());
 
+    // Type-check each arg against the entry's declared kinds before
+    // calling dispatch — dispatch uses unchecked `std::get` so a
+    // mismatch here would throw `std::bad_variant_access` rather
+    // than our nicer type_mismatch_error.
+    for (std::size_t i = 0; i < arg_count; ++i) {
+      bool ok = false;
+      switch (entry.arg_kinds[i]) {
+      case registry::arg_kind::scalar:
+        ok = std::holds_alternative<expression_holder<scalar_expression>>(
+            args[i]);
+        break;
+      case registry::arg_kind::tensor:
+        ok = std::holds_alternative<expression_holder<tensor_expression>>(
+            args[i]);
+        break;
+      }
+      if (!ok) {
+        throw type_mismatch_error(
+            "function '" + name + "': argument " + std::to_string(i + 1) +
+                " has wrong type for the expected signature",
+            pos, state.source);
+      }
+    }
+
     state.values.emplace_back(entry.dispatch(std::move(args)));
+  }
+};
+
+// ─── Tensor declarations: A{rank=R, dim=D} ────────────────────────
+// `rank_kv` / `dim_kv` actions parse the matched integer literal and
+// store it in parser_state. `tensor_decl` consumes both, declares
+// the tensor in the symbol_table, and pushes the holder.
+
+namespace detail_kv {
+inline std::size_t parse_kv_integer(std::string_view matched, std::size_t pos,
+                                    std::string_view source) {
+  // The matched range starts with the keyword ('rank' or 'dim'),
+  // contains ws + '=' + ws, then the integer literal at the end.
+  // Scan backwards for the start of the digit run.
+  std::size_t end = matched.size();
+  while (end > 0 &&
+         std::isdigit(static_cast<unsigned char>(matched[end - 1]))) {
+    --end;
+  }
+  std::size_t start = end;
+  while (start < matched.size() &&
+         std::isdigit(static_cast<unsigned char>(matched[start]))) {
+    ++start;
+  }
+  if (start == end) {
+    throw lexical_error("internal: kv value missing digit run", pos, source);
+  }
+  std::size_t value = 0;
+  auto const *first = matched.data() + end;
+  auto const *last = matched.data() + start;
+  auto [ptr, ec] = std::from_chars(first, last, value);
+  if (ec != std::errc{}) {
+    throw lexical_error("malformed integer in tensor declaration", pos, source);
+  }
+  return value;
+}
+} // namespace detail_kv
+
+template <> struct action<grammar::rank_kv> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    state.pending_rank = detail_kv::parse_kv_integer(
+        in.string_view(), in.position().byte, state.source);
+  }
+};
+template <> struct action<grammar::dim_kv> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    state.pending_dim = detail_kv::parse_kv_integer(
+        in.string_view(), in.position().byte, state.source);
+  }
+};
+
+template <> struct action<grammar::tensor_decl> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    auto pos = in.position().byte;
+    auto matched = in.string_view();
+    // Tensor name = matched range up to first non-identifier char.
+    std::size_t name_end = 0;
+    while (name_end < matched.size() &&
+           (std::isalnum(static_cast<unsigned char>(matched[name_end])) ||
+            matched[name_end] == '_')) {
+      ++name_end;
+    }
+    std::string name(matched.substr(0, name_end));
+
+    if (!state.pending_rank.has_value() || !state.pending_dim.has_value()) {
+      throw syntax_error("tensor declaration '" + name +
+                             "{…}' must specify both rank= and dim=",
+                         pos, state.source);
+    }
+    auto rank = *state.pending_rank;
+    auto dim = *state.pending_dim;
+    state.pending_rank.reset();
+    state.pending_dim.reset();
+
+    try {
+      auto expr = state.syms.get_or_declare_tensor(name, rank, dim);
+      state.values.emplace_back(std::move(expr));
+    } catch (parse_error const &e) {
+      // symbol_table threw position-less; re-throw with our pos.
+      // We don't know the exact subclass here without rtti gymnastics;
+      // map both redeclaration and type_collision to their respective
+      // types by inspecting the dynamic type.
+      if (dynamic_cast<redeclaration_error const *>(&e)) {
+        throw redeclaration_error(e.what(), pos, state.source);
+      }
+      throw type_collision_error(e.what(), pos, state.source);
+    }
   }
 };
 
