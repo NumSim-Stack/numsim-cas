@@ -11,8 +11,17 @@
 // parentheses, `+ - * /`.
 // Phase 2b additions: right-associative `^`, unary `-`, comparison
 // operators (`<`, `<=`, `>`, `>=`, `==`, `!=`).
-// Subsequent commits add function calls (2c) and tensor declarations
-// + contraction syntax (2d).
+// Phase 2c additions: function calls — scalar→scalar functions
+// (trig + hyperbolic + exp/log/sqrt/abs/sign + pow + comparisons)
+// are dispatched through a static registry in function_registry.h.
+// The grammar uses a distinct `function_name` rule (no action) so
+// the bare-identifier action doesn't fire when matching the prefix
+// of a call; if_must<(> commits once the open paren is consumed so
+// backtracking past it can't smear state.
+// (max/min/if_then_else/Macauley family are absent from the
+// registry on this branch — they live on unmerged PRs #207/#208/#209.
+// Once those land on main, extend `function_registry.h`.)
+// Phase 2d will add tensor declarations + contraction syntax.
 
 #include <tao/pegtl.hpp>
 
@@ -67,11 +76,44 @@ struct expression;
 struct unary;
 struct power;
 
-// ─── Primary: literal | identifier | '(' expression ')' ───────────
+// ─── Function calls ───────────────────────────────────────────────
+// `function_name` has the same shape as `identifier` but is a
+// distinct PEGTL rule so we don't share its action template
+// specialisation. That keeps the bare-identifier scalar-variable
+// push out of the function-call match path.
+//
+// `function_call_open` / `function_call_close` are distinct from
+// the generic `(` / `)` used in `paren_expression` for the same
+// reason — their action records the value-stack depth so we know
+// how many args were pushed by the time the call finishes.
+//
+// Once `(` is matched, the rest is wrapped in `if_must` so a
+// missing close-paren (or malformed argument) raises a hard error
+// rather than backtracking to try `identifier` and leaving state
+// in an inconsistent shape.
+struct function_name
+    : pegtl::seq<identifier_first, pegtl::star<identifier_rest>> {};
+struct function_call_open : pegtl::one<'('> {};
+struct function_call_close : pegtl::one<')'> {};
+struct arg_list
+    : pegtl::list<expression, pegtl::pad<pegtl::one<','>, pegtl::space>> {};
+struct function_call
+    : pegtl::seq<function_name, ws,
+                 pegtl::if_must<function_call_open, ws, pegtl::opt<arg_list>,
+                                ws, function_call_close>> {};
+
+// ─── Primary: literal | function_call | identifier | '(' expression ')'
+// Order matters: function_call must come before identifier so the
+// `name(` prefix doesn't get consumed as a bare scalar variable.
+// Both rules start with the same characters; PEGTL backtracks if
+// `function_call_open` fails to find a `(` after the name, then
+// retries with `identifier` from the same position.
 struct paren_expression
     : pegtl::seq<pegtl::one<'('>, ws, expression, ws, pegtl::one<')'>> {};
 
-struct primary : pegtl::sor<number_literal, identifier, paren_expression> {};
+struct primary
+    : pegtl::sor<number_literal, function_call, identifier, paren_expression> {
+};
 
 // ─── Power level (highest precedence): primary ('^' power)? ──────
 // Right-recursive: the `^`'s right operand is `power` itself, NOT

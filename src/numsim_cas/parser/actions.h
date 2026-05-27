@@ -18,6 +18,7 @@
 // yet (phase 2d wires up the full type-coercion table); for now
 // every value on the stack is scalar.
 
+#include "function_registry.h"
 #include "grammar.h"
 
 #include <numsim_cas/basic_functions.h>
@@ -29,6 +30,8 @@
 
 #include <tao/pegtl.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <stdexcept>
 #include <string>
@@ -56,6 +59,13 @@ namespace pegtl = tao::pegtl;
  */
 struct parser_state {
   std::vector<parsed_expression> values;
+  // Stack of value-stack depths at function-call '(' marks. Pushed by
+  // `function_call_open`'s action, popped by `function_call`'s — the
+  // difference between the current size and the popped mark is the
+  // number of arguments pushed by the enclosed expression list.
+  // Stack-of-marks supports nested calls like `max(sin(x), cos(x))`.
+  std::vector<std::size_t> arg_marks;
+
   symbol_table &syms;
   std::string_view source;
 
@@ -248,6 +258,67 @@ template <> struct action<grammar::eq_tail_ne> {
   static void apply(Input const &in, parser_state &state) {
     combine_top_two(state, in.position().byte,
                     [](auto &&a, auto &&b) { return ne(a, b); });
+  }
+};
+
+// ─── Function calls ───────────────────────────────────────────────
+// The opening '(' of a function call records the current value-stack
+// depth. By the time the matching ')' fires the function_call action,
+// values pushed since the mark are exactly the call's arguments.
+
+template <> struct action<grammar::function_call_open> {
+  static void apply0(parser_state &state) {
+    state.arg_marks.push_back(state.values.size());
+  }
+};
+
+template <> struct action<grammar::function_call> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    auto pos = in.position().byte;
+    auto matched = in.string_view();
+
+    // Function name = matched range up to first non-identifier char.
+    std::size_t name_end = 0;
+    while (name_end < matched.size() &&
+           (std::isalnum(static_cast<unsigned char>(matched[name_end])) ||
+            matched[name_end] == '_')) {
+      ++name_end;
+    }
+    std::string name(matched.substr(0, name_end));
+
+    // Pop the arg mark recorded by function_call_open's action.
+    if (state.arg_marks.empty()) {
+      throw syntax_error("internal: missing arg-mark for function call", pos,
+                         state.source);
+    }
+    auto mark = state.arg_marks.back();
+    state.arg_marks.pop_back();
+    auto arg_count = state.values.size() - mark;
+
+    // Resolve in the registry.
+    auto const &reg = registry::scalar_function_registry();
+    auto it = reg.find(name);
+    if (it == reg.end()) {
+      throw unknown_function_error(std::move(name), pos, state.source);
+    }
+    auto const &entry = it->second;
+    if (arg_count != entry.arity) {
+      throw arity_error(std::move(name), entry.arity, arg_count, pos,
+                        state.source);
+    }
+
+    // Collect args in source order. Stack has them in push order
+    // (source order); we pop from back and reverse at the end.
+    registry::arg_vec args;
+    args.reserve(arg_count);
+    for (std::size_t i = 0; i < arg_count; ++i) {
+      args.push_back(require_scalar(state.values.back(), pos, state.source));
+      state.values.pop_back();
+    }
+    std::reverse(args.begin(), args.end());
+
+    state.values.emplace_back(entry.dispatch(std::move(args)));
   }
 };
 

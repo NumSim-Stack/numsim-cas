@@ -18,6 +18,7 @@
 #include <numsim_cas/parser/symbol_table.h>
 #include <numsim_cas/scalar/visitors/scalar_evaluator.h>
 
+#include <cmath>
 #include <string>
 #include <variant>
 
@@ -38,6 +39,7 @@ using numsim::cas::parser::symbol_table;
 using numsim::cas::parser::syntax_error;
 using numsim::cas::parser::type_collision_error;
 using numsim::cas::parser::type_mismatch_error;
+using numsim::cas::parser::unknown_function_error;
 using numsim::cas::parser::unknown_symbol_error;
 
 // ─── symbol_table: scalar declarations ─────────────────────────────
@@ -458,6 +460,126 @@ TEST(ParserGrammar, EqualityBindsLooserThanComparison) {
   auto e = parse_scalar("a < b == c", syms);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"a", 1}, {"b", 2}, {"c", 1}}), 1.0);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"a", 3}, {"b", 2}, {"c", 1}}), 0.0);
+}
+
+// ─── Phase 2c: function calls ──────────────────────────────────────
+
+TEST(ParserGrammar, UnaryFunctionSin) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("sin(0)", syms), syms), 0.0);
+}
+
+TEST(ParserGrammar, UnaryFunctionCos) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("cos(0)", syms), syms), 1.0);
+}
+
+TEST(ParserGrammar, UnaryFunctionExp) {
+  symbol_table syms;
+  EXPECT_NEAR(eval_scalar(parse_scalar("exp(1)", syms), syms), std::exp(1.0),
+              1e-12);
+}
+
+TEST(ParserGrammar, UnaryFunctionLog) {
+  symbol_table syms;
+  EXPECT_NEAR(eval_scalar(parse_scalar("log(exp(2))", syms), syms), 2.0, 1e-12);
+}
+
+TEST(ParserGrammar, UnaryFunctionSqrt) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("sqrt(9)", syms), syms), 3.0);
+}
+
+TEST(ParserGrammar, UnaryFunctionAbs) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(parse_scalar("abs(x)", syms), syms, {{"x", -5.0}}), 5.0);
+}
+
+TEST(ParserGrammar, UnaryFunctionSinOnIdentifier) {
+  symbol_table syms;
+  auto e = parse_scalar("sin(x)", syms);
+  EXPECT_NEAR(eval_scalar(e, syms, {{"x", 1.5}}), std::sin(1.5), 1e-12);
+}
+
+TEST(ParserGrammar, HyperbolicTanh) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("tanh(0)", syms), syms), 0.0);
+}
+
+TEST(ParserGrammar, BinaryFunctionPow) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("pow(2, 8)", syms), syms), 256.0);
+}
+
+TEST(ParserGrammar, BinaryFunctionLt) {
+  symbol_table syms;
+  auto e = parse_scalar("lt(x, y)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 1}, {"y", 2}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 5}, {"y", 2}}), 0.0);
+}
+
+TEST(ParserGrammar, FunctionCallNestedInArithmetic) {
+  // sin(x)^2 + cos(x)^2 == 1 for any x — the classic identity.
+  symbol_table syms;
+  auto e = parse_scalar("sin(x) ^ 2 + cos(x) ^ 2", syms);
+  EXPECT_NEAR(eval_scalar(e, syms, {{"x", 0.7}}), 1.0, 1e-12);
+  EXPECT_NEAR(eval_scalar(e, syms, {{"x", -2.3}}), 1.0, 1e-12);
+}
+
+TEST(ParserGrammar, FunctionCallNestedInsideFunctionCall) {
+  // exp(sin(0)) == exp(0) == 1.
+  symbol_table syms;
+  auto e = parse_scalar("exp(sin(x))", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 0.0}}), 1.0);
+}
+
+TEST(ParserGrammar, FunctionCallWithComplexArguments) {
+  // pow(x + 1, 2 * y) — args are full expressions.
+  symbol_table syms;
+  auto e = parse_scalar("pow(x + 1, 2 * y)", syms);
+  // (3 + 1) ^ (2 * 1.5) = 4 ^ 3 = 64.
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3}, {"y", 1.5}}), 64.0);
+}
+
+TEST(ParserGrammar, UnknownFunctionThrows) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("nope(x)", syms); },
+      unknown_function_error);
+}
+
+TEST(ParserGrammar, ArityMismatchThrows) {
+  symbol_table syms;
+  // sin is unary. Two args is an arity error.
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("sin(x, y)", syms); },
+      arity_error);
+  // pow is binary. One arg is an arity error.
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("pow(2)", syms); }, arity_error);
+  // pow with zero args.
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("pow()", syms); }, arity_error);
+}
+
+TEST(ParserGrammar, IdentifierWithoutParensIsScalarNotFunction) {
+  // `sin` without parens is a bare identifier (scalar variable).
+  // The grammar must NOT consume "sin" as a function-call prefix
+  // and leave the parse in a bad state.
+  symbol_table syms;
+  auto e = parse_scalar("sin + 3", syms);
+  EXPECT_TRUE(syms.has("sin"))
+      << "'sin' without '(' should be declared as a scalar variable.";
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"sin", 4.0}}), 7.0);
+}
+
+TEST(ParserGrammar, FunctionCallMissingCloseParenThrows) {
+  // Once `(` is consumed, the if_must<> in the grammar makes a
+  // missing `)` a hard error rather than silent backtracking.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("sin(x", syms); }, parse_error);
 }
 
 } // namespace numsim::cas::parser_test
