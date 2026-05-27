@@ -60,7 +60,15 @@ namespace pegtl = tao::pegtl;
  * operator firings.
  */
 struct parser_state {
-  std::vector<parsed_expression> values;
+  // Phase 2e: values stack is the wider `registry::parser_value`
+  // variant (parsed_expression alternatives + index_list_value) so
+  // bracket-list args can flow through the same stack as
+  // expressions. At the end of `parse()`, the final stack entry
+  // must be one of the three expression alternatives — an
+  // index_list_value at the top is a syntax error (caught
+  // explicitly in parser.cpp).
+  std::vector<registry::parser_value> values;
+
   // Stack of value-stack depths at function-call '(' marks. Pushed by
   // `function_call_open`'s action, popped by `function_call`'s — the
   // difference between the current size and the popped mark is the
@@ -84,9 +92,12 @@ struct parser_state {
 };
 
 // Helper: extract a scalar holder from a value-stack entry. Used by
-// scalar-only operators (+, -, ^, comparisons, unary -).
+// scalar-only operators (+, -, ^, comparisons, unary -). The stack
+// now holds `parser_value` which includes `index_list_value`; that
+// alternative is rejected here (operators can't take index lists).
 inline expression_holder<scalar_expression> &
-require_scalar(parsed_expression &v, std::size_t pos, std::string_view source) {
+require_scalar(registry::parser_value &v, std::size_t pos,
+               std::string_view source) {
   if (auto *s = std::get_if<expression_holder<scalar_expression>>(&v))
     return *s;
   throw type_mismatch_error("operator expects scalar operands; got non-scalar",
@@ -94,8 +105,9 @@ require_scalar(parsed_expression &v, std::size_t pos, std::string_view source) {
 }
 
 // Same-domain combinator: lhs OP rhs only when both values are in
-// the SAME alternative of `parsed_expression`. Used by +, -, and
-// the comparison operators.
+// the SAME alternative AND that alternative is an expression
+// (not index_list_value). Used by +, -, and the comparison
+// operators.
 template <typename Op>
 void combine_same_domain(parser_state &state, std::size_t pos, Op &&op,
                          char const *op_name) {
@@ -107,6 +119,14 @@ void combine_same_domain(parser_state &state, std::size_t pos, Op &&op,
   state.values.pop_back();
   auto lhs = std::move(state.values.back());
   state.values.pop_back();
+  // Reject index_list_value either side — operators don't take
+  // bracket-lists.
+  if (std::holds_alternative<registry::index_list_value>(lhs) ||
+      std::holds_alternative<registry::index_list_value>(rhs)) {
+    throw type_mismatch_error(std::string("operator '") + op_name +
+                                  "' does not accept bracket-list arguments",
+                              pos, state.source);
+  }
   if (lhs.index() != rhs.index()) {
     throw type_mismatch_error(std::string("operator '") + op_name +
                                   "' requires both operands in the same domain "
@@ -114,10 +134,15 @@ void combine_same_domain(parser_state &state, std::size_t pos, Op &&op,
                               pos, state.source);
   }
   state.values.emplace_back(std::visit(
-      [&](auto &&l, auto &&r) -> parsed_expression {
+      [&](auto &&l, auto &&r) -> registry::parser_value {
         using L = std::decay_t<decltype(l)>;
         using R = std::decay_t<decltype(r)>;
-        if constexpr (std::is_same_v<L, R>) {
+        if constexpr (std::is_same_v<L, registry::index_list_value> ||
+                      std::is_same_v<R, registry::index_list_value>) {
+          // Unreachable — guarded above.
+          throw type_mismatch_error("internal: index_list slipped past guard",
+                                    0, std::string_view{});
+        } else if constexpr (std::is_same_v<L, R>) {
           return op(std::move(l), std::move(r));
         } else {
           // Unreachable — guarded by lhs.index() == rhs.index() above.
@@ -181,7 +206,9 @@ constexpr bool can_div =
     (std::is_same_v<L, expression_holder<tensor_to_scalar_expression>> &&
      std::is_same_v<R, expression_holder<tensor_to_scalar_expression>>);
 
-// Mixed-domain `*`: use `can_mul` table.
+// Mixed-domain `*`: use `can_mul` table. The `can_mul` predicate is
+// false for any pair involving `index_list_value`, so those fall
+// into the else branch and throw — no extra guard needed.
 template <typename Op>
 void combine_mul(parser_state &state, std::size_t pos, Op &&op) {
   if (state.values.size() < 2) {
@@ -193,7 +220,7 @@ void combine_mul(parser_state &state, std::size_t pos, Op &&op) {
   auto lhs = std::move(state.values.back());
   state.values.pop_back();
   state.values.emplace_back(std::visit(
-      [&](auto &&l, auto &&r) -> parsed_expression {
+      [&](auto &&l, auto &&r) -> registry::parser_value {
         using L = std::decay_t<decltype(l)>;
         using R = std::decay_t<decltype(r)>;
         if constexpr (can_mul<L, R>) {
@@ -220,7 +247,7 @@ void combine_div(parser_state &state, std::size_t pos, Op &&op) {
   auto lhs = std::move(state.values.back());
   state.values.pop_back();
   state.values.emplace_back(std::visit(
-      [&](auto &&l, auto &&r) -> parsed_expression {
+      [&](auto &&l, auto &&r) -> registry::parser_value {
         using L = std::decay_t<decltype(l)>;
         using R = std::decay_t<decltype(r)>;
         if constexpr (can_div<L, R>) {
@@ -481,6 +508,9 @@ template <> struct action<grammar::function_call> {
         ok = std::holds_alternative<expression_holder<tensor_expression>>(
             args[i]);
         break;
+      case registry::arg_kind::index_list:
+        ok = std::holds_alternative<registry::index_list_value>(args[i]);
+        break;
       }
       if (!ok) {
         throw type_mismatch_error(
@@ -490,7 +520,54 @@ template <> struct action<grammar::function_call> {
       }
     }
 
-    state.values.emplace_back(entry.dispatch(std::move(args)));
+    // Dispatch returns `parsed_expression` (3-variant); convert up to
+    // the wider `parser_value` (4-variant) before pushing onto the
+    // parser-internal stack.
+    auto result = entry.dispatch(std::move(args));
+    state.values.emplace_back(std::visit(
+        [](auto &&v) -> registry::parser_value { return std::move(v); },
+        std::move(result)));
+  }
+};
+
+// ─── Bracket-list index literal: [i1, i2, ...] ────────────────────
+// Parses the matched range, extracting digit runs as 1-based indices.
+// Pushes an index_list_value onto the parser-internal value stack
+// for the enclosing function_call action to consume. Empty
+// `[]` is rejected — contraction functions require at least one
+// index per operand.
+template <> struct action<grammar::index_list_literal> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    auto pos = in.position().byte;
+    auto sv = in.string_view();
+    registry::index_list_value v;
+    std::size_t i = 0;
+    while (i < sv.size()) {
+      if (std::isdigit(static_cast<unsigned char>(sv[i]))) {
+        std::size_t j = i;
+        while (j < sv.size() &&
+               std::isdigit(static_cast<unsigned char>(sv[j]))) {
+          ++j;
+        }
+        std::size_t value = 0;
+        auto [ptr, ec] = std::from_chars(sv.data() + i, sv.data() + j, value);
+        if (ec != std::errc{} || value < 1) {
+          throw lexical_error(
+              "index in bracket-list must be a positive 1-based integer",
+              pos + i, state.source);
+        }
+        v.indices.push_back(value);
+        i = j;
+      } else {
+        ++i;
+      }
+    }
+    if (v.indices.empty()) {
+      throw syntax_error("empty bracket-list '[]' not allowed", pos,
+                         state.source);
+    }
+    state.values.emplace_back(std::move(v));
   }
 };
 

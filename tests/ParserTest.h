@@ -28,6 +28,7 @@ namespace numsim::cas::parser_test {
 // bodies readable. Restricted to this anonymous-ish translation-unit
 // namespace; doesn't leak to other test files.
 using numsim::cas::parser::arity_error;
+using numsim::cas::parser::lexical_error;
 using numsim::cas::parser::parse;
 using numsim::cas::parser::parse_error;
 using numsim::cas::parser::parse_scalar;
@@ -840,6 +841,95 @@ TEST(ParserGrammar, LeadingAndTrailingWhitespaceTensorDecl) {
   auto e = parse_tensor("   A{rank=2, dim=3}   ", syms);
   EXPECT_EQ(e.get().rank(), 2u);
   EXPECT_EQ(e.get().dim(), 3u);
+}
+
+// ─── Phase 2e: bracket-list indices + contraction functions ───────
+
+TEST(ParserGrammar, InnerProductBasicReturnsTensor) {
+  // inner_product(A, [3,4], B, [1,2]) — full contraction of the last
+  // two indices of A with the first two of B. With A rank-4 and B
+  // rank-2, the result is rank-(4+2-2-2)=2 tensor.
+  symbol_table syms;
+  auto result =
+      parse("inner_product(A{rank=4, dim=3}, [3, 4], B{rank=2, dim=3}, [1, 2])",
+            syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<tensor_expression>>(result));
+}
+
+TEST(ParserGrammar, DotProductReturnsT2s) {
+  // dot_product over matching indices yields a scalar (t2s).
+  symbol_table syms;
+  auto result = parse(
+      "dot_product(A{rank=2, dim=3}, [1, 2], B{rank=2, dim=3}, [1, 2])", syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<tensor_to_scalar_expression>>(
+          result));
+}
+
+TEST(ParserGrammar, BracketListAcceptsSingleIndex) {
+  // [1] — a single-index bracket-list. Useful for first/last-axis
+  // contractions.
+  symbol_table syms;
+  auto result =
+      parse("dot_product(A{rank=1, dim=3}, [1], B{rank=1, dim=3}, [1])", syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<tensor_to_scalar_expression>>(
+          result));
+}
+
+TEST(ParserGrammar, BracketListEmptyThrows) {
+  // [] not allowed — contraction requires at least one index per side.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e = parse(
+            "inner_product(A{rank=2, dim=3}, [], B{rank=2, dim=3}, [1, 2])",
+            syms);
+      },
+      parse_error);
+}
+
+TEST(ParserGrammar, BracketListZeroIndexThrows) {
+  // Indices are 1-based; 0 is invalid.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse("inner_product(A{rank=2, dim=3}, [0, 1], B{rank=2, dim=3}, "
+                  "[1, 2])",
+                  syms);
+      },
+      lexical_error);
+}
+
+TEST(ParserGrammar, BracketListAsToplevelExpressionThrows) {
+  // A bare bracket-list at the top is not an expression.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("[1, 2, 3]", syms); }, parse_error);
+}
+
+TEST(ParserGrammar, BracketListPassedToNonContractionThrows) {
+  // sin doesn't take an index list — passing one is a type mismatch.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("sin([1, 2])", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, InnerProductWithExpressionWhereIndexExpectedThrows) {
+  // inner_product expects arg-positions 1 and 3 to be bracket-lists,
+  // not expressions. Passing an expression there is a type mismatch.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse("inner_product(A{rank=2, dim=3}, 1 + 2, B{rank=2, dim=3}, "
+                  "[1, 2])",
+                  syms);
+      },
+      type_mismatch_error);
 }
 
 } // namespace numsim::cas::parser_test

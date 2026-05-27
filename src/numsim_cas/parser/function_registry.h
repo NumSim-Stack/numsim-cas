@@ -23,6 +23,7 @@
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
+#include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
@@ -41,12 +42,29 @@ namespace numsim::cas::parser::registry {
 using scalar_expr = expression_holder<scalar_expression>;
 using tensor_expr = expression_holder<tensor_expression>;
 using t2s_expr = expression_holder<tensor_to_scalar_expression>;
-using arg_vec = std::vector<parsed_expression>;
 
-/// Which domain each positional arg must be in. Checked by the
-/// `function_call` action before calling `dispatch` — wrong domain
+/// A bracket-list literal like `[1, 2]` as an argument to a
+/// contraction function. Carries 1-based indices as the user wrote
+/// them; the dispatch converts to numsim_cas's 0-based `sequence`.
+struct index_list_value {
+  std::vector<std::size_t> indices; // 1-based, as parsed
+};
+
+/// Parser-internal value stack alternative. Public `parsed_expression`
+/// is the narrower subset returned by `parse()`; this richer variant
+/// lets index-list literals flow through the value stack to the
+/// function-call action that consumes them. At parse end, the final
+/// value must be one of the three expression alternatives —
+/// index_list_value at the top is a syntax error (caught explicitly
+/// in parser.cpp).
+using parser_value =
+    std::variant<scalar_expr, tensor_expr, t2s_expr, index_list_value>;
+using arg_vec = std::vector<parser_value>;
+
+/// Which kind each positional arg must be in. Checked by the
+/// `function_call` action before calling `dispatch` — wrong kind
 /// raises `type_mismatch_error` with the call's position.
-enum class arg_kind { scalar, tensor };
+enum class arg_kind { scalar, tensor, index_list };
 
 struct function_entry {
   // arg_kinds.size() == arity.
@@ -83,6 +101,50 @@ inline function_entry tensor_to_scalar_unary(auto fn) {
           [fn = std::move(fn)](arg_vec a) -> parsed_expression {
             auto &t = std::get<tensor_expr>(a[0]);
             return fn(std::move(t));
+          }};
+}
+
+// Convert a parsed index_list_value (1-based) to numsim_cas's
+// `sequence` (0-based internally; sequence accepts a count then
+// per-element writes via `operator[]`).
+inline sequence to_sequence(index_list_value const &iv) {
+  sequence s(iv.indices.size());
+  for (std::size_t i = 0; i < iv.indices.size(); ++i) {
+    // 1-based input → 0-based storage, matching sequence's
+    // initializer_list ctor semantics. The parser already
+    // validated that indices are >= 1 — see the index_list_literal
+    // action in actions.h.
+    s[i] = iv.indices[i] - 1;
+  }
+  return s;
+}
+
+// Contraction helpers: (tensor, index_list, tensor, index_list).
+// The first 4-arg variant returns a tensor (inner_product), the
+// second returns a t2s (dot_product). Same arg-kind table.
+inline function_entry inner_product_entry() {
+  return {{arg_kind::tensor, arg_kind::index_list, arg_kind::tensor,
+           arg_kind::index_list},
+          [](arg_vec a) -> parsed_expression {
+            auto &lhs = std::get<tensor_expr>(a[0]);
+            auto lhs_seq = to_sequence(std::get<index_list_value>(a[1]));
+            auto &rhs = std::get<tensor_expr>(a[2]);
+            auto rhs_seq = to_sequence(std::get<index_list_value>(a[3]));
+            return inner_product(std::move(lhs), std::move(lhs_seq),
+                                 std::move(rhs), std::move(rhs_seq));
+          }};
+}
+
+inline function_entry dot_product_entry() {
+  return {{arg_kind::tensor, arg_kind::index_list, arg_kind::tensor,
+           arg_kind::index_list},
+          [](arg_vec a) -> parsed_expression {
+            auto &lhs = std::get<tensor_expr>(a[0]);
+            auto lhs_seq = to_sequence(std::get<index_list_value>(a[1]));
+            auto &rhs = std::get<tensor_expr>(a[2]);
+            auto rhs_seq = to_sequence(std::get<index_list_value>(a[3]));
+            return dot_product(lhs, std::move(lhs_seq), rhs,
+                               std::move(rhs_seq));
           }};
 }
 
@@ -135,6 +197,10 @@ function_registry() {
     m.emplace("det", tensor_to_scalar_unary([](auto t) { return det(t); }));
     m.emplace("norm", tensor_to_scalar_unary([](auto t) { return norm(t); }));
     m.emplace("dot", tensor_to_scalar_unary([](auto t) { return dot(t); }));
+
+    // ─── Contraction (tensor, [idx], tensor, [idx]) ────────────
+    m.emplace("inner_product", detail::inner_product_entry());
+    m.emplace("dot_product", detail::dot_product_entry());
 
     return m;
   }();

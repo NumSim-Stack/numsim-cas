@@ -24,8 +24,13 @@
 // existing declaration in the symbol_table and push the existing
 // holder (scalar or tensor) — only fall back to implicit scalar
 // declaration when the name is unknown.
-// Still deferred to a follow-up: bracket-list index notation for
-// `inner_product` / `outer_product` / `dot_product`.
+// Phase 2e additions: bracket-list index notation `[i, j]` for
+// `inner_product(A, [3,4], B, [1,2])` and
+// `dot_product(A, [1,2], B, [1,2])`. The index list is a new
+// grammar primary inside `arg_item` — it's only accepted in
+// function-call arg lists, not as a free-standing primary.
+// (`outer_product` has no top-level free function on this branch,
+// so it isn't in the registry.)
 // Phase 2d will add tensor declarations + contraction syntax.
 
 #include <tao/pegtl.hpp>
@@ -100,8 +105,27 @@ struct function_name
     : pegtl::seq<identifier_first, pegtl::star<identifier_rest>> {};
 struct function_call_open : pegtl::one<'('> {};
 struct function_call_close : pegtl::one<')'> {};
+
+// ─── Bracket-list index literal (phase 2e) ────────────────────────
+// `[i1, i2, …]` — only accepted as an `arg_item`, not as a primary.
+// Inside contraction-function arg lists (`inner_product`,
+// `dot_product`). Indices are 1-based positive integers; the action
+// converts to 0-based when constructing the `sequence`.
+struct index_list_open : pegtl::one<'['> {};
+struct index_list_close : pegtl::one<']'> {};
+struct index_list_literal
+    : pegtl::seq<
+          index_list_open, ws,
+          pegtl::if_must<pegtl::list<integer_literal,
+                                     pegtl::pad<pegtl::one<','>, pegtl::space>>,
+                         ws, index_list_close>> {};
+
+// An arg in a function call is either an index_list literal or a
+// full expression. Order matters: index_list must come first so the
+// `[` token isn't (mis)parsed as something else.
+struct arg_item : pegtl::sor<index_list_literal, expression> {};
 struct arg_list
-    : pegtl::list<expression, pegtl::pad<pegtl::one<','>, pegtl::space>> {};
+    : pegtl::list<arg_item, pegtl::pad<pegtl::one<','>, pegtl::space>> {};
 struct function_call
     : pegtl::seq<function_name, ws,
                  pegtl::if_must<function_call_open, ws, pegtl::opt<arg_list>,

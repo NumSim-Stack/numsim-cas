@@ -64,7 +64,23 @@ parsed_expression parse(std::string_view source, symbol_table &syms) {
                            " expressions on the stack (expected exactly 1)",
                        source.size(), source);
   }
-  return std::move(state.values.front());
+  // Convert from the parser-internal `parser_value` (which can hold an
+  // index_list_value as a 4th alternative) to the public
+  // `parsed_expression`. An index_list_value at the top is a syntax
+  // error — bracket-list literals are only valid inside contraction
+  // function arg lists, never as a top-level expression.
+  return std::visit(
+      [&](auto &&v) -> parsed_expression {
+        using V = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<V, registry::index_list_value>) {
+          throw syntax_error(
+              "bracket-list literal '[...]' cannot be a top-level expression",
+              source.size(), source);
+        } else {
+          return std::move(v);
+        }
+      },
+      std::move(state.values.front()));
 }
 
 expression_holder<scalar_expression> parse_scalar(std::string_view source,
