@@ -14,9 +14,12 @@
 #include <gtest/gtest.h>
 
 #include <numsim_cas/parser/parse_error.h>
+#include <numsim_cas/parser/parser.h>
 #include <numsim_cas/parser/symbol_table.h>
+#include <numsim_cas/scalar/visitors/scalar_evaluator.h>
 
 #include <string>
+#include <variant>
 
 namespace numsim::cas::parser_test {
 
@@ -24,10 +27,17 @@ namespace numsim::cas::parser_test {
 // bodies readable. Restricted to this anonymous-ish translation-unit
 // namespace; doesn't leak to other test files.
 using numsim::cas::parser::arity_error;
+using numsim::cas::parser::parse;
 using numsim::cas::parser::parse_error;
+using numsim::cas::parser::parse_scalar;
+using numsim::cas::parser::parse_t2s;
+using numsim::cas::parser::parse_tensor;
+using numsim::cas::parser::parsed_expression;
 using numsim::cas::parser::redeclaration_error;
 using numsim::cas::parser::symbol_table;
+using numsim::cas::parser::syntax_error;
 using numsim::cas::parser::type_collision_error;
+using numsim::cas::parser::type_mismatch_error;
 using numsim::cas::parser::unknown_symbol_error;
 
 // ─── symbol_table: scalar declarations ─────────────────────────────
@@ -202,6 +212,137 @@ TEST(ParseError, ArityErrorCarriesCounts) {
   EXPECT_NE(std::string(e.what()).find("sin"), std::string::npos);
   EXPECT_NE(std::string(e.what()).find("1"), std::string::npos);
   EXPECT_NE(std::string(e.what()).find("2"), std::string::npos);
+}
+
+// ─── Grammar (phase 2a): numbers, identifiers, + - * / and parens ──
+
+// Helper: evaluate a scalar expression with all named scalar symbols
+// in `bindings` bound to the given doubles. Returns the result.
+inline double eval_scalar(
+    expression_holder<scalar_expression> const &expr, symbol_table &syms,
+    std::initializer_list<std::pair<std::string, double>> bindings = {}) {
+  numsim::cas::scalar_evaluator<double> ev;
+  for (auto const &[name, value] : bindings) {
+    ev.set(syms.get_or_declare_scalar(name), value);
+  }
+  return ev.apply(expr);
+}
+
+TEST(ParserGrammar, IntegerLiteralEvaluatesToValue) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("42", syms), syms), 42.0);
+}
+
+TEST(ParserGrammar, DecimalLiteralEvaluatesToValue) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("3.14", syms), syms), 3.14);
+}
+
+TEST(ParserGrammar, IdentifierResolvesToScalarVariable) {
+  symbol_table syms;
+  auto e = parse_scalar("x", syms);
+  EXPECT_TRUE(syms.has("x"));
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 7.0}}), 7.0);
+}
+
+TEST(ParserGrammar, AdditionLeftAssociative) {
+  symbol_table syms;
+  // a + b + c parses as ((a + b) + c). Either is fine for + since it's
+  // associative, but the lock-in test pins evaluation regardless.
+  auto e = parse_scalar("a + b + c", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"a", 1}, {"b", 2}, {"c", 3}}), 6.0);
+}
+
+TEST(ParserGrammar, SubtractionLeftAssociative) {
+  symbol_table syms;
+  // a - b - c must parse as ((a - b) - c) = a - b - c, NOT a - (b - c).
+  auto e = parse_scalar("10 - 3 - 2", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms), 5.0)
+      << "Subtraction must be left-associative.";
+}
+
+TEST(ParserGrammar, MultiplicationBindsTighterThanAddition) {
+  symbol_table syms;
+  // 2 + 3 * 4 should be 14, not 20.
+  auto e = parse_scalar("2 + 3 * 4", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms), 14.0);
+}
+
+TEST(ParserGrammar, DivisionLeftAssociative) {
+  symbol_table syms;
+  // 100 / 10 / 2 must be 5, not 20.
+  auto e = parse_scalar("100 / 10 / 2", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms), 5.0)
+      << "Division must be left-associative.";
+}
+
+TEST(ParserGrammar, ParensOverridePrecedence) {
+  symbol_table syms;
+  auto e = parse_scalar("(2 + 3) * 4", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms), 20.0);
+}
+
+TEST(ParserGrammar, NestedParensEvaluateCorrectly) {
+  symbol_table syms;
+  auto e = parse_scalar("((1 + 2) * (3 + 4))", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms), 21.0);
+}
+
+TEST(ParserGrammar, WhitespaceIsSkippedFreely) {
+  symbol_table syms;
+  auto e = parse_scalar("  1  +  2  *  3  ", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms), 7.0);
+}
+
+TEST(ParserGrammar, IdentifierAndLiteralCombine) {
+  symbol_table syms;
+  auto e = parse_scalar("2 * x + 3", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 5}}), 13.0);
+}
+
+TEST(ParserGrammar, SameIdentifierTwiceUsesSameVariable) {
+  // Critical: `x + x` should evaluate to `2x`, NOT to `x + freshly-
+  // declared-x`. Verifies the symbol_table lookup-or-declare path
+  // returns the same holder on both lookups.
+  symbol_table syms;
+  auto e = parse_scalar("x + x", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 4}}), 8.0);
+}
+
+TEST(ParserGrammar, ParserReturnsScalarVariant) {
+  symbol_table syms;
+  auto result = parse("1 + 2", syms);
+  EXPECT_TRUE(
+      std::holds_alternative<expression_holder<scalar_expression>>(result))
+      << "Top-level scalar expression should land in the scalar variant "
+         "alternative.";
+}
+
+TEST(ParserGrammar, ParseTensorOnScalarExpressionThrows) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_tensor("1 + 2", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, ParseT2sOnScalarExpressionThrows) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_t2s("1 + 2", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, MalformedInputThrowsSyntaxError) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("1 +", syms); }, parse_error);
+}
+
+TEST(ParserGrammar, TrailingGarbageThrows) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("1 + 2 banana", syms); },
+      parse_error);
 }
 
 } // namespace numsim::cas::parser_test
