@@ -1181,6 +1181,178 @@ TEST(ParserIntegration, NumberLiteralIsLocaleIndependent) {
          "locale's decimal separator.";
 }
 
+// ─── Phase 3b: error-coverage tests ────────────────────────────────
+//
+// Phase 2 confirmed every error path raises *some* `parse_error`.
+// These tests tighten that: the right subclass fires, `position()`
+// points at the offending byte (verified inside multi-line input for
+// at least one path), `what()` mentions a relevant token, and the
+// subclass-specific accessors (`name()`, `expected_arity()`, …)
+// carry the values the throw site supplied. A regression that
+// broadened a throw to the base `parse_error` would still pass the
+// existing `EXPECT_THROW(..., parse_error)` checks; these don't.
+
+TEST(ParserErrorCoverage, BracketListZeroIndexFiresLexicalErrorWithPosition) {
+  symbol_table syms;
+  std::string src =
+      "inner_product(A{rank=2, dim=3}, [0, 1], B{rank=2, dim=3}, [1, 2])";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected lexical_error.";
+  } catch (lexical_error const &e) {
+    EXPECT_EQ(e.position(), src.find('0'))
+        << "Position should point at the offending '0'.";
+    EXPECT_NE(std::string(e.what()).find("1-based"), std::string::npos)
+        << "Message should mention the 1-based constraint. what():\n"
+        << e.what();
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, BracketListOverflowFiresLexicalErrorWithMessage) {
+  symbol_table syms;
+  std::string src =
+      "inner_product(A{rank=2, dim=3}, [99999999999999999999, 1], "
+      "B{rank=2, dim=3}, [1, 2])";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected lexical_error (overflow path).";
+  } catch (lexical_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("exceeds"), std::string::npos)
+        << "Overflow message should differ from the generic 'must be "
+           "positive 1-based' message. what():\n"
+        << e.what();
+  }
+}
+
+TEST(ParserErrorCoverage, ZeroRankTensorFiresSyntaxErrorAtDeclaration) {
+  symbol_table syms;
+  std::string src = "trace(A{rank=0, dim=3})";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected syntax_error.";
+  } catch (syntax_error const &e) {
+    // Action raises with the tensor_decl start position (the `A`).
+    EXPECT_EQ(e.position(), src.find('A'));
+    EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos);
+    EXPECT_NE(std::string(e.what()).find(">= 1"), std::string::npos);
+  }
+}
+
+TEST(ParserErrorCoverage, ArityErrorCarriesFunctionNameAndCounts) {
+  symbol_table syms;
+  std::string src = "sin(x, y)";
+  try {
+    [[maybe_unused]] auto e = parse_scalar(src, syms);
+    FAIL() << "Expected arity_error.";
+  } catch (arity_error const &e) {
+    EXPECT_EQ(e.function(), "sin");
+    EXPECT_EQ(e.expected_arity(), 1u);
+    EXPECT_EQ(e.actual_arity(), 2u);
+    EXPECT_NE(std::string(e.what()).find("sin"), std::string::npos);
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, UnknownFunctionErrorCarriesName) {
+  symbol_table syms;
+  std::string src = "no_such_fn(x, y)";
+  try {
+    [[maybe_unused]] auto e = parse_scalar(src, syms);
+    FAIL() << "Expected unknown_function_error.";
+  } catch (unknown_function_error const &e) {
+    EXPECT_EQ(e.name(), "no_such_fn");
+    EXPECT_NE(std::string(e.what()).find("no_such_fn"), std::string::npos);
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, TypeMismatchMessageMentionsOperand) {
+  // `sin(A{...})` — sin's arg_kind is scalar, A is tensor. The
+  // function-call action's type-check should reject with the call
+  // name and argument index in the message so the user can locate
+  // the mistake.
+  symbol_table syms;
+  std::string src = "sin(A{rank=2, dim=3})";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected type_mismatch_error.";
+  } catch (type_mismatch_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("sin"), std::string::npos);
+    EXPECT_NE(std::string(e.what()).find("argument"), std::string::npos);
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, TypeCollisionScalarThenTensorInSameParse) {
+  // `x` is implicitly declared scalar by the first reference. The
+  // later `x{rank=2, dim=3}` tries to declare it as a tensor and
+  // hits symbol_table's collision check, which the parser re-throws
+  // as a type_collision_error with the call site's position.
+  symbol_table syms;
+  std::string src = "x + x{rank=2, dim=3}";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected type_collision_error.";
+  } catch (type_collision_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("x"), std::string::npos);
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, RedeclarationDifferentShapeInSameParse) {
+  // Two tensor decls in one expression with mismatched (rank, dim).
+  symbol_table syms;
+  std::string src = "trace(A{rank=2, dim=3}) + dot(A{rank=4, dim=3})";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected redeclaration_error.";
+  } catch (redeclaration_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("A"), std::string::npos);
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, MultiLineInputPreservesLineAndColumn) {
+  // Multi-line input where the error fires on line 3 (the zero-rank
+  // tensor). Verifies the byte-offset → line:column translation in
+  // parse_error.cpp survives whitespace-padded multi-line input.
+  symbol_table syms;
+  std::string src = "1 +\n  2 *\n  trace(A{rank=0, dim=3})\n";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected syntax_error.";
+  } catch (syntax_error const &e) {
+    EXPECT_EQ(e.line(), 3u) << "Error should land on line 3. what():\n"
+                            << e.what();
+    EXPECT_TRUE(e.has_position());
+    // Snippet should include line 3's text, not lines 1 or 2.
+    std::string what = e.what();
+    EXPECT_NE(what.find("trace(A{rank=0, dim=3})"), std::string::npos);
+    EXPECT_EQ(what.find("1 +"), std::string::npos)
+        << "Line 1 should not appear in the snippet. what():\n"
+        << what;
+  }
+}
+
+TEST(ParserErrorCoverage, UnknownSymbolErrorIsUnreachableFromParser) {
+  // Documentation test: the parser never raises unknown_symbol_error
+  // because every bare identifier in scalar position is implicitly
+  // declared by `get_or_declare_scalar`. The error class exists for
+  // potential future use (e.g. a strict mode that disables implicit
+  // declaration) and is exercised at the constructor level by
+  // ParseError.UnknownSymbolErrorCarriesName.
+  //
+  // This test pins the current behavior: a bare reference to a
+  // never-declared name in scalar position succeeds and implicitly
+  // declares the name as scalar.
+  symbol_table syms;
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e = parse_scalar("never_seen_before + 1", syms);
+  });
+  EXPECT_TRUE(syms.has("never_seen_before"));
+}
+
 } // namespace numsim::cas::parser_test
 
 #endif // NUMSIM_CAS_PARSER_ENABLED
