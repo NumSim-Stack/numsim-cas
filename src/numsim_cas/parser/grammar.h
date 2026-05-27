@@ -31,7 +31,13 @@
 // function-call arg lists, not as a free-standing primary.
 // (`outer_product` has no top-level free function on this branch,
 // so it isn't in the registry.)
-// Phase 2d will add tensor declarations + contraction syntax.
+//
+// What's still missing (deferred to a future phase or to the
+// upstream library): max/min/if_then_else/Macauley family (need
+// #207/#208/#209 to land on main); dev/sym/vol/skew projectors
+// (need projection_tensor.h, also from the unmerged stack);
+// upper-bound validation on contraction indices (delegated to the
+// underlying library at evaluation time).
 
 #include <tao/pegtl.hpp>
 

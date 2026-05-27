@@ -17,8 +17,11 @@
 #include <numsim_cas/parser/parser.h>
 #include <numsim_cas/parser/symbol_table.h>
 #include <numsim_cas/scalar/visitors/scalar_evaluator.h>
+#include <numsim_cas/tensor/data/tensor_data.h>
+#include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_evaluator.h>
 
 #include <cmath>
+#include <memory>
 #include <string>
 #include <variant>
 
@@ -930,6 +933,111 @@ TEST(ParserGrammar, InnerProductWithExpressionWhereIndexExpectedThrows) {
                   syms);
       },
       type_mismatch_error);
+}
+
+// ─── Phase 2e review-pass additions ────────────────────────────────
+
+// Local tensor-data factory — TensorEvaluatorTest.h's `make_test_data`
+// lives in an anonymous namespace and we appear alphabetically before
+// it in main.cpp's include block, so we can't reuse the symbol.
+// Same shape; duplication is two lines.
+namespace parser_test_detail {
+template <std::size_t Dim, std::size_t Rank>
+inline auto make_tensor_data(std::initializer_list<double> values) {
+  auto ptr = std::make_shared<numsim::cas::tensor_data<double, Dim, Rank>>();
+  auto *raw = ptr->raw_data();
+  std::size_t i = 0;
+  for (auto v : values) {
+    raw[i++] = v;
+  }
+  return ptr;
+}
+} // namespace parser_test_detail
+
+TEST(ParserGrammar, DotProductEvaluatorRoundTrip) {
+  // Review finding (gap 1): pin the end-to-end value, not just the
+  // variant alternative. dot_product over matching indices computes
+  // sum_ij A_ij * A_ij for A = [[1, 2], [3, 4]]:
+  //   1*1 + 2*2 + 3*3 + 4*4 = 1 + 4 + 9 + 16 = 30.
+  //
+  // Catches any off-by-one in to_sequence (1-based → 0-based), any
+  // lhs/rhs swap in the dispatch lambda, and any index-list flow
+  // breakage between the action stack and the function call.
+  symbol_table syms;
+  auto expr = parse_t2s(
+      "dot_product(A{rank=2, dim=2}, [1, 2], A{rank=2, dim=2}, [1, 2])", syms);
+
+  // Recover the parser-declared tensor holder so we can bind data
+  // to the SAME holder the parsed expression references.
+  auto lookup = syms.get("A");
+  ASSERT_TRUE(lookup.has_value());
+  auto *A_ptr = std::get_if<expression_holder<tensor_expression>>(&*lookup);
+  ASSERT_NE(A_ptr, nullptr);
+
+  numsim::cas::tensor_to_scalar_evaluator<double> ev;
+  ev.set(*A_ptr,
+         parser_test_detail::make_tensor_data<2, 2>({1.0, 2.0, 3.0, 4.0}));
+  EXPECT_NEAR(ev.apply(expr), 30.0, 1e-12);
+}
+
+TEST(ParserGrammar, DotProductEvaluatorRoundTripAsymmetricMatrix) {
+  // Round-trip with an asymmetric matrix to confirm the index
+  // conversion doesn't accidentally transpose. For B = [[1, 2],
+  // [3, 4]] paired against C = [[5, 6], [7, 8]]:
+  //   dot_product(B, [1, 2], C, [1, 2]) = sum_ij B_ij C_ij
+  //   = 1*5 + 2*6 + 3*7 + 4*8 = 5 + 12 + 21 + 32 = 70.
+  symbol_table syms;
+  auto expr = parse_t2s(
+      "dot_product(B{rank=2, dim=2}, [1, 2], C{rank=2, dim=2}, [1, 2])", syms);
+  auto b_lookup = syms.get("B");
+  auto c_lookup = syms.get("C");
+  ASSERT_TRUE(b_lookup.has_value() && c_lookup.has_value());
+  auto *B_ptr = std::get_if<expression_holder<tensor_expression>>(&*b_lookup);
+  auto *C_ptr = std::get_if<expression_holder<tensor_expression>>(&*c_lookup);
+  ASSERT_NE(B_ptr, nullptr);
+  ASSERT_NE(C_ptr, nullptr);
+  numsim::cas::tensor_to_scalar_evaluator<double> ev;
+  ev.set(*B_ptr,
+         parser_test_detail::make_tensor_data<2, 2>({1.0, 2.0, 3.0, 4.0}));
+  ev.set(*C_ptr,
+         parser_test_detail::make_tensor_data<2, 2>({5.0, 6.0, 7.0, 8.0}));
+  EXPECT_NEAR(ev.apply(expr), 70.0, 1e-12);
+}
+
+TEST(ParserGrammar, BracketListTrailingCommaThrows) {
+  // Review finding (gap 2): `[1, 2,]` — trailing comma.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e = parse(
+            "dot_product(A{rank=2, dim=3}, [1, 2,], B{rank=2, dim=3}, [1, 2])",
+            syms);
+      },
+      parse_error);
+}
+
+TEST(ParserGrammar, BracketListMissingCommaThrows) {
+  // `[1 2]` — missing comma.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e = parse(
+            "dot_product(A{rank=2, dim=3}, [1 2], B{rank=2, dim=3}, [1, 2])",
+            syms);
+      },
+      parse_error);
+}
+
+TEST(ParserGrammar, BracketListDoubleCommaThrows) {
+  // `[1,,2]` — double comma.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e = parse(
+            "dot_product(A{rank=2, dim=3}, [1,,2], B{rank=2, dim=3}, [1, 2])",
+            syms);
+      },
+      parse_error);
 }
 
 } // namespace numsim::cas::parser_test
