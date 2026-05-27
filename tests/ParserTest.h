@@ -13,15 +13,22 @@
 
 #include <gtest/gtest.h>
 
+#include "cas_test_helpers.h"
+
 #include <numsim_cas/parser/parse_error.h>
 #include <numsim_cas/parser/parser.h>
 #include <numsim_cas/parser/symbol_table.h>
+#include <numsim_cas/scalar/scalar_diff.h>
 #include <numsim_cas/scalar/visitors/scalar_evaluator.h>
 #include <numsim_cas/tensor/data/tensor_data.h>
+#include <numsim_cas/tensor/identity_tensor.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_evaluator.h>
 
 #include <cmath>
+#include <locale>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <variant>
 
@@ -1038,6 +1045,102 @@ TEST(ParserGrammar, BracketListDoubleCommaThrows) {
             syms);
       },
       parse_error);
+}
+
+// ─── Phase 3a: integration tests ───────────────────────────────────
+//
+// End-to-end checks that parse-produced ASTs participate correctly in
+// the rest of the library: differentiation, evaluation, and
+// locale-independent number parsing. Each test parses a non-trivial
+// input, hands the result to an existing-library API, and asserts the
+// numeric or printed-form outcome. These are the first tests that
+// exercise the parser the way real callers will — grammar tests
+// confirm the parse succeeds; these confirm the AST is well-formed
+// enough for downstream visitors.
+
+TEST(ParserIntegration, PythagoreanDerivativeIsZero) {
+  // d/dx (sin(x)^2 + cos(x)^2) ≡ 0 for all x. Catches mistakes in the
+  // scalar function-call dispatch (sin/cos registry entries), `^` AST
+  // shape, and any construction-time simplification that would corrupt
+  // the chain rule downstream.
+  symbol_table syms;
+  auto e = parse_scalar("sin(x)^2 + cos(x)^2", syms);
+  auto x = syms.get_or_declare_scalar("x");
+  auto d = numsim::cas::diff(e, x);
+
+  numsim::cas::scalar_evaluator<double> ev;
+  for (double val : {0.0, 0.5, 1.0, 1.5, -0.7, 3.14159, 100.0}) {
+    ev.set(x, val);
+    EXPECT_NEAR(ev.apply(d), 0.0, 1e-12)
+        << "Pythagorean derivative should be 0 at x = " << val;
+  }
+}
+
+TEST(ParserIntegration, TraceGradientEqualsIdentity) {
+  // d(trace(A))/dA = I (rank-2 identity tensor of matching dim).
+  // Catches the tensor declaration round-trip, the t2s trace path,
+  // and the tag_invoke routing for (t2s, tensor) → tensor diff.
+  symbol_table syms;
+  auto e = parse_t2s("trace(A{rank=2, dim=3})", syms);
+  // Bare `A` after the declaration above resolves to the same holder
+  // via lookup-first identifier semantics (phase 2d).
+  auto A = parse_tensor("A", syms);
+  auto d = numsim::cas::diff(e, A);
+  auto I = numsim::cas::make_expression<numsim::cas::identity_tensor>(
+      std::size_t{3}, std::size_t{2});
+  EXPECT_SAME_PRINT(d, I);
+}
+
+TEST(ParserIntegration, RightAssocPowerEvaluatesTo512) {
+  // 2 ^ 3 ^ 2 → 2 ^ (3 ^ 2) = 2^9 = 512. Left-assoc would give
+  // (2^3)^2 = 64. Locks in the grammar's right-recursive `power_tail`
+  // shape against a future regression that switched `^` to the default
+  // pegtl::list left-associativity.
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("2 ^ 3 ^ 2", syms), syms), 512.0);
+}
+
+TEST(ParserIntegration, NumberLiteralIsLocaleIndependent) {
+  // Number-literal parsing uses std::from_chars, which ignores the
+  // global C locale. Set a comma-decimal locale, parse "1.5", and
+  // verify the value is 1.5 — proving we don't silently fall through
+  // to std::strtod / std::stod (both honor the global locale and
+  // would either misparse or throw in de_DE).
+  //
+  // CI runners may not have de_DE.UTF-8 installed; if no comma-decimal
+  // locale is available, skip rather than fail.
+  // Try several common comma-decimal locales. en_DK.utf8 is unusual
+  // because it's Danish English (so locale -a often lists it on hosts
+  // that don't have de_DE) but it uses comma-decimal too. Adding the
+  // breadth here means the test actually runs on most CI runners
+  // instead of skipping out of the box.
+  std::locale saved;
+  bool locale_set = false;
+  for (auto const *loc_name :
+       {"de_DE.UTF-8", "de_DE.utf8", "de_DE", "fr_FR.UTF-8", "fr_FR.utf8",
+        "en_DK.UTF-8", "en_DK.utf8"}) {
+    try {
+      saved = std::locale::global(std::locale(loc_name));
+      locale_set = true;
+      break;
+    } catch (std::runtime_error const &) {
+      // try the next candidate name
+    }
+  }
+  if (!locale_set) {
+    GTEST_SKIP() << "no comma-decimal locale installed; skipping";
+  }
+
+  // RAII-restore the locale even if the EXPECT below throws.
+  struct LocaleRestorer {
+    std::locale saved;
+    ~LocaleRestorer() { std::locale::global(saved); }
+  } restorer{saved};
+
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("1.5", syms), syms), 1.5)
+      << "Parser must read '1.5' as 1.5 regardless of the global C "
+         "locale's decimal separator.";
 }
 
 } // namespace numsim::cas::parser_test
