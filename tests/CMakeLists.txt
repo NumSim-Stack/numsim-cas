@@ -34,6 +34,7 @@ add_numsim_cas_test(numsim_cas_test
     CoreBugFixTest.h
     SolveTest.h
     LimitVisitorTest.h
+    ParserTest.h
     ScalarAssumptionTest.h
     ScalarComparisonTest.h
     ScalarDifferentiationTest.h
@@ -69,3 +70,11 @@ foreach(target numsim_cas_test numsim_cas_fuzz_test)
         target_compile_options(${target} PRIVATE /WX /bigobj /Zc:preprocessor)
     endif()
 endforeach()
+
+# Parser tests (issue #214) — only enabled when the parser is built.
+# ParserTest.h is always in the source list (for IDE visibility) but
+# its body is gated on NUMSIM_CAS_PARSER_ENABLED, defined here.
+if(NUMSIM_CAS_BUILD_PARSER)
+    target_compile_definitions(numsim_cas_test PRIVATE NUMSIM_CAS_PARSER_ENABLED)
+    target_link_libraries(numsim_cas_test PRIVATE NumSim_CAS::Parser)
+endif()
