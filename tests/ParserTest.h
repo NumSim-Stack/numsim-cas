@@ -345,6 +345,121 @@ TEST(ParserGrammar, TrailingGarbageThrows) {
       parse_error);
 }
 
+// ─── Phase 2b: power, unary minus, comparisons ─────────────────────
+
+TEST(ParserGrammar, PowerBasic) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("2 ^ 3", syms), syms), 8.0);
+}
+
+TEST(ParserGrammar, PowerRightAssociative) {
+  // 2 ^ 3 ^ 2 must be 2^(3^2) = 2^9 = 512, NOT (2^3)^2 = 64.
+  // Lock-in for the right-recursive grammar (the known PEGTL gotcha
+  // documented in grammar.h).
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("2 ^ 3 ^ 2", syms), syms), 512.0);
+}
+
+TEST(ParserGrammar, PowerBindsTighterThanMul) {
+  // 2 * 3 ^ 2 = 2 * 9 = 18, NOT (2*3)^2 = 36.
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("2 * 3 ^ 2", syms), syms), 18.0);
+}
+
+TEST(ParserGrammar, UnaryMinusOnLiteral) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("-5", syms), syms), -5.0);
+}
+
+TEST(ParserGrammar, UnaryMinusOnIdentifier) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("-x", syms), syms, {{"x", 3.0}}),
+                   -3.0);
+}
+
+TEST(ParserGrammar, UnaryMinusBindsTighterThanMul) {
+  // -2 * x = (-2) * x, evaluated at x=4 → -8.
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(parse_scalar("-2 * x", syms), syms, {{"x", 4.0}}), -8.0);
+}
+
+TEST(ParserGrammar, PowerBindsTighterThanUnaryMinus) {
+  // -x^2 = -(x^2), evaluated at x=3 → -9.
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(parse_scalar("-x ^ 2", syms), syms, {{"x", 3.0}}), -9.0);
+}
+
+TEST(ParserGrammar, DoubleUnaryMinusCancels) {
+  // - -x = -(-x) = x. The construction-time simplifier folds the
+  // double-negation away; either evaluation order gives the same
+  // numeric result.
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("- -x", syms), syms, {{"x", 5.0}}),
+                   5.0);
+}
+
+TEST(ParserGrammar, BinaryMinusVsUnaryMinusAfterBinary) {
+  // 5 - -3 should be 5 + 3 = 8 (binary minus then unary minus on 3).
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("5 - -3", syms), syms), 8.0);
+}
+
+TEST(ParserGrammar, ComparisonLtReturnsIndicator) {
+  // Comparisons produce Option B scalar indicators: 1.0 if true, else 0.0.
+  symbol_table syms;
+  auto e = parse_scalar("x < y", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 1}, {"y", 2}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 5}, {"y", 2}}), 0.0);
+  // Equal evaluates as not-less-than.
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 2}, {"y", 2}}), 0.0);
+}
+
+TEST(ParserGrammar, ComparisonLeIncludesEquality) {
+  symbol_table syms;
+  auto e = parse_scalar("x <= y", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 2}, {"y", 2}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3}, {"y", 2}}), 0.0);
+}
+
+TEST(ParserGrammar, ComparisonGtAndGe) {
+  symbol_table syms;
+  auto egt = parse_scalar("a > b", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(egt, syms, {{"a", 5}, {"b", 2}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(egt, syms, {{"a", 2}, {"b", 5}}), 0.0);
+  auto ege = parse_scalar("a >= b", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(ege, syms, {{"a", 2}, {"b", 2}}), 1.0);
+}
+
+TEST(ParserGrammar, ComparisonEqAndNe) {
+  symbol_table syms;
+  auto eq_e = parse_scalar("a == b", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(eq_e, syms, {{"a", 3}, {"b", 3}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(eq_e, syms, {{"a", 3}, {"b", 4}}), 0.0);
+  auto ne_e = parse_scalar("a != b", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(ne_e, syms, {{"a", 3}, {"b", 3}}), 0.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(ne_e, syms, {{"a", 3}, {"b", 4}}), 1.0);
+}
+
+TEST(ParserGrammar, ComparisonBindsLooserThanArithmetic) {
+  // x + 1 < y * 2 must parse as (x+1) < (y*2), not as x + (1 < y) * 2.
+  symbol_table syms;
+  auto e = parse_scalar("x + 1 < y * 2", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 2}, {"y", 3}}), 1.0); // 3 < 6
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 9}, {"y", 3}}), 0.0); // 10 < 6
+}
+
+TEST(ParserGrammar, EqualityBindsLooserThanComparison) {
+  // a < b == c parses as (a < b) == c, not a < (b == c).
+  // With a=1, b=2, c=1: (1 < 2)=1, 1 == 1 → 1.
+  // With a=3, b=2, c=1: (3 < 2)=0, 0 == 1 → 0.
+  symbol_table syms;
+  auto e = parse_scalar("a < b == c", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"a", 1}, {"b", 2}, {"c", 1}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"a", 3}, {"b", 2}, {"c", 1}}), 0.0);
+}
+
 } // namespace numsim::cas::parser_test
 
 #endif // NUMSIM_CAS_PARSER_ENABLED

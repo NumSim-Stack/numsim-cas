@@ -25,6 +25,7 @@
 #include <numsim_cas/parser/parser.h>
 #include <numsim_cas/parser/symbol_table.h>
 #include <numsim_cas/scalar/scalar_operators.h>
+#include <numsim_cas/scalar/scalar_std.h>
 
 #include <tao/pegtl.hpp>
 
@@ -86,6 +87,18 @@ void combine_top_two(parser_state &state, std::size_t pos, Op &&op) {
   auto lhs = require_scalar(state.values.back(), pos, state.source);
   state.values.pop_back();
   state.values.emplace_back(op(std::move(lhs), std::move(rhs)));
+}
+
+// Pop the top scalar operand and replace it with op(top). Used by
+// unary minus.
+template <typename Op>
+void replace_top(parser_state &state, std::size_t pos, Op &&op) {
+  if (state.values.empty()) {
+    throw syntax_error("unary operator missing operand", pos, state.source);
+  }
+  auto v = require_scalar(state.values.back(), pos, state.source);
+  state.values.pop_back();
+  state.values.emplace_back(op(std::move(v)));
 }
 
 // ─── Default action: do nothing ───────────────────────────────────
@@ -166,6 +179,75 @@ template <> struct action<grammar::add_tail_minus> {
   static void apply(Input const &in, parser_state &state) {
     combine_top_two(state, in.position().byte,
                     [](auto &&a, auto &&b) { return a - b; });
+  }
+};
+
+// ─── Power (right-associative) ────────────────────────────────────
+// `power_tail` matches `^ <power>` where the inner `power` recurses
+// — by the time this action fires, the inner power has fully
+// reduced and pushed its result. So the stack has [..., lhs, rhs].
+template <> struct action<grammar::power_tail> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    combine_top_two(state, in.position().byte,
+                    [](auto &&a, auto &&b) { return pow(a, b); });
+  }
+};
+
+// ─── Unary minus ──────────────────────────────────────────────────
+// `unary_minus` is `'-' unary` (right-recursive). The inner `unary`
+// pushes the value first; we replace the top with its negation.
+template <> struct action<grammar::unary_minus> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    replace_top(state, in.position().byte, [](auto &&v) { return -v; });
+  }
+};
+
+// ─── Comparison ops ───────────────────────────────────────────────
+// Each comparison combines two scalars into a scalar indicator
+// (1.0 / 0.0) via the codebase's `lt`/`gt`/`le`/`ge`/`eq`/`ne` free
+// functions (Option B predicates from #136).
+template <> struct action<grammar::cmp_tail_lt> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    combine_top_two(state, in.position().byte,
+                    [](auto &&a, auto &&b) { return lt(a, b); });
+  }
+};
+template <> struct action<grammar::cmp_tail_le> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    combine_top_two(state, in.position().byte,
+                    [](auto &&a, auto &&b) { return le(a, b); });
+  }
+};
+template <> struct action<grammar::cmp_tail_gt> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    combine_top_two(state, in.position().byte,
+                    [](auto &&a, auto &&b) { return gt(a, b); });
+  }
+};
+template <> struct action<grammar::cmp_tail_ge> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    combine_top_two(state, in.position().byte,
+                    [](auto &&a, auto &&b) { return ge(a, b); });
+  }
+};
+template <> struct action<grammar::eq_tail_eq> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    combine_top_two(state, in.position().byte,
+                    [](auto &&a, auto &&b) { return eq(a, b); });
+  }
+};
+template <> struct action<grammar::eq_tail_ne> {
+  template <typename Input>
+  static void apply(Input const &in, parser_state &state) {
+    combine_top_two(state, in.position().byte,
+                    [](auto &&a, auto &&b) { return ne(a, b); });
   }
 };
 

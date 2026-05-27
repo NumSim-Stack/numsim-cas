@@ -8,9 +8,11 @@
 // `<numsim_cas/parser/parser.h>` which does NOT include this file.
 //
 // Phase 2a coverage: numbers (int + decimal), bare identifiers,
-// parentheses, `+ - * /`. Subsequent commits add power, unary minus,
-// comparisons, function calls, and the tensor-declaration brace
-// syntax.
+// parentheses, `+ - * /`.
+// Phase 2b additions: right-associative `^`, unary `-`, comparison
+// operators (`<`, `<=`, `>`, `>=`, `==`, `!=`).
+// Subsequent commits add function calls (2c) and tensor declarations
+// + contraction syntax (2d).
 
 #include <tao/pegtl.hpp>
 
@@ -41,42 +43,86 @@ struct identifier : pegtl::seq<identifier_first, pegtl::star<identifier_rest>> {
 };
 
 // ─── Operator tokens ──────────────────────────────────────────────
+// Single-character tokens. Multi-character tokens are listed below
+// in priority order (try multi-char first when alternatives share a
+// prefix, e.g. `<=` before `<`).
 struct plus_op : pegtl::one<'+'> {};
 struct minus_op : pegtl::one<'-'> {};
 struct star_op : pegtl::one<'*'> {};
 struct slash_op : pegtl::one<'/'> {};
+struct caret_op : pegtl::one<'^'> {};
+
+// Comparison tokens. Two-char variants must come before their
+// single-char siblings in the `sor<>` that wraps them — otherwise
+// `<=` parses as `<` followed by `=` which doesn't match anything.
+struct eq_eq_op : pegtl::string<'=', '='> {};
+struct ne_op : pegtl::string<'!', '='> {};
+struct le_op : pegtl::string<'<', '='> {};
+struct ge_op : pegtl::string<'>', '='> {};
+struct lt_op : pegtl::one<'<'> {};
+struct gt_op : pegtl::one<'>'> {};
 
 // ─── Forward decls ────────────────────────────────────────────────
 struct expression;
+struct unary;
+struct power;
 
 // ─── Primary: literal | identifier | '(' expression ')' ───────────
-// Order: number first (a leading digit can never start an identifier
-// or a parenthesised expression, so trying number_literal first is
-// safe and cheap), then identifier, then parens.
 struct paren_expression
     : pegtl::seq<pegtl::one<'('>, ws, expression, ws, pegtl::one<')'>> {};
 
 struct primary : pegtl::sor<number_literal, identifier, paren_expression> {};
 
-// ─── Multiplicative level: primary (('*'|'/') primary)* ───────────
-// Per-op tail rules so the action template specialization for each
-// op can dispatch statically. (A single `mul_tail` with a `sor` over
-// star/slash would force the action to inspect the matched range
-// at runtime to figure out which op fired — error-prone and forced
-// us into a fragile `pending_op` variable in an earlier attempt.)
-struct mul_tail_star : pegtl::seq<ws, star_op, ws, primary> {};
-struct mul_tail_slash : pegtl::seq<ws, slash_op, ws, primary> {};
-struct mul_tail : pegtl::sor<mul_tail_star, mul_tail_slash> {};
-struct mul_term : pegtl::seq<primary, pegtl::star<mul_tail>> {};
+// ─── Power level (highest precedence): primary ('^' power)? ──────
+// Right-recursive: the `^`'s right operand is `power` itself, NOT
+// `primary`. That makes `2 ^ 3 ^ 2` parse as `2 ^ (3 ^ 2) = 512`.
+// (PEGTL's `list<X, Y>` is left-associative; the right-recursion
+// here is the canonical workaround.)
+struct power_tail : pegtl::seq<ws, caret_op, ws, power> {};
+struct power : pegtl::seq<primary, pegtl::opt<power_tail>> {};
 
-// ─── Additive level: mul_term (('+'|'-') mul_term)* ───────────────
+// ─── Unary minus: '-' unary | power ──────────────────────────────
+// Unary `-` binds tighter than `*` (so `-2 * x = (-2) * x`) but
+// looser than `^` (so `-x^2 = -(x^2)`). Right-recursive too so
+// `- - x` parses as `-(-x)` (which the construction-time simplifier
+// then folds to x).
+struct unary_minus : pegtl::seq<minus_op, ws, unary> {};
+struct unary : pegtl::sor<unary_minus, power> {};
+
+// ─── Multiplicative level: unary (('*'|'/') unary)* ──────────────
+// Per-op tail rules so each action specialisation dispatches
+// statically. See the doc comment at the head of this file for why
+// the single-tail-with-sor-over-ops approach was rejected.
+struct mul_tail_star : pegtl::seq<ws, star_op, ws, unary> {};
+struct mul_tail_slash : pegtl::seq<ws, slash_op, ws, unary> {};
+struct mul_tail : pegtl::sor<mul_tail_star, mul_tail_slash> {};
+struct mul_term : pegtl::seq<unary, pegtl::star<mul_tail>> {};
+
+// ─── Additive level: mul_term (('+'|'-') mul_term)* ──────────────
 struct add_tail_plus : pegtl::seq<ws, plus_op, ws, mul_term> {};
 struct add_tail_minus : pegtl::seq<ws, minus_op, ws, mul_term> {};
 struct add_tail : pegtl::sor<add_tail_plus, add_tail_minus> {};
 struct add_term : pegtl::seq<mul_term, pegtl::star<add_tail>> {};
 
+// ─── Comparison level: add_term ((< | <= | > | >=) add_term)* ────
+// Comparisons evaluate to scalar indicators (1.0 / 0.0) following
+// Option B from #136. The two-char variants come first in `sor`.
+struct cmp_tail_le : pegtl::seq<ws, le_op, ws, add_term> {};
+struct cmp_tail_ge : pegtl::seq<ws, ge_op, ws, add_term> {};
+struct cmp_tail_lt : pegtl::seq<ws, lt_op, ws, add_term> {};
+struct cmp_tail_gt : pegtl::seq<ws, gt_op, ws, add_term> {};
+struct cmp_tail
+    : pegtl::sor<cmp_tail_le, cmp_tail_ge, cmp_tail_lt, cmp_tail_gt> {};
+struct cmp_term : pegtl::seq<add_term, pegtl::star<cmp_tail>> {};
+
+// ─── Equality level (lowest precedence): cmp_term ((== | !=) cmp_term)* ──
+struct eq_tail_eq : pegtl::seq<ws, eq_eq_op, ws, cmp_term> {};
+struct eq_tail_ne : pegtl::seq<ws, ne_op, ws, cmp_term> {};
+struct eq_tail : pegtl::sor<eq_tail_eq, eq_tail_ne> {};
+struct eq_term : pegtl::seq<cmp_term, pegtl::star<eq_tail>> {};
+
 // Top-level expression production.
-struct expression : add_term {};
+struct expression : eq_term {};
 
 // Grammar root: optional leading/trailing whitespace, must consume
 // to end of input.
