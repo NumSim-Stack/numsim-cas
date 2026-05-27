@@ -532,6 +532,10 @@ inline std::size_t parse_kv_integer(std::string_view matched, std::size_t pos,
 template <> struct action<grammar::rank_kv> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
+    if (state.pending_rank.has_value()) {
+      throw syntax_error("tensor declaration: duplicate 'rank=' keyword",
+                         in.position().byte, state.source);
+    }
     state.pending_rank = detail_kv::parse_kv_integer(
         in.string_view(), in.position().byte, state.source);
   }
@@ -539,6 +543,10 @@ template <> struct action<grammar::rank_kv> {
 template <> struct action<grammar::dim_kv> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
+    if (state.pending_dim.has_value()) {
+      throw syntax_error("tensor declaration: duplicate 'dim=' keyword",
+                         in.position().byte, state.source);
+    }
     state.pending_dim = detail_kv::parse_kv_integer(
         in.string_view(), in.position().byte, state.source);
   }
@@ -559,6 +567,11 @@ template <> struct action<grammar::tensor_decl> {
     std::string name(matched.substr(0, name_end));
 
     if (!state.pending_rank.has_value() || !state.pending_dim.has_value()) {
+      // Defensive: even though if_must should have caught the missing
+      // brace path, reset pending fields before throwing in case some
+      // partial state lingers from a prior failed kv match.
+      state.pending_rank.reset();
+      state.pending_dim.reset();
       throw syntax_error("tensor declaration '" + name +
                              "{…}' must specify both rank= and dim=",
                          pos, state.source);
@@ -568,14 +581,28 @@ template <> struct action<grammar::tensor_decl> {
     state.pending_rank.reset();
     state.pending_dim.reset();
 
+    // Validate rank and dim before handing to the tensor constructor.
+    // The constructor takes both verbatim; without this check, rank=0
+    // or dim=0 silently builds a degenerate tensor that explodes
+    // downstream at a confusing site.
+    if (rank == 0) {
+      throw syntax_error("tensor declaration '" + name +
+                             "': rank must be >= 1, got 0",
+                         pos, state.source);
+    }
+    if (dim == 0) {
+      throw syntax_error("tensor declaration '" + name +
+                             "': dim must be >= 1, got 0",
+                         pos, state.source);
+    }
+
     try {
       auto expr = state.syms.get_or_declare_tensor(name, rank, dim);
       state.values.emplace_back(std::move(expr));
     } catch (parse_error const &e) {
       // symbol_table threw position-less; re-throw with our pos.
-      // We don't know the exact subclass here without rtti gymnastics;
-      // map both redeclaration and type_collision to their respective
-      // types by inspecting the dynamic type.
+      // dynamic_cast preserves the redeclaration_error subtype so a
+      // caller can pattern-match on the error kind.
       if (dynamic_cast<redeclaration_error const *>(&e)) {
         throw redeclaration_error(e.what(), pos, state.source);
       }

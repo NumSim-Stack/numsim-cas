@@ -713,6 +713,135 @@ TEST(ParserGrammar, ScalarTimesTraceReturnsT2s) {
           result));
 }
 
+// ─── Phase 2d review-pass additions ────────────────────────────────
+
+TEST(ParserGrammar, TensorDeclDuplicateRankThrows) {
+  // Review finding (bug 1): the kv_list grammar accepts repeated
+  // kvs, and without an explicit guard the second one silently
+  // overwrites the first. Pin the explicit-throw contract.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse_tensor("A{rank=2, rank=4, dim=3}", syms);
+      },
+      syntax_error);
+}
+
+TEST(ParserGrammar, TensorDeclDuplicateDimThrows) {
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e = parse_tensor("A{rank=2, dim=3, dim=4}", syms);
+      },
+      syntax_error);
+}
+
+TEST(ParserGrammar, TensorDeclZeroRankThrows) {
+  // Review finding (bug 2): the tensor constructor takes rank/dim
+  // verbatim; degenerate values explode at evaluation. Validate at
+  // the parser level instead.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_tensor("A{rank=0, dim=3}", syms); },
+      syntax_error);
+}
+
+TEST(ParserGrammar, TensorDeclZeroDimThrows) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_tensor("A{rank=2, dim=0}", syms); },
+      syntax_error);
+}
+
+TEST(ParserGrammar, ChainedComparisonIsCStyleNotMathAnd) {
+  // Review finding (coverage gap 3): comparison ops left-associate
+  // at the comparison precedence level. `a < b < c` parses as
+  // `(a < b) < c`, NOT `(a < b) AND (b < c)`. The result of `a < b`
+  // is a 0/1 indicator; that's then compared against c.
+  //
+  // With a=0, b=1, c=2: (0 < 1) = 1, 1 < 2 = 1.
+  // With a=0, b=1, c=1: (0 < 1) = 1, 1 < 1 = 0.
+  // With a=1, b=0, c=2: (1 < 0) = 0, 0 < 2 = 1  (NOT math-AND, which
+  //                                              would be 1<0=F → 0).
+  // The third case is the clearest behavioural divergence from a
+  // math-user's chain interpretation; lock it in.
+  symbol_table syms;
+  auto e = parse_scalar("a < b < c", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"a", 0}, {"b", 1}, {"c", 2}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"a", 0}, {"b", 1}, {"c", 1}}), 0.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"a", 1}, {"b", 0}, {"c", 2}}), 1.0)
+      << "Chained-comparison should be C-style (value-of-comparison "
+         "then compare), NOT math-style AND.";
+}
+
+TEST(ParserGrammar, T2sPlusScalarThrowsTypeMismatch) {
+  // Review finding (coverage gap 4): parallel to TensorPlusScalar.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("trace(A{rank=2, dim=3}) + 2", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, EmptyInputThrows) {
+  // Review finding (coverage gap 6): empty source must throw, not
+  // return some null variant.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("", syms); }, parse_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("   ", syms); }, parse_error);
+}
+
+TEST(ParserGrammar, BareOpenParenThrows) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("(", syms); }, parse_error);
+}
+
+TEST(ParserGrammar, TensorFunctionOnScalarMentionsExpectedType) {
+  // Review finding (coverage gap 5): error message should be useful.
+  // The error needs to convey what failed; assert the call name
+  // and arg-position appear in what().
+  symbol_table syms;
+  try {
+    [[maybe_unused]] auto e = parse("trans(x)", syms);
+    FAIL() << "Expected type_mismatch_error to be thrown.";
+  } catch (type_mismatch_error const &e) {
+    std::string what = e.what();
+    EXPECT_NE(what.find("trans"), std::string::npos)
+        << "Error message should mention the function name. what() was:\n"
+        << what;
+    EXPECT_NE(what.find("argument"), std::string::npos)
+        << "Error message should mention 'argument'. what() was:\n"
+        << what;
+  }
+}
+
+TEST(ParserGrammar, InvOfScalarThrowsTypeMismatch) {
+  // Review finding (coverage gap 7): inv expects tensor; parallel to
+  // the trace test.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("inv(x)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, TransOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("trans(x)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeadingAndTrailingWhitespaceTensorDecl) {
+  // Whitespace handling around a sole tensor_decl.
+  symbol_table syms;
+  auto e = parse_tensor("   A{rank=2, dim=3}   ", syms);
+  EXPECT_EQ(e.get().rank(), 2u);
+  EXPECT_EQ(e.get().dim(), 3u);
+}
+
 } // namespace numsim::cas::parser_test
 
 #endif // NUMSIM_CAS_PARSER_ENABLED
