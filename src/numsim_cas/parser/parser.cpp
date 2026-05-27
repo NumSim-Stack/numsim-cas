@@ -19,10 +19,15 @@ namespace pegtl = tao::pegtl;
 namespace {
 
 // Translate PEGTL's own parse_error (raised when `must<>` rules fail
-// or when a default action wraps an exception) into our parse_error
-// type, preserving position info.
-parse_error translate_pegtl_error(pegtl::parse_error const &e,
-                                  std::string_view source) {
+// or when a default action wraps an exception) into our syntax_error,
+// preserving position info.
+//
+// Return type is `syntax_error` (NOT the base `parse_error`) — a
+// return-by-value of the base type would slice the subclass off, and
+// the subsequent `throw` would propagate a sliced base-only object.
+// Callers downstream that catch by `syntax_error` would then miss it.
+syntax_error translate_pegtl_error(pegtl::parse_error const &e,
+                                   std::string_view source) {
   // pegtl::parse_error stores positions; pull the first.
   std::size_t byte = 0;
   if (!e.positions().empty()) {

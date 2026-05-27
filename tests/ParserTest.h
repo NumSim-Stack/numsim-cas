@@ -1335,6 +1335,30 @@ TEST(ParserErrorCoverage, MultiLineInputPreservesLineAndColumn) {
   }
 }
 
+TEST(ParserErrorCoverage, PegtlTranslatedErrorPropagatesAsSyntaxError) {
+  // Regression test: parser.cpp's `translate_pegtl_error` used to
+  // return by value of base type `parse_error`, which sliced the
+  // `syntax_error` constructed inside it down to the base before the
+  // throw — so PEGTL-originated must-failures (missing close paren,
+  // unexpected EOF) arrived at the catch site as base `parse_error`
+  // instead of `syntax_error`. Now the function returns by `syntax_error`,
+  // preserving the type through the throw. Lock that in:
+  //
+  // `sin(x` triggers PEGTL's `must<function_call_close>` failure path,
+  // which goes through translate_pegtl_error. Must arrive as the
+  // narrow subclass.
+  symbol_table syms;
+  try {
+    [[maybe_unused]] auto e = parse_scalar("sin(x", syms);
+    FAIL() << "Expected syntax_error.";
+  } catch (syntax_error const &) {
+    SUCCEED();
+  } catch (parse_error const &e) {
+    FAIL() << "PEGTL-translated error was sliced to base parse_error. what():\n"
+           << e.what();
+  }
+}
+
 TEST(ParserErrorCoverage, UnknownSymbolErrorIsUnreachableFromParser) {
   // Documentation test: the parser never raises unknown_symbol_error
   // because every bare identifier in scalar position is implicitly
