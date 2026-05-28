@@ -41,7 +41,12 @@ int main() {
     std::cout << "dg/dA  = " << cas::to_string(dg) << "\n\n";
   }
 
-  // h(A) = norm(A) — d/dA = A / norm(A).
+  // h(A) = norm(A) — d/dA = A / norm(A) mathematically. The printer
+  // reveals the chain rule's literal form: a `pow(norm(A), -1)`
+  // scalar times an `A : I{4}` contraction (A inner-product'd with
+  // the rank-4 identity). Downstream simplification could fold
+  // `A : I{4}` back to `A`, but the diff visitor doesn't perform
+  // that fold inline.
   {
     cas::parser::symbol_table syms;
     auto h = cas::parser::parse_t2s("norm(A{rank=2, dim=3})", syms);
@@ -49,6 +54,8 @@ int main() {
     auto dh = cas::diff(h, A);
     std::cout << "h(A)   = " << cas::to_string(h) << "\n";
     std::cout << "dh/dA  = " << cas::to_string(dh) << "\n";
+    std::cout << "  (≡ A / norm(A); the I{4} contraction is the "
+                 "chain rule's literal form)\n";
   }
 
   return 0;

@@ -22,7 +22,11 @@ int main() {
   // Parse a quadratic; implicitly declares a, b, c, x as scalars.
   cas::parser::symbol_table syms;
   auto e = cas::parser::parse_scalar("a*x^2 + b*x + c", syms);
-  std::cout << "parsed: " << cas::to_string(e) << "\n\n";
+  std::cout << "parsed: " << cas::to_string(e) << "\n";
+  // The printer reorders terms by hash (canonical form), so the
+  // printed expression won't match the input order character for
+  // character — it's the same expression, terms permuted.
+  std::cout << "(printer canonicalizes term order; same expression)\n\n";
 
   // Evaluate (a=1, b=-3, c=2) at several x; the roots of x^2 - 3x + 2
   // are 1 and 2.

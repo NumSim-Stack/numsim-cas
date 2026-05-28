@@ -37,10 +37,19 @@ int main() {
   std::cout << "   lambda now declared as scalar: " << std::boolalpha
             << syms.has("lambda") << "\n\n";
 
-  // (4) Identical re-declaration is allowed — same (rank, dim).
+  // (4) Identical re-declaration is allowed — same (rank, dim). The
+  //     symbol_table treats this as a no-op: shape stays {2, 3} and
+  //     the bare `A` in subsequent parses still resolves to the
+  //     original holder.
+  auto shape_before = syms.tensor_shape("A");
   auto e4 = cas::parser::parse_t2s("det(A{rank=2, dim=3})", syms);
-  std::cout << "4. parsed: " << cas::to_string(e4)
-            << "  (identical re-declaration OK)\n\n";
+  auto shape_after = syms.tensor_shape("A");
+  std::cout << "4. parsed: " << cas::to_string(e4) << "\n";
+  std::cout << "   shape before re-declaration: rank=" << shape_before->first
+            << ", dim=" << shape_before->second << "\n";
+  std::cout << "   shape after re-declaration:  rank=" << shape_after->first
+            << ", dim=" << shape_after->second
+            << "  (unchanged → re-declaration was a no-op)\n\n";
 
   // (5) Re-declaring with a DIFFERENT shape throws redeclaration_error.
   //     Catch and demonstrate the diagnostic.
