@@ -661,6 +661,35 @@ TYPED_TEST(TensorExpressionTest, InvInvSimplification) {
 }
 
 // -----------------------------------------------------------------------------
+// #96: tensor pow construction-time rules — pow(I, n) → I, pow(inv(A), n) →
+// inv(pow(A, n)). Existing rules (pow(0, n) → 0, pow(A, 0) → I, pow(A, 1) → A,
+// pow(pow(A, m), n) → pow(A, m·n)) are already locked in elsewhere.
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, TensorPowIdentitySelfPower) {
+  // pow(I, n) → I for any n (rank-2 identity is its own n-th power
+  // under tensor multiplication).
+  auto I = numsim::cas::make_expression<numsim::cas::identity_tensor>(
+      TestFixture::Dim, std::size_t{2});
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::identity_tensor>(
+      numsim::cas::pow(I, 5)));
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::identity_tensor>(
+      numsim::cas::pow(I, 0)));
+}
+
+TYPED_TEST(TensorExpressionTest, TensorPowOfInvLiftsToInvOfPow) {
+  // pow(inv(A), n) → inv(pow(A, n)): pulls the inverse out so the pow
+  // can fold further and the evaluator only inverts once at the end.
+  auto &X = this->X;
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::inv(X), 2), "inv(pow(X,2))");
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::inv(X), 3), "inv(pow(X,3))");
+  // Composes with inv(inv(A)) → A: pow(inv(inv(A)), 2) should collapse
+  // to pow(A, 2) — the inv(inv) collapses *before* this rule fires
+  // because tensor_inv short-circuit runs first inside inv().
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::inv(numsim::cas::inv(X)), 2),
+               "pow(X,2)");
+}
+
+// -----------------------------------------------------------------------------
 // inv() construction-time singularity / rank guards (#187, #192)
 // -----------------------------------------------------------------------------
 
