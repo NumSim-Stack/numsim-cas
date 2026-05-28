@@ -119,31 +119,46 @@ Identifiers are typed lazily by the parser:
 ### Mixed-domain operator coercion
 
 The supported `tag_invoke` surface is hand-listed in the parser's
-`can_mul` / `can_div` predicates:
+`can_mul` / `can_div` predicates (see `src/numsim_cas/parser/actions.h`).
+The parser is intentionally narrower than the full library coercion
+surface — combinations needed for non-trivial mechanics expressions
+are in, the rest throw `type_mismatch_error`.
 
-| Operator | Left  | Right | Result |
-|----------|-------|-------|--------|
-| `+` `-`  | scalar  | scalar  | scalar  |
-| `+` `-`  | tensor  | tensor  | tensor  |
-| `+` `-`  | t2s     | t2s     | t2s     |
-| `*` `/`  | scalar  | scalar  | scalar  |
-| `*`      | scalar  | tensor  | tensor  |
-| `*`      | tensor  | scalar  | tensor  |
-| `*`      | tensor  | tensor  | tensor  |
-| `*`      | scalar  | t2s     | t2s     |
-| `*`      | t2s     | scalar  | t2s     |
-| `*`      | tensor  | t2s     | tensor  |
-| `*`      | t2s     | tensor  | tensor  |
-| `*`      | t2s     | t2s     | t2s     |
-| `/`      | tensor  | scalar  | tensor  |
-| `/`      | t2s     | scalar  | t2s     |
-| `/`      | tensor  | t2s     | tensor  |
-| `/`      | t2s     | t2s     | t2s     |
+`+` and `-` require **same-domain** operands:
 
-Any combination not listed throws `type_mismatch_error`. The plan
-explicitly excludes `+`/`-` mixing of scalar with t2s — wrap via
-`tensor_to_scalar_scalar_wrapper` at the C++ level if you need it,
-or use `*`.
+| Operator | Left   | Right  | Result |
+|----------|--------|--------|--------|
+| `+` `-`  | scalar | scalar | scalar |
+| `+` `-`  | tensor | tensor | tensor |
+| `+` `-`  | t2s    | t2s    | t2s    |
+
+`*` allows scalar-coefficient flow into either tensor side and
+same-domain on t2s:
+
+| Operator | Left   | Right  | Result |
+|----------|--------|--------|--------|
+| `*`      | scalar | scalar | scalar |
+| `*`      | scalar | tensor | tensor |
+| `*`      | tensor | scalar | tensor |
+| `*`      | scalar | t2s    | t2s    |
+| `*`      | t2s    | scalar | t2s    |
+| `*`      | t2s    | t2s    | t2s    |
+
+`/` is even narrower — scalar denominators only, plus same-domain
+on t2s:
+
+| Operator | Left   | Right  | Result |
+|----------|--------|--------|--------|
+| `/`      | scalar | scalar | scalar |
+| `/`      | tensor | scalar | tensor |
+| `/`      | t2s    | scalar | t2s    |
+| `/`      | t2s    | t2s    | t2s    |
+
+Notable exclusions: `tensor * tensor` (use `inner_product` /
+`dot_product` explicitly), `tensor * t2s` / `t2s * tensor` (no
+auto-coercion in either direction), `tensor / t2s`. The plan
+originally listed broader coverage; the implementation narrowed
+to what `tag_invoke` overloads exist in the codebase today.
 
 ## Function Registry
 
@@ -171,18 +186,34 @@ Still to land (currently throws `unknown_function_error`):
 
 ## Ten Example Expressions
 
+All ten parse against the current registry:
+
 | # | Input | Domain | Notes |
 |---|-------|--------|-------|
 | 1 | `42` | scalar | integer literal |
-| 2 | `3.14` | scalar | decimal literal (locale-independent) |
+| 2 | `3.14` | scalar | decimal literal (locale-independent; no exponent — `1.5e3` is unsupported) |
 | 3 | `sin(x)^2 + cos(x)^2` | scalar | implicit scalar `x`; differentiates to 0 |
 | 4 | `a*x^2 + b*x + c` | scalar | four implicit scalars |
 | 5 | `2 ^ 3 ^ 2` | scalar | right-assoc → 512, not 64 |
-| 6 | `if_then_else(gt(x, 0), x, -x)` *(deferred)* | scalar | would expand to `abs(x)`; `if_then_else` not yet in registry |
-| 7 | `trace(A{rank=2, dim=3})` | t2s | declares `A`; `diff(., A) = I` |
-| 8 | `A * trace(A) + 2 * det(A)` | tensor | mixed-domain `*`, declared `A` reused bare |
-| 9 | `trans(A{rank=2, dim=3}) + sym(A)` *(sym deferred)* | tensor | `trans`/`sym` show tensor → tensor functions |
-| 10 | `inner_product(A{rank=4, dim=3}, [3, 4], B{rank=2, dim=3}, [1, 2])` | tensor | full contraction with index sequences |
+| 6 | `pow(x, 3) - 2*pow(x, 2) + x` | scalar | function-call form of `^`, mixed with scalar `*` |
+| 7 | `lt(x, 0) * x + ge(x, 0) * x` | scalar | comparisons produce `0.0` / `1.0` indicators |
+| 8 | `trace(A{rank=2, dim=3})` | t2s | declares `A`; `diff(., A) = I` |
+| 9 | `2 * trace(A{rank=2, dim=3}) + det(A)` | t2s | scalar coefficients into t2s, declared `A` reused bare |
+| 10 | `inner_product(A{rank=4, dim=3}, [3, 4], B{rank=2, dim=3}, [1, 2])` | tensor | full contraction with 1-based index sequences |
+
+### Eventually-supported
+
+These will parse once the upstream dependencies land — currently they
+raise `unknown_function_error`:
+
+- `if_then_else(gt(x, 0), x, -x)` — would be `abs(x)`; blocked on
+  [#207](https://github.com/NumSim-Stack/numsim-cas/issues/207)
+- `max(0, sin(x))` / `macauley_plus(sin(x))` — blocked on
+  [#208](https://github.com/NumSim-Stack/numsim-cas/issues/208) and
+  [#209](https://github.com/NumSim-Stack/numsim-cas/issues/209)
+- `trans(A{rank=2, dim=3}) + sym(A)` — `sym`/`dev`/`vol`/`skew` blocked on
+  the projector stack (`projection_tensor.h` is unmerged)
+- `outer_product(...)` — no top-level free function on this branch yet
 
 ## Error Catalogue
 
