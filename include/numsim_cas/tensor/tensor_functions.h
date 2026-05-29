@@ -283,6 +283,13 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto permute_indices(Expr &&expr,
                                                     sequence &&indices) {
+  // Size gate: the permutation must cover exactly the tensor's index
+  // positions. A mismatch would either drop or invent indices in the
+  // resulting expression — silently wrong.
+  if (indices.size() != expr.get().rank())
+    throw invalid_expression_error(
+        "permute_indices: indices size (" + std::to_string(indices.size()) +
+        ") must equal tensor rank (" + std::to_string(expr.get().rank()) + ")");
   // For symmetric rank-2 tensors, any permutation of two indices is identity
   if (expr.get().rank() == 2) {
     if (auto const &sp = expr.get().space()) {

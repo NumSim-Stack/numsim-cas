@@ -661,6 +661,185 @@ TYPED_TEST(TensorExpressionTest, InvInvSimplification) {
 }
 
 // -----------------------------------------------------------------------------
+// #96: tensor pow construction-time rules — pow(I, n) → I, pow(inv(A), n) →
+// inv(pow(A, n)). Existing rules (pow(0, n) → 0, pow(A, 0) → I, pow(A, 1) → A,
+// pow(pow(A, m), n) → pow(A, m·n)) are already locked in elsewhere.
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, TensorPowIdentitySelfPower) {
+  // pow(I, n) → I for any n (rank-2 identity is its own n-th power
+  // under tensor multiplication).
+  auto I = numsim::cas::make_expression<numsim::cas::identity_tensor>(
+      TestFixture::Dim, std::size_t{2});
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::identity_tensor>(
+      numsim::cas::pow(I, 5)));
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::identity_tensor>(
+      numsim::cas::pow(I, 0)));
+}
+
+TYPED_TEST(TensorExpressionTest, TensorPowOfInvLiftsToInvOfPow) {
+  // pow(inv(A), n) → inv(pow(A, n)): pulls the inverse out so the pow
+  // can fold further and the evaluator only inverts once at the end.
+  auto &X = this->X;
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::inv(X), 2), "inv(pow(X,2))");
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::inv(X), 3), "inv(pow(X,3))");
+  // Composes with inv(inv(A)) → A: pow(inv(inv(A)), 2) should collapse
+  // to pow(A, 2) — the inv(inv) collapses *before* this rule fires
+  // because tensor_inv short-circuit runs first inside inv().
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::inv(numsim::cas::inv(X)), 2),
+               "pow(X,2)");
+}
+
+// -----------------------------------------------------------------------------
+// inv() construction-time singularity / rank guards (#187, #192)
+// -----------------------------------------------------------------------------
+
+TYPED_TEST(TensorExpressionTest, InvZeroTensorThrowsSingular) {
+  // #187: inv(0) is undefined — the zero matrix has no inverse. Without
+  // the guard, evaluation would silently NaN/Inf via tmech::inv. Reject
+  // at construction so the error surfaces where the bug is, not at the
+  // remote evaluator call site.
+  auto &Zero = this->_Zero;
+  try {
+    [[maybe_unused]] auto r = numsim::cas::inv(Zero);
+    FAIL() << "Expected inv(tensor_zero) to throw";
+  } catch (numsim::cas::invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("singular"), std::string::npos)
+        << "error message should mention singularity; got: " << e.what();
+  }
+}
+
+TYPED_TEST(TensorExpressionTest, InvZeroFromScalarMulThrows) {
+  // Same as above via the composite path: 0 · A simplifies to tensor_zero
+  // at construction (via the existing tensor_scalar_mul zero rule), so
+  // inv(0 · A) hits the same guard. Locks in that the singularity
+  // detection isn't bypassed by a non-trivial construction path.
+  auto &A = this->A;
+  auto zero = numsim::cas::get_scalar_zero();
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = numsim::cas::inv(zero * A); },
+      numsim::cas::invalid_expression_error);
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4SymbolThrows) {
+  // #192: rank > 2 inversion has no canonical definition (the rank-4
+  // minor identity is an explicit special case handled separately).
+  // Reject rank-4 (and higher) symbols at construction.
+  auto &A = this->A; // rank-4 fixture variable
+  try {
+    [[maybe_unused]] auto r = numsim::cas::inv(A);
+    FAIL() << "Expected inv(rank-4 symbol) to throw";
+  } catch (numsim::cas::invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos)
+        << "error message should mention rank; got: " << e.what();
+  }
+}
+
+TYPED_TEST(TensorExpressionTest, InvIdentityTensorRank4SelfInverse) {
+  // The rank-4 identity_tensor (minor identity δ_ik · δ_jl) is its own
+  // inverse under the appropriate contraction. The rank guard must NOT
+  // reject it — the identity_tensor short-circuit fires first.
+  auto I4 = numsim::cas::make_expression<numsim::cas::identity_tensor>(
+      TestFixture::Dim, std::size_t{4});
+  auto r = numsim::cas::inv(I4);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::identity_tensor>(r));
+  EXPECT_EQ(r.get().rank(), 4u);
+}
+
+// -----------------------------------------------------------------------------
+// #53: rank checks for dev / sym / vol / skew / trans + size check for
+// permute_indices. All five projections are rank-2 only; permute_indices
+// requires the indices sequence size to match the operand rank.
+// -----------------------------------------------------------------------------
+
+TYPED_TEST(TensorExpressionTest, DevRank3SymbolThrows) {
+  auto A3 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A3", static_cast<std::size_t>(TestFixture::Dim), std::size_t{3});
+  try {
+    [[maybe_unused]] auto r = numsim::cas::dev(A3);
+    FAIL() << "Expected dev(rank-3) to throw";
+  } catch (numsim::cas::invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos);
+  }
+}
+
+TYPED_TEST(TensorExpressionTest, SymRank3SymbolThrows) {
+  auto A3 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A3", static_cast<std::size_t>(TestFixture::Dim), std::size_t{3});
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = numsim::cas::sym(A3); },
+      numsim::cas::invalid_expression_error);
+}
+
+TYPED_TEST(TensorExpressionTest, VolRank3SymbolThrows) {
+  auto A3 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A3", static_cast<std::size_t>(TestFixture::Dim), std::size_t{3});
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = numsim::cas::vol(A3); },
+      numsim::cas::invalid_expression_error);
+}
+
+TYPED_TEST(TensorExpressionTest, SkewRank3SymbolThrows) {
+  auto A3 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A3", static_cast<std::size_t>(TestFixture::Dim), std::size_t{3});
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = numsim::cas::skew(A3); },
+      numsim::cas::invalid_expression_error);
+}
+
+TYPED_TEST(TensorExpressionTest, TransRank3SymbolThrows) {
+  auto A3 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A3", static_cast<std::size_t>(TestFixture::Dim), std::size_t{3});
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = numsim::cas::trans(A3); },
+      numsim::cas::invalid_expression_error);
+}
+
+TYPED_TEST(TensorExpressionTest, PermuteIndicesSizeMismatchThrows) {
+  auto &X = this->X; // rank-2
+  // {1, 2, 3} has size 3 but X has rank 2 — mismatch.
+  try {
+    [[maybe_unused]] auto r =
+        numsim::cas::permute_indices(X, numsim::cas::sequence{1, 2, 3});
+    FAIL() << "Expected permute_indices size-mismatch to throw";
+  } catch (numsim::cas::invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("size"), std::string::npos);
+    EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos);
+  }
+}
+
+// Sanity: the rank-2 path still works for all five projections.
+TYPED_TEST(TensorExpressionTest, ProjectionsRank2StillWork) {
+  auto &X = this->X;
+  EXPECT_NO_THROW({ [[maybe_unused]] auto r = numsim::cas::dev(X); });
+  EXPECT_NO_THROW({ [[maybe_unused]] auto r = numsim::cas::sym(X); });
+  EXPECT_NO_THROW({ [[maybe_unused]] auto r = numsim::cas::vol(X); });
+  EXPECT_NO_THROW({ [[maybe_unused]] auto r = numsim::cas::skew(X); });
+  EXPECT_NO_THROW({ [[maybe_unused]] auto r = numsim::cas::trans(X); });
+}
+
+// -----------------------------------------------------------------------------
+// #71: inv(α·A) → inv(A) / α
+// -----------------------------------------------------------------------------
+TYPED_TEST(TensorExpressionTest, InvScalarMulSimplification) {
+  auto &X = this->X;
+  auto &x = this->x;
+  auto &_2 = this->_2;
+
+  // inv(x·A) → inv(A) / x (symbolic scalar)
+  EXPECT_PRINT(numsim::cas::inv(x * X), "inv(X)/x");
+
+  // inv(2·A) → (1/2)*inv(A). The numeric reciprocal is folded into a
+  // scalar coefficient at construction time (via the standard
+  // tensor_scalar_mul canonicalisation), so the printed form is
+  // "(1/2)*inv(X)" rather than "inv(X)/2".
+  EXPECT_PRINT(numsim::cas::inv(_2 * X), "(1/2)*inv(X)");
+
+  // Recurse: inv(x·inv(A)) → A / x  (the inner inv(inv(...)) collapses,
+  // the outer inv(x·A_inner) pulls out x).
+  EXPECT_PRINT(numsim::cas::inv(x * numsim::cas::inv(X)), "X/x");
+}
+
+// -----------------------------------------------------------------------------
 // Zero early returns for tensor functions
 // -----------------------------------------------------------------------------
 TYPED_TEST(TensorExpressionTest, TransZeroReturnsZero) {

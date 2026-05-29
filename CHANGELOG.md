@@ -27,6 +27,12 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 - Visitor type lists consolidated to a single `tensor_visitor_typedef.h` driven by the `NUMSIM_CAS_TENSOR_NODE_LIST` macro.
 - Renamed `basis_change_imp` → `permute_indices_wrapper`. The class permutes tensor indices (e.g. transpose is `{2,1}`) — it does not change basis. Closes #52.
 - Renamed folder `include/numsim_cas/tensor/functions/` → `include/numsim_cas/tensor/wrappers/`. The files in that directory are AST-node wrapper classes, not free functions; the new name matches the `_wrapper` suffix convention used by the class names themselves. Closes #55.
+- Renamed data-layer `tensor_data_basis_change` → `tensor_data_permute_indices` (file and class) plus the local variables `basis_change_lhs/rhs/temp` in `tensor_data_inner_product.h`. Completes the wrapper-layer rename from #52 — the data class is the runtime evaluator for the AST node `permute_indices_wrapper`, and now uses matching terminology. Closes #182.
+- Two missing tensor `pow()` simplification rules: `pow(identity_tensor, n) → identity_tensor` (the rank-2 identity is its own n-th power) and `pow(inv(A), n) → inv(pow(A, n))` (pulls the inverse outside so the inner `pow(A, n)` can fold further and the evaluator only inverts once). Closes #96.
+- Construction-time simplifier completions for the tensor-function family:
+  - `det()`: added `det(identity_tensor) → 1`, `det(inv(A)) → 1/det(A)`, `det(trans(A)) → det(A)`, and `det(u ⊗ v) → 0` (for dim ≥ 2). Closes #70.
+  - `inv()`: added `inv(α · A) → inv(A) / α` (recursive). Closes #71.
+  - `trace()`: added `trace(identity_tensor) → dim` (the existing `kronecker_delta` rule didn't cover the general identity_tensor node that appears in differentiation results). Closes #72.
 
 ### Removed
 

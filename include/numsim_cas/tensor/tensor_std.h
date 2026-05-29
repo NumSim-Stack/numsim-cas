@@ -58,6 +58,26 @@ template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
     return pow(inner.expr_lhs(), inner.expr_rhs() * expr_rhs);
   }
 
+  // pow(I, n) → I. The rank-2 identity is its own n-th power under
+  // tensor multiplication for any n. Closes part of #96.
+  if (is_same<identity_tensor>(expr_lhs))
+    return std::forward<ExprLHS>(expr_lhs);
+
+  // pow(inv(A), n) → inv(pow(A, n)) — pulls the inverse out so the
+  // pow(A, n) result can fold further and the evaluator only needs to
+  // invert once at the end. Constructed directly via
+  // make_expression<tensor_inv> rather than calling inv() to avoid a
+  // tensor_std.h → tensor_functions.h include cycle; the inv()
+  // construction-time guards (rank-2 / zero / skew, see #187 / #192)
+  // were already enforced when the inner tensor_inv we're matching on
+  // was first built, so bypassing them here is safe.
+  // Closes part of #96.
+  if (is_same<tensor_inv>(expr_lhs)) {
+    auto const &inv_node = expr_lhs.template get<tensor_inv>();
+    return make_expression<tensor_inv>(
+        pow(inv_node.expr(), std::forward<ExprRHS>(expr_rhs)));
+  }
+
   return numsim::cas::make_expression<numsim::cas::tensor_pow>(
       std::forward<ExprLHS>(expr_lhs), std::forward<ExprRHS>(expr_rhs));
 }
