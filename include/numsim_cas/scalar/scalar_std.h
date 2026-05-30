@@ -612,6 +612,119 @@ template <scalar_expr_holder E> [[nodiscard]] auto atanh(E const &e) {
   return log(std::move(num) / std::move(den)) / std::move(two);
 }
 
+// ─── Macauley bracket / ramp / Heaviside (#138) ──────────────────────
+// Constitutive-modelling primitives, all composed from the existing
+// (max/min/comparison/sqrt/pow) primitives — no dedicated AST nodes,
+// mirroring the hyperbolic-functions approach from PR #123.
+
+/**
+ * @brief Macauley positive part: `<e>+ = max(e, 0)`.
+ *
+ * Standard in damage activation, ramp yield surfaces, contact pressure.
+ * Returns 0 when e ≤ 0 and e otherwise. Differentiation goes through
+ * the underlying `max()` and throws until `if_then_else` (#135) lands;
+ * see `scalar_max`'s diff overload.
+ *
+ * Construction-time fold: `macauley_plus(-e) → macauley_minus(e)`
+ * (factored through `scalar_negative` detection).
+ */
+template <scalar_expr_holder E> [[nodiscard]] auto macauley_plus(E &&e) {
+  // <-x>+ = max(-x, 0) = -min(x, 0) = <x>-. Pull negations out so
+  // chain rules see the simpler ramp pair.
+  if (is_same<scalar_negative>(e))
+    return -min(e.template get<scalar_negative>().expr(), get_scalar_zero());
+  // Idempotence: <<x>+>+ = <x>+. The positive part is non-negative
+  // by construction, so applying the bracket again is a no-op.
+  //
+  // Trigger is structural, not semantic: we detect "any max with 0
+  // as one operand", which is a SUPERSET of true Macauley brackets
+  // (since macauley_plus has no dedicated AST node). User-built
+  // `max(some_nonneg_quantity, 0)` also matches and short-circuits.
+  // The simplification is still mathematically correct in that
+  // broader case — a max with 0 is always nonneg, and applying
+  // `<·>+` to a nonneg value is the identity — but the trigger is
+  // worth knowing about for anyone debugging fold behavior.
+  if (is_same<scalar_max>(e)) {
+    auto const &m = e.template get<scalar_max>();
+    if (is_same<scalar_zero>(m.expr_lhs()) ||
+        is_same<scalar_zero>(m.expr_rhs()))
+      return std::forward<E>(e);
+  }
+  return max(std::forward<E>(e), get_scalar_zero());
+}
+
+/**
+ * @brief Macauley negative part: `<e>- = -min(e, 0)`.
+ *
+ * Symmetric to `macauley_plus` in role, but with an important asymmetry
+ * in idempotence (see below). Used for plastic dissipation rate,
+ * negative-stress contributions, asymmetric damage.
+ *
+ * ## Idempotence asymmetry vs. `macauley_plus`
+ *
+ * `macauley_plus` folds `<<x>+>+ → <x>+` because the positive part is
+ * nonnegative and `<·>+` applied to a nonnegative argument is the
+ * identity. The negative part has *no* corresponding fold, because
+ * applying `<·>-` twice gives identically zero, NOT `<x>-`:
+ *
+ *     <x>-  = max(0, -x)    ≥ 0 for all x
+ *     <<x>->- = max(0, -<x>-) = max(0, nonpositive) = 0
+ *
+ * The evaluator handles this correctly (the inner `-min(x, 0)` ≥ 0,
+ * so the outer `min(·, 0) = 0`, and `-0 = 0`); we just don't emit a
+ * dedicated symbolic-form fold. Adding one would require either an
+ * assumption-aware `min(nonneg, 0) → 0` rule at construction time, or
+ * a dedicated `macauley_minus` AST node — both out of scope here.
+ */
+template <scalar_expr_holder E> [[nodiscard]] auto macauley_minus(E &&e) {
+  // <-x>- = -min(-x, 0) = max(x, 0) = <x>+.
+  if (is_same<scalar_negative>(e))
+    return max(e.template get<scalar_negative>().expr(), get_scalar_zero());
+  return -min(std::forward<E>(e), get_scalar_zero());
+}
+
+/**
+ * @brief Heaviside step function: `0 if e < 0, 1 otherwise`.
+ *
+ * Implemented via `ge(e, 0)` — the comparison node from #136 returns
+ * 1.0 if its first operand is ≥ its second, 0.0 otherwise. This gives
+ * the standard right-continuous step (H(0) = 1).
+ *
+ * The issue body originally suggested implementing this via
+ * `if_then_else` (#135). Using `ge` instead removes the #135
+ * dependency and produces the same evaluation result; a future
+ * simplifier rule could canonicalise both representations to the
+ * same comparison-indicator form, but no such rule exists today.
+ */
+template <scalar_expr_holder E> [[nodiscard]] auto heaviside(E &&e) {
+  return ge(std::forward<E>(e), get_scalar_zero());
+}
+
+/**
+ * @brief Smoothed Macauley positive part: `(e + sqrt(e² + ε²)) / 2`.
+ *
+ * `C^∞` regularisation of `<e>+ = max(e, 0)`. As `ε → 0` it recovers
+ * the non-smooth Macauley bracket; for nonzero `ε` the second-order
+ * derivative exists everywhere (useful for Newton-style solvers that
+ * choke on the kink at `e = 0`).
+ *
+ * Construction-time fold: when `eps` is literally `scalar_zero`, the
+ * formula collapses to `(e + sqrt(e²)) / 2 = (e + |e|) / 2 = <e>+`,
+ * but `sqrt(e²)` doesn't auto-fold to `abs(e)` and there's no
+ * downstream rule to collapse `(e + abs(e)) / 2 → max(e, 0)`. Detect
+ * the zero-eps case explicitly and delegate to `macauley_plus(e)`
+ * so a user passing the limit value gets the non-smooth bracket
+ * directly.
+ */
+template <scalar_expr_holder E, scalar_expr_holder Eps>
+[[nodiscard]] auto smoothed_macauley(E const &e, Eps const &eps) {
+  if (is_same<scalar_zero>(eps))
+    return macauley_plus(e);
+  expression_holder<scalar_expression> two =
+      make_expression<scalar_constant>(scalar_number{2});
+  return (e + sqrt(pow(e, 2) + pow(eps, 2))) / std::move(two);
+}
+
 } // namespace numsim::cas
 
 #endif // SCALAR_STD_H
