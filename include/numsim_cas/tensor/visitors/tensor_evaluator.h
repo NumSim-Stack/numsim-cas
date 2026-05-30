@@ -69,6 +69,12 @@ public:
 
   void operator()(identity_tensor const &v) override { eval_identity(v); }
 
+  void operator()(levi_civita_tensor const &v) override {
+    m_result = make_tensor_data<ValueType>(v.dim(), v.rank());
+    tensor_data_levi_civita<ValueType> lc(*m_result);
+    lc.evaluate(v.dim(), v.rank());
+  }
+
   // ─── Arithmetic ──────────────────────────────────────────────
 
   void operator()(tensor_add const &visitable) override {

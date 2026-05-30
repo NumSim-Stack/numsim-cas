@@ -265,6 +265,20 @@ NUMSIM_DEFINE_PRINT_MINMAX(scalar_min, "min")
 
 #undef NUMSIM_DEFINE_PRINT_MINMAX
 
+// ─── if_then_else (#135) ───────────────────────────────────────────
+// Function-call notation: if_then_else(cond, then, else). Each operand
+// at outermost precedence so the parens disambiguate.
+template <typename Stream>
+void scalar_printer<Stream>::operator()(scalar_if_then_else const &v) {
+  m_out << "if_then_else(";
+  apply(v.expr_cond(), Precedence::None);
+  m_out << ",";
+  apply(v.expr_then(), Precedence::None);
+  m_out << ",";
+  apply(v.expr_else(), Precedence::None);
+  m_out << ")";
+}
+
 template class scalar_printer<std::ostream>;
 template class scalar_printer<std::stringstream>;
 

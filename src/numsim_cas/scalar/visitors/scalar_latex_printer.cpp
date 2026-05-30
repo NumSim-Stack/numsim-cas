@@ -280,6 +280,26 @@ NUMSIM_DEFINE_LATEX_MINMAX(scalar_min, "min")
 
 #undef NUMSIM_DEFINE_LATEX_MINMAX
 
+// ─── if_then_else (#135) ───────────────────────────────────────────
+// Typeset as a named operator with three comma-separated arguments:
+// `\operatorname{if\_then\_else}\!\left( cond, then, else \right)`.
+// Matches the plain-text printer's function-call form. The thin-space
+// corrector `\!` pulls the operand block close to the operator name
+// in the typeset output. An Iverson-bracket-style form was
+// considered but the function-call form is consistent with the rest
+// of the visitor (sin, max, etc.) and survives nesting better in
+// inline math.
+template <typename Stream>
+void scalar_latex_printer<Stream>::operator()(scalar_if_then_else const &v) {
+  this->m_out << "\\operatorname{if\\_then\\_else}\\!\\left(";
+  apply(v.expr_cond());
+  this->m_out << ", ";
+  apply(v.expr_then());
+  this->m_out << ", ";
+  apply(v.expr_else());
+  this->m_out << "\\right)";
+}
+
 template class scalar_latex_printer<std::ostream>;
 template class scalar_latex_printer<std::stringstream>;
 

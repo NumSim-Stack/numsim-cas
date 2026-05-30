@@ -152,4 +152,46 @@ void scalar_differentiation::operator()(scalar_log const &visitable) {
   apply_inner_unary(visitable);
 }
 
+// ─── max / min via if_then_else (#137 + #135) ──────────────────────
+// d/dx max(a, b) = if_then_else(a > b, da/dx, db/dx)
+// d/dx min(a, b) = if_then_else(a < b, da/dx, db/dx)
+// Boundary a == b: sub-gradients agree almost everywhere, so picking
+// either side is fine in practice. The constitutive-modelling use
+// cases hit the boundary on a measure-zero set under time evolution.
+void scalar_differentiation::operator()(scalar_max const &v) {
+  scalar_differentiation inner_diff(m_arg);
+  auto da = inner_diff.apply(v.expr_lhs());
+  auto db = inner_diff.apply(v.expr_rhs());
+  m_result = if_then_else(gt(v.expr_lhs(), v.expr_rhs()), std::move(da),
+                          std::move(db));
+}
+void scalar_differentiation::operator()(scalar_min const &v) {
+  scalar_differentiation inner_diff(m_arg);
+  auto da = inner_diff.apply(v.expr_lhs());
+  auto db = inner_diff.apply(v.expr_rhs());
+  m_result = if_then_else(lt(v.expr_lhs(), v.expr_rhs()), std::move(da),
+                          std::move(db));
+}
+
+// ─── if_then_else (#135) ───────────────────────────────────────────
+// Assumes the condition does not depend on x; strictly there are
+// Dirac contributions at the boundary that this rule ignores, but
+// they vanish in practice for yield-function / contact-gap models.
+//
+// Asymmetry vs. scalar_evaluator: the evaluator is LAZY — it applies
+// only the selected branch (load-bearing for damage models with
+// undefined-on-the-other-arm expressions like log of a nonpositive
+// argument). The diff visitor is EAGER because it's symbolic, not
+// numeric: we don't know which arm a future evaluation will select,
+// so we must build symbolic derivatives of both. Don't try to
+// "fix" this by short-circuiting on a known cond — the diff rule
+// must be valid for every cond value, not just the one being seen
+// at this construction site.
+void scalar_differentiation::operator()(scalar_if_then_else const &v) {
+  scalar_differentiation inner_diff(m_arg);
+  auto dt = inner_diff.apply(v.expr_then());
+  auto de = inner_diff.apply(v.expr_else());
+  m_result = if_then_else(v.expr_cond(), std::move(dt), std::move(de));
+}
+
 } // namespace numsim::cas

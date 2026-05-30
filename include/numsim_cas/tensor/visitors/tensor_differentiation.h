@@ -105,6 +105,10 @@ public:
     // constant -> zero
   }
 
+  void operator()(levi_civita_tensor const &) override {
+    // constant -> zero
+  }
+
   void operator()(tensor_projector const &) override {
     // constant -> zero
   }
