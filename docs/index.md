@@ -93,3 +93,4 @@ auto dd = diff(d, X);    // det(X) * inv(trans(X))
 | [Tensor-to-Scalar Domain](tensor-to-scalar.md) | 13 node types, trace/det/norm functions, simplifiers |
 | [Cross-Domain Interactions](cross-domain.md) | Cross-domain nodes, expression lifecycle, build system |
 | [Differentiation](differentiation.md) | Symbolic differentiation rules with mathematical notation |
+| [String Parser](parser.md) | PEGTL-based parser: grammar, type system, error catalogue, build flag |
