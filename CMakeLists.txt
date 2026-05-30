@@ -29,6 +29,7 @@ option(NUMSIM_CAS_INSTALL_LIBRARY "Install NumSim_CAS into default locations" ${
 option(NUMSIM_CAS_BUILD_EXAMPLES "Build NumSim_CAS examples" OFF)
 option(NUMSIM_CAS_BUILD_TESTS "Build NumSim_CAS test suite" ON)
 option(NUMSIM_CAS_BUILD_BENCHMARK "Build NumSim_CAS benchmark" OFF)
+option(NUMSIM_CAS_BUILD_PARSER "Build the optional PEGTL-based string parser (issue #214)" OFF)
 option(NUMSIM_CAS_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
 set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
@@ -78,6 +79,13 @@ file(GLOB_RECURSE NUMSIM_CAS_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cxx"
 )
+
+# Parser sources (in src/numsim_cas/parser/ and include/numsim_cas/parser/)
+# live in their own opt-in library. Exclude them from the main library's
+# globs so a default NUMSIM_CAS_BUILD_PARSER=OFF build sees no parser code
+# at all.
+list(FILTER NUMSIM_CAS_SOURCES EXCLUDE REGEX "/parser/")
+list(FILTER NUMSIM_CAS_HEADERS EXCLUDE REGEX "/parser/")
 
 # A shared library needs at least one translation unit
 if(NUMSIM_CAS_SOURCES STREQUAL "")
@@ -165,6 +173,87 @@ if(WIN32)
 endif()
 
 # -----------------------------
+# Optional parser sub-library (issue #214)
+# -----------------------------
+# When enabled, builds NumSim_CAS_Parser as a separate static/shared
+# library target. Phase 1 shipped error types + symbol_table.
+# Phase 2 adds the PEGTL grammar + actions + top-level parse() entry
+# points.
+if(NUMSIM_CAS_BUILD_PARSER)
+  # taocpp/PEGTL — header-only, pulled from upstream when the parser
+  # is opted in. Pinned to a stable tag rather than a moving branch
+  # so CI is deterministic across reruns.
+  find_package(pegtl QUIET)
+  if(NOT pegtl_FOUND)
+    FetchContent_Declare(
+      pegtl
+      GIT_REPOSITORY https://github.com/taocpp/PEGTL.git
+      GIT_TAG        3.2.8
+    )
+    set(PEGTL_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+    set(PEGTL_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(PEGTL_INSTALL        OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(pegtl)
+    # Suppress warnings from third-party PEGTL headers.
+    get_target_property(_pegtl_real taocpp::pegtl ALIASED_TARGET)
+    if(NOT _pegtl_real)
+      set(_pegtl_real taocpp::pegtl)
+    endif()
+    get_target_property(_pegtl_inc ${_pegtl_real} INTERFACE_INCLUDE_DIRECTORIES)
+    if(_pegtl_inc)
+      set_target_properties(${_pegtl_real} PROPERTIES
+        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_pegtl_inc}")
+    endif()
+  endif()
+
+  add_library(NumSim_CAS_Parser
+    src/numsim_cas/parser/parse_error.cpp
+    src/numsim_cas/parser/symbol_table.cpp
+    src/numsim_cas/parser/parser.cpp
+  )
+  add_library(NumSim_CAS::Parser ALIAS NumSim_CAS_Parser)
+
+  target_include_directories(NumSim_CAS_Parser
+    PUBLIC
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  )
+
+  target_link_libraries(NumSim_CAS_Parser
+    PUBLIC NumSim_CAS::NumSim_CAS
+    PRIVATE taocpp::pegtl
+  )
+
+  target_compile_features(NumSim_CAS_Parser PUBLIC cxx_std_23)
+
+  set_target_properties(NumSim_CAS_Parser PROPERTIES
+    VERSION   ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+    CXX_EXTENSIONS OFF
+  )
+
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(NumSim_CAS_Parser PRIVATE
+      -Wall -Wextra -Wpedantic)
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    target_compile_options(NumSim_CAS_Parser PRIVATE
+      /W4 /EHsc /utf-8 /permissive- /Zc:preprocessor)
+  endif()
+
+  if(NUMSIM_CAS_SANITIZERS)
+    target_compile_options(NumSim_CAS_Parser PUBLIC
+      -fsanitize=address,undefined -fno-omit-frame-pointer)
+    target_link_options(NumSim_CAS_Parser PUBLIC
+      -fsanitize=address,undefined)
+  endif()
+
+  if(WIN32)
+    set_target_properties(NumSim_CAS_Parser PROPERTIES
+      WINDOWS_EXPORT_ALL_SYMBOLS ON)
+  endif()
+endif()
+
+# -----------------------------
 # Install
 # -----------------------------
 if(NUMSIM_CAS_INSTALL_LIBRARY)
@@ -190,6 +279,21 @@ if(NUMSIM_CAS_INSTALL_LIBRARY)
     install(EXPORT NumSim_CASTargets
       NAMESPACE NumSim_CAS::
       DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS"
+    )
+  endif()
+
+  # Parser library + its public headers (conditional on the option).
+  if(NUMSIM_CAS_BUILD_PARSER)
+    install(TARGETS NumSim_CAS_Parser
+      EXPORT NumSim_CASTargets
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+      INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/numsim_cas/parser/"
+      DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/numsim_cas/parser"
+      FILES_MATCHING PATTERN "*.h"
     )
   endif()
 endif()

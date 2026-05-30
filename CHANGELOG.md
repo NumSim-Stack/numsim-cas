@@ -9,6 +9,7 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 
 ### Added
 
+- Optional `NumSim_CAS::Parser` library (CMake option `NUMSIM_CAS_BUILD_PARSER=ON`, default OFF). Phase 1 of issue #214: error-class hierarchy (`parse_error` + 8 specialised subclasses) with snippet-with-caret rendering in `what()`; on-the-fly typed `symbol_table` with implicit scalar declarations, explicit `Name{rank,dim}` tensor declarations, redeclaration / cross-type collision detection. 18 lock-in tests gated on `NUMSIM_CAS_PARSER_ENABLED`. Phase 2 will add the PEGTL grammar and the parse entry points.
 - DCO (Developer Certificate of Origin) enforcement via `.github/workflows/dco-check.yml`. Non-merge PR commits must carry a `Signed-off-by:` trailer. Closes part of #171.
 - `NOTICE` file at the repo root asserting petlenz's copyright and the GPL-3.0 OR commercial dual-license model, with SPDX identifiers. Closes part of #171.
 - `LICENSES/LicenseRef-Commercial.txt` so REUSE-compliant tooling can resolve the SPDX `LicenseRef-Commercial` identifier; points at COMMERCIAL.md for the actual acquisition path.
