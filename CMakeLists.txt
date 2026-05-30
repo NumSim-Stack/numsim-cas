@@ -176,14 +176,40 @@ endif()
 # Optional parser sub-library (issue #214)
 # -----------------------------
 # When enabled, builds NumSim_CAS_Parser as a separate static/shared
-# library target. Phase 1: error types + symbol_table (no PEGTL yet).
-# Phase 2 will add parser.cpp and link taocpp::pegtl. Keeping the
-# library skeleton in place from phase 1 onwards lets downstreams
-# adopt the dependency once without churn.
+# library target. Phase 1 shipped error types + symbol_table.
+# Phase 2 adds the PEGTL grammar + actions + top-level parse() entry
+# points.
 if(NUMSIM_CAS_BUILD_PARSER)
+  # taocpp/PEGTL — header-only, pulled from upstream when the parser
+  # is opted in. Pinned to a stable tag rather than a moving branch
+  # so CI is deterministic across reruns.
+  find_package(pegtl QUIET)
+  if(NOT pegtl_FOUND)
+    FetchContent_Declare(
+      pegtl
+      GIT_REPOSITORY https://github.com/taocpp/PEGTL.git
+      GIT_TAG        3.2.8
+    )
+    set(PEGTL_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+    set(PEGTL_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(PEGTL_INSTALL        OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(pegtl)
+    # Suppress warnings from third-party PEGTL headers.
+    get_target_property(_pegtl_real taocpp::pegtl ALIASED_TARGET)
+    if(NOT _pegtl_real)
+      set(_pegtl_real taocpp::pegtl)
+    endif()
+    get_target_property(_pegtl_inc ${_pegtl_real} INTERFACE_INCLUDE_DIRECTORIES)
+    if(_pegtl_inc)
+      set_target_properties(${_pegtl_real} PROPERTIES
+        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_pegtl_inc}")
+    endif()
+  endif()
+
   add_library(NumSim_CAS_Parser
     src/numsim_cas/parser/parse_error.cpp
     src/numsim_cas/parser/symbol_table.cpp
+    src/numsim_cas/parser/parser.cpp
   )
   add_library(NumSim_CAS::Parser ALIAS NumSim_CAS_Parser)
 
@@ -195,6 +221,7 @@ if(NUMSIM_CAS_BUILD_PARSER)
 
   target_link_libraries(NumSim_CAS_Parser
     PUBLIC NumSim_CAS::NumSim_CAS
+    PRIVATE taocpp::pegtl
   )
 
   target_compile_features(NumSim_CAS_Parser PUBLIC cxx_std_23)

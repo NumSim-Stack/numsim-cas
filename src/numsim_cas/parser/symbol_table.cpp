@@ -72,4 +72,16 @@ symbol_table::tensor_shape(std::string_view name) const {
   return std::nullopt;
 }
 
+std::optional<symbol_table::lookup_result>
+symbol_table::get(std::string_view name) const {
+  auto it = m_entries.find(std::string(name));
+  if (it == m_entries.end())
+    return std::nullopt;
+  if (auto const *s = std::get_if<scalar_entry>(&it->second))
+    return s->expr;
+  if (auto const *t = std::get_if<tensor_entry>(&it->second))
+    return t->expr;
+  return std::nullopt;
+}
+
 } // namespace numsim::cas::parser

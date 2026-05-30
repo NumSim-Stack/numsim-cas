@@ -79,6 +79,15 @@ public:
 
 /// An identifier was used where typing forces a tensor (e.g. inside
 /// `trace(...)`), but no tensor by that name has been declared.
+///
+/// @note Currently **unreachable from the parser** — every bare
+/// identifier in scalar position is implicitly declared as a scalar
+/// (see `symbol_table::get_or_declare_scalar`), so the "undeclared
+/// identifier in tensor position" path is never taken. Pinned by
+/// `ParserErrorCoverage.UnknownSymbolErrorIsUnreachableFromParser`.
+/// The class is preserved for a potential future strict mode that
+/// disables implicit scalar declaration, and is exercised directly
+/// at the constructor level by `ParseError.UnknownSymbolErrorCarriesName`.
 class unknown_symbol_error : public parse_error {
 public:
   unknown_symbol_error(std::string name, std::size_t byte_offset,
