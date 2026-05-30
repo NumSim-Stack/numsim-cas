@@ -899,4 +899,16 @@ TEST_F(ScalarFixture, SmoothedMacauleyAtPositive) {
   EXPECT_NEAR(smooth, 1.0, 1e-3);
 }
 
+TEST_F(ScalarFixture, SmoothedMacauleyAtEpsZeroDegeneratesToMacauleyPlus) {
+  // When eps is literally scalar_zero, the formula reduces to
+  // (e + sqrt(e²)) / 2 = (e + |e|) / 2 = max(e, 0). But sqrt(e²)
+  // doesn't auto-fold to abs(e), so without an explicit short-circuit
+  // the user gets a more complex symbolic form than expected. The
+  // factory detects eps==scalar_zero and delegates to macauley_plus,
+  // so the structural result is exactly the non-smooth bracket.
+  using numsim::cas::macauley_plus;
+  using numsim::cas::smoothed_macauley;
+  EXPECT_EQ(smoothed_macauley(x, _zero), macauley_plus(x));
+}
+
 #endif // SCALAREXPRESSIONTEST_H

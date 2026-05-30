@@ -633,10 +633,17 @@ template <scalar_expr_holder E> [[nodiscard]] auto macauley_plus(E &&e) {
   // chain rules see the simpler ramp pair.
   if (is_same<scalar_negative>(e))
     return -min(e.template get<scalar_negative>().expr(), get_scalar_zero());
-  // <<x>+>+ = <x>+ — the positive part is non-negative by construction,
-  // so applying the bracket again is a no-op. Detect the inner
-  // macauley shape (a max with one operand being 0) directly because
-  // the bracket has no dedicated AST node.
+  // Idempotence: <<x>+>+ = <x>+. The positive part is non-negative
+  // by construction, so applying the bracket again is a no-op.
+  //
+  // Trigger is structural, not semantic: we detect "any max with 0
+  // as one operand", which is a SUPERSET of true Macauley brackets
+  // (since macauley_plus has no dedicated AST node). User-built
+  // `max(some_nonneg_quantity, 0)` also matches and short-circuits.
+  // The simplification is still mathematically correct in that
+  // broader case — a max with 0 is always nonneg, and applying
+  // `<·>+` to a nonneg value is the identity — but the trigger is
+  // worth knowing about for anyone debugging fold behavior.
   if (is_same<scalar_max>(e)) {
     auto const &m = e.template get<scalar_max>();
     if (is_same<scalar_zero>(m.expr_lhs()) ||
@@ -700,9 +707,19 @@ template <scalar_expr_holder E> [[nodiscard]] auto heaviside(E &&e) {
  * the non-smooth Macauley bracket; for nonzero `ε` the second-order
  * derivative exists everywhere (useful for Newton-style solvers that
  * choke on the kink at `e = 0`).
+ *
+ * Construction-time fold: when `eps` is literally `scalar_zero`, the
+ * formula collapses to `(e + sqrt(e²)) / 2 = (e + |e|) / 2 = <e>+`,
+ * but `sqrt(e²)` doesn't auto-fold to `abs(e)` and there's no
+ * downstream rule to collapse `(e + abs(e)) / 2 → max(e, 0)`. Detect
+ * the zero-eps case explicitly and delegate to `macauley_plus(e)`
+ * so a user passing the limit value gets the non-smooth bracket
+ * directly.
  */
 template <scalar_expr_holder E, scalar_expr_holder Eps>
 [[nodiscard]] auto smoothed_macauley(E const &e, Eps const &eps) {
+  if (is_same<scalar_zero>(eps))
+    return macauley_plus(e);
   expression_holder<scalar_expression> two =
       make_expression<scalar_constant>(scalar_number{2});
   return (e + sqrt(pow(e, 2) + pow(eps, 2))) / std::move(two);
