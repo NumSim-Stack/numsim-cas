@@ -120,17 +120,6 @@ private:
 // ε_{i₁…i_Dim}. Rank is always equal to Dim (the LC symbol's rank is its
 // dimension by definition).
 //
-// We compute components directly from permutation parity rather than going
-// through `tmech::levi_civita`. The reason: tmech's 3D `operator()` uses
-// the formula `(j-i)(k-j)(i-k)/2`, which evaluates to −1 for the identity
-// permutation (i,j,k)=(0,1,2) instead of the +1 required by the standard
-// sign convention (the one for which det(I) = ε_{ijk} I_{1i} I_{2j} I_{3k}
-// yields +1). The dim-2 and dim-4 tmech formulae are consistent with the
-// standard convention, but the dim-3 sign flip would silently break
-// downstream uses (cross product, determinant, curl). A direct parity
-// implementation is also no harder to read and is independent of any
-// future tmech changes.
-//
 // **Evaluation domain.** The framework's `tensor_data_eval_up_unary` is
 // instantiated at `MaxDim = 3` (see `numsim_cas_type_traits.h`), so
 // `evaluate(dim=4, rank=4)` triggers the `mismatch()` path. Construction
