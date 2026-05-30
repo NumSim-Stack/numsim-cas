@@ -851,6 +851,31 @@ TEST_F(ScalarFixture, IfThenElsePrintHasFunctionForm) {
   EXPECT_PRINT(if_then_else(lt(x, y), x, y), "if_then_else((x < y),x,y)");
 }
 
+TEST_F(ScalarFixture, IfThenElseDiffIgnoresCondDependenceOnX) {
+  // Documenting the design choice spelled out in the diff visitor
+  // comment: when `cond` depends on `x`, the Dirac contribution at
+  // the discontinuity is dropped. Concretely:
+  //
+  //   if_then_else(gt(x, 0), x, -x)   =  abs(x)
+  //   d/dx of that, applied per the rule:
+  //     if_then_else(gt(x, 0),  1, -1) = sign(x), Dirac at 0 dropped.
+  //
+  // At x = 2: cond true → 1.   At x = -2: cond false → -1.
+  // (The "true" derivative includes a 2δ(x) term we intentionally
+  // ignore — see the diff visitor's lazy-vs-eager rationale.)
+  using numsim::cas::diff;
+  using numsim::cas::gt;
+  using numsim::cas::if_then_else;
+  using numsim::cas::scalar_evaluator;
+  auto abs_via_ite = if_then_else(gt(x, _zero), x, -x);
+  auto d = diff(abs_via_ite, x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(d), 1.0);
+  ev.set(x, -2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(d), -1.0);
+}
+
 TEST_F(ScalarFixture, MaxDiffReturnsIfThenElsePiecewise) {
   // d/dx max(a, b) = if_then_else(a > b, da/dx, db/dx). Pre-#135 this
   // threw not_implemented_error (see commit history); now that #135

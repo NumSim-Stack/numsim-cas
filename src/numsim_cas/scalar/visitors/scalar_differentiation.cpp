@@ -177,6 +177,16 @@ void scalar_differentiation::operator()(scalar_min const &v) {
 // Assumes the condition does not depend on x; strictly there are
 // Dirac contributions at the boundary that this rule ignores, but
 // they vanish in practice for yield-function / contact-gap models.
+//
+// Asymmetry vs. scalar_evaluator: the evaluator is LAZY — it applies
+// only the selected branch (load-bearing for damage models with
+// undefined-on-the-other-arm expressions like log of a nonpositive
+// argument). The diff visitor is EAGER because it's symbolic, not
+// numeric: we don't know which arm a future evaluation will select,
+// so we must build symbolic derivatives of both. Don't try to
+// "fix" this by short-circuiting on a known cond — the diff rule
+// must be valid for every cond value, not just the one being seen
+// at this construction site.
 void scalar_differentiation::operator()(scalar_if_then_else const &v) {
   scalar_differentiation inner_diff(m_arg);
   auto dt = inner_diff.apply(v.expr_then());
