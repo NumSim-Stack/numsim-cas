@@ -15,8 +15,11 @@ namespace numsim::cas {
  * the `using namespace` clash note (the same ADL caveat applies here
  * vs. `std::min`).
  *
- * Differentiation uses the sub-gradient at the boundary `a == b`. Will be
- * upgraded to `if_then_else(a < b, da/dx, db/dx)` once #135 lands.
+ * Differentiation requires `if_then_else` (#135) to express the piecewise
+ * derivative symbolically. Until #135 lands, the diff visitor throws
+ * `not_implemented_error`. Once available, the rule is
+ * `d/dx min(a, b) = if_then_else(a < b, da/dx, db/dx)`, with the sub-gradient
+ * picking one side at the measure-zero boundary.
  *
  * Closes part of #137.
  */

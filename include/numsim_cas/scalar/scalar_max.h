@@ -22,8 +22,12 @@ namespace numsim::cas {
  *   `max(c1, c2) → numeric`, idempotence with self-composition),
  * - direct codegen target (`std::max(a, b)`).
  *
- * Differentiation uses the sub-gradient at the boundary `a == b`. Will be
- * upgraded to `if_then_else(a > b, da/dx, db/dx)` once #135 lands.
+ * Differentiation requires `if_then_else` (#135) to express the piecewise
+ * derivative symbolically. Until #135 lands, the diff visitor throws
+ * `not_implemented_error` — surfacing the gap clearly rather than producing
+ * a silent wrong value. Once available, the rule is
+ * `d/dx max(a, b) = if_then_else(a > b, da/dx, db/dx)`, with the sub-gradient
+ * picking one side at the measure-zero boundary `a == b`.
  *
  * ## Note: `using namespace` clash with `std::max`
  *
