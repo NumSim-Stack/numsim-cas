@@ -33,7 +33,10 @@ add_numsim_cas_test(numsim_cas_test
     cas_test_helpers.h
     CoreBugFixTest.h
     SolveTest.h
+    LeviCivitaTest.h
     LimitVisitorTest.h
+    NumericalDiffHelpers.h
+    NumericalDiffTest.h
     ParserTest.h
     ScalarAssumptionTest.h
     ScalarComparisonTest.h

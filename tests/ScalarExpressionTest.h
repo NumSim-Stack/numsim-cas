@@ -777,15 +777,123 @@ TEST_F(ScalarFixture, MaxMinCommutativeCanonicalForm) {
   EXPECT_EQ(max(x + y, x - y), max(x - y, x + y));
 }
 
-TEST_F(ScalarFixture, MaxDiffThrowsUntilIfThenElseLands) {
-  // Pre-#135 the piecewise differentiation result can't be expressed
-  // symbolically. Lock in the throw so this test breaks (signalling
-  // the upgrade is needed) when #135 lands and the diff rule changes.
+// ---------------------------------------------------------------------------
+// #135 — scalar if_then_else
+// ---------------------------------------------------------------------------
+
+TEST_F(ScalarFixture, IfThenElseConstFoldsZeroCondToElse) {
+  using numsim::cas::if_then_else;
+  EXPECT_EQ(if_then_else(_zero, x, y), y);
+}
+
+TEST_F(ScalarFixture, IfThenElseConstFoldsOneCondToThen) {
+  using numsim::cas::if_then_else;
+  EXPECT_EQ(if_then_else(_one, x, y), x);
+}
+
+TEST_F(ScalarFixture, IfThenElseConstFoldsNumericNonZeroCondToThen) {
+  using numsim::cas::if_then_else;
+  // Constant {3} != 0 ⇒ take the `then` arm.
+  EXPECT_EQ(if_then_else(_3, x, y), x);
+  // Negative constants also count as truthy.
+  EXPECT_EQ(if_then_else(-_2, x, y), x);
+}
+
+TEST_F(ScalarFixture, IfThenElseEqualBranchesCollapse) {
+  using numsim::cas::if_then_else;
+  // if_then_else(cond, a, a) → a regardless of cond.
+  EXPECT_EQ(if_then_else(x + y, _3, _3), _3);
+  EXPECT_EQ(if_then_else(x + y, x + y, x + y), x + y);
+}
+
+TEST_F(ScalarFixture, IfThenElseEvaluatorLazyOnUnselectedBranch) {
+  // Lock in lazy evaluation: only the selected branch is evaluated.
+  // This is the load-bearing property for damage / contact models —
+  // the unselected branch may contain expressions that would error at
+  // evaluation (e.g. log of a non-positive argument) but never trip
+  // when the condition selects the other arm.
+  using numsim::cas::if_then_else;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, -1.0); // x < 0 → log(x) would NaN
+  // Compose: if x >= 0 use log(x), else use 0. Should give 0 at x=-1
+  // without evaluating log(-1).
+  auto expr = if_then_else(ge(x, _zero), numsim::cas::log(x), _zero);
+  EXPECT_DOUBLE_EQ(ev.apply(expr), 0.0);
+  // Sanity: positive x evaluates log normally.
+  ev.set(x, std::exp(1.0));
+  EXPECT_NEAR(ev.apply(expr), 1.0, 1e-12);
+}
+
+TEST_F(ScalarFixture, IfThenElseDiffRecursesIntoBothBranches) {
+  // d/dx if_then_else(cond, a(x), b(x)) = if_then_else(cond, da/dx, db/dx)
+  // when cond doesn't depend on x. Verified by structural check on the
+  // result + evaluator round-trip.
+  using numsim::cas::diff;
+  using numsim::cas::if_then_else;
+  using numsim::cas::scalar_evaluator;
+  using numsim::cas::scalar_if_then_else;
+  // cond: y > 0 (independent of x); then: x²; else: x³
+  auto expr = if_then_else(gt(y, _zero), x * x, x * x * x);
+  auto d = diff(expr, x);
+  EXPECT_TRUE(numsim::cas::is_same<scalar_if_then_else>(d));
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  ev.set(y, 1.0); // y > 0 → take then branch → d(x²)/dx = 2x = 4
+  EXPECT_DOUBLE_EQ(ev.apply(d), 4.0);
+  ev.set(y, -1.0); // y < 0 → take else branch → d(x³)/dx = 3x² = 12
+  EXPECT_DOUBLE_EQ(ev.apply(d), 12.0);
+}
+
+TEST_F(ScalarFixture, IfThenElsePrintHasFunctionForm) {
+  using numsim::cas::if_then_else;
+  using numsim::cas::lt;
+  EXPECT_PRINT(if_then_else(lt(x, y), x, y), "if_then_else((x < y),x,y)");
+}
+
+TEST_F(ScalarFixture, IfThenElseDiffIgnoresCondDependenceOnX) {
+  // Documenting the design choice spelled out in the diff visitor
+  // comment: when `cond` depends on `x`, the Dirac contribution at
+  // the discontinuity is dropped. Concretely:
+  //
+  //   if_then_else(gt(x, 0), x, -x)   =  abs(x)
+  //   d/dx of that, applied per the rule:
+  //     if_then_else(gt(x, 0),  1, -1) = sign(x), Dirac at 0 dropped.
+  //
+  // At x = 2: cond true → 1.   At x = -2: cond false → -1.
+  // (The "true" derivative includes a 2δ(x) term we intentionally
+  // ignore — see the diff visitor's lazy-vs-eager rationale.)
+  using numsim::cas::diff;
+  using numsim::cas::gt;
+  using numsim::cas::if_then_else;
+  using numsim::cas::scalar_evaluator;
+  auto abs_via_ite = if_then_else(gt(x, _zero), x, -x);
+  auto d = diff(abs_via_ite, x);
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(d), 1.0);
+  ev.set(x, -2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(d), -1.0);
+}
+
+TEST_F(ScalarFixture, MaxDiffReturnsIfThenElsePiecewise) {
+  // d/dx max(a, b) = if_then_else(a > b, da/dx, db/dx). Pre-#135 this
+  // threw not_implemented_error (see commit history); now that #135
+  // has landed the piecewise result is symbolic and evaluates
+  // correctly on each side of the boundary.
   using numsim::cas::diff;
   using numsim::cas::max;
-  EXPECT_THROW(
-      { [[maybe_unused]] auto d = diff(max(x, y), x); },
-      numsim::cas::not_implemented_error);
+  using numsim::cas::scalar_evaluator;
+  using numsim::cas::scalar_if_then_else;
+  auto d = diff(max(x, y), x);
+  EXPECT_TRUE(numsim::cas::is_same<scalar_if_then_else>(d));
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, 2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(d), 0.0); // x < y → da/dx = 0
+  ev.set(x, 3.0);
+  ev.set(y, 2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(d), 1.0); // x > y → da/dx = 1
 }
 
 // ---------------------------------------------------------------------------

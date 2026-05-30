@@ -21,6 +21,7 @@
 #include <numsim_cas/scalar/scalar_ge.h>
 #include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/scalar/scalar_gt.h>
+#include <numsim_cas/scalar/scalar_if_then_else.h>
 #include <numsim_cas/scalar/scalar_io.h>
 #include <numsim_cas/scalar/scalar_le.h>
 #include <numsim_cas/scalar/scalar_log.h>
@@ -610,6 +611,40 @@ template <scalar_expr_holder E> [[nodiscard]] auto atanh(E const &e) {
   expression_holder<scalar_expression> two =
       make_expression<scalar_constant>(scalar_number{2});
   return log(std::move(num) / std::move(den)) / std::move(two);
+}
+
+// ─── if_then_else (#135) ─────────────────────────────────────────────
+// Piecewise scalar selection: cond != 0 ? then : else. The condition
+// is a scalar evaluating to 0.0 for false and any non-zero value
+// (canonically 1.0) for true — matching the indicator-value
+// convention of #136's comparison nodes.
+//
+// Construction-time simplifications:
+//   if_then_else(scalar_zero, a, b) → b
+//   if_then_else(scalar_one, a, b)  → a
+//   if_then_else(scalar_constant{c}, a, b) → a if c != 0 else b
+//   if_then_else(cond, a, a) → a   (then and else identical)
+template <scalar_expr_holder Cond, scalar_expr_holder Then,
+          scalar_expr_holder Else>
+[[nodiscard]] auto if_then_else(Cond &&cond, Then &&then_expr,
+                                Else &&else_expr) {
+  assert(cond.is_valid());
+  assert(then_expr.is_valid());
+  assert(else_expr.is_valid());
+  // Constant-condition folds
+  if (is_same<scalar_zero>(cond))
+    return std::forward<Else>(else_expr);
+  if (is_same<scalar_one>(cond))
+    return std::forward<Then>(then_expr);
+  if (auto cval = detail::try_extract_scalar_number(cond))
+    return (*cval == scalar_number{0}) ? std::forward<Else>(else_expr)
+                                       : std::forward<Then>(then_expr);
+  // Identical branches collapse regardless of cond
+  if (then_expr.get().hash_value() == else_expr.get().hash_value())
+    return std::forward<Then>(then_expr);
+  return make_expression<scalar_if_then_else>(std::forward<Cond>(cond),
+                                              std::forward<Then>(then_expr),
+                                              std::forward<Else>(else_expr));
 }
 
 // ─── Macauley bracket / ramp / Heaviside (#138) ──────────────────────

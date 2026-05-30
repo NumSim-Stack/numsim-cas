@@ -277,6 +277,9 @@ public:
   void operator()(scalar_max const &visitable) override;
   void operator()(scalar_min const &visitable) override;
 
+  // ─── if_then_else (#135) ─────────────────────────────────────────
+  void operator()(scalar_if_then_else const &visitable) override;
+
   /**
    * @brief Default overload for safty reasons.
    */

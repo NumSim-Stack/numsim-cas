@@ -7,6 +7,7 @@
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_zero.h>
 #include <numsim_cas/tensor/identity_tensor.h>
+#include <numsim_cas/tensor/levi_civita_tensor.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
@@ -89,6 +90,17 @@ requires std::is_integral_v<std::remove_cvref_t<ExprRHS>>
   auto constant{
       numsim::cas::make_expression<numsim::cas::scalar_constant>(expr_rhs)};
   return pow(std::forward<ExprLHS>(expr_lhs), std::move(constant));
+}
+
+// ─── Levi-Civita symbol factory (#34) ──────────────────────────────
+// `levi_civita(dim)` constructs the rank-`dim` permutation symbol
+// ε in `dim` spatial dimensions. Only dim ∈ {2, 3, 4} are supported
+// (matching `tmech::levi_civita`'s coverage). The 3-D case is the
+// usual ε_{ijk} for cross products and curl; 2-D is the rank-2 skew
+// unit; 4-D is the rank-4 form used in relativistic and continuum
+// constructions.
+[[nodiscard]] inline auto levi_civita(std::size_t dim) {
+  return make_expression<levi_civita_tensor>(dim);
 }
 
 } // namespace numsim::cas

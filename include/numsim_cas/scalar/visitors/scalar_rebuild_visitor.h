@@ -133,6 +133,10 @@ public:
   void operator()(scalar_min const &v) override {
     m_result = min(apply(v.expr_lhs()), apply(v.expr_rhs()));
   }
+  void operator()(scalar_if_then_else const &v) override {
+    m_result = if_then_else(apply(v.expr_cond()), apply(v.expr_then()),
+                            apply(v.expr_else()));
+  }
 
 protected:
   expr_holder_t m_current;

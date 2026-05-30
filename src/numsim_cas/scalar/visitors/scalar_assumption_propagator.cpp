@@ -422,6 +422,38 @@ void scalar_assumption_propagator::operator()(scalar_min const &v) {
   propagate_min_signs(cl, cr, m_result);
 }
 
+// if_then_else (#135). The result is either expr_then or expr_else,
+// so any assumption tag they BOTH carry is also carried by the
+// if_then_else as a whole — i.e. the intersection. We don't need
+// interval-union machinery for this; tag intersection is enough to
+// catch the common cases (both branches nonnegative ⇒ result
+// nonnegative, both real ⇒ real, etc.). #209 review.
+namespace {
+inline void
+propagate_if_then_else_intersection(numeric_assumption_manager const &ct,
+                                    numeric_assumption_manager const &ce,
+                                    numeric_assumption_manager &out) {
+  auto intersect = [&](auto tag) {
+    if (ct.contains(tag) && ce.contains(tag))
+      out.insert(tag);
+  };
+  intersect(positive{});
+  intersect(negative{});
+  intersect(nonzero{});
+  intersect(nonnegative{});
+  intersect(nonpositive{});
+  intersect(real_tag{});
+  intersect(integer{});
+}
+} // namespace
+void scalar_assumption_propagator::operator()(scalar_if_then_else const &v) {
+  apply(v.expr_cond());
+  auto const ct = apply(v.expr_then());
+  auto const ce = apply(v.expr_else());
+  m_result = numeric_assumption_manager{};
+  propagate_if_then_else_intersection(ct, ce, m_result);
+}
+
 // ─── Convenience function ──────────────────────────────────────────
 
 numeric_assumption_manager
@@ -741,6 +773,18 @@ public:
     auto const &cr = ensure_assumptions(v.expr_rhs());
     m_result = {};
     propagate_min_signs(cl, cr, m_result);
+  }
+
+  // ─── if_then_else (#135) ─────────────────────────────────────────
+  // The result is real iff both branches are real. The condition
+  // assumptions don't propagate (they describe a 0/1 indicator,
+  // not the selected value).
+  void operator()(scalar_if_then_else const &v) override {
+    ensure_assumptions(v.expr_cond());
+    auto const &ct = ensure_assumptions(v.expr_then());
+    auto const &ce = ensure_assumptions(v.expr_else());
+    m_result = {};
+    propagate_if_then_else_intersection(ct, ce, m_result);
   }
 
 private:

@@ -252,4 +252,12 @@ void scalar_limit_visitor::operator()([[maybe_unused]] scalar_min const &) {
   m_result = {dir::unknown};
 }
 
+// if_then_else (#135): limit depends on the condition's eventual
+// behaviour near the limit target — out of scope for the current
+// limit machinery. Report unknown.
+void scalar_limit_visitor::operator()(
+    [[maybe_unused]] scalar_if_then_else const &) {
+  m_result = {dir::unknown};
+}
+
 } // namespace numsim::cas

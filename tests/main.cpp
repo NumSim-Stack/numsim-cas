@@ -1,5 +1,7 @@
 #include "CoreBugFixTest.h"
+#include "LeviCivitaTest.h"
 #include "LimitVisitorTest.h"
+#include "NumericalDiffTest.h"
 #include "ParserTest.h"
 #include "ScalarAssumptionTest.h"
 #include "ScalarComparisonTest.h"
