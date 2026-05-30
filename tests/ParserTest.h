@@ -13,15 +13,22 @@
 
 #include <gtest/gtest.h>
 
+#include "cas_test_helpers.h"
+
 #include <numsim_cas/parser/parse_error.h>
 #include <numsim_cas/parser/parser.h>
 #include <numsim_cas/parser/symbol_table.h>
+#include <numsim_cas/scalar/scalar_diff.h>
 #include <numsim_cas/scalar/visitors/scalar_evaluator.h>
 #include <numsim_cas/tensor/data/tensor_data.h>
+#include <numsim_cas/tensor/identity_tensor.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_evaluator.h>
 
 #include <cmath>
+#include <locale>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <variant>
 
@@ -45,6 +52,11 @@ using numsim::cas::parser::type_collision_error;
 using numsim::cas::parser::type_mismatch_error;
 using numsim::cas::parser::unknown_function_error;
 using numsim::cas::parser::unknown_symbol_error;
+
+// numsim_cas core API used by integration tests.
+using numsim::cas::diff;
+using numsim::cas::identity_tensor;
+using numsim::cas::make_expression;
 
 // ─── symbol_table: scalar declarations ─────────────────────────────
 
@@ -1038,6 +1050,331 @@ TEST(ParserGrammar, BracketListDoubleCommaThrows) {
             syms);
       },
       parse_error);
+}
+
+// ─── Phase 3a: integration tests ───────────────────────────────────
+//
+// End-to-end checks that parse-produced ASTs participate correctly in
+// the rest of the library: differentiation, evaluation, and
+// locale-independent number parsing. Each test parses a non-trivial
+// input, hands the result to an existing-library API, and asserts the
+// numeric or printed-form outcome. These are the first tests that
+// exercise the parser the way real callers will — grammar tests
+// confirm the parse succeeds; these confirm the AST is well-formed
+// enough for downstream visitors.
+
+TEST(ParserIntegration, PythagoreanDerivativeIsZero) {
+  // d/dx (sin(x)^2 + cos(x)^2) ≡ 0 for all x. Catches mistakes in the
+  // scalar function-call dispatch (sin/cos registry entries), `^` AST
+  // shape, and any construction-time simplification that would corrupt
+  // the chain rule downstream.
+  symbol_table syms;
+  auto e = parse_scalar("sin(x)^2 + cos(x)^2", syms);
+  auto x = syms.get_or_declare_scalar("x");
+  auto d = numsim::cas::diff(e, x);
+
+  numsim::cas::scalar_evaluator<double> ev;
+  for (double val : {0.0, 0.5, 1.0, 1.5, -0.7, 3.14159, 100.0}) {
+    ev.set(x, val);
+    EXPECT_NEAR(ev.apply(d), 0.0, 1e-12)
+        << "Pythagorean derivative should be 0 at x = " << val;
+  }
+}
+
+TEST(ParserIntegration, TraceGradientEqualsIdentity) {
+  // Two assertions woven into one test:
+  //
+  //  (a) The bare-`A` reference after `A{rank=2, dim=3}` resolves to
+  //      the SAME holder that lives inside the trace expression. The
+  //      diff result alone can't prove this — `diff(trace(A_x), A_y)`
+  //      would yield `identity_tensor` regardless of whether A_x and
+  //      A_y are literally the same holder, since the diff visitor
+  //      compares by value-equality on named tensors. The EXPECT_EQ
+  //      below is what actually pins phase 2d's lookup-first contract.
+  //  (b) d(trace(A))/dA = I (rank-2 identity tensor of matching dim).
+  //      Pins the (t2s, tensor) diff routing via tag_invoke.
+  symbol_table syms;
+  auto trace_expr = parse_t2s("trace(A{rank=2, dim=3})", syms);
+  auto A_bare = parse_tensor("A", syms);
+  auto A_lookup = syms.get("A");
+  ASSERT_TRUE(A_lookup.has_value());
+  auto *A_in_syms =
+      std::get_if<expression_holder<tensor_expression>>(&*A_lookup);
+  ASSERT_NE(A_in_syms, nullptr);
+  EXPECT_EQ(A_bare, *A_in_syms)
+      << "Bare `A` must resolve to the SAME holder as the declared tensor.";
+
+  auto d = diff(trace_expr, A_bare);
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_SAME_PRINT(d, I);
+}
+
+TEST(ParserIntegration, MultiVariablePolynomialEvaluatesAtSampledPoints) {
+  // Parse `a*x^2 + b*x + c`, implicitly declaring four scalars in one
+  // go, then evaluate at sample (a, b, c, x). With (1, -3, 2):
+  //   polynomial = x^2 - 3x + 2 = (x-1)(x-2), roots at x=1, x=2.
+  //
+  // Verifies the parser composes literals + named scalars + mixed
+  // operators (* with both name-name and name-literal, then `+`)
+  // into an AST the scalar_evaluator can walk, AND that the
+  // symbol_table threads four implicit scalar declarations through
+  // one parse without cross-pollution.
+  symbol_table syms;
+  auto e = parse_scalar("a*x^2 + b*x + c", syms);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(e, syms, {{"a", 1}, {"b", -3}, {"c", 2}, {"x", 1.0}}), 0.0);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(e, syms, {{"a", 1}, {"b", -3}, {"c", 2}, {"x", 2.0}}), 0.0);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(e, syms, {{"a", 1}, {"b", -3}, {"c", 2}, {"x", 0.0}}), 2.0);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(e, syms, {{"a", 1}, {"b", -3}, {"c", 2}, {"x", 4.0}}), 6.0);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(e, syms, {{"a", 1}, {"b", -3}, {"c", 2}, {"x", -1.0}}), 6.0);
+}
+
+TEST(ParserIntegration, NumberLiteralIsLocaleIndependent) {
+  // Number-literal parsing uses std::from_chars, which ignores the
+  // global C locale. Set a comma-decimal locale, parse "1.5", and
+  // verify the value is 1.5 — proving we don't silently fall through
+  // to std::strtod / std::stod (both honor the global locale and
+  // would either misparse or throw in de_DE).
+  //
+  // CI runners may not have de_DE.UTF-8 installed; if no comma-decimal
+  // locale is available, skip rather than fail.
+  // Try a broad set of comma-decimal locales — most Linux/macOS CI
+  // images ship at least one of these, even if `de_DE` is missing.
+  // en_DK.utf8 is unusual because it's Danish English (so it's
+  // installed on hosts that don't have any continental European
+  // locales) but it still uses comma-decimal.
+  std::locale saved;
+  bool locale_set = false;
+  for (auto const *loc_name : {"de_DE.UTF-8", "de_DE.utf8", "de_DE", //
+                               "fr_FR.UTF-8", "fr_FR.utf8", "fr_FR", //
+                               "it_IT.UTF-8", "it_IT.utf8",          //
+                               "es_ES.UTF-8", "es_ES.utf8",          //
+                               "nl_NL.UTF-8", "nl_NL.utf8",          //
+                               "pt_PT.UTF-8", "pt_PT.utf8",          //
+                               "ru_RU.UTF-8", "ru_RU.utf8",          //
+                               "en_DK.UTF-8", "en_DK.utf8"}) {
+    try {
+      saved = std::locale::global(std::locale(loc_name));
+      locale_set = true;
+      break;
+    } catch (std::runtime_error const &) {
+      // try the next candidate name
+    }
+  }
+  if (!locale_set) {
+    GTEST_SKIP() << "no comma-decimal locale installed; skipping";
+  }
+
+  // RAII-restore the locale even if the EXPECT below throws.
+  struct LocaleRestorer {
+    std::locale saved;
+    ~LocaleRestorer() { std::locale::global(saved); }
+  } restorer{saved};
+
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("1.5", syms), syms), 1.5)
+      << "Parser must read '1.5' as 1.5 regardless of the global C "
+         "locale's decimal separator.";
+}
+
+// ─── Phase 3b: error-coverage tests ────────────────────────────────
+//
+// Phase 2 confirmed every error path raises *some* `parse_error`.
+// These tests tighten that: the right subclass fires, `position()`
+// points at the offending byte (verified inside multi-line input for
+// at least one path), `what()` mentions a relevant token, and the
+// subclass-specific accessors (`name()`, `expected_arity()`, …)
+// carry the values the throw site supplied. A regression that
+// broadened a throw to the base `parse_error` would still pass the
+// existing `EXPECT_THROW(..., parse_error)` checks; these don't.
+
+TEST(ParserErrorCoverage, BracketListZeroIndexFiresLexicalErrorWithPosition) {
+  symbol_table syms;
+  std::string src =
+      "inner_product(A{rank=2, dim=3}, [0, 1], B{rank=2, dim=3}, [1, 2])";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected lexical_error.";
+  } catch (lexical_error const &e) {
+    EXPECT_EQ(e.position(), src.find('0'))
+        << "Position should point at the offending '0'.";
+    EXPECT_NE(std::string(e.what()).find("1-based"), std::string::npos)
+        << "Message should mention the 1-based constraint. what():\n"
+        << e.what();
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, BracketListOverflowFiresLexicalErrorWithMessage) {
+  symbol_table syms;
+  std::string src =
+      "inner_product(A{rank=2, dim=3}, [99999999999999999999, 1], "
+      "B{rank=2, dim=3}, [1, 2])";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected lexical_error (overflow path).";
+  } catch (lexical_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("exceeds"), std::string::npos)
+        << "Overflow message should differ from the generic 'must be "
+           "positive 1-based' message. what():\n"
+        << e.what();
+  }
+}
+
+TEST(ParserErrorCoverage, ZeroRankTensorFiresSyntaxErrorAtDeclaration) {
+  symbol_table syms;
+  std::string src = "trace(A{rank=0, dim=3})";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected syntax_error.";
+  } catch (syntax_error const &e) {
+    // Action raises with the tensor_decl start position (the `A`).
+    EXPECT_EQ(e.position(), src.find('A'));
+    EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos);
+    EXPECT_NE(std::string(e.what()).find(">= 1"), std::string::npos);
+  }
+}
+
+TEST(ParserErrorCoverage, ArityErrorCarriesFunctionNameAndCounts) {
+  symbol_table syms;
+  std::string src = "sin(x, y)";
+  try {
+    [[maybe_unused]] auto e = parse_scalar(src, syms);
+    FAIL() << "Expected arity_error.";
+  } catch (arity_error const &e) {
+    EXPECT_EQ(e.function(), "sin");
+    EXPECT_EQ(e.expected_arity(), 1u);
+    EXPECT_EQ(e.actual_arity(), 2u);
+    EXPECT_NE(std::string(e.what()).find("sin"), std::string::npos);
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, UnknownFunctionErrorCarriesName) {
+  symbol_table syms;
+  std::string src = "no_such_fn(x, y)";
+  try {
+    [[maybe_unused]] auto e = parse_scalar(src, syms);
+    FAIL() << "Expected unknown_function_error.";
+  } catch (unknown_function_error const &e) {
+    EXPECT_EQ(e.name(), "no_such_fn");
+    EXPECT_NE(std::string(e.what()).find("no_such_fn"), std::string::npos);
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, TypeMismatchMessageMentionsOperand) {
+  // `sin(A{...})` — sin's arg_kind is scalar, A is tensor. The
+  // function-call action's type-check should reject with the call
+  // name and argument index in the message so the user can locate
+  // the mistake.
+  symbol_table syms;
+  std::string src = "sin(A{rank=2, dim=3})";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected type_mismatch_error.";
+  } catch (type_mismatch_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("sin"), std::string::npos);
+    EXPECT_NE(std::string(e.what()).find("argument"), std::string::npos);
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, TypeCollisionScalarThenTensorInSameParse) {
+  // `x` is implicitly declared scalar by the first reference. The
+  // later `x{rank=2, dim=3}` tries to declare it as a tensor and
+  // hits symbol_table's collision check, which the parser re-throws
+  // as a type_collision_error with the call site's position.
+  symbol_table syms;
+  std::string src = "x + x{rank=2, dim=3}";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected type_collision_error.";
+  } catch (type_collision_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("x"), std::string::npos);
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, RedeclarationDifferentShapeInSameParse) {
+  // Two tensor decls in one expression with mismatched (rank, dim).
+  symbol_table syms;
+  std::string src = "trace(A{rank=2, dim=3}) + dot(A{rank=4, dim=3})";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected redeclaration_error.";
+  } catch (redeclaration_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("A"), std::string::npos);
+    EXPECT_TRUE(e.has_position());
+  }
+}
+
+TEST(ParserErrorCoverage, MultiLineInputPreservesLineAndColumn) {
+  // Multi-line input where the error fires on line 3 (the zero-rank
+  // tensor). Verifies the byte-offset → line:column translation in
+  // parse_error.cpp survives whitespace-padded multi-line input.
+  symbol_table syms;
+  std::string src = "1 +\n  2 *\n  trace(A{rank=0, dim=3})\n";
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "Expected syntax_error.";
+  } catch (syntax_error const &e) {
+    EXPECT_EQ(e.line(), 3u) << "Error should land on line 3. what():\n"
+                            << e.what();
+    EXPECT_TRUE(e.has_position());
+    // Snippet should include line 3's text, not lines 1 or 2.
+    std::string what = e.what();
+    EXPECT_NE(what.find("trace(A{rank=0, dim=3})"), std::string::npos);
+    EXPECT_EQ(what.find("1 +"), std::string::npos)
+        << "Line 1 should not appear in the snippet. what():\n"
+        << what;
+  }
+}
+
+TEST(ParserErrorCoverage, PegtlTranslatedErrorPropagatesAsSyntaxError) {
+  // Regression test: parser.cpp's `translate_pegtl_error` used to
+  // return by value of base type `parse_error`, which sliced the
+  // `syntax_error` constructed inside it down to the base before the
+  // throw — so PEGTL-originated must-failures (missing close paren,
+  // unexpected EOF) arrived at the catch site as base `parse_error`
+  // instead of `syntax_error`. Now the function returns by `syntax_error`,
+  // preserving the type through the throw. Lock that in:
+  //
+  // `sin(x` triggers PEGTL's `must<function_call_close>` failure path,
+  // which goes through translate_pegtl_error. Must arrive as the
+  // narrow subclass.
+  symbol_table syms;
+  try {
+    [[maybe_unused]] auto e = parse_scalar("sin(x", syms);
+    FAIL() << "Expected syntax_error.";
+  } catch (syntax_error const &) {
+    SUCCEED();
+  } catch (parse_error const &e) {
+    FAIL() << "PEGTL-translated error was sliced to base parse_error. what():\n"
+           << e.what();
+  }
+}
+
+TEST(ParserErrorCoverage, UnknownSymbolErrorIsUnreachableFromParser) {
+  // Documentation test: the parser never raises unknown_symbol_error
+  // because every bare identifier in scalar position is implicitly
+  // declared by `get_or_declare_scalar`. The error class exists for
+  // potential future use (e.g. a strict mode that disables implicit
+  // declaration) and is exercised at the constructor level by
+  // ParseError.UnknownSymbolErrorCarriesName.
+  //
+  // This test pins the current behavior: a bare reference to a
+  // never-declared name in scalar position succeeds and implicitly
+  // declares the name as scalar.
+  symbol_table syms;
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e = parse_scalar("never_seen_before + 1", syms);
+  });
+  EXPECT_TRUE(syms.has("never_seen_before"));
 }
 
 } // namespace numsim::cas::parser_test
