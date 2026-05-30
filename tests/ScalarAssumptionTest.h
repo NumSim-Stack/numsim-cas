@@ -243,4 +243,88 @@ TEST_F(AssumptionFixture, InferChainedOps) {
   EXPECT_TRUE(numsim::cas::is_positive(e));
 }
 
+// ─── max / min sign-monotonicity (#207 review) ───────────────────────
+//
+// max(a, b) ≥ both, so any positive lower bound propagates upward.
+// min(a, b) ≤ both, so any negative upper bound propagates downward.
+// Lock in the inference for each predicate so the Macauley-bracket
+// downstream (#138) can rely on `max(x, 0)` being known nonnegative
+// without the user having to assume() it manually.
+
+TEST_F(AssumptionFixture, InferMaxNonnegativeWhenEitherOperandNonneg) {
+  numsim::cas::assume(x, numsim::cas::nonnegative{});
+  auto e = numsim::cas::max(x, y); // y unknown but max ≥ x ≥ 0
+  EXPECT_TRUE(numsim::cas::is_nonnegative(e));
+}
+
+TEST_F(AssumptionFixture, InferMaxPositiveWhenEitherOperandPositive) {
+  numsim::cas::assume(x, numsim::cas::positive{});
+  auto e = numsim::cas::max(x, y);
+  EXPECT_TRUE(numsim::cas::is_positive(e));
+  EXPECT_TRUE(numsim::cas::is_nonzero(e));
+}
+
+TEST_F(AssumptionFixture, InferMaxNegativeWhenBothNegative) {
+  numsim::cas::assume(x, numsim::cas::negative{});
+  numsim::cas::assume(y, numsim::cas::negative{});
+  auto e = numsim::cas::max(x, y);
+  EXPECT_TRUE(numsim::cas::is_negative(e));
+}
+
+TEST_F(AssumptionFixture, InferMinNonpositiveWhenEitherOperandNonpos) {
+  numsim::cas::assume(x, numsim::cas::nonpositive{});
+  auto e = numsim::cas::min(x, y);
+  EXPECT_TRUE(numsim::cas::is_nonpositive(e));
+}
+
+TEST_F(AssumptionFixture, InferMinNegativeWhenEitherOperandNegative) {
+  numsim::cas::assume(x, numsim::cas::negative{});
+  auto e = numsim::cas::min(x, y);
+  EXPECT_TRUE(numsim::cas::is_negative(e));
+  EXPECT_TRUE(numsim::cas::is_nonzero(e));
+}
+
+TEST_F(AssumptionFixture, InferMinPositiveWhenBothPositive) {
+  numsim::cas::assume(x, numsim::cas::positive{});
+  numsim::cas::assume(y, numsim::cas::positive{});
+  auto e = numsim::cas::min(x, y);
+  EXPECT_TRUE(numsim::cas::is_positive(e));
+}
+
+TEST_F(AssumptionFixture, InferMaxOfXAndZeroIsNonnegative) {
+  // The canonical Macauley positive part: <x>+ = max(x, 0).
+  // Must be inferable as nonnegative without user-side `assume`.
+  auto zero = numsim::cas::get_scalar_zero();
+  auto e = numsim::cas::max(x, zero);
+  EXPECT_TRUE(numsim::cas::is_nonnegative(e));
+}
+
+TEST_F(AssumptionFixture, InferMinOfXAndZeroIsNonpositive) {
+  // Counterpart to the macauley negative part.
+  auto zero = numsim::cas::get_scalar_zero();
+  auto e = numsim::cas::min(x, zero);
+  EXPECT_TRUE(numsim::cas::is_nonpositive(e));
+}
+
+// ─── Macauley brackets sign-propagation (#208 review) ────────────────
+//
+// macauley_plus(x) = max(x, 0)   should infer nonnegative.
+// macauley_minus(x) = -min(x, 0) should infer nonnegative too (because
+// min(x, 0) is nonpositive, and -nonpositive = nonnegative). These
+// tests cross-validate that the #207 sign-monotonicity fix flows all
+// the way through the constitutive-modelling primitives — the user
+// shouldn't need to assume() these manually.
+
+TEST_F(AssumptionFixture, InferMacauleyPlusIsNonnegative) {
+  auto e = numsim::cas::macauley_plus(x);
+  EXPECT_TRUE(numsim::cas::is_nonnegative(e));
+}
+
+TEST_F(AssumptionFixture, InferMacauleyMinusIsNonnegative) {
+  // <x>- = -min(x, 0). min(x, 0) is nonpositive (one operand is 0),
+  // so the negation is nonnegative.
+  auto e = numsim::cas::macauley_minus(x);
+  EXPECT_TRUE(numsim::cas::is_nonnegative(e));
+}
+
 #endif // SCALARASSUMPTIONTEST_H

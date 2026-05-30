@@ -260,6 +260,26 @@ NUMSIM_DEFINE_LATEX_COMPARISON(scalar_ne, "\\ne")
 
 #undef NUMSIM_DEFINE_LATEX_COMPARISON
 
+// ─── Min / max (#137) ──────────────────────────────────────────────
+// LaTeX function-call notation: `\max\!\left( a, b \right)`. The
+// `\!` is a thin-space corrector that pulls the operand block close
+// to the operator name in the typeset form, matching the usual
+// physics/math convention.
+#define NUMSIM_DEFINE_LATEX_MINMAX(Node, FnName)                               \
+  template <typename Stream>                                                   \
+  void scalar_latex_printer<Stream>::operator()(Node const &v) {               \
+    this->m_out << "\\" FnName "\\!\\left(";                                   \
+    apply(v.expr_lhs());                                                       \
+    this->m_out << ", ";                                                       \
+    apply(v.expr_rhs());                                                       \
+    this->m_out << "\\right)";                                                 \
+  }
+
+NUMSIM_DEFINE_LATEX_MINMAX(scalar_max, "max")
+NUMSIM_DEFINE_LATEX_MINMAX(scalar_min, "min")
+
+#undef NUMSIM_DEFINE_LATEX_MINMAX
+
 template class scalar_latex_printer<std::ostream>;
 template class scalar_latex_printer<std::stringstream>;
 

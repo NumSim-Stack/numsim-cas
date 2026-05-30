@@ -158,6 +158,21 @@ TEST(ScalarPrinterAudit, ScalarAbs) {
   EXPECT_NE(s.find("abs"), std::string::npos) << "got: " << s;
 }
 
+TEST(ScalarPrinterAudit, ScalarMax) {
+  auto x = make_expression<scalar>("x");
+  auto y = make_expression<scalar>("y");
+  // max of symbolic inputs prints as function-call notation.
+  auto s = print(max(x, y));
+  EXPECT_NE(s.find("max"), std::string::npos) << "got: " << s;
+}
+
+TEST(ScalarPrinterAudit, ScalarMin) {
+  auto x = make_expression<scalar>("x");
+  auto y = make_expression<scalar>("y");
+  auto s = print(min(x, y));
+  EXPECT_NE(s.find("min"), std::string::npos) << "got: " << s;
+}
+
 } // namespace numsim::cas
 
 #endif // SCALARPRINTERTEST_H

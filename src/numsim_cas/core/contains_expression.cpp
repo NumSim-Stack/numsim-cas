@@ -86,6 +86,10 @@ public:
   void operator()(scalar_eq const &v) override { check_binary(v); }
   void operator()(scalar_ne const &v) override { check_binary(v); }
 
+  // ─── Min / max (#137) ────────────────────────────────────────────
+  void operator()(scalar_max const &v) override { check_binary(v); }
+  void operator()(scalar_min const &v) override { check_binary(v); }
+
 private:
   void check(expr_holder_t const &expr) {
     if (m_found)

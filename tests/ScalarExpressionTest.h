@@ -694,4 +694,221 @@ TEST_F(ScalarFixture, OperatorEarlyExit_NegZero) {
   EXPECT_PRINT(-(-x), "x");
 }
 
+// ---------------------------------------------------------------------------
+// #137 — scalar min / max
+// ---------------------------------------------------------------------------
+
+TEST_F(ScalarFixture, MaxBasicPrint) {
+  using numsim::cas::max;
+  EXPECT_PRINT(max(x, y), "max(x,y)");
+}
+
+TEST_F(ScalarFixture, MinBasicPrint) {
+  using numsim::cas::min;
+  EXPECT_PRINT(min(x, y), "min(x,y)");
+}
+
+TEST_F(ScalarFixture, MaxIdempotentOnEqualOperands) {
+  using numsim::cas::max;
+  // max(x, x) → x. Equality is hash-based so equivalent compound
+  // expressions fold too — not just literal AST-equal operands.
+  EXPECT_PRINT(max(x, x), "x");
+  EXPECT_PRINT(max(x + y, x + y), "x+y");
+}
+
+TEST_F(ScalarFixture, MinIdempotentOnEqualOperands) {
+  using numsim::cas::min;
+  EXPECT_PRINT(min(x, x), "x");
+  EXPECT_PRINT(min(x + y, x + y), "x+y");
+}
+
+TEST_F(ScalarFixture, MaxConstantFolding) {
+  using numsim::cas::max;
+  EXPECT_PRINT(max(_3, _2), "3");
+  EXPECT_PRINT(max(_2, _3), "3");
+  EXPECT_PRINT(max(-_2, _2), "2");
+  EXPECT_PRINT(max(-_3, -_2), "-2");
+}
+
+TEST_F(ScalarFixture, MinConstantFolding) {
+  using numsim::cas::min;
+  EXPECT_PRINT(min(_3, _2), "2");
+  EXPECT_PRINT(min(_2, _3), "2");
+  EXPECT_PRINT(min(-_2, _2), "-2");
+  EXPECT_PRINT(min(-_3, -_2), "-3");
+}
+
+TEST_F(ScalarFixture, MaxMinEvaluator) {
+  using numsim::cas::max;
+  using numsim::cas::min;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.5);
+  ev.set(y, -2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(max(x, y)), 1.5);
+  EXPECT_DOUBLE_EQ(ev.apply(min(x, y)), -2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(max(x, _2)), 2.0); // 1.5 < 2 → max is 2
+  EXPECT_DOUBLE_EQ(ev.apply(min(x, _2)), 1.5); // 1.5 < 2 → min is 1.5
+}
+
+TEST_F(ScalarFixture, MaxMacauleyPlusEvaluator) {
+  // Macauley positive part <x>+ = max(x, 0). Motivating use case for
+  // the constitutive-modelling cluster (#139).
+  using numsim::cas::max;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, -1.0);
+  EXPECT_DOUBLE_EQ(ev.apply(max(x, _zero)), 0.0); // negative → 0
+  ev.set(x, 2.5);
+  EXPECT_DOUBLE_EQ(ev.apply(max(x, _zero)), 2.5); // positive → x
+}
+
+TEST_F(ScalarFixture, MaxMinCommutativeCanonicalForm) {
+  // max(x, y) == max(y, x) (and same for min). Without operand
+  // canonicalisation at construction these compared unequal under the
+  // structural hash. Lock in the canonical-form contract so a later
+  // refactor can't silently break it.
+  using numsim::cas::max;
+  using numsim::cas::min;
+  EXPECT_EQ(max(x, y), max(y, x));
+  EXPECT_EQ(min(x, y), min(y, x));
+  // Compound operands too: the canonicalisation operates on
+  // hash_value, which is structure-aware.
+  EXPECT_EQ(max(x + y, x - y), max(x - y, x + y));
+}
+
+TEST_F(ScalarFixture, MaxDiffThrowsUntilIfThenElseLands) {
+  // Pre-#135 the piecewise differentiation result can't be expressed
+  // symbolically. Lock in the throw so this test breaks (signalling
+  // the upgrade is needed) when #135 lands and the diff rule changes.
+  using numsim::cas::diff;
+  using numsim::cas::max;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto d = diff(max(x, y), x); },
+      numsim::cas::not_implemented_error);
+}
+
+// ---------------------------------------------------------------------------
+// #138 — Macauley bracket / ramp / Heaviside (composed from #137 + #136)
+// ---------------------------------------------------------------------------
+
+TEST_F(ScalarFixture, MacauleyPlusEvaluatorPositive) {
+  using numsim::cas::macauley_plus;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, 3.0);
+  EXPECT_DOUBLE_EQ(ev.apply(macauley_plus(x)), 3.0);
+}
+
+TEST_F(ScalarFixture, MacauleyPlusEvaluatorNegative) {
+  using numsim::cas::macauley_plus;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, -2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(macauley_plus(x)), 0.0);
+}
+
+TEST_F(ScalarFixture, MacauleyPlusEvaluatorAtZero) {
+  using numsim::cas::macauley_plus;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.0);
+  EXPECT_DOUBLE_EQ(ev.apply(macauley_plus(x)), 0.0);
+}
+
+TEST_F(ScalarFixture, MacauleyMinusEvaluatorPositive) {
+  // <3>- = 0  (positive operand has no negative part)
+  using numsim::cas::macauley_minus;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, 3.0);
+  EXPECT_DOUBLE_EQ(ev.apply(macauley_minus(x)), 0.0);
+}
+
+TEST_F(ScalarFixture, MacauleyMinusEvaluatorNegative) {
+  // <-2>- = 2  (magnitude of the negative part)
+  using numsim::cas::macauley_minus;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, -2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(macauley_minus(x)), 2.0);
+}
+
+TEST_F(ScalarFixture, MacauleyPlusIdempotent) {
+  // <<x>+>+ = <x>+. The positive part is non-negative by construction;
+  // applying the bracket again is a no-op. Listed in #138's
+  // construction-time simplifications acceptance criteria.
+  using numsim::cas::macauley_plus;
+  EXPECT_EQ(macauley_plus(macauley_plus(x)), macauley_plus(x));
+}
+
+TEST_F(ScalarFixture, MacauleyPlusOfNegatedFoldsToMacauleyMinus) {
+  // <-x>+ = -min(x, 0) = <x>-. The fold is detected via
+  // scalar_negative pattern matching in macauley_plus().
+  using numsim::cas::macauley_minus;
+  using numsim::cas::macauley_plus;
+  EXPECT_EQ(macauley_plus(-x), macauley_minus(x));
+  EXPECT_EQ(macauley_minus(-x), macauley_plus(x));
+}
+
+TEST_F(ScalarFixture, HeavisideEvaluatesAsRightContinuousStep) {
+  // Standard right-continuous Heaviside: H(0) = 1, H(eps>0) = 1,
+  // H(eps<0) = 0. Implemented via ge(e, 0) so it inherits the
+  // comparison node's exact-equality behaviour.
+  using numsim::cas::heaviside;
+  using numsim::cas::scalar_evaluator;
+  scalar_evaluator<double> ev;
+  ev.set(x, -0.1);
+  EXPECT_DOUBLE_EQ(ev.apply(heaviside(x)), 0.0);
+  ev.set(x, 0.0);
+  EXPECT_DOUBLE_EQ(ev.apply(heaviside(x)), 1.0);
+  ev.set(x, 1.5);
+  EXPECT_DOUBLE_EQ(ev.apply(heaviside(x)), 1.0);
+}
+
+TEST_F(ScalarFixture, SmoothedMacauleyConvergesToMacauleyPlusAsEpsShrinks) {
+  // (x + sqrt(x² + ε²)) / 2 → max(x, 0) as ε → 0.
+  // At x = -1 the limit is 0; smoothed values are ε²/(4·|x|) to
+  // leading order. Lock in the limit-direction by checking a
+  // monotone sequence.
+  using numsim::cas::macauley_plus;
+  using numsim::cas::scalar_evaluator;
+  using numsim::cas::smoothed_macauley;
+  scalar_evaluator<double> ev;
+  ev.set(x, -1.0);
+  double prev = std::numeric_limits<double>::infinity();
+  for (double eps : {1.0, 0.1, 0.01, 0.001}) {
+    auto eps_const = numsim::cas::make_scalar_constant(eps);
+    double smooth = ev.apply(smoothed_macauley(x, eps_const));
+    EXPECT_GT(smooth, 0.0);  // smoothed always > non-smooth at x<0
+    EXPECT_LT(smooth, prev); // monotone decrease as ε ↓
+    prev = smooth;
+  }
+  // Far below ε the smoothed value is essentially 0.
+  EXPECT_NEAR(prev, 0.0, 1e-5);
+}
+
+TEST_F(ScalarFixture, SmoothedMacauleyAtPositive) {
+  // At x = 1, ε small: smoothed ≈ 1 + ε²/4.
+  using numsim::cas::scalar_evaluator;
+  using numsim::cas::smoothed_macauley;
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  double smooth =
+      ev.apply(smoothed_macauley(x, numsim::cas::make_scalar_constant(0.01)));
+  EXPECT_NEAR(smooth, 1.0, 1e-3);
+}
+
+TEST_F(ScalarFixture, SmoothedMacauleyAtEpsZeroDegeneratesToMacauleyPlus) {
+  // When eps is literally scalar_zero, the formula reduces to
+  // (e + sqrt(e²)) / 2 = (e + |e|) / 2 = max(e, 0). But sqrt(e²)
+  // doesn't auto-fold to abs(e), so without an explicit short-circuit
+  // the user gets a more complex symbolic form than expected. The
+  // factory detects eps==scalar_zero and delegates to macauley_plus,
+  // so the structural result is exactly the non-smooth bracket.
+  using numsim::cas::macauley_plus;
+  using numsim::cas::smoothed_macauley;
+  EXPECT_EQ(smoothed_macauley(x, _zero), macauley_plus(x));
+}
+
 #endif // SCALAREXPRESSIONTEST_H

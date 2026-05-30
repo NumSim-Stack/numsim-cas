@@ -18,6 +18,8 @@
 #include "scalar_le.h"
 #include "scalar_log.h"
 #include "scalar_lt.h"
+#include "scalar_max.h"
+#include "scalar_min.h"
 #include "scalar_mul.h"
 #include "scalar_named_expression.h"
 #include "scalar_ne.h"

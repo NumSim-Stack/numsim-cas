@@ -273,6 +273,10 @@ public:
   void operator()(scalar_eq const &visitable) override;
   void operator()(scalar_ne const &visitable) override;
 
+  // ─── Min / max (#137) ────────────────────────────────────────────
+  void operator()(scalar_max const &visitable) override;
+  void operator()(scalar_min const &visitable) override;
+
   /**
    * @brief Default overload for safty reasons.
    */

@@ -31,6 +31,8 @@
   NEXT(scalar_le)                                                              \
   NEXT(scalar_ge)                                                              \
   NEXT(scalar_eq)                                                              \
-  NEXT(scalar_ne)
+  NEXT(scalar_ne)                                                              \
+  NEXT(scalar_max)                                                             \
+  NEXT(scalar_min)
 
 #endif // SCALAR_NODE_LIST_H

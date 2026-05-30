@@ -59,6 +59,10 @@ public:
   void operator()(scalar_eq const &visitable) override;
   void operator()(scalar_ne const &visitable) override;
 
+  // ─── Min / max (#137) ────────────────────────────────────────────
+  void operator()(scalar_max const &visitable) override;
+  void operator()(scalar_min const &visitable) override;
+
   template <class T> void operator()([[maybe_unused]] T const &visitable) {
     static_assert(sizeof(T) == 0,
                   "scalar_latex_printer: missing overload for this node type");
