@@ -65,14 +65,59 @@ TEST(TensorAlgebraAssume, AssumesOverwritePreviousAlgKind) {
   EXPECT_TRUE(is_positive_definite(A));
 }
 
-TEST(TensorAlgebraAssume, AlgKindSurvivesCopy) {
-  // Copying a tensor_expression must preserve the algebra_kind alongside
-  // the projector space. Triggered indirectly via expression_holder copy.
+TEST(TensorAlgebraAssume, AlgKindSharedAcrossHoldersOfSameNode) {
+  // expression_holder is shared_ptr-based, so copies of a holder see the
+  // same underlying tensor_expression. Sanity-check that an annotation set
+  // through one holder is visible through another holder to the same node.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  auto C_alias = C; // shared_ptr aliasing
+  assume_positive_definite(C);
+  EXPECT_TRUE(is_positive_definite(C_alias));
+  EXPECT_TRUE(is_symmetric(C_alias));
+}
+
+TEST(TensorAlgebraAssume, PdPreservesPriorVolumetricSubspace) {
+  // Volumetric PD = positive multiple of identity is a real case (e.g.
+  // isotropic pressure). assume_positive_definite must NOT downgrade an
+  // already-specified Vol space to {Sym, AnyTrace}.
+  auto P = std::get<0>(make_tensor_variable(std::tuple{"P", 3, 2}));
+  assume_volumetric(P);
+  EXPECT_TRUE(is_volumetric(P));
+  assume_positive_definite(P);
+  EXPECT_TRUE(is_positive_definite(P));
+  EXPECT_TRUE(is_volumetric(P)) << "Vol subspace was destroyed by PD assume";
+}
+
+TEST(TensorAlgebraAssume, PsdPreservesPriorDeviatoricSubspace) {
+  auto D = std::get<0>(make_tensor_variable(std::tuple{"D", 3, 2}));
+  assume_deviatoric(D);
+  EXPECT_TRUE(is_deviatoric(D));
+  assume_positive_semidefinite(D);
+  EXPECT_TRUE(is_positive_semidefinite(D));
+  EXPECT_TRUE(is_deviatoric(D));
+}
+
+TEST(TensorAlgebraAssume, PdOverridesIncompatibleSpace) {
+  // Skew is incompatible with PD (PD requires symmetric). assume_pd should
+  // overwrite the skew tag.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  assume_skew(A);
+  EXPECT_TRUE(is_skew(A));
+  assume_positive_definite(A);
+  EXPECT_FALSE(is_skew(A));
+  EXPECT_TRUE(is_symmetric(A));
+}
+
+TEST(TensorAlgebraAssume, IsSymmetricFollowsAlgKindThroughClearSpace) {
+  // PD => symmetric independently of the projector-space tag. Clearing the
+  // space should NOT lose the symmetric implication while alg_kind is PD.
   auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
   assume_positive_definite(C);
-  auto C_copy = C; // shared_ptr copy — same underlying data
-  EXPECT_TRUE(is_positive_definite(C_copy));
-  EXPECT_TRUE(is_symmetric(C_copy));
+  EXPECT_TRUE(is_symmetric(C));
+  C.data()->clear_space();
+  EXPECT_FALSE(C.get().space().has_value());
+  EXPECT_TRUE(is_symmetric(C))
+      << "is_symmetric should follow alg_kind=PD through clear_space";
 }
 
 TEST(TensorAlgebraAssume, ClearAlgKindResetsToNone) {
