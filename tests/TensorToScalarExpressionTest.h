@@ -868,4 +868,23 @@ TYPED_TEST(TensorToScalarExpressionTest,
                "if_then_else(det(X),tr(X),det(X))");
 }
 
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_IfThenElseDiffThrowsNotImplemented) {
+  // d/dA t2s_if_then_else(cond, a, b) requires a t2s-conditioned
+  // tensor selector that doesn't exist yet — see #241. The diff
+  // visitor throws not_implemented_error rather than silently
+  // approximating by one branch. Locks in the throw so a future
+  // "fix" that silently selects one branch can't sneak past review.
+  auto &X = this->X;
+  using numsim::cas::if_then_else;
+  auto trX = numsim::cas::trace(X);
+  auto detX = numsim::cas::det(X);
+  // Use a non-constant cond so the factory's const-cond folds don't
+  // collapse the if_then_else before diff sees it.
+  auto expr = if_then_else(trX, trX, detX);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto d = numsim::cas::diff(expr, X); },
+      numsim::cas::not_implemented_error);
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H
