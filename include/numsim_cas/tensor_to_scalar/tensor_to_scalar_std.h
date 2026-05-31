@@ -147,7 +147,7 @@ template <tensor_to_scalar_expr_holder Cond, tensor_to_scalar_expr_holder Then,
   if (is_same<tensor_to_scalar_one>(cond))
     return std::forward<Then>(then_expr);
   // Identical branches collapse regardless of cond
-  if (then_expr.get().hash_value() == else_expr.get().hash_value())
+  if (then_expr == else_expr)
     return std::forward<Then>(then_expr);
   return make_expression<tensor_to_scalar_if_then_else>(
       std::forward<Cond>(cond), std::forward<Then>(then_expr),
