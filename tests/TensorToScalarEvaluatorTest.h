@@ -231,6 +231,107 @@ TEST(T2sEval, EvalScalarTimesTrace) {
   EXPECT_NEAR(ev.apply(expr), 15.0, t2s_tol);
 }
 
+// ─── Principal invariants (#226) ──────────────────────────────────────
+
+TEST(T2sEval, FirstInvariantEqualsTrace) {
+  // I1(A) = tr(A). Aliases trace; this lock-in catches any future
+  // accidental divergence (e.g. someone makes I1 mean something else).
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({2.0, 1.0, 0.0,
+                                   1.0, 3.0, 1.0,
+                                   0.0, 1.0, 5.0}));
+  // clang-format on
+  EXPECT_NEAR(ev.apply(first_invariant(A)), ev.apply(trace(A)), t2s_tol);
+  EXPECT_NEAR(ev.apply(first_invariant(A)), 10.0, t2s_tol);
+}
+
+TEST(T2sEval, ThirdInvariantEqualsDet) {
+  // I3(A) = det(A).
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({2.0, 1.0, 0.0,
+                                   1.0, 3.0, 1.0,
+                                   0.0, 1.0, 2.0}));
+  // clang-format on
+  auto tmech_A =
+      make_tmech<3, 2>({2.0, 1.0, 0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0});
+  EXPECT_NEAR(ev.apply(third_invariant(A)), ev.apply(det(A)), t2s_tol);
+  EXPECT_NEAR(ev.apply(third_invariant(A)), tmech::det(tmech_A), t2s_tol);
+}
+
+TEST(T2sEval, SecondInvariantMatchesFormula) {
+  // I2(A) = (tr(A)^2 - tr(A·A)) / 2. Verify against the explicit
+  // formula computed independently and against a hand-checked value.
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // Diagonal A=diag(2,3,5): A^2=diag(4,9,25), tr=10, tr(A^2)=38,
+  // I2 = (100 - 38)/2 = 31.
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({2.0, 0.0, 0.0,
+                                   0.0, 3.0, 0.0,
+                                   0.0, 0.0, 5.0}));
+  // clang-format on
+  EXPECT_NEAR(ev.apply(second_invariant(A)), 31.0, t2s_tol);
+}
+
+TEST(T2sEval, SecondInvariantSymmetricMatrix) {
+  // Symmetric (non-diagonal) case: A = [[2,1,0],[1,3,1],[0,1,2]].
+  // A^2 = [[5,5,1],[5,11,5],[1,5,5]]; tr(A^2)=21; tr(A)=7; tr(A)^2=49;
+  // I2 = (49 - 21)/2 = 14.
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({2.0, 1.0, 0.0,
+                                   1.0, 3.0, 1.0,
+                                   0.0, 1.0, 2.0}));
+  // clang-format on
+  EXPECT_NEAR(ev.apply(second_invariant(A)), 14.0, t2s_tol);
+}
+
+TEST(T2sEval, SecondInvariantNonSymmetric) {
+  // tr(A^2) for non-symmetric A is A_ij A_ji, NOT A:A — exercises the
+  // tensor-tensor product path (rather than the squared Frobenius norm
+  // shortcut for symmetric A).
+  // A = [[1,2],[3,4]]; A^2 = [[7,10],[15,22]]; tr=29; tr(A)=5; tr(A)^2=25;
+  // I2 = (25 - 29)/2 = -2.
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  ev.set(A, make_test_data<2, 2>({1.0, 2.0, 3.0, 4.0}));
+  EXPECT_NEAR(ev.apply(second_invariant(A)), -2.0, t2s_tol);
+}
+
+TEST(T2sEval, InvariantsCharacteristicPolynomial) {
+  // For a rank-2 tensor A, the characteristic polynomial is
+  //   det(A - λ I) = -λ^3 + I1·λ^2 - I2·λ + I3   (dim=3 sign convention)
+  // At λ=1 this reads -1 + I1 - I2 + I3 = det(A - I).
+  // Use it as a structural lock-in: invariants reconstruct the
+  // characteristic polynomial.
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({4.0, 1.0, 0.0,
+                                   1.0, 2.0, 1.0,
+                                   0.0, 1.0, 3.0}));
+  // clang-format on
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  auto det_A_minus_I = det(A - I);
+
+  auto i1 = first_invariant(A);
+  auto i2 = second_invariant(A);
+  auto i3 = third_invariant(A);
+
+  // Reconstructed value of det(A - I) via the characteristic polynomial
+  // evaluated at λ = 1: -1 + I1 - I2 + I3.
+  auto neg_one = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar_constant>(-1));
+  auto reconstructed = neg_one + i1 - i2 + i3;
+
+  EXPECT_NEAR(ev.apply(det_A_minus_I), ev.apply(reconstructed), 1e-10);
+}
+
 // ─── Error tests ──────────────────────────────────────────────────────
 
 TEST(T2sEval, EvalMissingTensorSymbol) {
