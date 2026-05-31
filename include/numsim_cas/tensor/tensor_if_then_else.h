@@ -58,7 +58,20 @@ public:
   tensor_if_then_else(ExprC &&cond, ExprT &&then_branch, ExprE &&else_branch)
       : base(std::forward<ExprC>(cond), std::forward<ExprT>(then_branch),
              std::forward<ExprE>(else_branch), then_branch.get().dim(),
-             then_branch.get().rank()) {}
+             then_branch.get().rank()) {
+    // Defensive shape check at the constructor boundary in addition to
+    // the factory's assert: callers that bypass the `if_then_else(...)`
+    // factory (e.g. direct `make_expression<tensor_if_then_else>(...)`)
+    // would otherwise build a node whose stored dim/rank comes from
+    // `then` while `else` silently disagrees.
+    //
+    // Read from base's stored holders, not the constructor parameters —
+    // by the time the body runs, base() has moved-from the forwarding
+    // references and accessing them via `then_branch.get()` would hit
+    // a null holder and throw.
+    assert(this->expr_then().get().dim() == this->expr_else().get().dim());
+    assert(this->expr_then().get().rank() == this->expr_else().get().rank());
+  }
 
   tensor_if_then_else(tensor_if_then_else const &expr)
       : base(static_cast<base const &>(expr)) {}

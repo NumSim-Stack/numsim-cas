@@ -1076,4 +1076,57 @@ TYPED_TEST(TensorExpressionTest, TensorIfThenElsePrintHasFunctionForm) {
   EXPECT_PRINT(if_then_else(x, X, Y), "if_then_else(x,X,Y)");
 }
 
+TYPED_TEST(TensorExpressionTest, TensorIfThenElseSubstituteRecurses) {
+  // substitute should recurse into all three children. Substituting X
+  // with Y inside if_then_else(x, X, X+X) yields if_then_else(x, Y, 2*Y).
+  // Pins the rebuild-visitor's tensor_if_then_else overload via the
+  // substitution path (which inherits from rebuild).
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &x = this->x;
+  using numsim::cas::if_then_else;
+  using numsim::cas::substitute;
+  auto expr = if_then_else(x, X, X + X);
+  auto subst = substitute(expr, X, Y);
+  EXPECT_PRINT(subst, "if_then_else(x,Y,2*Y)");
+}
+
+TYPED_TEST(TensorExpressionTest, TensorIfThenElseDiffPiecewise) {
+  // d/dX if_then_else(cond, X, Y) = if_then_else(cond, dX/dX, dY/dX)
+  //                                = if_then_else(cond, I{2*rank}, 0)
+  // The structural form should be a tensor_if_then_else node — the
+  // diff visitor builds it via the tensor-domain if_then_else factory.
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &x = this->x;
+  using numsim::cas::diff;
+  using numsim::cas::if_then_else;
+  using numsim::cas::tensor_if_then_else;
+  auto expr = if_then_else(x, X, Y);
+  auto d = diff(expr, X);
+  EXPECT_TRUE(numsim::cas::is_same<tensor_if_then_else>(d))
+      << "Expected tensor_if_then_else from the piecewise diff rule, got: "
+      << numsim::cas::to_string(d);
+}
+
+TYPED_TEST(TensorExpressionTest, TensorIfThenElseDiffEqualBranchesCollapses) {
+  // d/dX if_then_else(cond, X+Y, X+Y) — the if_then_else fold first
+  // collapses the equal-branches case, so the diff is just d/dX (X+Y) = I.
+  // Confirms the construction-time fold survives through the diff
+  // visitor (the diff visitor builds the fold-result rather than a
+  // tensor_if_then_else whose branches happen to be equal).
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &x = this->x;
+  using numsim::cas::diff;
+  using numsim::cas::if_then_else;
+  using numsim::cas::tensor_if_then_else;
+  auto expr = if_then_else(x, X + Y, X + Y);
+  auto d = diff(expr, X);
+  EXPECT_FALSE(numsim::cas::is_same<tensor_if_then_else>(d))
+      << "Equal branches should collapse before diff sees a "
+         "tensor_if_then_else; got: "
+      << numsim::cas::to_string(d);
+}
+
 #endif // TENSOREXPRESSIONTEST_H
