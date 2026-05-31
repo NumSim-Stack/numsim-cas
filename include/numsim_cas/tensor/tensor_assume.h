@@ -53,13 +53,14 @@ assume_orthogonal(expression_holder<tensor_expression> const &expr) {
   expr.data()->set_algebra_kind(AlgKind::Orthogonal);
 }
 
+namespace detail {
 // Set the projector space to {Symmetric, AnyTraceTag} unless a strictly
 // more-specific symmetric subspace is already annotated (Sym / Vol / Dev).
 // E.g. `assume_volumetric(A); assume_positive_definite(A);` should retain
 // the Vol info — a volumetric PD tensor is a positive multiple of I, a
 // real case in continuum mechanics. Incompatible existing spaces (Skew,
 // Minor, Major, MinorMajor) get overwritten because PD/PSD requires sym.
-inline void detail_set_symmetric_unless_more_specific(tensor_expression *e) {
+inline void set_symmetric_unless_more_specific(tensor_expression *e) {
   if (auto const &sp = e->space()) {
     auto kind = classify_space(*sp);
     if (kind == ProjKind::Sym || kind == ProjKind::Vol || kind == ProjKind::Dev)
@@ -67,17 +68,18 @@ inline void detail_set_symmetric_unless_more_specific(tensor_expression *e) {
   }
   e->set_space({Symmetric{}, AnyTraceTag{}});
 }
+} // namespace detail
 
 inline void
 assume_positive_definite(expression_holder<tensor_expression> const &expr) {
   expr.data()->set_algebra_kind(AlgKind::PositiveDefinite);
-  detail_set_symmetric_unless_more_specific(expr.data().get());
+  detail::set_symmetric_unless_more_specific(expr.data().get());
 }
 
 inline void
 assume_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
   expr.data()->set_algebra_kind(AlgKind::PositiveSemidefinite);
-  detail_set_symmetric_unless_more_specific(expr.data().get());
+  detail::set_symmetric_unless_more_specific(expr.data().get());
 }
 
 // --- Query assumptions ---
