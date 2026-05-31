@@ -35,6 +35,13 @@
 #include <numsim_cas/scalar/visitors/scalar_evaluator.h>
 #include <numsim_cas/scalar/visitors/scalar_printer.h>
 
+// Diff routing for tensor and tensor-to-scalar (#221). Without these,
+// callers who include only the umbrella get `no matching tag_invoke
+// overload` errors for `diff(tensor, tensor)` and any t2s diff form,
+// even though the visitors are otherwise pulled in.
+#include <numsim_cas/tensor/tensor_diff.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
+
 #include <numsim_cas/scalar/scalar_latex_io.h>
 #include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/levi_civita_tensor.h>
