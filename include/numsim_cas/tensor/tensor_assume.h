@@ -86,6 +86,17 @@ assume_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
   detail::set_symmetric_unless_more_specific(expr.data().get());
 }
 
+// Remove a single algebra assumption. Mirrors scalar_assume.h's
+// remove_assumption. NOTE: this does NOT undo cross-mechanism
+// implications — removing positive_definite{} leaves the
+// {Symmetric, AnyTraceTag} space tag in place, since the user's
+// original belief "A is symmetric" may still stand independently.
+// Use clear_space() separately if the space tag should also go.
+inline void remove_assumption(expression_holder<tensor_expression> const &expr,
+                              tensor_algebra_assumption const &a) {
+  expr.data()->tensor_algebra_assumptions().erase(a);
+}
+
 // --- Query assumptions ---
 
 inline bool is_symmetric(expression_holder<tensor_expression> const &expr) {

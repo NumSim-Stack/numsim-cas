@@ -150,6 +150,32 @@ TEST(TensorAlgebraAssume, EraseSingleAssumption) {
   EXPECT_TRUE(is_positive_semidefinite(A));
 }
 
+TEST(TensorAlgebraAssume, RemoveAssumptionFreeFunction) {
+  // remove_assumption(expr, tag) matches scalar_assume.h's API shape.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  assume_orthogonal(A);
+  EXPECT_TRUE(is_orthogonal(A));
+  remove_assumption(A, orthogonal{});
+  EXPECT_FALSE(is_orthogonal(A));
+}
+
+TEST(TensorAlgebraAssume, RemoveDoesNotUndoCrossMechanismImplications) {
+  // assume_positive_definite sets {Symmetric, AnyTrace} on the space.
+  // Removing positive_definite{} from the manager leaves the space tag
+  // alone — the user's "A is symmetric" assertion stands independently.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_positive_definite(C);
+  EXPECT_TRUE(C.get().space().has_value());
+  EXPECT_TRUE(is_symmetric(C));
+  remove_assumption(C, positive_definite{});
+  remove_assumption(C, positive_semidefinite{});
+  EXPECT_FALSE(is_positive_definite(C));
+  EXPECT_FALSE(is_positive_semidefinite(C));
+  // Space tag persists; is_symmetric returns true via the space.
+  EXPECT_TRUE(C.get().space().has_value());
+  EXPECT_TRUE(is_symmetric(C));
+}
+
 TEST(TensorAlgebraAssume, AlgebraAssumptionOrthogonalToProjectorSpace) {
   // The two annotation systems are independent: assume_skew() leaves the
   // algebra_kind alone, and assume_orthogonal() leaves the space alone.
