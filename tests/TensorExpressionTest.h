@@ -1040,4 +1040,40 @@ TYPED_TEST(TensorExpressionTest, OperatorEarlyExit_PowZeroBase) {
   EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_zero>(r2));
 }
 
+// ---------------------------------------------------------------------------
+// #135 / #210 — tensor_if_then_else (mixed-base: scalar cond, tensor branches)
+// ---------------------------------------------------------------------------
+
+TYPED_TEST(TensorExpressionTest, TensorIfThenElseConstFoldsZeroCondToElse) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  using numsim::cas::if_then_else;
+  auto s_zero = numsim::cas::get_scalar_zero();
+  EXPECT_EQ(if_then_else(s_zero, X, Y), Y);
+}
+
+TYPED_TEST(TensorExpressionTest, TensorIfThenElseConstFoldsOneCondToThen) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  using numsim::cas::if_then_else;
+  auto s_one = numsim::cas::get_scalar_one();
+  EXPECT_EQ(if_then_else(s_one, X, Y), X);
+}
+
+TYPED_TEST(TensorExpressionTest, TensorIfThenElseEqualBranchesCollapse) {
+  auto &X = this->X;
+  auto &x = this->x;
+  using numsim::cas::if_then_else;
+  // Regardless of cond — if then == else, collapse to then.
+  EXPECT_EQ(if_then_else(x, X, X), X);
+}
+
+TYPED_TEST(TensorExpressionTest, TensorIfThenElsePrintHasFunctionForm) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &x = this->x;
+  using numsim::cas::if_then_else;
+  EXPECT_PRINT(if_then_else(x, X, Y), "if_then_else(x,X,Y)");
+}
+
 #endif // TENSOREXPRESSIONTEST_H

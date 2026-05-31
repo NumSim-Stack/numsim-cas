@@ -24,6 +24,7 @@
   NEXT(identity_tensor)                                                        \
   NEXT(levi_civita_tensor)                                                     \
   NEXT(tensor_scalar_mul)                                                      \
-  NEXT(tensor_to_scalar_with_tensor_mul)
+  NEXT(tensor_to_scalar_with_tensor_mul)                                       \
+  NEXT(tensor_if_then_else)
 
 #endif // TENSOR_NODE_LIST_H

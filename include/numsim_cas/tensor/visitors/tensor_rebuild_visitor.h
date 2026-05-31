@@ -40,6 +40,14 @@ public:
   void operator()(levi_civita_tensor const &) override { m_result = m_current; }
   void operator()(tensor_projector const &) override { m_result = m_current; }
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  // Cond is a scalar; routes through apply_scalar for substitution
+  // visitor compatibility. Branches are tensors via apply.
+  void operator()(tensor_if_then_else const &v) override {
+    m_result = if_then_else(apply_scalar(v.expr_cond()), apply(v.expr_then()),
+                            apply(v.expr_else()));
+  }
+
   // Unary tensor -> tensor
   void operator()(tensor_negative const &v) override {
     m_result = -apply(v.expr());

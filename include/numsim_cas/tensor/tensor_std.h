@@ -9,6 +9,7 @@
 #include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/levi_civita_tensor.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_if_then_else.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
 #include <numsim_cas/tensor/wrappers/tensor_pow.h>
@@ -101,6 +102,36 @@ requires std::is_integral_v<std::remove_cvref_t<ExprRHS>>
 // constructions.
 [[nodiscard]] inline auto levi_civita(std::size_t dim) {
   return make_expression<levi_civita_tensor>(dim);
+}
+
+// ─── if_then_else (#135 / #210) ──────────────────────────────────────
+// Piecewise tensor selection with a SCALAR condition. The condition
+// is a scalar 0/1 indicator (per #136's comparison convention); the
+// branches are tensors that must share dim and rank.
+//
+// Construction-time simplifications:
+//   if_then_else(scalar_zero, a, b) → b
+//   if_then_else(scalar_one, a, b)  → a
+//   if_then_else(cond, a, a) → a   (then and else identical)
+template <scalar_expr_holder Cond, tensor_expr_holder Then,
+          tensor_expr_holder Else>
+[[nodiscard]] auto if_then_else(Cond &&cond, Then &&then_expr,
+                                Else &&else_expr) {
+  assert(cond.is_valid());
+  assert(then_expr.is_valid());
+  assert(else_expr.is_valid());
+  // Branches must share shape — gate before any simplification.
+  assert(then_expr.get().dim() == else_expr.get().dim());
+  assert(then_expr.get().rank() == else_expr.get().rank());
+  if (is_same<scalar_zero>(cond))
+    return std::forward<Else>(else_expr);
+  if (is_same<scalar_one>(cond))
+    return std::forward<Then>(then_expr);
+  if (then_expr.get().hash_value() == else_expr.get().hash_value())
+    return std::forward<Then>(then_expr);
+  return make_expression<tensor_if_then_else>(std::forward<Cond>(cond),
+                                              std::forward<Then>(then_expr),
+                                              std::forward<Else>(else_expr));
 }
 
 } // namespace numsim::cas
