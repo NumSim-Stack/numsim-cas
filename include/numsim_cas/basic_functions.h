@@ -79,13 +79,47 @@ template <typename... Args> auto make_scalar_variable(Args &&...args) {
   return std::make_tuple(make_expression<scalar>(std::forward<Args>(args))...);
 }
 
-template <typename... Args> auto make_scalar_constant(Args &&...args) {
+} // namespace numsim::cas
+
+// scalar_make_constant supplies the arithmetic→canonical-form
+// `tag_invoke(make_constant_fn, type_identity<scalar_expression>, T)`
+// dispatch used by `make_scalar_constant` for arithmetic args (#184
+// canonical-form fix). Included AFTER `make_expression` is declared
+// (it depends on that), but BEFORE the `make_scalar_constant`
+// overloads that depend on it.
+#include "scalar/scalar_make_constant.h"
+
+namespace numsim::cas {
+
+namespace detail {
+// Single-value factory shared by the 1-arg and N-arg `make_scalar_constant`
+// overloads. Arithmetic types route through the canonicalisation in
+// `scalar_make_constant.h`'s `tag_invoke(make_constant_fn, …)` — same path
+// used by `int * holder` operators — so `make_scalar_constant(int)` and
+// `int * holder`-style construction produce structurally identical nodes
+// (#184). Non-arithmetic types (e.g. `scalar_number`) fall through to
+// direct `scalar_constant` construction unchanged.
+template <typename T> auto make_one_scalar_constant(T &&v) {
+  if constexpr (std::is_arithmetic_v<std::remove_cvref_t<T>>) {
+    return tag_invoke(make_constant_fn{},
+                      std::type_identity<scalar_expression>{},
+                      std::forward<T>(v));
+  } else {
+    return make_expression<scalar_constant>(std::forward<T>(v));
+  }
+}
+} // namespace detail
+
+template <typename A, typename B, typename... Rest>
+auto make_scalar_constant(A &&a, B &&b, Rest &&...rest) {
   return std::make_tuple(
-      make_expression<scalar_constant>(std::forward<Args>(args))...);
+      detail::make_one_scalar_constant(std::forward<A>(a)),
+      detail::make_one_scalar_constant(std::forward<B>(b)),
+      detail::make_one_scalar_constant(std::forward<Rest>(rest))...);
 }
 
 template <typename Args> auto make_scalar_constant(Args &&args) {
-  return make_expression<scalar_constant>(std::forward<Args>(args));
+  return detail::make_one_scalar_constant(std::forward<Args>(args));
 }
 
 template <typename Expr>

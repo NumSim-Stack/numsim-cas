@@ -44,7 +44,14 @@ template <> struct domain_traits<scalar_expression> {
   }
 
   static expr_holder_t make_constant(scalar_number const &value) {
-    return make_expression<scalar_constant>(value);
+    // Route through the canonical-form dispatch (#184). Centralises
+    // 0 → scalar_zero singleton, 1 → scalar_one singleton,
+    // -1 → -scalar_one, negative → -scalar_constant(|v|), positive →
+    // scalar_constant(v). Keeps simplifier-built coefficients
+    // structurally identical to constants built via the public
+    // make_scalar_constant / `int * holder` paths.
+    return detail::tag_invoke(detail::make_constant_fn{},
+                              std::type_identity<scalar_expression>{}, value);
   }
 };
 
