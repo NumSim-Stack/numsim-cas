@@ -39,6 +39,32 @@ assume_minor_major(expression_holder<tensor_expression> const &expr) {
   expr.data()->set_space({MinorMajor{}, AnyTraceTag{}});
 }
 
+// --- Algebraic-property annotations (#228) ---
+// These live on the separate AlgKind field (orthogonal to the projector-
+// space tags above). PD / PSD additionally imply Symmetric, so they
+// auto-set the projector-space tag — a subsequent is_symmetric() query
+// returns true without an explicit assume_symmetric() call.
+//
+// Orthogonality does NOT imply symmetry (rotations are generally not
+// symmetric), so assume_orthogonal leaves the space tag alone.
+
+inline void
+assume_orthogonal(expression_holder<tensor_expression> const &expr) {
+  expr.data()->set_algebra_kind(AlgKind::Orthogonal);
+}
+
+inline void
+assume_positive_definite(expression_holder<tensor_expression> const &expr) {
+  expr.data()->set_algebra_kind(AlgKind::PositiveDefinite);
+  expr.data()->set_space({Symmetric{}, AnyTraceTag{}});
+}
+
+inline void
+assume_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
+  expr.data()->set_algebra_kind(AlgKind::PositiveSemidefinite);
+  expr.data()->set_space({Symmetric{}, AnyTraceTag{}});
+}
+
 // --- Query assumptions ---
 
 inline bool is_symmetric(expression_holder<tensor_expression> const &expr) {
@@ -91,6 +117,26 @@ inline bool is_minor_major(expression_holder<tensor_expression> const &expr) {
   if (!sp)
     return false;
   return std::holds_alternative<MinorMajor>(sp->perm);
+}
+
+// --- Algebraic-property queries (#228) ---
+
+inline bool is_orthogonal(expression_holder<tensor_expression> const &expr) {
+  return expr.get().algebra_kind() == AlgKind::Orthogonal;
+}
+
+inline bool
+is_positive_definite(expression_holder<tensor_expression> const &expr) {
+  return expr.get().algebra_kind() == AlgKind::PositiveDefinite;
+}
+
+inline bool
+is_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
+  // PD => PSD: a positive-definite tensor is also positive-semidefinite by
+  // definition (the strict inequality implies the weak one). Queries return
+  // true in both cases.
+  auto k = expr.get().algebra_kind();
+  return k == AlgKind::PositiveSemidefinite || k == AlgKind::PositiveDefinite;
 }
 
 } // namespace numsim::cas
