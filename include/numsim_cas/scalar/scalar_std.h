@@ -640,7 +640,7 @@ template <scalar_expr_holder Cond, scalar_expr_holder Then,
     return (*cval == scalar_number{0}) ? std::forward<Else>(else_expr)
                                        : std::forward<Then>(then_expr);
   // Identical branches collapse regardless of cond
-  if (then_expr.get().hash_value() == else_expr.get().hash_value())
+  if (then_expr == else_expr)
     return std::forward<Then>(then_expr);
   return make_expression<scalar_if_then_else>(std::forward<Cond>(cond),
                                               std::forward<Then>(then_expr),
