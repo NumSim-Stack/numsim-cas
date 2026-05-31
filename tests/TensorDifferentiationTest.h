@@ -565,6 +565,25 @@ TEST_F(TensorDifferentiationTest, AuditTensorToScalarWithTensorMulCovered) {
       << "Second-order differentiation produced invalid result";
 }
 
+// #248: rank-4 inv() construction is now supported, but differentiation
+// of a rank-4 inv is NOT yet wired. The visitor throws
+// not_implemented_error with a clear message. Lock that contract in so
+// users hit a definite error rather than getting silent garbage if they
+// try to compose `diff(inv(rank4), ...)`.
+TEST(TensorDiffRank4InvNotImplemented, ThrowsWithClearMessage) {
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_minor_major(C);
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto invC = inv(C);
+  try {
+    [[maybe_unused]] auto r = diff(invC, X);
+    FAIL() << "Expected diff(inv(rank-4), ...) to throw not_implemented_error";
+  } catch (not_implemented_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos)
+        << "error message should mention rank; got: " << e.what();
+  }
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORDIFFERENTIATIONTEST_H
