@@ -258,6 +258,35 @@ TEST(T2sEval, EvaluationErrorIsCatchableAsRuntimeError) {
   EXPECT_THROW(ev.apply(trace(A)), std::runtime_error);
 }
 
+// ─── if_then_else lazy-evaluation lock-in (#242) ─────────────────
+// Mirror of TensorEval.IfThenElseLazyOnUnselectedBranch and the
+// scalar IfThenElseEvaluatorLazyOnUnselectedBranch. The unselected
+// branch contains trace(A) where A is deliberately unbound — eager
+// evaluation would throw evaluation_error. Lazy evaluation skips it.
+TEST(T2sEval, IfThenElseLazyOnUnselectedBranch) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  auto A = make_expression<tensor>("A", 2, 2); // deliberately UNBOUND
+  // Wrap the scalar so the cond is a t2s expression (matches the
+  // tensor_to_scalar_if_then_else node's cond type). A wrapped variable
+  // also escapes the construction-time `if cond is constant` fold in
+  // tensor_to_scalar_std.h's factory.
+  auto cond = make_expression<tensor_to_scalar_scalar_wrapper>(x);
+  auto safe = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar_constant>(42.0));
+  auto unsafe = trace(A);
+
+  // cond truthy (x=1) → then = safe.
+  ev.set_scalar(x, 1.0);
+  auto expr_then_safe = if_then_else(cond, safe, unsafe);
+  EXPECT_NEAR(ev.apply(expr_then_safe), 42.0, t2s_tol);
+
+  // cond falsy (x=0) → else = safe.
+  ev.set_scalar(x, 0.0);
+  auto expr_else_safe = if_then_else(cond, unsafe, safe);
+  EXPECT_NEAR(ev.apply(expr_else_safe), 42.0, t2s_tol);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALAREVALUATORTEST_H

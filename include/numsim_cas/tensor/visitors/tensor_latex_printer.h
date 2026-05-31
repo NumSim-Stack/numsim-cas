@@ -136,6 +136,17 @@ public:
     end(precedence, parent_precedence);
   }
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  void operator()(tensor_if_then_else const &v) override {
+    this->m_out << "\\operatorname{if\\_then\\_else}\\!\\left(";
+    apply(v.expr_cond());
+    this->m_out << ", ";
+    apply(v.expr_then());
+    this->m_out << ", ";
+    apply(v.expr_else());
+    this->m_out << "\\right)";
+  }
+
   void operator()(inner_product_wrapper const &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
 

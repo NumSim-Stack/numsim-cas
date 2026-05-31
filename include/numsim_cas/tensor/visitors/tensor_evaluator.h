@@ -97,6 +97,19 @@ public:
     eval_unary_tmech<tmech_ops::neg>(v);
   }
 
+  // ─── if_then_else (#135 / #210) ──────────────────────────────────
+  // Lazy on the unselected branch: evaluate cond (scalar), then
+  // dispatch to only the selected tensor arm. Same load-bearing
+  // lazy-eval contract as the scalar / t2s variants — the unselected
+  // arm may contain expressions that would error at evaluation
+  // (e.g. inv of a singular tensor).
+  void operator()(tensor_if_then_else const &v) override {
+    if (m_scalar_eval.apply(v.expr_cond()) != ValueType{0})
+      m_result = apply(v.expr_then());
+    else
+      m_result = apply(v.expr_else());
+  }
+
   void operator()(tensor_scalar_mul const &visitable) override {
     const auto scalar_val = m_scalar_eval.apply(visitable.expr_lhs());
     auto src = apply(visitable.expr_rhs());

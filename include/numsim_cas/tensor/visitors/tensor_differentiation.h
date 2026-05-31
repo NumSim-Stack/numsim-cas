@@ -131,6 +131,21 @@ public:
     }
   }
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  // d/dA if_then_else(cond, X(A), Y(A)) = if_then_else(cond, dX/dA, dY/dA)
+  // when cond doesn't depend on A. Same lazy-eval-vs-eager-diff
+  // asymmetry as the scalar/t2s variants: the diff visitor MUST build
+  // both arms' derivatives because the cond value isn't fixed at
+  // differentiation time.
+  void operator()(tensor_if_then_else const &visitable) override {
+    auto dt = diff(visitable.expr_then(), m_arg);
+    auto de = diff(visitable.expr_else(), m_arg);
+    if (dt.is_valid() && de.is_valid()) {
+      m_result =
+          if_then_else(visitable.expr_cond(), std::move(dt), std::move(de));
+    }
+  }
+
   void operator()(tensor_scalar_mul const &visitable) override {
     // (scalar * tensor)' = scalar * tensor' (scalar is constant w.r.t. tensor
     // arg)

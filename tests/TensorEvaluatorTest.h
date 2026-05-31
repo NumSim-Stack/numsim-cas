@@ -991,6 +991,37 @@ TEST(TensorProjAlgebra, ProjectorHashSameForIdenticalSpaces) {
   EXPECT_EQ(p1.get().hash_value(), p2.get().hash_value());
 }
 
+// ─── if_then_else lazy-evaluation lock-in (#242) ─────────────────
+// Mirror of the scalar IfThenElseEvaluatorLazyOnUnselectedBranch test.
+// The unselected branch references an unbound tensor symbol — eager
+// evaluation would throw evaluation_error trying to look it up.
+// Lazy evaluation skips it entirely.
+TEST(TensorEval, IfThenElseLazyOnUnselectedBranch) {
+  tensor_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  auto A = make_expression<tensor>("A", 2, 2); // deliberately UNBOUND
+  auto _zero = make_expression<scalar_constant>(0.0);
+  auto Z = make_expression<tensor_zero>(std::size_t{2}, std::size_t{2});
+
+  // cond = ge(x, 0). At x=1 → cond truthy → then = Z is selected.
+  // The else branch is inv(A) — accessing the unbound A would throw.
+  ev.set_scalar(x, 1.0);
+  auto expr_then_safe = if_then_else(ge(x, _zero), Z, inv(A));
+  auto result = ev.apply(expr_then_safe);
+  ASSERT_NE(result, nullptr);
+  auto expected = make_tmech<2, 2>({0.0, 0.0, 0.0, 0.0});
+  EXPECT_TRUE(tmech::almost_equal(as_tmech<2, 2>(*result), expected, tol));
+
+  // cond = ge(x, 0). At x=-1 → cond falsy → else = Z is selected.
+  // The then branch is inv(A) — same unbound-symbol trap, on the
+  // other arm.
+  ev.set_scalar(x, -1.0);
+  auto expr_else_safe = if_then_else(ge(x, _zero), inv(A), Z);
+  auto result2 = ev.apply(expr_else_safe);
+  ASSERT_NE(result2, nullptr);
+  EXPECT_TRUE(tmech::almost_equal(as_tmech<2, 2>(*result2), expected, tol));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSOREVALUATORTEST_H

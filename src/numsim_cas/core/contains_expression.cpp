@@ -192,6 +192,15 @@ public:
     check(v.expr_lhs());
   }
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  // Cond is scalar (skip — we're matching a tensor needle); then/else
+  // are tensors, so check both.
+  void operator()(tensor_if_then_else const &v) override {
+    check(v.expr_then());
+    if (!m_found)
+      check(v.expr_else());
+  }
+
 private:
   void check(expr_holder_t const &expr) {
     if (m_found)
