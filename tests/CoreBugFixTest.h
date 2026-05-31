@@ -843,6 +843,76 @@ TEST(CoreBugFix, ScalarHyperbolicDerivativesMatchClosedForm) {
   EXPECT_NEAR(ev.apply(d_tanh), 1.0 / (std::cosh(0.5) * std::cosh(0.5)), 1e-12);
 }
 
+// ---------------------------------------------------------------------------
+// #184: canonical form of constant×expr must NOT depend on construction path.
+// `int * x` and `make_scalar_constant(int) * x` should produce expressions
+// that compare equal under `==` and merge in the n_ary_tree symbol_map.
+// ---------------------------------------------------------------------------
+
+TEST(CoreBugFix, Issue184_IntPathAndConstantPathMatch_Negative) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  // Lifted directly from the issue's repro.
+  auto v1 = -2 * x + y;                       // int * holder route
+  auto v2 = make_scalar_constant(-2) * x + y; // explicit-constant route
+  EXPECT_EQ(v1, v2);
+}
+
+TEST(CoreBugFix, Issue184_IntPathAndConstantPathMatch_AcrossValues) {
+  auto [x] = make_scalar_variable("x");
+  // Probe a spread of values: small + large, both signs. Skip 0 and 1
+  // — those go to scalar_zero / scalar_one singletons and have their
+  // own equality lock-ins below.
+  for (int v : {-1, -2, -7, -100, 2, 3, 17, 1000}) {
+    auto lhs = v * x;
+    auto rhs = make_scalar_constant(v) * x;
+    EXPECT_EQ(lhs, rhs) << "Construction-path mismatch at value v = " << v
+                        << "; lhs = " << to_string(lhs)
+                        << "; rhs = " << to_string(rhs);
+  }
+}
+
+TEST(CoreBugFix, Issue184_MakeScalarConstantZeroIsSingleton) {
+  // make_scalar_constant(0) currently builds scalar_constant{0} as a
+  // distinct node; the int(0) path returns the scalar_zero singleton.
+  // Canonicalise both to the singleton.
+  EXPECT_EQ(make_scalar_constant(0), get_scalar_zero());
+}
+
+TEST(CoreBugFix, Issue184_MakeScalarConstantOneIsSingleton) {
+  EXPECT_EQ(make_scalar_constant(1), get_scalar_one());
+}
+
+TEST(CoreBugFix, Issue184_MakeScalarConstantNegOneMatchesNegSingleton) {
+  EXPECT_EQ(make_scalar_constant(-1), -get_scalar_one());
+}
+
+TEST(CoreBugFix, Issue184_MakeScalarConstantNegativeMatchesNegated) {
+  // make_scalar_constant(-2) must equal -make_scalar_constant(2)
+  // regardless of which node shape is chosen as canonical — what
+  // matters is that the two construction paths converge.
+  EXPECT_EQ(make_scalar_constant(-2), -make_scalar_constant(2));
+}
+
+TEST(CoreBugFix, Issue184_MixedPathCoefficientsMergeInNAryTree) {
+  // 2*x + make_scalar_constant(2)*x should collapse to 4*x via the
+  // n_ary_tree symbol_map merge — proving the two construction paths
+  // produce the same key in the underlying map. Pre-fix this stored
+  // two separate entries and failed to fold.
+  auto [x] = make_scalar_variable("x");
+  auto e = 2 * x + make_scalar_constant(2) * x;
+  EXPECT_EQ(e, 4 * x);
+}
+
+TEST(CoreBugFix, Issue184_DoublePathAndConstantPathMatch) {
+  // Same canonical-form rule must apply to floating-point literals.
+  auto [x] = make_scalar_variable("x");
+  for (double v : {-1.5, 0.25, -7.3, 100.0}) {
+    auto lhs = v * x;
+    auto rhs = make_scalar_constant(v) * x;
+    EXPECT_EQ(lhs, rhs) << "Construction-path mismatch at value v = " << v;
+  }
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
