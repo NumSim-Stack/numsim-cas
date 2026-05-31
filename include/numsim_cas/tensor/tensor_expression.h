@@ -4,7 +4,6 @@
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/expression.h>
 #include <numsim_cas/core/expression_holder.h>
-#include <numsim_cas/tensor/tensor_algebra_kind.h>
 #include <numsim_cas/tensor/tensor_space.h>
 #include <numsim_cas/tensor/tensor_visitor_typedef.h>
 #include <optional>
@@ -31,12 +30,13 @@ public:
   tensor_expression(tensor_expression const &data)
       : expression(static_cast<expression const &>(data)), m_dim(data.m_dim),
         m_rank(data.m_rank), m_tensor_space(data.m_tensor_space),
-        m_algebra_kind(data.m_algebra_kind) {}
+        m_tensor_algebra_assumptions(data.m_tensor_algebra_assumptions) {}
   tensor_expression(tensor_expression &&data) noexcept
       : expression(std::move(static_cast<expression &&>(data))),
         m_dim(data.m_dim), m_rank(data.m_rank),
         m_tensor_space(std::move(data.m_tensor_space)),
-        m_algebra_kind(data.m_algebra_kind) {}
+        m_tensor_algebra_assumptions(
+            std::move(data.m_tensor_algebra_assumptions)) {}
   ~tensor_expression() override = default;
 
   const tensor_expression &operator=(tensor_expression const &) = delete;
@@ -55,18 +55,25 @@ public:
   void set_space(tensor_space s) noexcept { m_tensor_space = std::move(s); }
   void clear_space() noexcept { m_tensor_space.reset(); }
 
-  // Algebraic property of the tensor's values (orthogonal to the
-  // projector-space classification carried by space()). See
-  // tensor_algebra_kind.h. Default is AlgKind::None.
-  [[nodiscard]] AlgKind algebra_kind() const noexcept { return m_algebra_kind; }
-  void set_algebra_kind(AlgKind k) noexcept { m_algebra_kind = k; }
-  void clear_algebra_kind() noexcept { m_algebra_kind = AlgKind::None; }
+  // Algebra-property assumptions on the tensor's values (orthogonal, PD,
+  // PSD). Orthogonal to the projector-space classification carried by
+  // space(). Implications (PD => PSD => symmetric) live in the
+  // assume_*() helpers in tensor_assume.h, not here. Mirrors the
+  // numeric_assumption_manager pattern used by scalar.
+  [[nodiscard]] tensor_algebra_assumption_manager const &
+  tensor_algebra_assumptions() const noexcept {
+    return m_tensor_algebra_assumptions;
+  }
+  [[nodiscard]] tensor_algebra_assumption_manager &
+  tensor_algebra_assumptions() noexcept {
+    return m_tensor_algebra_assumptions;
+  }
 
 protected:
   std::size_t m_dim;
   std::size_t m_rank;
   std::optional<tensor_space> m_tensor_space{};
-  AlgKind m_algebra_kind{AlgKind::None};
+  tensor_algebra_assumption_manager m_tensor_algebra_assumptions{};
 };
 
 // std::ostream &operator<<(std::ostream &os,

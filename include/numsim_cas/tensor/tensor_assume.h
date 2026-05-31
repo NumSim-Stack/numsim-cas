@@ -40,26 +40,20 @@ assume_minor_major(expression_holder<tensor_expression> const &expr) {
 }
 
 // --- Algebraic-property annotations (#228) ---
-// These live on the separate AlgKind field (orthogonal to the projector-
-// space tags above). PD / PSD additionally imply Symmetric, so they
-// auto-set the projector-space tag — a subsequent is_symmetric() query
-// returns true without an explicit assume_symmetric() call.
+// Set membership in the tensor_algebra_assumption_manager — mirrors the
+// scalar `assume(expr, positive{})` pattern with auto-implication chains
+// encoded as joint insertions (PD => PSD).
 //
-// Orthogonality does NOT imply symmetry (rotations are generally not
-// symmetric), so assume_orthogonal leaves the space tag alone.
-
-inline void
-assume_orthogonal(expression_holder<tensor_expression> const &expr) {
-  expr.data()->set_algebra_kind(AlgKind::Orthogonal);
-}
+// PD / PSD also imply symmetric; that's a cross-mechanism implication
+// (the projector-space tag lives on a separate field). We propagate it
+// by setting {Symmetric, AnyTraceTag} on the space, unless a strictly
+// more-specific symmetric subspace (Vol / Dev) is already annotated —
+// volumetric-PD (positive multiple of I) is a real case and the Vol tag
+// must be preserved.
 
 namespace detail {
-// Set the projector space to {Symmetric, AnyTraceTag} unless a strictly
-// more-specific symmetric subspace is already annotated (Sym / Vol / Dev).
-// E.g. `assume_volumetric(A); assume_positive_definite(A);` should retain
-// the Vol info — a volumetric PD tensor is a positive multiple of I, a
-// real case in continuum mechanics. Incompatible existing spaces (Skew,
-// Minor, Major, MinorMajor) get overwritten because PD/PSD requires sym.
+// PD/PSD => symmetric: set the space if not already a Sym subspace.
+// Incompatible spaces (Skew, Minor, Major, MinorMajor) get overwritten.
 inline void set_symmetric_unless_more_specific(tensor_expression *e) {
   if (auto const &sp = e->space()) {
     auto kind = classify_space(*sp);
@@ -71,14 +65,24 @@ inline void set_symmetric_unless_more_specific(tensor_expression *e) {
 } // namespace detail
 
 inline void
+assume_orthogonal(expression_holder<tensor_expression> const &expr) {
+  expr.data()->tensor_algebra_assumptions().insert(orthogonal{});
+}
+
+inline void
 assume_positive_definite(expression_holder<tensor_expression> const &expr) {
-  expr.data()->set_algebra_kind(AlgKind::PositiveDefinite);
+  auto &a = expr.data()->tensor_algebra_assumptions();
+  a.insert(positive_definite{});
+  // PD => PSD by definition.
+  a.insert(positive_semidefinite{});
+  // PD => symmetric (cross-mechanism implication onto the space field).
   detail::set_symmetric_unless_more_specific(expr.data().get());
 }
 
 inline void
 assume_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
-  expr.data()->set_algebra_kind(AlgKind::PositiveSemidefinite);
+  auto &a = expr.data()->tensor_algebra_assumptions();
+  a.insert(positive_semidefinite{});
   detail::set_symmetric_unless_more_specific(expr.data().get());
 }
 
@@ -87,8 +91,8 @@ assume_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
 inline bool is_symmetric(expression_holder<tensor_expression> const &expr) {
   // PD / PSD imply symmetric independently of the projector-space tag, so
   // a user who annotates PD then calls clear_space() still sees symmetric.
-  auto alg = expr.get().algebra_kind();
-  if (alg == AlgKind::PositiveDefinite || alg == AlgKind::PositiveSemidefinite)
+  auto const &a = expr.get().tensor_algebra_assumptions();
+  if (a.contains(positive_definite{}) || a.contains(positive_semidefinite{}))
     return true;
   auto const &sp = expr.get().space();
   if (!sp)
@@ -142,23 +146,23 @@ inline bool is_minor_major(expression_holder<tensor_expression> const &expr) {
 }
 
 // --- Algebraic-property queries (#228) ---
+// Simple set-membership checks against the tensor_algebra_assumption_manager.
+// Auto-implication (PD => PSD) is already baked into the set by
+// assume_positive_definite() — no special-case logic needed here.
 
 inline bool is_orthogonal(expression_holder<tensor_expression> const &expr) {
-  return expr.get().algebra_kind() == AlgKind::Orthogonal;
+  return expr.get().tensor_algebra_assumptions().contains(orthogonal{});
 }
 
 inline bool
 is_positive_definite(expression_holder<tensor_expression> const &expr) {
-  return expr.get().algebra_kind() == AlgKind::PositiveDefinite;
+  return expr.get().tensor_algebra_assumptions().contains(positive_definite{});
 }
 
 inline bool
 is_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
-  // PD => PSD: a positive-definite tensor is also positive-semidefinite by
-  // definition (the strict inequality implies the weak one). Queries return
-  // true in both cases.
-  auto k = expr.get().algebra_kind();
-  return k == AlgKind::PositiveSemidefinite || k == AlgKind::PositiveDefinite;
+  return expr.get().tensor_algebra_assumptions().contains(
+      positive_semidefinite{});
 }
 
 } // namespace numsim::cas

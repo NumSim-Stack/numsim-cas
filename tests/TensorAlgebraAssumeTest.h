@@ -55,14 +55,18 @@ TEST(TensorAlgebraAssume, OrthogonalDoesNotImplySymmetric) {
   EXPECT_FALSE(R.get().space().has_value());
 }
 
-TEST(TensorAlgebraAssume, AssumesOverwritePreviousAlgKind) {
-  // Last assume wins (matches the projector-space assume_* convention).
+TEST(TensorAlgebraAssume, AssumesAccumulate) {
+  // The manager is set-based (mirrors numeric_assumption_manager), so
+  // multiple annotations coexist — assuming PD after orthogonal does NOT
+  // remove orthogonal. (Orthogonal-and-PD together is rare in practice
+  // but the API shouldn't silently throw away information.)
   auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
   assume_orthogonal(A);
   EXPECT_TRUE(is_orthogonal(A));
   assume_positive_definite(A);
-  EXPECT_FALSE(is_orthogonal(A));
+  EXPECT_TRUE(is_orthogonal(A)) << "set-based manager should retain orthogonal";
   EXPECT_TRUE(is_positive_definite(A));
+  EXPECT_TRUE(is_positive_semidefinite(A));
 }
 
 TEST(TensorAlgebraAssume, AlgKindSharedAcrossHoldersOfSameNode) {
@@ -108,29 +112,45 @@ TEST(TensorAlgebraAssume, PdOverridesIncompatibleSpace) {
   EXPECT_TRUE(is_symmetric(A));
 }
 
-TEST(TensorAlgebraAssume, IsSymmetricFollowsAlgKindThroughClearSpace) {
+TEST(TensorAlgebraAssume,
+     IsSymmetricFollowsAlgebraAssumptionThroughClearSpace) {
   // PD => symmetric independently of the projector-space tag. Clearing the
-  // space should NOT lose the symmetric implication while alg_kind is PD.
+  // space should NOT lose the symmetric implication while the PD
+  // assumption is still in the set.
   auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
   assume_positive_definite(C);
   EXPECT_TRUE(is_symmetric(C));
   C.data()->clear_space();
   EXPECT_FALSE(C.get().space().has_value());
   EXPECT_TRUE(is_symmetric(C))
-      << "is_symmetric should follow alg_kind=PD through clear_space";
+      << "is_symmetric should follow PD through clear_space";
 }
 
-TEST(TensorAlgebraAssume, ClearAlgKindResetsToNone) {
+TEST(TensorAlgebraAssume, ClearingManagerRemovesAllAlgebraAssumptions) {
   auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
   assume_orthogonal(A);
+  assume_positive_definite(A);
   EXPECT_TRUE(is_orthogonal(A));
-  A.data()->clear_algebra_kind();
+  EXPECT_TRUE(is_positive_definite(A));
+  A.data()->tensor_algebra_assumptions().clear();
   EXPECT_FALSE(is_orthogonal(A));
   EXPECT_FALSE(is_positive_definite(A));
   EXPECT_FALSE(is_positive_semidefinite(A));
 }
 
-TEST(TensorAlgebraAssume, AlgKindOrthogonalToProjectorSpace) {
+TEST(TensorAlgebraAssume, EraseSingleAssumption) {
+  // erase() on the manager removes a specific tag without affecting others.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  assume_positive_definite(A);
+  EXPECT_TRUE(is_positive_definite(A));
+  EXPECT_TRUE(is_positive_semidefinite(A));
+  // Erase just the stronger property. PSD should remain.
+  A.data()->tensor_algebra_assumptions().erase(positive_definite{});
+  EXPECT_FALSE(is_positive_definite(A));
+  EXPECT_TRUE(is_positive_semidefinite(A));
+}
+
+TEST(TensorAlgebraAssume, AlgebraAssumptionOrthogonalToProjectorSpace) {
   // The two annotation systems are independent: assume_skew() leaves the
   // algebra_kind alone, and assume_orthogonal() leaves the space alone.
   auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 3, 2}));
