@@ -127,7 +127,7 @@ template <scalar_expr_holder Cond, tensor_expr_holder Then,
     return std::forward<Else>(else_expr);
   if (is_same<scalar_one>(cond))
     return std::forward<Then>(then_expr);
-  if (then_expr.get().hash_value() == else_expr.get().hash_value())
+  if (then_expr == else_expr)
     return std::forward<Then>(then_expr);
   return make_expression<tensor_if_then_else>(std::forward<Cond>(cond),
                                               std::forward<Then>(then_expr),
