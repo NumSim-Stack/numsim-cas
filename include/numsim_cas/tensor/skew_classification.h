@@ -10,7 +10,7 @@
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_negative.h>
 #include <numsim_cas/tensor/wrappers/inner_product_wrapper.h>
-#include <numsim_cas/tensor/wrappers/permute_indices.h>
+#include <numsim_cas/tensor/wrappers/permute_indices_wrapper.h>
 #include <variant>
 
 namespace numsim::cas {
