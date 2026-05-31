@@ -788,6 +788,40 @@ TYPED_TEST(TensorExpressionTest, InvRank4SkewAnnotationStillBuilds) {
   EXPECT_EQ(r.get().rank(), 4u);
 }
 
+TYPED_TEST(TensorExpressionTest, InvRank4SkewLosesAnnotation) {
+  // Annotation propagation through tensor_inv at rank-4: Skew does NOT
+  // survive (tmech::invf doesn't preserve skew structure at rank-4 —
+  // the 9x9 unfolding's inverse has different algebraic content). The
+  // result's space should be cleared rather than incorrectly preserving
+  // Skew, which would mislead downstream simplifiers.
+  auto &A = this->A;
+  numsim::cas::assume_skew(A);
+  ASSERT_TRUE(numsim::cas::is_skew(A));
+  auto r = numsim::cas::inv(A);
+  EXPECT_FALSE(numsim::cas::is_skew(r))
+      << "inv of rank-4 skew should NOT inherit the Skew annotation";
+  EXPECT_FALSE(r.get().space().has_value())
+      << "result should have no space annotation (general anisotropic)";
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4MinorPreservesAnnotation) {
+  // Annotation propagation at rank-4 + Minor: tmech::inv (Voigt path)
+  // preserves the minor symmetry, so the result IS still Minor.
+  auto &A = this->A;
+  numsim::cas::assume_minor(A);
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_minor(r));
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4MinorMajorPreservesAnnotation) {
+  // Same for MinorMajor — both symmetries are preserved through the
+  // Voigt inverse.
+  auto &A = this->A;
+  numsim::cas::assume_minor_major(A);
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_minor_major(r));
+}
+
 TYPED_TEST(TensorExpressionTest, InvRank3SymbolStillThrows) {
   // Odd ranks (3, 5, ...) have no canonical inverse routine in tmech;
   // they still get rejected at construction.
