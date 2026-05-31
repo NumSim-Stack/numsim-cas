@@ -822,4 +822,50 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_PRINT(-(-trX), "tr(X)");
 }
 
+// ---------------------------------------------------------------------------
+// #135 / #210 — tensor_to_scalar_if_then_else
+// ---------------------------------------------------------------------------
+
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_IfThenElseConstFoldsZeroCondToElse) {
+  auto &X = this->X;
+  using numsim::cas::if_then_else;
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+  auto trX = numsim::cas::trace(X);
+  auto detX = numsim::cas::det(X);
+  EXPECT_EQ(if_then_else(t2s_zero, trX, detX), detX);
+}
+
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_IfThenElseConstFoldsOneCondToThen) {
+  auto &X = this->X;
+  using numsim::cas::if_then_else;
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+  auto trX = numsim::cas::trace(X);
+  auto detX = numsim::cas::det(X);
+  EXPECT_EQ(if_then_else(t2s_one, trX, detX), trX);
+}
+
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_IfThenElseEqualBranchesCollapse) {
+  auto &X = this->X;
+  using numsim::cas::if_then_else;
+  auto trX = numsim::cas::trace(X);
+  auto detX = numsim::cas::det(X);
+  // if_then_else(cond, a, a) → a regardless of cond
+  EXPECT_EQ(if_then_else(detX, trX, trX), trX);
+}
+
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_IfThenElsePrintHasFunctionForm) {
+  auto &X = this->X;
+  using numsim::cas::if_then_else;
+  auto trX = numsim::cas::trace(X);
+  auto detX = numsim::cas::det(X);
+  EXPECT_PRINT(if_then_else(detX, trX, detX),
+               "if_then_else(det(X),tr(X),det(X))");
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H
