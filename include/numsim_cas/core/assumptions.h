@@ -136,7 +136,11 @@ private:
 // Manager for tensor algebra-property assumptions (orthogonal, PD, PSD).
 // Mirrors numeric_assumption_manager's set-based shape: multiple tags can
 // be active simultaneously, and implications (PD => PSD) are encoded as
-// joint insertions in assume_positive_definite().
+// joint insertions in assume_positive_definite(). NOTE: direct manager
+// access (manager.insert(positive_definite{}) without going through
+// assume_positive_definite) bypasses the implication chain — same leaky
+// abstraction as numeric_assumption_manager. Prefer the assume_* helpers
+// in tensor_assume.h.
 class tensor_algebra_assumption_manager {
 public:
   void insert(tensor_algebra_assumption a) { set_.insert(a); }
@@ -145,7 +149,6 @@ public:
     return set_.find(a) != set_.end();
   }
   void clear() { set_.clear(); }
-  bool empty() const noexcept { return set_.empty(); }
   auto const &data() const { return set_; }
 
 private:
