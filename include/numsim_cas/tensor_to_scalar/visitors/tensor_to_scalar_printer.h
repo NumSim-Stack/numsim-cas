@@ -93,6 +93,17 @@ public:
     // end(precedence, m_parent_precedence);
   }
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  void operator()(tensor_to_scalar_if_then_else const &v) override {
+    m_out << "if_then_else(";
+    apply(v.expr_cond(), Precedence::None);
+    m_out << ",";
+    apply(v.expr_then(), Precedence::None);
+    m_out << ",";
+    apply(v.expr_else(), Precedence::None);
+    m_out << ")";
+  }
+
   void operator()(tensor_to_scalar_mul const &visitable) override {
     using traits = domain_traits<tensor_to_scalar_expression>;
     constexpr auto precedence{Precedence::Multiplication};

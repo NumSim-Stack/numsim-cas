@@ -273,6 +273,17 @@ public:
   void operator()(tensor_to_scalar_one const &) override {}
   void operator()(tensor_to_scalar_scalar_wrapper const &) override {}
 
+  // ─── if_then_else (#135 / #210) — check all three children ──────
+  void operator()(tensor_to_scalar_if_then_else const &v) override {
+    check_t2s(v.expr_cond());
+    if (m_found)
+      return;
+    check_t2s(v.expr_then());
+    if (m_found)
+      return;
+    check_t2s(v.expr_else());
+  }
+
 private:
   void check_tensor(tensor_holder_t const &expr) {
     if (m_found)

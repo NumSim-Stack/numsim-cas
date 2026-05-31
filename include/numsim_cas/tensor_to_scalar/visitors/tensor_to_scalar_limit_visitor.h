@@ -49,6 +49,9 @@ public:
   void operator()(tensor_to_scalar_one const &) override;
   void operator()(tensor_to_scalar_scalar_wrapper const &) override;
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  void operator()(tensor_to_scalar_if_then_else const &) override;
+
 private:
   bool depends_on_limit_var(t2s_holder_t const &expr) const;
 

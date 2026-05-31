@@ -64,6 +64,17 @@ public:
     m_result = m_scalar_eval.apply(v.expr());
   }
 
+  // ─── if_then_else (#135 / #210) ──────────────────────────────────
+  // Lazy on the unselected branch — load-bearing for damage models
+  // where the unselected arm may contain expressions that would error
+  // at evaluation (e.g. log(x) for x ≤ 0).
+  void operator()(tensor_to_scalar_if_then_else const &v) override {
+    if (apply(v.expr_cond()) != ValueType{0})
+      m_result = apply(v.expr_then());
+    else
+      m_result = apply(v.expr_else());
+  }
+
   // ─── Arithmetic ──────────────────────────────────────────────
 
   void operator()(tensor_to_scalar_negative const &v) override {

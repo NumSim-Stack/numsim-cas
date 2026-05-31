@@ -1,6 +1,7 @@
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_differentiation.h>
 
 #include <numeric>
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/core/operators.h>
 #include <numsim_cas/tensor/tensor_diff.h>
@@ -283,6 +284,29 @@ void tensor_to_scalar_differentiation::operator()(
   }
 
   m_result = std::move(result);
+}
+
+// ─── if_then_else (#135 / #210) ────────────────────────────────────
+// d/dA t2s_if_then_else(cond, a(A), b(A)) should be the piecewise
+// rule on tensor outputs. But `tensor_if_then_else` requires a SCALAR
+// condition, while `tensor_to_scalar_if_then_else` carries a t2s
+// condition — so we can't directly wrap the branch diffs into a
+// tensor_if_then_else without a t2s-conditioned tensor selector node
+// or a "lift t2s indicator to scalar" mechanism that doesn't yet
+// exist. Tracked as #241.
+//
+// Throw `not_implemented_error` rather than approximate. The
+// "approximate by then branch" path that lived here briefly was
+// mathematically wrong in the falsy region — silently producing a
+// numerically-believable but incorrect gradient. Same "force the
+// upgrade" pattern #207's max/min diff used pre-#209.
+void tensor_to_scalar_differentiation::operator()(
+    [[maybe_unused]] tensor_to_scalar_if_then_else const &) {
+  throw not_implemented_error(
+      "tensor_to_scalar_differentiation: d/dA t2s_if_then_else requires a "
+      "t2s-conditioned tensor selector or t2s→scalar indicator lift "
+      "(see #241). Approximating the piecewise rule by selecting one "
+      "branch silently produces wrong derivatives in the other region.");
 }
 
 } // namespace numsim::cas
