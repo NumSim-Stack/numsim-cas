@@ -720,14 +720,53 @@ TYPED_TEST(TensorExpressionTest, InvZeroFromScalarMulThrows) {
       numsim::cas::invalid_expression_error);
 }
 
-TYPED_TEST(TensorExpressionTest, InvRank4SymbolThrows) {
-  // #192: rank > 2 inversion has no canonical definition (the rank-4
-  // minor identity is an explicit special case handled separately).
-  // Reject rank-4 (and higher) symbols at construction.
+TYPED_TEST(TensorExpressionTest, InvRank4SymbolBuilds) {
+  // #248: rank-4 inversion is now supported. The factory accepts any
+  // annotation (or none) at rank-4; the evaluator picks the correct
+  // tmech routine — tmech::inv (minor-symmetric) for Minor/MinorMajor,
+  // tmech::invf (fully anisotropic) otherwise. Construction-time guards
+  // here verify only that the AST node is well-formed.
   auto &A = this->A; // rank-4 fixture variable
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_inv>(r));
+  EXPECT_EQ(r.get().rank(), 4u);
+  EXPECT_EQ(r.get().dim(), TestFixture::Dim);
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4WithMinorAnnotation) {
+  // Annotated rank-4 also builds (evaluator will route to tmech::inv).
+  auto &A = this->A;
+  numsim::cas::assume_minor(A);
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_inv>(r));
+  // Space annotation propagates through inv (existing behavior).
+  EXPECT_TRUE(numsim::cas::is_minor(r));
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4WithMinorMajorAnnotation) {
+  auto &A = this->A;
+  numsim::cas::assume_minor_major(A);
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_inv>(r));
+  EXPECT_TRUE(numsim::cas::is_minor_major(r));
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4InvInvCollapsesAtAnyRank) {
+  // inv(inv(A)) → A — the existing fold runs before the rank gate, so
+  // it works for rank-4 too.
+  auto &A = this->A;
+  auto r = numsim::cas::inv(numsim::cas::inv(A));
+  EXPECT_EQ(r, A);
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank3SymbolStillThrows) {
+  // Odd ranks (3, 5, ...) have no canonical inverse routine in tmech;
+  // they still get rejected at construction.
+  auto A3 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A3", static_cast<std::size_t>(TestFixture::Dim), std::size_t{3});
   try {
-    [[maybe_unused]] auto r = numsim::cas::inv(A);
-    FAIL() << "Expected inv(rank-4 symbol) to throw";
+    [[maybe_unused]] auto r = numsim::cas::inv(A3);
+    FAIL() << "Expected inv(rank-3 symbol) to throw";
   } catch (numsim::cas::invalid_expression_error const &e) {
     EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos)
         << "error message should mention rank; got: " << e.what();

@@ -409,14 +409,27 @@ template <tensor_expr_holder Expr>
   if (is_same<tensor_zero>(expr))
     throw invalid_expression_error("inv: operand is the zero tensor "
                                    "(singular)");
-  // Rank gate: only rank-2 inverses are supported. tmech::inv expects
-  // rank-2; higher-rank inversion has no canonical definition in this
-  // codebase (the rank-4 minor identity is a special case handled above).
-  // Reject at construction so downstream evaluation cannot produce
-  // NaN/Inf or a confusing tmech runtime error. Closes #192.
-  if (expr.get().rank() != 2)
+  // Rank gate (#248): rank-2 is unconditionally supported; rank-4 is
+  // supported with two evaluator routes selected by the operand's space
+  // annotation:
+  //
+  //   * Minor / MinorMajor → tmech::inv<sequence<1,2>, sequence<3,4>>
+  //       The minor-symmetric inverse — the dominant case in continuum
+  //       mechanics (algorithmic-tangent rule C_ijkl = ∂a_ij/∂b_kl):
+  //         (A^{-1})_ijmn · A_mnkl = 1/2 (I_ik I_jl + I_il I_jk)
+  //
+  //   * any other / unannotated → tmech::invf (fully anisotropic):
+  //         (A^{-1})_ijmn · A_mnkl = I_ij · I_kl
+  //
+  // The dispatch lives in the evaluator (operator()(tensor_inv) inspects
+  // the operand's space). The factory just gates rank; the AST node
+  // remains a single tensor_inv either way.
+  //
+  // Other ranks (3, 5, ...) keep the rejection — they have no canonical
+  // inverse routine. Supersedes #192's rank-2-only gate.
+  if (expr.get().rank() != 2 && expr.get().rank() != 4)
     throw invalid_expression_error(
-        "inv: only rank-2 tensors are supported (got rank " +
+        "inv: only rank-2 and rank-4 tensors are supported (got rank " +
         std::to_string(expr.get().rank()) + ")");
   // inv(α·A) = inv(A) / α. The scalar pulls out of the inverse as its
   // reciprocal. Recurse so e.g. inv(α·inv(A)) folds via tensor_inv → A,

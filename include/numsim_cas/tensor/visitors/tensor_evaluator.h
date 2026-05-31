@@ -266,6 +266,20 @@ public:
   }
 
   void operator()(tensor_inv const &v) override {
+    // Rank-2: tmech::inv. Rank-4 with Minor/MinorMajor annotation:
+    // tmech::inv (minor-symmetric default convention). Rank-4 with any
+    // other annotation (or no annotation): tmech::invf (fully
+    // anisotropic). See the factory in tensor_functions.h for the
+    // policy rationale (#248).
+    if (v.rank() == 4) {
+      auto const &sp = v.expr().get().space();
+      bool minor_sym = sp && (std::holds_alternative<Minor>(sp->perm) ||
+                              std::holds_alternative<MinorMajor>(sp->perm));
+      if (!minor_sym) {
+        eval_unary_tmech<tmech_ops::invf>(v);
+        return;
+      }
+    }
     eval_unary_tmech<tmech_ops::inv>(v);
   }
 
