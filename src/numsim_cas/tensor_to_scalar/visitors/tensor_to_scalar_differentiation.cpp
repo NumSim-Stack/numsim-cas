@@ -285,4 +285,28 @@ void tensor_to_scalar_differentiation::operator()(
   m_result = std::move(result);
 }
 
+// ─── if_then_else (#135 / #210) ────────────────────────────────────
+// d/dx if_then_else(cond, a(x), b(x)) = if_then_else(cond, da/dx, db/dx)
+// when cond doesn't depend on x. Mirrors the scalar variant — see
+// `scalar_differentiation::operator()(scalar_if_then_else)` for the
+// lazy-eval-vs-eager-diff asymmetry rationale: the diff visitor MUST
+// build both arm's derivatives because it doesn't know which the
+// evaluator will eventually select.
+//
+// The diff produces a tensor (the t2s-domain diff of a t2s wrt a tensor
+// returns a tensor), so the branches' diffs combine via the tensor-domain
+// `if_then_else` factory — gated on the tensor variant landing
+// separately. Until then, we fall back to producing the diff of just the
+// `then` branch as a conservative approximation that gives the correct
+// answer when cond is truthy. (When the tensor_if_then_else node lands,
+// this becomes an accurate piecewise rule.)
+void tensor_to_scalar_differentiation::operator()(
+    tensor_to_scalar_if_then_else const &v) {
+  // Without tensor_if_then_else available yet, we approximate by
+  // selecting the `then` branch's diff. Tracked as the tensor half of
+  // #210; this becomes a true piecewise rule once that lands.
+  tensor_to_scalar_differentiation inner_diff(m_arg);
+  m_result = inner_diff.apply(v.expr_then());
+}
+
 } // namespace numsim::cas

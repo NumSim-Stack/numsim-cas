@@ -46,6 +46,12 @@ public:
     m_result = m_current;
   }
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  void operator()(tensor_to_scalar_if_then_else const &v) override {
+    m_result = if_then_else(apply(v.expr_cond()), apply(v.expr_then()),
+                            apply(v.expr_else()));
+  }
+
   // Unary t2s -> t2s
   void operator()(tensor_to_scalar_negative const &v) override {
     m_result = -apply(v.expr());

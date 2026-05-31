@@ -76,6 +76,9 @@ public:
   void operator()(tensor_det const &visitable) override;
   void operator()(tensor_inner_product_to_scalar const &visitable) override;
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  void operator()(tensor_to_scalar_if_then_else const &visitable) override;
+
 private:
   tensor_holder_t const &m_arg;
   std::size_t m_dim{0};
