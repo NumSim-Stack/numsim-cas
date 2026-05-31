@@ -759,6 +759,35 @@ TYPED_TEST(TensorExpressionTest, InvRank4InvInvCollapsesAtAnyRank) {
   EXPECT_EQ(r, A);
 }
 
+TYPED_TEST(TensorExpressionTest, InvRank4ScalarPullOutPreserved) {
+  // inv(α·A) = inv(A) / α — the existing #71 fold runs at any rank
+  // (placed after the rank gate, before tensor_inv construction). For
+  // rank-4 the recursion calls inv() on the unwrapped tensor, which
+  // routes through the new rank-4 path — exercises that the existing
+  // fold composes with the rank-4 dispatch.
+  auto &A = this->A;
+  numsim::cas::assume_minor_major(A);
+  auto two = numsim::cas::make_scalar_constant(2);
+  auto r = numsim::cas::inv(two * A);
+  // Expected structural form: a t2s-scalar-mul wrapping inv(A) by the
+  // reciprocal scalar. Don't assert exact node type — the existing
+  // tensor_with_scalar simplifier may pack it as a tensor_scalar_mul.
+  // What we DO assert: the result is well-formed and rank-4.
+  EXPECT_EQ(r.get().rank(), 4u);
+  EXPECT_EQ(r.get().dim(), TestFixture::Dim);
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4SkewAnnotationStillBuilds) {
+  // Skew rank-4 (rare but legal under the existing annotation surface):
+  // the dispatch sends anything other than Minor/MinorMajor to invf.
+  // Construction-time sanity — just verify the node builds.
+  auto &A = this->A;
+  numsim::cas::assume_skew(A);
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_inv>(r));
+  EXPECT_EQ(r.get().rank(), 4u);
+}
+
 TYPED_TEST(TensorExpressionTest, InvRank3SymbolStillThrows) {
   // Odd ranks (3, 5, ...) have no canonical inverse routine in tmech;
   // they still get rejected at construction.

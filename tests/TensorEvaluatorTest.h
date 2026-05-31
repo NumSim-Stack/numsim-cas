@@ -548,6 +548,18 @@ TEST(TensorEval, Rank4InvDispatchDiffersByAnnotation) {
     ASSERT_NE(result, nullptr);
     EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), invf_data, 1e-10));
   }
+  // Explicitly-non-Minor/MinorMajor annotation (Skew) also routes to
+  // invf — exercises the "any other annotation" branch of the dispatch.
+  {
+    tensor_evaluator<double> ev;
+    auto C = make_expression<tensor>("C", 3, 4);
+    assume_skew(C);
+    ev.set(C, std::static_pointer_cast<tensor_data_base<double>>(C_data));
+    auto result = ev.apply(inv(C));
+    ASSERT_NE(result, nullptr);
+    EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), invf_data, 1e-10))
+        << "Skew-annotated rank-4 should still route to invf";
+  }
 }
 
 // --- Compound expression tests ---
