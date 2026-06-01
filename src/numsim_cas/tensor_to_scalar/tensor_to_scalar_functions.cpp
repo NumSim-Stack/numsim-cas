@@ -5,6 +5,7 @@
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/scalar/scalar_std.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
+#include <numsim_cas/tensor/tensor_operators.h>
 
 #include <cassert>
 #include <ranges>
@@ -145,6 +146,34 @@ det(expression_holder<tensor_expression> const &expr) {
   }
 
   return make_expression<tensor_det>(expr);
+}
+
+// ─── Principal invariants (#226 cheap deliverable) ─────────────────────
+// I1(A) = tr(A); I2(A) = (tr(A)^2 - tr(A^2)) / 2; I3(A) = det(A).
+// Compositions of existing primitives — no new AST nodes.
+
+expression_holder<tensor_to_scalar_expression>
+first_invariant(expression_holder<tensor_expression> const &expr) {
+  return trace(expr);
+}
+
+expression_holder<tensor_to_scalar_expression>
+second_invariant(expression_holder<tensor_expression> const &expr) {
+  // For a rank-2 tensor A: I2 = (tr(A)^2 - tr(A·A)) / 2.
+  // The A*A product uses the existing single-contraction tensor-tensor
+  // mul_fn (rank 2*2 = 2). Zero-short-circuits and trace simplifiers
+  // fire through the composition automatically.
+  auto tr_A = trace(expr);
+  auto tr_AA = trace(expr * expr);
+  // (tr_A * tr_A - tr_AA) / 2. Use a scalar_constant(2) wrapped as t2s.
+  auto two = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar_constant>(2));
+  return (tr_A * tr_A - tr_AA) / two;
+}
+
+expression_holder<tensor_to_scalar_expression>
+third_invariant(expression_holder<tensor_expression> const &expr) {
+  return det(expr);
 }
 
 } // namespace numsim::cas
