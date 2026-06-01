@@ -2,6 +2,7 @@
 #define TENSOR_INV_H
 
 #include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 namespace numsim::cas {
 
@@ -13,6 +14,7 @@ public:
   explicit tensor_inv(
       Expr &&_expr) // NOLINT(bugprone-forwarding-reference-overload)
       : base(std::forward<Expr>(_expr), _expr.get().dim(), _expr.get().rank()) {
+    // ── Space propagation (projector-space tag) ────────────────────
     if (auto const &sp = this->expr().get().space()) {
       const auto r = this->rank();
       if (r == 2) {
@@ -42,6 +44,37 @@ public:
       }
       // Other ranks: inv() factory rejects them; this branch
       // shouldn't be reached.
+    }
+
+    // ── Algebra-assumption propagation (#246 α-2b) ─────────────────
+    // inv(PD) is PD (positive-definite matrices stay PD under
+    // inversion — eigenvalues 1/λᵢ are all positive when λᵢ are).
+    // inv(PSD) propagates PSD: at runtime the eval throws if actually
+    // singular, so any reaching result has finite eigenvalues — but
+    // we can't tell PD-vs-PSD symbolically without more info, so stay
+    // conservative and propagate exactly what the user asserted.
+    //
+    // PD/PSD also imply symmetric. Reuse the existing detail helper
+    // to set {Symmetric, AnyTraceTag} on the space iff there's no
+    // strictly more specific Sym subspace (Vol / Dev) — same rule the
+    // assume_positive_definite factory uses.
+    //
+    // Orthogonal is NOT propagated here. At rank-2 the inv() factory
+    // folds inv(orthogonal) to trans() before reaching this ctor; at
+    // rank-4 "orthogonal" isn't a standard concept.
+    auto const &input_alg = this->expr().get().tensor_algebra_assumptions();
+    bool propagate_pd = input_alg.contains(positive_definite{});
+    bool propagate_psd = input_alg.contains(positive_semidefinite{});
+    if (propagate_pd || propagate_psd) {
+      auto &out = this->tensor_algebra_assumptions();
+      if (propagate_pd) {
+        out.insert(positive_definite{});
+        out.insert(
+            positive_semidefinite{}); // PD => PSD (matches #245 convention)
+      } else {
+        out.insert(positive_semidefinite{});
+      }
+      detail::set_symmetric_unless_more_specific(this);
     }
   }
 };

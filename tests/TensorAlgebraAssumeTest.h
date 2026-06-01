@@ -381,6 +381,104 @@ TEST(TensorAlgebraFold, InvOrthogonalEvaluatesCorrectly) {
   EXPECT_NEAR(inv_R(2, 2), 1.0, 1e-12);
 }
 
+// ─── #246 α-2b: PD/PSD propagation through tensor_inv ──────────────
+
+TEST(TensorAlgebraPropagation, InvPdIsAlsoPd) {
+  // inv(PD) is PD by definition — positive eigenvalues stay positive
+  // under inversion. The propagation lives in tensor_inv's constructor
+  // so all paths that produce a tensor_inv (including direct calls,
+  // not via the factory fold for orthogonal) see it.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_positive_definite(C);
+  auto invC = inv(C);
+  // The factory doesn't fold inv(PD) (only inv(orthogonal) folds);
+  // so invC is a tensor_inv. Sanity-check that path.
+  ASSERT_TRUE(is_same<tensor_inv>(invC));
+  EXPECT_TRUE(is_positive_definite(invC));
+  // PD => PSD (joint insertion); also implies symmetric.
+  EXPECT_TRUE(is_positive_semidefinite(invC));
+  EXPECT_TRUE(is_symmetric(invC));
+}
+
+TEST(TensorAlgebraPropagation, InvPsdStaysPsd) {
+  // inv(PSD) propagates PSD. (A non-singular PSD is actually PD, but
+  // we don't know that symbolically — stay conservative; eval throws
+  // if actually singular.) PSD does NOT imply PD.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_positive_semidefinite(C);
+  auto invC = inv(C);
+  ASSERT_TRUE(is_same<tensor_inv>(invC));
+  EXPECT_TRUE(is_positive_semidefinite(invC));
+  EXPECT_FALSE(is_positive_definite(invC))
+      << "PSD should not strengthen to PD through propagation";
+  EXPECT_TRUE(is_symmetric(invC));
+}
+
+TEST(TensorAlgebraPropagation, InvUnannotatedHasNoPdAnnotation) {
+  // Negative case: an un-annotated rank-2 tensor's inv must NOT
+  // gain PD/PSD on its own. Guards against over-eager propagation.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto invA = inv(A);
+  ASSERT_TRUE(is_same<tensor_inv>(invA));
+  EXPECT_FALSE(is_positive_definite(invA));
+  EXPECT_FALSE(is_positive_semidefinite(invA));
+}
+
+TEST(TensorAlgebraPropagation, InvPdThroughClearSpaceStillSymmetric) {
+  // Cross-mechanism: input C is annotated PD (which sets the Symmetric
+  // space tag). Even if the user clears the space, the PD assumption
+  // still implies symmetric in is_symmetric()'s logic. inv(C) then
+  // propagates the PD assumption, which RE-SETS the Symmetric space
+  // on the result (via detail::set_symmetric_unless_more_specific).
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_positive_definite(C);
+  C.data()->clear_space();
+  ASSERT_FALSE(C.get().space().has_value());
+  // Despite cleared space on input, the inv() result has the space
+  // re-derived from the PD propagation.
+  auto invC = inv(C);
+  EXPECT_TRUE(is_positive_definite(invC));
+  EXPECT_TRUE(invC.get().space().has_value())
+      << "PD propagation should re-derive the symmetric space tag";
+  EXPECT_TRUE(is_symmetric(invC));
+}
+
+TEST(TensorAlgebraPropagation, InvPdRank4MinorMajorPropagates) {
+  // Rank-4 PD (e.g., a positive-definite elasticity tangent). The
+  // factory rank-gate accepts rank-4 with Minor/MinorMajor annotation,
+  // and the tensor_inv ctor's algebra-propagation path fires regardless
+  // of rank.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 4}));
+  assume_minor_major(C);
+  assume_positive_definite(C);
+  auto invC = inv(C);
+  ASSERT_TRUE(is_same<tensor_inv>(invC));
+  EXPECT_TRUE(is_positive_definite(invC));
+  EXPECT_TRUE(is_positive_semidefinite(invC));
+  // The minor-major space tag is preserved by the rank-4 branch of
+  // tensor_inv's space-propagation, independently of the algebra
+  // propagation.
+  EXPECT_TRUE(is_minor_major(invC));
+}
+
+TEST(TensorAlgebraPropagation, InvPdComposesWithVolumetric) {
+  // assume_volumetric(C) sets {Sym, Vol}; assume_positive_definite
+  // preserves the Vol subspace via the more-specific rule from #245.
+  // inv(C) propagates both: PD remains, and the more-specific Vol
+  // space ALSO remains (because detail::set_symmetric_unless_more_specific
+  // only widens to {Sym, AnyTrace} if no Sym subspace was set).
+  auto P = std::get<0>(make_tensor_variable(std::tuple{"P", 3, 2}));
+  assume_volumetric(P);
+  assume_positive_definite(P);
+  ASSERT_TRUE(is_volumetric(P));
+  ASSERT_TRUE(is_positive_definite(P));
+  auto invP = inv(P);
+  EXPECT_TRUE(is_positive_definite(invP));
+  // Vol IS preserved by tensor_inv's rank-2 space-propagation
+  // (Volumetric perm in {Sym subspaces}; not Dev/Harm so kept).
+  EXPECT_TRUE(is_volumetric(invP));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORALGEBRAASSUMETEST_H
