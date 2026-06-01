@@ -461,6 +461,28 @@ TEST(TensorAlgebraPropagation, InvPdRank4MinorMajorPropagates) {
   EXPECT_TRUE(is_minor_major(invC));
 }
 
+TEST(TensorAlgebraPropagation, InvContradictorySkewAndPdResolvesToSymWithPd) {
+  // Contradictory user input — Skew is set first via assume_skew, then
+  // PD is asserted via assume_positive_definite (which already
+  // overwrites the Skew space at the assume() site per #245). The
+  // tensor_inv constructor's ordering — space propagation first, then
+  // algebra propagation — handles a hypothetical caller who reaches
+  // this state differently (e.g. via direct tensor_algebra_assumptions
+  // manipulation that left Skew on the space). The end state always
+  // honours PD's symmetric implication on the output. This test locks
+  // that ordering in.
+  auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 3, 2}));
+  assume_skew(W);
+  // assume_positive_definite overrides Skew → Sym at the assume() site.
+  assume_positive_definite(W);
+  EXPECT_TRUE(is_symmetric(W));
+  EXPECT_FALSE(is_skew(W));
+  auto invW = inv(W);
+  EXPECT_TRUE(is_positive_definite(invW));
+  EXPECT_TRUE(is_symmetric(invW));
+  EXPECT_FALSE(is_skew(invW));
+}
+
 TEST(TensorAlgebraPropagation, InvPdComposesWithVolumetric) {
   // assume_volumetric(C) sets {Sym, Vol}; assume_positive_definite
   // preserves the Vol subspace via the more-specific rule from #245.
