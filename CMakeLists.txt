@@ -37,31 +37,30 @@ set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 # -----------------------------
 # Dependencies: tmech
 # -----------------------------
-find_package(tmech QUIET)
-if(NOT tmech_FOUND)
-  # Disable tmech's own tests and examples (it uses BUILD_TESTS/BUILD_EXAMPLES)
-  set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
-  set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-  FetchContent_Declare(
-    tmech
-    GIT_REPOSITORY https://github.com/petlenz/tmech.git
-    GIT_TAG master
-  )
-  FetchContent_MakeAvailable(tmech)
-  # Restore so downstream (our own tests/examples) is not affected
-  set(BUILD_TESTS ON CACHE BOOL "" FORCE)
-  set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
-  # Suppress warnings from third-party tmech headers.
-  # tmech::tmech is an ALIAS — resolve to real target name for set_target_properties.
-  get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
-  if(NOT _tmech_real)
-    set(_tmech_real tmech::tmech)
-  endif()
-  get_target_property(_tmech_inc ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
-  if(_tmech_inc)
-    set_target_properties(${_tmech_real} PROPERTIES
-      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_tmech_inc}")
-  endif()
+# Pinned FetchContent — no find_package. Header-only, fast to fetch, and
+# pinning avoids the stale-system-install footgun from #248 (older tmech
+# silently produces NaN through the rank-4 Voigt inv path). Bump the
+# GIT_TAG as a separate maintenance PR.
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  tmech
+  GIT_REPOSITORY https://github.com/petlenz/tmech.git
+  GIT_TAG db5d8aa
+)
+FetchContent_MakeAvailable(tmech)
+set(BUILD_TESTS ON CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
+# tmech::tmech is an ALIAS — resolve to real target name and mark as SYSTEM
+# so its warnings don't pollute our build.
+get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
+if(NOT _tmech_real)
+  set(_tmech_real tmech::tmech)
+endif()
+get_target_property(_tmech_inc ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
+if(_tmech_inc)
+  set_target_properties(${_tmech_real} PROPERTIES
+    INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_tmech_inc}")
 endif()
 
 # -----------------------------
