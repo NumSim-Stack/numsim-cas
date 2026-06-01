@@ -373,13 +373,24 @@ template <tensor_expr_holder Expr>
     throw invalid_expression_error(
         "trans: only rank-2 tensors are supported (got rank " +
         std::to_string(expr.get().rank()) + ")");
+  // Capture orthogonal annotation BEFORE forwarding — trans(orthogonal R)
+  // is itself orthogonal (algebra: (R^T)^T = R = R^{-1}^{-T}, so R^T is
+  // also orthogonal). Propagate via post-construction insert on whichever
+  // branch produces a fresh node. The Symmetric short-circuit returns
+  // the input directly, which already carries the annotation; tensor_zero
+  // can't be orthogonal so we skip propagation there.
+  const bool propagate_orthogonal = is_orthogonal(expr);
   // trans(X) = X when X is symmetric (or any symmetric subspace)
   // trans(X) = -X when X is skew-symmetric
   if (auto const &sp = expr.get().space()) {
     if (std::holds_alternative<Symmetric>(sp->perm))
       return std::forward<Expr>(expr);
-    if (std::holds_alternative<Skew>(sp->perm))
-      return -std::forward<Expr>(expr);
+    if (std::holds_alternative<Skew>(sp->perm)) {
+      auto result = -std::forward<Expr>(expr);
+      if (propagate_orthogonal)
+        result.data()->tensor_algebra_assumptions().insert(orthogonal{});
+      return result;
+    }
   }
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
@@ -388,8 +399,11 @@ template <tensor_expr_holder Expr>
     if (bc.indices() == sequence{2, 1})
       return bc.expr();
   }
-  return make_expression<permute_indices_wrapper>(std::forward<Expr>(expr),
-                                                  sequence{2, 1});
+  auto result = make_expression<permute_indices_wrapper>(
+      std::forward<Expr>(expr), sequence{2, 1});
+  if (propagate_orthogonal)
+    result.data()->tensor_algebra_assumptions().insert(orthogonal{});
+  return result;
 }
 
 template <tensor_expr_holder Expr>
@@ -433,18 +447,12 @@ template <tensor_expr_holder Expr>
     throw invalid_expression_error(
         "inv: only rank-2 and rank-4 tensors are supported (got rank " +
         std::to_string(expr.get().rank()) + ")");
-  // inv(orthogonal R) = trans(R). Closes one half of #246. The
-  // orthogonality annotation only makes sense at rank-2 (R^T R = I for
-  // square R) and trans() is rank-2 only — gate on both. Re-annotate
-  // the result as orthogonal so downstream queries / further folds see
-  // it (trans() doesn't propagate the algebra annotation through its
-  // general path). Same post-construction annotation pattern as
-  // tensor_operators.h's `trans(A) + (-A) → Skew` recognition.
-  if (expr.get().rank() == 2 && is_orthogonal(expr)) {
-    auto result = trans(std::forward<Expr>(expr));
-    result.data()->tensor_algebra_assumptions().insert(orthogonal{});
-    return result;
-  }
+  // inv(orthogonal R) = trans(R). Closes one half of #246. Orthogonality
+  // is rank-2 algebra (R^T R = I for square R); trans() is rank-2 only
+  // and itself propagates the orthogonal annotation through, so the fold
+  // is just structural — no separate insert needed here.
+  if (expr.get().rank() == 2 && is_orthogonal(expr))
+    return trans(std::forward<Expr>(expr));
   // inv(α·A) = inv(A) / α. The scalar pulls out of the inverse as its
   // reciprocal. Recurse so e.g. inv(α·inv(A)) folds via tensor_inv → A,
   // not just one layer. (Placed after the rank gate so rank > 2 inputs

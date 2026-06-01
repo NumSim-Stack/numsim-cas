@@ -4,6 +4,7 @@
 #include <cmath>
 #include <gtest/gtest.h>
 #include <memory>
+#include <numbers>
 
 #include <numsim_cas/numsim_cas.h>
 #include <numsim_cas/tensor/tensor_assume.h>
@@ -194,6 +195,18 @@ TEST(TensorAlgebraAssume, AlgebraAssumptionOrthogonalToProjectorSpace) {
 
 // ─── #246 algebra-rule folds (α-2a): inv / det for orthogonal ──────────
 
+TEST(TensorAlgebraFold, TransOrthogonalIsOrthogonal) {
+  // Algebra fact: trans of orthogonal is orthogonal. The propagation
+  // lives in trans() itself so callers that go through trans() directly
+  // (not via the inv() fold) also see it. This is the primary
+  // propagation test; InvOrthogonalFoldsToTrans below verifies the fold
+  // composes with it.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto rT = trans(R);
+  EXPECT_TRUE(is_orthogonal(rT)) << "trans(orthogonal) should be orthogonal";
+}
+
 TEST(TensorAlgebraFold, InvOrthogonalFoldsToTrans) {
   // inv(R) = trans(R) when R is annotated orthogonal — closes the
   // dominant simplification for rotation tensors. The result must also
@@ -258,8 +271,8 @@ TEST(TensorAlgebraFold, InvOrthogonalEvaluatesCorrectly) {
   // rotation about z by π/6 and verify inv(R) equals R^T componentwise.
   auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
   assume_orthogonal(R);
-  const double c = std::cos(M_PI / 6.0);
-  const double s = std::sin(M_PI / 6.0);
+  const double c = std::cos(std::numbers::pi / 6.0);
+  const double s = std::sin(std::numbers::pi / 6.0);
   auto R_data = std::make_shared<tensor_data<double, 3, 2>>();
   auto *raw = R_data->raw_data();
   raw[0] = c;
