@@ -38,10 +38,22 @@ struct volumetric {};
 struct deviatoric {};
 struct unkown {};
 
+// ---------- Tensor algebra assumptions (#228) ----------
+// Properties of a tensor's VALUES (not projector-space classifications):
+// rotations, definiteness. Stored separately from the projector-space
+// tracking on tensor_expression — see tensor_algebra_assumption_manager.
+struct orthogonal {};            // R^T R = I
+struct positive_definite {};     // x^T A x > 0 for all x != 0
+struct positive_semidefinite {}; // x^T A x >= 0
+
 // A unified “assumption” sum type for numbers
 using numeric_assumption =
     std::variant<positive, negative, nonzero, nonnegative, nonpositive, integer,
                  even, odd, rational, irrational, real_tag, complex_tag, prime>;
+
+// A unified “assumption” sum type for tensor algebra properties.
+using tensor_algebra_assumption =
+    std::variant<orthogonal, positive_definite, positive_semidefinite>;
 
 // // A unified “assumption” sum type for tensor space
 // using tensor_space =
@@ -78,6 +90,14 @@ struct numeric_assumption_less {
   }
 };
 
+struct tensor_algebra_assumption_less {
+  bool operator()(tensor_algebra_assumption const &a,
+                  tensor_algebra_assumption const &b) const noexcept {
+    // All alternatives are empty tags → variant index ordering is total.
+    return a.index() < b.index();
+  }
+};
+
 // struct tensor_space_less {
 //   bool operator()(tensor_space const& a,
 //                   tensor_space const& b) const noexcept {
@@ -111,6 +131,28 @@ public:
 private:
   std::set<numeric_assumption, numeric_assumption_less> set_;
   bool inferred_{false};
+};
+
+// Manager for tensor algebra-property assumptions (orthogonal, PD, PSD).
+// Mirrors numeric_assumption_manager's set-based shape: multiple tags can
+// be active simultaneously, and implications (PD => PSD) are encoded as
+// joint insertions in assume_positive_definite(). NOTE: direct manager
+// access (manager.insert(positive_definite{}) without going through
+// assume_positive_definite) bypasses the implication chain — same leaky
+// abstraction as numeric_assumption_manager. Prefer the assume_* helpers
+// in tensor_assume.h.
+class tensor_algebra_assumption_manager {
+public:
+  void insert(tensor_algebra_assumption a) { set_.insert(a); }
+  void erase(tensor_algebra_assumption const &a) { set_.erase(a); }
+  bool contains(tensor_algebra_assumption const &a) const {
+    return set_.find(a) != set_.end();
+  }
+  void clear() { set_.clear(); }
+  auto const &data() const { return set_; }
+
+private:
+  std::set<tensor_algebra_assumption, tensor_algebra_assumption_less> set_;
 };
 
 // class tensor_space_manager {

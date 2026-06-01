@@ -12,6 +12,7 @@
 #include "ScalarPrinterTest.h"
 #include "ScalarSubstitutionTest.h"
 #include "SolveTest.h"
+#include "TensorAlgebraAssumeTest.h"
 #include "TensorDifferentiationTest.h"
 #include "TensorEvaluatorTest.h"
 #include "TensorExpressionTest.h"
