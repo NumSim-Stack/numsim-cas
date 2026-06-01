@@ -409,14 +409,28 @@ template <tensor_expr_holder Expr>
   if (is_same<tensor_zero>(expr))
     throw invalid_expression_error("inv: operand is the zero tensor "
                                    "(singular)");
-  // Rank gate: only rank-2 inverses are supported. tmech::inv expects
-  // rank-2; higher-rank inversion has no canonical definition in this
-  // codebase (the rank-4 minor identity is a special case handled above).
-  // Reject at construction so downstream evaluation cannot produce
-  // NaN/Inf or a confusing tmech runtime error. Closes #192.
-  if (expr.get().rank() != 2)
+  // Rank gate (#248): rank-2 is unconditionally supported; rank-4 is
+  // supported with two evaluator routes selected by the operand's space
+  // annotation:
+  //
+  //   * Minor / MinorMajor → tmech::inv<sequence<1,2>, sequence<3,4>>
+  //       The minor-symmetric inverse — the dominant case in continuum
+  //       mechanics (algorithmic-tangent rule C_ijkl = ∂a_ij/∂b_kl):
+  //         (A^{-1})_ijmn · A_mnkl = 1/2 (I_ik I_jl + I_il I_jk)
+  //
+  //   * Any other annotation (Skew, Sym_r, Anti_r, ...) OR no annotation
+  //     → tmech::invf (fully anisotropic):
+  //         (A^{-1})_ijmn · A_mnkl = I_ij · I_kl
+  //
+  // The dispatch lives in the evaluator (operator()(tensor_inv) inspects
+  // the operand's space). The factory just gates rank; the AST node
+  // remains a single tensor_inv either way.
+  //
+  // Other ranks (3, 5, ...) keep the rejection — they have no canonical
+  // inverse routine. Supersedes #192's rank-2-only gate.
+  if (expr.get().rank() != 2 && expr.get().rank() != 4)
     throw invalid_expression_error(
-        "inv: only rank-2 tensors are supported (got rank " +
+        "inv: only rank-2 and rank-4 tensors are supported (got rank " +
         std::to_string(expr.get().rank()) + ")");
   // inv(α·A) = inv(A) / α. The scalar pulls out of the inverse as its
   // reciprocal. Recurse so e.g. inv(α·inv(A)) folds via tensor_inv → A,
@@ -427,12 +441,16 @@ template <tensor_expr_holder Expr>
     auto const &sm = expr.template get<tensor_scalar_mul>();
     return inv(sm.expr_rhs()) / sm.expr_lhs();
   }
-  // A skew-symmetric matrix in odd dimensions is singular (det = 0) by the
-  // determinant theorem det(-A^T) = (-1)^n det(A). contains_skew_factor also
-  // catches expressions that aren't themselves skew but contain a skew factor
-  // (e.g. B * skew(A)) — still singular. The rank check above already
-  // filtered non-rank-2 inputs, so this guard only covers the rank-2 case.
-  if (expr.get().dim() % 2 != 0 && contains_skew_factor(expr)) {
+  // A skew-symmetric matrix in odd dimensions is singular (det = 0) by
+  // the determinant theorem det(-A^T) = (-1)^n det(A). The theorem is
+  // RANK-2 SPECIFIC — for rank-4 a "skew" annotation doesn't carry the
+  // same algebraic consequence (rank-4 skew has different geometry and
+  // the 9x9 unfolding's determinant isn't related to (-1)^n det(A)).
+  // Restrict the guard to rank-2 so rank-4 skew passes through to the
+  // invf evaluator branch. contains_skew_factor catches both direct
+  // skew tensors and products like B * skew(A).
+  if (expr.get().rank() == 2 && expr.get().dim() % 2 != 0 &&
+      contains_skew_factor(expr)) {
     throw invalid_expression_error(
         "inv: operand contains a skew-symmetric factor in odd dimensions "
         "(singular)");

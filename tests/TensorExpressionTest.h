@@ -720,14 +720,116 @@ TYPED_TEST(TensorExpressionTest, InvZeroFromScalarMulThrows) {
       numsim::cas::invalid_expression_error);
 }
 
-TYPED_TEST(TensorExpressionTest, InvRank4SymbolThrows) {
-  // #192: rank > 2 inversion has no canonical definition (the rank-4
-  // minor identity is an explicit special case handled separately).
-  // Reject rank-4 (and higher) symbols at construction.
+TYPED_TEST(TensorExpressionTest, InvRank4SymbolBuilds) {
+  // #248: rank-4 inversion is now supported. The factory accepts any
+  // annotation (or none) at rank-4; the evaluator picks the correct
+  // tmech routine — tmech::inv (minor-symmetric) for Minor/MinorMajor,
+  // tmech::invf (fully anisotropic) otherwise. Construction-time guards
+  // here verify only that the AST node is well-formed.
   auto &A = this->A; // rank-4 fixture variable
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_inv>(r));
+  EXPECT_EQ(r.get().rank(), 4u);
+  EXPECT_EQ(r.get().dim(), TestFixture::Dim);
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4WithMinorAnnotation) {
+  // Annotated rank-4 also builds (evaluator will route to tmech::inv).
+  auto &A = this->A;
+  numsim::cas::assume_minor(A);
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_inv>(r));
+  // Space annotation propagates through inv (existing behavior).
+  EXPECT_TRUE(numsim::cas::is_minor(r));
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4WithMinorMajorAnnotation) {
+  auto &A = this->A;
+  numsim::cas::assume_minor_major(A);
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_inv>(r));
+  EXPECT_TRUE(numsim::cas::is_minor_major(r));
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4InvInvCollapsesAtAnyRank) {
+  // inv(inv(A)) → A — the existing fold runs before the rank gate, so
+  // it works for rank-4 too.
+  auto &A = this->A;
+  auto r = numsim::cas::inv(numsim::cas::inv(A));
+  EXPECT_EQ(r, A);
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4ScalarPullOutPreserved) {
+  // inv(α·A) = inv(A) / α — the existing #71 fold runs at any rank
+  // (placed after the rank gate, before tensor_inv construction). For
+  // rank-4 the recursion calls inv() on the unwrapped tensor, which
+  // routes through the new rank-4 path — exercises that the existing
+  // fold composes with the rank-4 dispatch.
+  auto &A = this->A;
+  numsim::cas::assume_minor_major(A);
+  auto two = numsim::cas::make_scalar_constant(2);
+  auto r = numsim::cas::inv(two * A);
+  // Expected structural form: a t2s-scalar-mul wrapping inv(A) by the
+  // reciprocal scalar. Don't assert exact node type — the existing
+  // tensor_with_scalar simplifier may pack it as a tensor_scalar_mul.
+  // What we DO assert: the result is well-formed and rank-4.
+  EXPECT_EQ(r.get().rank(), 4u);
+  EXPECT_EQ(r.get().dim(), TestFixture::Dim);
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4SkewAnnotationStillBuilds) {
+  // Skew rank-4 (rare but legal under the existing annotation surface):
+  // the dispatch sends anything other than Minor/MinorMajor to invf.
+  // Construction-time sanity — just verify the node builds.
+  auto &A = this->A;
+  numsim::cas::assume_skew(A);
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_inv>(r));
+  EXPECT_EQ(r.get().rank(), 4u);
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4SkewLosesAnnotation) {
+  // Annotation propagation through tensor_inv at rank-4: Skew does NOT
+  // survive (tmech::invf doesn't preserve skew structure at rank-4 —
+  // the 9x9 unfolding's inverse has different algebraic content). The
+  // result's space should be cleared rather than incorrectly preserving
+  // Skew, which would mislead downstream simplifiers.
+  auto &A = this->A;
+  numsim::cas::assume_skew(A);
+  ASSERT_TRUE(numsim::cas::is_skew(A));
+  auto r = numsim::cas::inv(A);
+  EXPECT_FALSE(numsim::cas::is_skew(r))
+      << "inv of rank-4 skew should NOT inherit the Skew annotation";
+  EXPECT_FALSE(r.get().space().has_value())
+      << "result should have no space annotation (general anisotropic)";
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4MinorPreservesAnnotation) {
+  // Annotation propagation at rank-4 + Minor: tmech::inv (Voigt path)
+  // preserves the minor symmetry, so the result IS still Minor.
+  auto &A = this->A;
+  numsim::cas::assume_minor(A);
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_minor(r));
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank4MinorMajorPreservesAnnotation) {
+  // Same for MinorMajor — both symmetries are preserved through the
+  // Voigt inverse.
+  auto &A = this->A;
+  numsim::cas::assume_minor_major(A);
+  auto r = numsim::cas::inv(A);
+  EXPECT_TRUE(numsim::cas::is_minor_major(r));
+}
+
+TYPED_TEST(TensorExpressionTest, InvRank3SymbolStillThrows) {
+  // Odd ranks (3, 5, ...) have no canonical inverse routine in tmech;
+  // they still get rejected at construction.
+  auto A3 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A3", static_cast<std::size_t>(TestFixture::Dim), std::size_t{3});
   try {
-    [[maybe_unused]] auto r = numsim::cas::inv(A);
-    FAIL() << "Expected inv(rank-4 symbol) to throw";
+    [[maybe_unused]] auto r = numsim::cas::inv(A3);
+    FAIL() << "Expected inv(rank-3 symbol) to throw";
   } catch (numsim::cas::invalid_expression_error const &e) {
     EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos)
         << "error message should mention rank; got: " << e.what();
