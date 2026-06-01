@@ -1,10 +1,13 @@
 #ifndef TENSORALGEBRAASSUMETEST_H
 #define TENSORALGEBRAASSUMETEST_H
 
+#include <cmath>
 #include <gtest/gtest.h>
+#include <memory>
 
 #include <numsim_cas/numsim_cas.h>
 #include <numsim_cas/tensor/tensor_assume.h>
+#include <numsim_cas/tensor/visitors/tensor_evaluator.h>
 
 namespace numsim::cas {
 
@@ -187,6 +190,97 @@ TEST(TensorAlgebraAssume, AlgebraAssumptionOrthogonalToProjectorSpace) {
   EXPECT_TRUE(is_orthogonal(W));
   // The earlier Skew space tag survives — orthogonal does not clear it.
   EXPECT_TRUE(is_skew(W));
+}
+
+// ─── #246 algebra-rule folds (α-2a): inv / det for orthogonal ──────────
+
+TEST(TensorAlgebraFold, InvOrthogonalFoldsToTrans) {
+  // inv(R) = trans(R) when R is annotated orthogonal — closes the
+  // dominant simplification for rotation tensors. The result must also
+  // carry the orthogonal annotation so downstream queries / further
+  // folds see it.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto r = inv(R);
+  // Structural form is the transpose, NOT a tensor_inv node.
+  EXPECT_FALSE(is_same<tensor_inv>(r))
+      << "inv(orthogonal) should fold, not build a tensor_inv node";
+  EXPECT_TRUE(is_same<permute_indices_wrapper>(r))
+      << "expected trans(R) = permute_indices_wrapper";
+  // Annotation propagation: inv(orthogonal) is still orthogonal.
+  EXPECT_TRUE(is_orthogonal(r))
+      << "result should carry orthogonal annotation for downstream folds";
+}
+
+TEST(TensorAlgebraFold, InvOrthogonalDoesNotFireAtRank4) {
+  // The fold requires rank == 2 (trans() is rank-2 only and orthogonality
+  // at rank-4 isn't standardly defined). A rank-4 tensor with orthogonal
+  // annotation should still build a tensor_inv (routed to invf at eval).
+  auto A4 = make_expression<tensor>("A4", std::size_t{3}, std::size_t{4});
+  assume_orthogonal(A4);
+  auto r = inv(A4);
+  EXPECT_TRUE(is_same<tensor_inv>(r))
+      << "rank-4 orthogonal should NOT trigger the trans fold";
+}
+
+TEST(TensorAlgebraFold, InvUnannotatedDoesNotFireFold) {
+  // Negative case: without the orthogonal annotation the fold must NOT
+  // fire — guards against accidental over-eager folding.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto r = inv(A);
+  EXPECT_TRUE(is_same<tensor_inv>(r))
+      << "inv(unannotated rank-2) should build tensor_inv as before";
+}
+
+TEST(TensorAlgebraFold, DetOrthogonalFoldsToOne) {
+  // det(R) = 1 for proper rotations (the dominant continuum-mechanics
+  // case). The annotation doesn't distinguish improper rotations (det =
+  // -1); a future chirality sub-tag could refine this.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto d = det(R);
+  EXPECT_TRUE(is_same<tensor_to_scalar_one>(d))
+      << "det(orthogonal) should fold to tensor_to_scalar_one";
+}
+
+TEST(TensorAlgebraFold, DetUnannotatedDoesNotFireFold) {
+  // Negative case: det of an un-annotated tensor must build a tensor_det
+  // node — fold gated correctly.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto d = det(A);
+  EXPECT_TRUE(is_same<tensor_det>(d))
+      << "det(unannotated) should build tensor_det as before";
+}
+
+TEST(TensorAlgebraFold, InvOrthogonalEvaluatesCorrectly) {
+  // End-to-end: inv(R) folded to trans(R) must evaluate to the actual
+  // matrix inverse for a numerically-orthogonal rotation. Build a 3D
+  // rotation about z by π/6 and verify inv(R) equals R^T componentwise.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  const double c = std::cos(M_PI / 6.0);
+  const double s = std::sin(M_PI / 6.0);
+  auto R_data = std::make_shared<tensor_data<double, 3, 2>>();
+  auto *raw = R_data->raw_data();
+  raw[0] = c;
+  raw[1] = -s;
+  raw[2] = 0;
+  raw[3] = s;
+  raw[4] = c;
+  raw[5] = 0;
+  raw[6] = 0;
+  raw[7] = 0;
+  raw[8] = 1;
+  tensor_evaluator<double> ev;
+  ev.set(R, std::static_pointer_cast<tensor_data_base<double>>(R_data));
+  auto inv_R_data = ev.apply(inv(R));
+  ASSERT_NE(inv_R_data, nullptr);
+  // For a rotation, transpose IS the inverse: R^T(0,1) = R(1,0) = s.
+  auto const &inv_R =
+      static_cast<tensor_data<double, 3, 2> const &>(*inv_R_data).data();
+  EXPECT_NEAR(inv_R(0, 1), s, 1e-12);
+  EXPECT_NEAR(inv_R(1, 0), -s, 1e-12);
+  EXPECT_NEAR(inv_R(2, 2), 1.0, 1e-12);
 }
 
 } // namespace numsim::cas

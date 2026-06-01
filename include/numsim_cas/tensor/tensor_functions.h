@@ -9,6 +9,7 @@
 #include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/skew_classification.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
@@ -432,6 +433,18 @@ template <tensor_expr_holder Expr>
     throw invalid_expression_error(
         "inv: only rank-2 and rank-4 tensors are supported (got rank " +
         std::to_string(expr.get().rank()) + ")");
+  // inv(orthogonal R) = trans(R). Closes one half of #246. The
+  // orthogonality annotation only makes sense at rank-2 (R^T R = I for
+  // square R) and trans() is rank-2 only — gate on both. Re-annotate
+  // the result as orthogonal so downstream queries / further folds see
+  // it (trans() doesn't propagate the algebra annotation through its
+  // general path). Same post-construction annotation pattern as
+  // tensor_operators.h's `trans(A) + (-A) → Skew` recognition.
+  if (expr.get().rank() == 2 && is_orthogonal(expr)) {
+    auto result = trans(std::forward<Expr>(expr));
+    result.data()->tensor_algebra_assumptions().insert(orthogonal{});
+    return result;
+  }
   // inv(α·A) = inv(A) / α. The scalar pulls out of the inverse as its
   // reciprocal. Recurse so e.g. inv(α·inv(A)) folds via tensor_inv → A,
   // not just one layer. (Placed after the rank gate so rank > 2 inputs

@@ -4,6 +4,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/scalar/scalar_std.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 
@@ -97,6 +98,15 @@ det(expression_holder<tensor_expression> const &expr) {
   // identity_tensor reaching here is the rank-2 Kronecker delta;
   // kronecker_delta was unified into identity_tensor by #188).
   if (is_same<identity_tensor>(expr))
+    return make_expression<tensor_to_scalar_one>();
+
+  // det(orthogonal R) = +1 for proper rotations. The "orthogonal"
+  // annotation in this codebase doesn't distinguish proper rotations
+  // (det = +1) from improper ones / reflections (det = -1); the
+  // common continuum-mechanics use case is proper rotation so we
+  // default to +1. A future `chirality` sub-tag could refine this.
+  // Closes one half of #246.
+  if (is_orthogonal(expr))
     return make_expression<tensor_to_scalar_one>();
 
   // det(inv(A)) = 1/det(A). Routes through the t2s div operator which
