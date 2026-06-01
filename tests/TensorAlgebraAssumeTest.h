@@ -440,6 +440,19 @@ TEST(TensorAlgebraMulFold, OrthogonalSelfMultiplyDoesNotFold) {
       << "R * R must not fold (would only equal I if R = ±I)";
 }
 
+TEST(TensorAlgebraMulFold, TransOrthogonalTimesTransOrthogonalDoesNotFold) {
+  // R^T · R^T = (R · R)^T which is NOT identity unless R = ±I (and
+  // the annotation doesn't promise that). The detection requires the
+  // inner of one trans to match the OTHER operand — here both
+  // operands are trans(R), so neither's inner (= R) matches the other
+  // (= trans(R)). Locks in the symmetric negative case.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto result = trans(R) * trans(R);
+  EXPECT_FALSE(is_same<identity_tensor>(result))
+      << "trans(R) * trans(R) must not fold to identity";
+}
+
 TEST(TensorAlgebraMulFold, TransUnannotatedTimesOrthogonalDoesNotFold) {
   // trans(B) * R: B is un-annotated. The detection looks at the inner
   // of the transpose, but is_trans_of returns false (B != R). Even if
