@@ -37,77 +37,30 @@ set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 # -----------------------------
 # Dependencies: tmech
 # -----------------------------
-# numsim-cas requires tmech with the post-Sep-2025 inverse_wrapper rewrite.
-# Older system installs predating this rewrite produce NaN through the rank-4
-# Voigt inv path (verified during #248). When find_package locates a system
-# tmech we probe for the rewrite marker (inverse_wrapper_base) and error out
-# clearly if absent — silently building against a broken tmech is the kind
-# of footgun that surfaces as wrong numerical results in production.
-#
-# Workaround for developers with stale system installs:
-#   cmake -DCMAKE_DISABLE_FIND_PACKAGE_tmech=TRUE ...
-# forces the FetchContent path below.
-find_package(tmech QUIET)
-if(tmech_FOUND)
-  # Resolve include dir of the found target.
-  get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
-  if(NOT _tmech_real)
-    set(_tmech_real tmech::tmech)
-  endif()
-  get_target_property(_tmech_inc ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
-  if(NOT _tmech_inc)
-    # Some find_package setups expose the include dir via a variable.
-    set(_tmech_inc "${tmech_INCLUDE_DIRS}")
-  endif()
-  # Probe for the rewrite marker. Use file content rather than try_compile to
-  # avoid template-instantiation noise — the symbol exists or it doesn't.
-  set(_tmech_inv_meat "${_tmech_inc}/tmech/tensor/inverse_wrapper_meat.h")
-  set(_tmech_has_rewrite OFF)
-  if(EXISTS "${_tmech_inv_meat}")
-    file(READ "${_tmech_inv_meat}" _tmech_inv_meat_content)
-    string(FIND "${_tmech_inv_meat_content}" "inverse_wrapper_base"
-           _tmech_marker_pos)
-    if(NOT _tmech_marker_pos EQUAL -1)
-      set(_tmech_has_rewrite ON)
-    endif()
-  endif()
-  if(NOT _tmech_has_rewrite)
-    message(FATAL_ERROR
-      "Found a system tmech installation at '${_tmech_inc}' that predates "
-      "the inverse_wrapper rewrite (no inverse_wrapper_base symbol). "
-      "Rank-4 inv() will silently produce NaN with this version "
-      "(see numsim-cas #248). Required: tmech master at commit db5d8aa "
-      "or later. Either update the system install, or reconfigure with "
-      "  -DCMAKE_DISABLE_FIND_PACKAGE_tmech=TRUE\n"
-      "to force the FetchContent path.")
-  endif()
+# Pinned FetchContent — no find_package. Header-only, fast to fetch, and
+# pinning avoids the stale-system-install footgun from #248 (older tmech
+# silently produces NaN through the rank-4 Voigt inv path). Bump the
+# GIT_TAG as a separate maintenance PR.
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  tmech
+  GIT_REPOSITORY https://github.com/petlenz/tmech.git
+  GIT_TAG db5d8aa
+)
+FetchContent_MakeAvailable(tmech)
+set(BUILD_TESTS ON CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
+# tmech::tmech is an ALIAS — resolve to real target name and mark as SYSTEM
+# so its warnings don't pollute our build.
+get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
+if(NOT _tmech_real)
+  set(_tmech_real tmech::tmech)
 endif()
-if(NOT tmech_FOUND)
-  # Disable tmech's own tests and examples (it uses BUILD_TESTS/BUILD_EXAMPLES)
-  set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
-  set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-  FetchContent_Declare(
-    tmech
-    GIT_REPOSITORY https://github.com/petlenz/tmech.git
-    # Pinned to the master commit known to have the inverse_wrapper rewrite.
-    # Bump as a separate maintenance PR; see #248 for the rationale.
-    GIT_TAG db5d8aa
-  )
-  FetchContent_MakeAvailable(tmech)
-  # Restore so downstream (our own tests/examples) is not affected
-  set(BUILD_TESTS ON CACHE BOOL "" FORCE)
-  set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
-  # Suppress warnings from third-party tmech headers.
-  # tmech::tmech is an ALIAS — resolve to real target name for set_target_properties.
-  get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
-  if(NOT _tmech_real)
-    set(_tmech_real tmech::tmech)
-  endif()
-  get_target_property(_tmech_inc ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
-  if(_tmech_inc)
-    set_target_properties(${_tmech_real} PROPERTIES
-      INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_tmech_inc}")
-  endif()
+get_target_property(_tmech_inc ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
+if(_tmech_inc)
+  set_target_properties(${_tmech_real} PROPERTIES
+    INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_tmech_inc}")
 endif()
 
 # -----------------------------
