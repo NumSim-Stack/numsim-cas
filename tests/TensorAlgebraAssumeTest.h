@@ -381,6 +381,115 @@ TEST(TensorAlgebraFold, InvOrthogonalEvaluatesCorrectly) {
   EXPECT_NEAR(inv_R(2, 2), 1.0, 1e-12);
 }
 
+// ─── #246 α-2c: trans(orthogonal) · orthogonal → I ──────────────────
+
+TEST(TensorAlgebraMulFold, TransOrthogonalTimesOrthogonalIsIdentity) {
+  // R^T · R = I for orthogonal R (the defining relation). Fires the
+  // construction-time fold so the AST collapses to identity_tensor
+  // without needing evaluator support.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto result = trans(R) * R;
+  EXPECT_TRUE(is_same<identity_tensor>(result))
+      << "trans(orthogonal R) * R should fold to identity_tensor";
+  EXPECT_EQ(result.get().rank(), 2u);
+  EXPECT_EQ(result.get().dim(), 3u);
+}
+
+TEST(TensorAlgebraMulFold, OrthogonalTimesTransOrthogonalIsIdentity) {
+  // R · R^T = I — the other ordering. Symmetric to the above.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto result = R * trans(R);
+  EXPECT_TRUE(is_same<identity_tensor>(result))
+      << "R * trans(orthogonal R) should fold to identity_tensor";
+}
+
+TEST(TensorAlgebraMulFold, UnannotatedTransTimesItselfDoesNotFold) {
+  // Negative case: trans(A) * A does NOT fold to identity when A
+  // lacks the orthogonal annotation. The generic mul simplifier
+  // handles it.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto result = trans(A) * A;
+  EXPECT_FALSE(is_same<identity_tensor>(result))
+      << "trans(unannotated) * unannotated must NOT fold to identity";
+}
+
+TEST(TensorAlgebraMulFold, OrthogonalTimesUnrelatedOrthogonalDoesNotFold) {
+  // R · S where both are orthogonal but unrelated does NOT fold to I
+  // (it equals some other orthogonal tensor, not the identity).
+  // The detection requires one operand to be the transpose of the
+  // other — same-symbol check, not just orthogonality on both.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  auto S = std::get<0>(make_tensor_variable(std::tuple{"S", 3, 2}));
+  assume_orthogonal(R);
+  assume_orthogonal(S);
+  auto result = R * S;
+  EXPECT_FALSE(is_same<identity_tensor>(result))
+      << "two unrelated orthogonals must not collapse to identity";
+}
+
+TEST(TensorAlgebraMulFold, OrthogonalSelfMultiplyDoesNotFold) {
+  // R · R for orthogonal R is NOT identity (unless R = ±I, which the
+  // annotation doesn't promise). The detection requires the transpose
+  // pattern. Negative case to ensure no over-eager match.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto result = R * R;
+  EXPECT_FALSE(is_same<identity_tensor>(result))
+      << "R * R must not fold (would only equal I if R = ±I)";
+}
+
+TEST(TensorAlgebraMulFold, TransUnannotatedTimesOrthogonalDoesNotFold) {
+  // trans(B) * R: B is un-annotated. The detection looks at the inner
+  // of the transpose, but is_trans_of returns false (B != R). Even if
+  // it did match, the orthogonal check on the non-trans side would
+  // need to look at R — which IS orthogonal. But the test name fits
+  // the gating logic: the relationship must be transpose-of-self.
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto result = trans(B) * R;
+  EXPECT_FALSE(is_same<identity_tensor>(result))
+      << "trans(B) * R with B ≠ R must not fold";
+}
+
+TEST(TensorAlgebraMulFold, IdentityResultMatchesNumerically) {
+  // End-to-end: build a 3D rotation about z by π/3, annotate
+  // orthogonal, compute trans(R) * R via the fold, verify the
+  // numerical result equals the rank-2 identity.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  const double c = std::cos(std::numbers::pi / 3.0);
+  const double s = std::sin(std::numbers::pi / 3.0);
+  auto R_data = std::make_shared<tensor_data<double, 3, 2>>();
+  auto *raw = R_data->raw_data();
+  raw[0] = c;
+  raw[1] = -s;
+  raw[2] = 0;
+  raw[3] = s;
+  raw[4] = c;
+  raw[5] = 0;
+  raw[6] = 0;
+  raw[7] = 0;
+  raw[8] = 1;
+  tensor_evaluator<double> ev;
+  ev.set(R, std::static_pointer_cast<tensor_data_base<double>>(R_data));
+  // The fold collapses trans(R)*R to identity_tensor — eval bypasses
+  // any actual matrix multiplication.
+  auto folded = trans(R) * R;
+  ASSERT_TRUE(is_same<identity_tensor>(folded));
+  auto result_data = ev.apply(folded);
+  ASSERT_NE(result_data, nullptr);
+  auto const &result =
+      static_cast<tensor_data<double, 3, 2> const &>(*result_data).data();
+  EXPECT_NEAR(result(0, 0), 1.0, 1e-12);
+  EXPECT_NEAR(result(1, 1), 1.0, 1e-12);
+  EXPECT_NEAR(result(2, 2), 1.0, 1e-12);
+  EXPECT_NEAR(result(0, 1), 0.0, 1e-12);
+  EXPECT_NEAR(result(1, 0), 0.0, 1e-12);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORALGEBRAASSUMETEST_H

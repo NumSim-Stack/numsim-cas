@@ -7,12 +7,14 @@
 #include <numsim_cas/core/promote_expr.h>
 
 #include <numsim_cas/scalar/scalar_globals.h>
+#include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/operators/tensor/tensor_add.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_add.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_mul.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_sub.h>
 #include <numsim_cas/tensor/simplifier/tensor_with_scalar_simplifier_mul.h>
 #include <numsim_cas/tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_mul.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_one.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h>
@@ -137,6 +139,17 @@ tag_invoke(mul_fn, L &&lhs, [[maybe_unused]] R &&rhs) {
   if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
     const auto rank{rhs.get().rank() + lhs.get().rank() - 2};
     return make_expression<tensor_zero>(lhs.get().dim(), rank);
+  }
+  // R · trans(R) = I and trans(R) · R = I for orthogonal R (#246 α-2c).
+  // Orthogonality is a rank-2 concept (R^T R = I assumes square R) and
+  // is_trans_of detects the {2,1} permutation pattern (rank-2 transpose
+  // form). Gate on rank-2 so rank-4 paths fall through to the generic
+  // mul simplifier.
+  if (lhs.get().rank() == 2 && rhs.get().rank() == 2) {
+    if (is_trans_of(rhs, lhs) && is_orthogonal(lhs))
+      return make_expression<identity_tensor>(lhs.get().dim(), std::size_t{2});
+    if (is_trans_of(lhs, rhs) && is_orthogonal(rhs))
+      return make_expression<identity_tensor>(rhs.get().dim(), std::size_t{2});
   }
   auto &_lhs{lhs.template get<tensor_visitable_t>()};
   tensor_detail::simplifier::mul_base visitor(std::forward<L>(lhs),
