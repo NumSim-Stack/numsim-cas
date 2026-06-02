@@ -699,6 +699,16 @@ TEST(TensorAlgebraDetPropagation, DetInvPsdDoesNotPropagatePositivity) {
   // NOT claim 1/det is positive (or even nonnegative — runtime would
   // produce NaN/inf, not 0). Locks in the PSD-skip clause of the
   // wrapper-projection fix.
+  //
+  // Important: this test passes TRIVIALLY today because nothing
+  // currently propagates assumptions through the outer t2s pow node
+  // (#260 is open). Its real value is forward-looking: when #260
+  // lands and t2s pow gains operand→result propagation, a naive
+  // implementation that propagates nonneg → nonneg through
+  // pow(x, -1) will fire here and fail this test. The failure forces
+  // the #260 implementation to be PD-aware (positive → positive) and
+  // reject naive nonneg → nonneg. Without this sentinel, a future
+  // PR could silently introduce unsoundness on PSD-singular inputs.
   auto H = std::get<0>(make_tensor_variable(std::tuple{"H", 3, 2}));
   assume_positive_semidefinite(H);
   auto d = det(inv(H));
