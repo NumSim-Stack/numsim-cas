@@ -454,11 +454,13 @@ TEST(TensorAlgebraMulFold, TransOrthogonalTimesTransOrthogonalDoesNotFold) {
 }
 
 TEST(TensorAlgebraMulFold, TransUnannotatedTimesOrthogonalDoesNotFold) {
-  // trans(B) * R: B is un-annotated. The detection looks at the inner
-  // of the transpose, but is_trans_of returns false (B != R). Even if
-  // it did match, the orthogonal check on the non-trans side would
-  // need to look at R — which IS orthogonal. But the test name fits
-  // the gating logic: the relationship must be transpose-of-self.
+  // trans(B) * R where B ≠ R: the inner of the transpose (B) doesn't
+  // match the other operand (R), so is_trans_of(lhs=trans(B), rhs=R)
+  // returns false. The fold requires both: (i) one operand IS the
+  // transpose of the other, AND (ii) the non-transposed operand is
+  // orthogonal. The orthogonal annotation on R alone isn't enough
+  // because requirement (i) fails. Lock-in against widening the gate
+  // to "either side orthogonal, either side a transpose of anything".
   auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
   auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
   assume_orthogonal(R);
