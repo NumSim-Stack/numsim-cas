@@ -447,6 +447,27 @@ template <tensor_expr_holder Expr>
     throw invalid_expression_error(
         "inv: only rank-2 and rank-4 tensors are supported (got rank " +
         std::to_string(expr.get().rank()) + ")");
+  // A skew-symmetric matrix in odd dimensions is singular (det = 0) by
+  // the determinant theorem det(-A^T) = (-1)^n det(A). The theorem is
+  // RANK-2 SPECIFIC — for rank-4 a "skew" annotation doesn't carry the
+  // same algebraic consequence (rank-4 skew has different geometry and
+  // the 9x9 unfolding's determinant isn't related to (-1)^n det(A)).
+  // Restrict the guard to rank-2 so rank-4 skew passes through to the
+  // invf evaluator branch. contains_skew_factor catches both direct
+  // skew tensors and products like B * skew(A).
+  //
+  // NOTE on ordering: this singularity check runs BEFORE the orthogonal
+  // fold below. A user who asserts both assume_skew(R) AND
+  // assume_orthogonal(R) for an odd-dim R has a logical contradiction
+  // (skew odd-dim ⇒ det = 0; orthogonal ⇒ det = ±1). Honoring the
+  // skew claim and throwing is safer than silently folding to trans(R)
+  // via the orthogonal claim and hiding the contradiction.
+  if (expr.get().rank() == 2 && expr.get().dim() % 2 != 0 &&
+      contains_skew_factor(expr)) {
+    throw invalid_expression_error(
+        "inv: operand contains a skew-symmetric factor in odd dimensions "
+        "(singular)");
+  }
   // inv(orthogonal R) = trans(R). Closes one half of #246. Orthogonality
   // is rank-2 algebra (R^T R = I for square R); trans() is rank-2 only
   // and itself propagates the orthogonal annotation through, so the fold
@@ -461,20 +482,6 @@ template <tensor_expr_holder Expr>
   if (is_same<tensor_scalar_mul>(expr)) {
     auto const &sm = expr.template get<tensor_scalar_mul>();
     return inv(sm.expr_rhs()) / sm.expr_lhs();
-  }
-  // A skew-symmetric matrix in odd dimensions is singular (det = 0) by
-  // the determinant theorem det(-A^T) = (-1)^n det(A). The theorem is
-  // RANK-2 SPECIFIC — for rank-4 a "skew" annotation doesn't carry the
-  // same algebraic consequence (rank-4 skew has different geometry and
-  // the 9x9 unfolding's determinant isn't related to (-1)^n det(A)).
-  // Restrict the guard to rank-2 so rank-4 skew passes through to the
-  // invf evaluator branch. contains_skew_factor catches both direct
-  // skew tensors and products like B * skew(A).
-  if (expr.get().rank() == 2 && expr.get().dim() % 2 != 0 &&
-      contains_skew_factor(expr)) {
-    throw invalid_expression_error(
-        "inv: operand contains a skew-symmetric factor in odd dimensions "
-        "(singular)");
   }
   return make_expression<tensor_inv>(std::forward<Expr>(expr));
 }

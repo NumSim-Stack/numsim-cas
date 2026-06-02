@@ -265,6 +265,44 @@ TEST(TensorAlgebraFold, DetUnannotatedDoesNotFireFold) {
       << "det(unannotated) should build tensor_det as before";
 }
 
+TEST(TensorAlgebraFold, InvSkewOrthogonalOddDimThrowsContradiction) {
+  // User asserts BOTH skew and orthogonal on an odd-dim tensor —
+  // logical contradiction (skew odd-dim ⇒ det = 0 by the (-1)^n det
+  // theorem; orthogonal ⇒ det = ±1). The skew-singularity guard
+  // (rank-2, odd-dim, contains_skew_factor) is ordered BEFORE the
+  // orthogonal fold so the contradiction is rejected loudly rather
+  // than silently folded to trans(R).
+  //
+  // The 2D case is legitimate (2D rotation by π/2 IS both skew and
+  // orthogonal: R=[[0,-1],[1,0]], R^T=-R, R^T R = I). That case is
+  // covered by InvSkewOrthogonal2DStillFolds below.
+  auto R3 = make_expression<tensor>("R3", std::size_t{3}, std::size_t{2});
+  assume_skew(R3);
+  assume_orthogonal(R3);
+  try {
+    [[maybe_unused]] auto r = inv(R3);
+    FAIL() << "Expected throw for skew+orthogonal at odd dim "
+              "(logical contradiction)";
+  } catch (invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("skew"), std::string::npos)
+        << "error message should mention skew singularity";
+  }
+}
+
+TEST(TensorAlgebraFold, InvSkewOrthogonal2DStillFolds) {
+  // Even-dim skew-and-orthogonal IS mathematically valid (e.g. 2D
+  // rotation by π/2 satisfies both). Skew guard doesn't fire (even
+  // dim) so the orthogonal fold runs: inv(R) → trans(R) = -R.
+  auto R2 = make_expression<tensor>("R2", std::size_t{2}, std::size_t{2});
+  assume_skew(R2);
+  assume_orthogonal(R2);
+  auto r = inv(R2);
+  // Even-dim skew + orthogonal is legit; fold to trans which for
+  // skew returns -R (trans()'s skew short-circuit). So inv = -R.
+  EXPECT_TRUE(is_same<tensor_negative>(r))
+      << "2D skew-orthogonal inv folds to -R via trans short-circuit";
+}
+
 TEST(TensorAlgebraFold, InvOrthogonalEvaluatesCorrectly) {
   // End-to-end: inv(R) folded to trans(R) must evaluate to the actual
   // matrix inverse for a numerically-orthogonal rotation. Build a 3D
