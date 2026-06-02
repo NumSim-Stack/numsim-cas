@@ -4,6 +4,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/scalar/scalar_std.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 
@@ -99,6 +100,15 @@ det(expression_holder<tensor_expression> const &expr) {
   if (is_same<identity_tensor>(expr))
     return make_expression<tensor_to_scalar_one>();
 
+  // det(orthogonal R) = +1 for proper rotations. The "orthogonal"
+  // annotation in this codebase doesn't distinguish proper rotations
+  // (det = +1) from improper ones / reflections (det = -1); the
+  // common continuum-mechanics use case is proper rotation so we
+  // default to +1. A future `chirality` sub-tag could refine this.
+  // Closes one half of #246.
+  if (is_orthogonal(expr))
+    return make_expression<tensor_to_scalar_one>();
+
   // det(inv(A)) = 1/det(A). Routes through the t2s div operator which
   // composes via pow(rhs, -1) — produces canonical pow(det(A), -1).
   if (is_same<tensor_inv>(expr)) {
@@ -145,7 +155,26 @@ det(expression_holder<tensor_expression> const &expr) {
     return result;
   }
 
-  return make_expression<tensor_det>(expr);
+  auto result = make_expression<tensor_det>(expr);
+  // Propagate positivity from PD/PSD annotations on the input (#246
+  // α-2d). PD ⇒ det > 0; PSD ⇒ det ≥ 0. Insert into the t2s result's
+  // numeric_assumption_manager directly — the same one inherited from
+  // the expression base class that scalar assume() writes to. Mirrors
+  // scalar_assume.h's joint-insertion pattern.
+  auto &a = result.data()->assumptions();
+  if (is_positive_definite(expr)) {
+    a.insert(positive{});
+    a.insert(nonnegative{});
+    a.insert(nonzero{});
+    a.insert(real_tag{});
+    a.set_inferred();
+  }
+  if (is_positive_semidefinite(expr)) {
+    a.insert(nonnegative{});
+    a.insert(real_tag{});
+    a.set_inferred();
+  }
+  return result;
 }
 
 // ─── Principal invariants (#226 cheap deliverable) ─────────────────────

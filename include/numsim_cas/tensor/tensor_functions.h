@@ -9,6 +9,7 @@
 #include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/skew_classification.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
@@ -372,13 +373,24 @@ template <tensor_expr_holder Expr>
     throw invalid_expression_error(
         "trans: only rank-2 tensors are supported (got rank " +
         std::to_string(expr.get().rank()) + ")");
+  // Capture orthogonal annotation BEFORE forwarding — trans(orthogonal R)
+  // is itself orthogonal (algebra: (R^T)^T = R = R^{-1}^{-T}, so R^T is
+  // also orthogonal). Propagate via post-construction insert on whichever
+  // branch produces a fresh node. The Symmetric short-circuit returns
+  // the input directly, which already carries the annotation; tensor_zero
+  // can't be orthogonal so we skip propagation there.
+  const bool propagate_orthogonal = is_orthogonal(expr);
   // trans(X) = X when X is symmetric (or any symmetric subspace)
   // trans(X) = -X when X is skew-symmetric
   if (auto const &sp = expr.get().space()) {
     if (std::holds_alternative<Symmetric>(sp->perm))
       return std::forward<Expr>(expr);
-    if (std::holds_alternative<Skew>(sp->perm))
-      return -std::forward<Expr>(expr);
+    if (std::holds_alternative<Skew>(sp->perm)) {
+      auto result = -std::forward<Expr>(expr);
+      if (propagate_orthogonal)
+        result.data()->tensor_algebra_assumptions().insert(orthogonal{});
+      return result;
+    }
   }
   if (is_same<tensor_zero>(expr))
     return make_expression<tensor_zero>(expr.get().dim(), expr.get().rank());
@@ -387,8 +399,11 @@ template <tensor_expr_holder Expr>
     if (bc.indices() == sequence{2, 1})
       return bc.expr();
   }
-  return make_expression<permute_indices_wrapper>(std::forward<Expr>(expr),
-                                                  sequence{2, 1});
+  auto result = make_expression<permute_indices_wrapper>(
+      std::forward<Expr>(expr), sequence{2, 1});
+  if (propagate_orthogonal)
+    result.data()->tensor_algebra_assumptions().insert(orthogonal{});
+  return result;
 }
 
 template <tensor_expr_holder Expr>
@@ -432,15 +447,6 @@ template <tensor_expr_holder Expr>
     throw invalid_expression_error(
         "inv: only rank-2 and rank-4 tensors are supported (got rank " +
         std::to_string(expr.get().rank()) + ")");
-  // inv(α·A) = inv(A) / α. The scalar pulls out of the inverse as its
-  // reciprocal. Recurse so e.g. inv(α·inv(A)) folds via tensor_inv → A,
-  // not just one layer. (Placed after the rank gate so rank > 2 inputs
-  // produce the dedicated "rank not supported" error rather than
-  // recursing into a deeper inv call.) Closes #71.
-  if (is_same<tensor_scalar_mul>(expr)) {
-    auto const &sm = expr.template get<tensor_scalar_mul>();
-    return inv(sm.expr_rhs()) / sm.expr_lhs();
-  }
   // A skew-symmetric matrix in odd dimensions is singular (det = 0) by
   // the determinant theorem det(-A^T) = (-1)^n det(A). The theorem is
   // RANK-2 SPECIFIC — for rank-4 a "skew" annotation doesn't carry the
@@ -449,11 +455,33 @@ template <tensor_expr_holder Expr>
   // Restrict the guard to rank-2 so rank-4 skew passes through to the
   // invf evaluator branch. contains_skew_factor catches both direct
   // skew tensors and products like B * skew(A).
+  //
+  // NOTE on ordering: this singularity check runs BEFORE the orthogonal
+  // fold below. A user who asserts both assume_skew(R) AND
+  // assume_orthogonal(R) for an odd-dim R has a logical contradiction
+  // (skew odd-dim ⇒ det = 0; orthogonal ⇒ det = ±1). Honoring the
+  // skew claim and throwing is safer than silently folding to trans(R)
+  // via the orthogonal claim and hiding the contradiction.
   if (expr.get().rank() == 2 && expr.get().dim() % 2 != 0 &&
       contains_skew_factor(expr)) {
     throw invalid_expression_error(
         "inv: operand contains a skew-symmetric factor in odd dimensions "
         "(singular)");
+  }
+  // inv(orthogonal R) = trans(R). Closes one half of #246. Orthogonality
+  // is rank-2 algebra (R^T R = I for square R); trans() is rank-2 only
+  // and itself propagates the orthogonal annotation through, so the fold
+  // is just structural — no separate insert needed here.
+  if (expr.get().rank() == 2 && is_orthogonal(expr))
+    return trans(std::forward<Expr>(expr));
+  // inv(α·A) = inv(A) / α. The scalar pulls out of the inverse as its
+  // reciprocal. Recurse so e.g. inv(α·inv(A)) folds via tensor_inv → A,
+  // not just one layer. (Placed after the rank gate so rank > 2 inputs
+  // produce the dedicated "rank not supported" error rather than
+  // recursing into a deeper inv call.) Closes #71.
+  if (is_same<tensor_scalar_mul>(expr)) {
+    auto const &sm = expr.template get<tensor_scalar_mul>();
+    return inv(sm.expr_rhs()) / sm.expr_lhs();
   }
   return make_expression<tensor_inv>(std::forward<Expr>(expr));
 }

@@ -11,7 +11,21 @@ class tensor_to_scalar_zero final
 public:
   using base = tensor_to_scalar_node_base_t<tensor_to_scalar_zero>;
 
-  tensor_to_scalar_zero() = default;
+  // The constant 0 is mathematically: nonnegative, nonpositive, real,
+  // integer, rational. NOT positive, NOT negative, NOT nonzero. Same
+  // rationale as tensor_to_scalar_one — pre-annotate so downstream
+  // queries see the right answer without depending on a separate fold.
+  // Closes #261 (alongside the matching annotation in
+  // tensor_to_scalar_one).
+  tensor_to_scalar_zero() {
+    auto &a = this->assumptions();
+    a.insert(nonnegative{});
+    a.insert(nonpositive{});
+    a.insert(real_tag{});
+    a.insert(integer{});
+    a.insert(rational{});
+    a.set_inferred();
+  }
   tensor_to_scalar_zero(tensor_to_scalar_zero &&data) noexcept
       : base(static_cast<base &&>(data)) {}
   tensor_to_scalar_zero(tensor_to_scalar_zero const &data)
