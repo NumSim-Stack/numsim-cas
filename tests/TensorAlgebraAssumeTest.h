@@ -776,37 +776,56 @@ TEST(TensorAlgebraComposition,
   // Mixed-annotation composition: C is BOTH volumetric AND orthogonal.
   //   inv(C)         → α-2a fold fires (is_orthogonal) → trans(C)
   //   trans(C)       → trans's symmetric short-circuit (vol ⊂ sym) → returns C
-  //   final          == C, with both annotations intact.
-  // Verifies that BOTH the projector-space annotation (volumetric) and
-  // the algebra annotation (orthogonal) survive the inv→trans→
-  // symmetric-shortcut chain.
+  //   final          == C (literally the same shared_ptr).
+  //
+  // IMPORTANT mechanism note: this test passes because trans()'s
+  // SYMMETRIC short-circuit returns the input holder unchanged (vol IS
+  // a sym subspace). It does NOT exercise α-2a's general-path
+  // orthogonal propagation through permute_indices_wrapper — that path
+  // only fires for non-symmetric operands. The EXPECT_EQ below locks
+  // in the mechanism: if trans()'s short-circuit ever changes (e.g. to
+  // always wrap), this test catches it loudly rather than silently
+  // passing for a different reason.
   auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
   assume_volumetric(C);
   assume_orthogonal(C);
   ASSERT_TRUE(is_volumetric(C));
   ASSERT_TRUE(is_orthogonal(C));
   auto invC = inv(C);
+  EXPECT_EQ(invC, C)
+      << "expected trans's symmetric shortcut to return the input "
+         "holder unchanged";
   EXPECT_TRUE(is_volumetric(invC))
       << "volumetric annotation should survive the chain";
   EXPECT_TRUE(is_orthogonal(invC))
       << "orthogonal annotation should survive the chain";
 }
 
-TEST(TensorAlgebraComposition,
-     TransUnannotatedTimesOrthogonalDoesNotFireMulFold) {
-  // Negative composition: trans(B) * R where B is un-annotated and R
-  // is orthogonal. The α-2c mul fold requires the inner of the trans
-  // wrapper to MATCH the other operand. Here trans(B)'s inner is B,
-  // which is not equal to R. So neither is_trans_of branch fires; the
-  // mul falls through to the generic simplifier.
-  // Guards against an over-eager fold that would conflate any
-  // trans-of-anything with any orthogonal as the identity.
-  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
-  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
-  assume_orthogonal(R);
-  auto result = trans(B) * R;
-  EXPECT_FALSE(is_same<identity_tensor>(result))
-      << "trans(unrelated B) * orthogonal R must not fold to I";
+TEST(TensorAlgebraComposition, DetIdentityIsAnnotatedPositiveAfterH1Fix) {
+  // Replaces a near-duplicate of α-2c's existing
+  // TransUnannotatedTimesOrthogonalDoesNotFold (different name, same
+  // input + assertion). The duplicate added no real coverage.
+  //
+  // This test instead locks in the H1 inconsistency fix from the
+  // cross-PR review:
+  //   det(identity_tensor) → tensor_to_scalar_one      (existing fold)
+  //   tensor_to_scalar_one annotated positive          (#263)
+  // Without #263, det(I) returns an un-annotated 1 while det(PD C)
+  // returns a tensor_det annotated positive (α-2d) — H1.
+  // With #263, both forms produce positivity-annotated results,
+  // resolving the cross-PR semantic inconsistency.
+  //
+  // Genuine cross-PR composition: existing det(I) fold + the new #263
+  // constants annotation. Two independent commits in the milestone.
+  auto I3 = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  auto d = det(I3);
+  ASSERT_TRUE(is_same<tensor_to_scalar_one>(d))
+      << "det(identity) should fold to tensor_to_scalar_one";
+  EXPECT_TRUE(d.data()->assumptions().contains(positive{}))
+      << "with #263, tensor_to_scalar_one carries positive directly; "
+         "H1 inconsistency (det(orth) vs det(PD)) is resolved";
+  EXPECT_TRUE(d.data()->assumptions().contains(nonzero{}));
+  EXPECT_TRUE(d.data()->assumptions().contains(real_tag{}));
 }
 
 TEST(TensorAlgebraComposition, InvRank1RankGateBeatsOrthogonalFold) {
