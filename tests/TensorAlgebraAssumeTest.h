@@ -461,25 +461,48 @@ TEST(TensorAlgebraPropagation, InvPdRank4MinorMajorPropagates) {
   EXPECT_TRUE(is_minor_major(invC));
 }
 
-TEST(TensorAlgebraPropagation, InvContradictorySkewAndPdResolvesToSymWithPd) {
-  // Contradictory user input — Skew is set first via assume_skew, then
-  // PD is asserted via assume_positive_definite (which already
-  // overwrites the Skew space at the assume() site per #245). The
-  // tensor_inv constructor's ordering — space propagation first, then
-  // algebra propagation — handles a hypothetical caller who reaches
-  // this state differently (e.g. via direct tensor_algebra_assumptions
-  // manipulation that left Skew on the space). The end state always
-  // honours PD's symmetric implication on the output. This test locks
-  // that ordering in.
+TEST(TensorAlgebraPropagation, AssumePdAfterSkewResolvesAtCallSite) {
+  // Pre-condition for the ctor-defense test below: confirm that
+  // assume_positive_definite OVERWRITES a prior Skew space at the
+  // assume() call site (per #245). This means the typical path never
+  // reaches tensor_inv's ctor with the contradictory state.
   auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 3, 2}));
   assume_skew(W);
-  // assume_positive_definite overrides Skew → Sym at the assume() site.
   assume_positive_definite(W);
   EXPECT_TRUE(is_symmetric(W));
   EXPECT_FALSE(is_skew(W));
   auto invW = inv(W);
   EXPECT_TRUE(is_positive_definite(invW));
   EXPECT_TRUE(is_symmetric(invW));
+  EXPECT_FALSE(is_skew(invW));
+}
+
+TEST(TensorAlgebraPropagation, InvCtorDefendsAgainstSkewSpaceWithPdAlgebra) {
+  // Exercise tensor_inv's ctor ordering on the pathological state that
+  // the assume_* call sites prevent but a direct-manager caller can
+  // construct: Skew on the space field AND positive_definite in the
+  // algebra manager. The ctor's space block propagates Skew to the
+  // result first; then the algebra block calls
+  // set_symmetric_unless_more_specific which overwrites Skew with Sym
+  // (Skew is not a recognised sym subspace). Lock that ordering in so
+  // a refactor doesn't reverse it and produce an inv that claims to
+  // be both PD and Skew.
+  //
+  // Dim 2 (even): the inv() factory's odd-dim skew-singularity guard
+  // doesn't fire, so we actually reach the tensor_inv ctor.
+  auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 2, 2}));
+  assume_skew(W);
+  // Bypass assume_positive_definite (which would overwrite the Skew
+  // space). Insert PD/PSD directly into the algebra manager, leaving
+  // the Skew space intact. This is the state the ctor must handle.
+  W.data()->tensor_algebra_assumptions().insert(positive_definite{});
+  W.data()->tensor_algebra_assumptions().insert(positive_semidefinite{});
+  ASSERT_TRUE(is_skew(W));
+  ASSERT_TRUE(is_positive_definite(W));
+  auto invW = inv(W);
+  EXPECT_TRUE(is_positive_definite(invW));
+  EXPECT_TRUE(is_symmetric(invW))
+      << "ctor's algebra block must overwrite the propagated Skew with Sym";
   EXPECT_FALSE(is_skew(invW));
 }
 
@@ -499,6 +522,39 @@ TEST(TensorAlgebraPropagation, InvPdComposesWithVolumetric) {
   // Vol IS preserved by tensor_inv's rank-2 space-propagation
   // (Volumetric perm in {Sym subspaces}; not Dev/Harm so kept).
   EXPECT_TRUE(is_volumetric(invP));
+}
+
+TEST(TensorAlgebraPropagation, InvInvPdReducesToCWithPdIntact) {
+  // inv() factory's inv(inv(A)) → A short-circuit returns the inner
+  // expression unchanged. Since C carried PD/PSD/Sym before, the
+  // collapsed result trivially still has them — no separate
+  // propagation step needed. Lock in the transitivity: a fold that
+  // sheds annotations on collapse would silently weaken downstream
+  // reasoning.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_positive_definite(C);
+  auto invInvC = inv(inv(C));
+  EXPECT_EQ(invInvC, C) << "inv(inv(A)) should structurally collapse to A";
+  EXPECT_TRUE(is_positive_definite(invInvC));
+  EXPECT_TRUE(is_positive_semidefinite(invInvC));
+  EXPECT_TRUE(is_symmetric(invInvC));
+}
+
+TEST(TensorAlgebraPropagation, AssumePdOnRank4WithNoSpaceLeavesSpaceUnset) {
+  // Rank-gate on detail::set_symmetric_unless_more_specific: when the
+  // input is rank-4 with no recognised sym subspace, the helper is a
+  // no-op (writing a rank-2 Symmetric{} tag to a rank-4 tensor would
+  // be a structural mismatch). The PD algebra annotation still goes
+  // in. Lock in this defensive behavior: a regression that wrote
+  // rank-2 Sym to rank-4 would silently produce malformed nodes.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 4}));
+  assume_positive_definite(C);
+  EXPECT_TRUE(is_positive_definite(C));
+  EXPECT_TRUE(is_positive_semidefinite(C));
+  // Space stays unset — the user can opt in via assume_minor_major
+  // or assume_major if they want a sym subspace at rank-4.
+  EXPECT_FALSE(C.get().space().has_value())
+      << "rank-4 PD with no prior space must NOT get a rank-2 Sym tag";
 }
 
 } // namespace numsim::cas
