@@ -647,14 +647,16 @@ TEST(TensorAlgebraDetPropagation, DetPdConstantFoldsBypassThePropagationPath) {
   EXPECT_TRUE(is_same<tensor_to_scalar_one>(d));
 }
 
-// ─── Recursive-path gap documentation (#246 α-2d) ─────────────────
-// The propagation block in det() fires only on the terminal
-// tensor_det node. The recursive paths (det(α·A), det(inv(A)),
-// det(tensor_mul)) compose results via t2s mul/div/pow which do
-// NOT yet propagate `positive` through the operation. The tests
-// below document the CURRENT (incomplete) behavior so a future fix
-// that lands the missing operator propagation can update them in
-// lockstep. Tracked: #260 (t2s op propagation), #261 (t2s constants).
+// ─── Recursive-path gaps + closures (#246 α-2d) ───────────────────
+// The α-2d propagation block in det() fires only on the terminal
+// tensor_det node. Recursive paths compose results via t2s
+// mul/div/pow which do NOT yet propagate `positive` through the
+// operation generically (#260).
+//
+// The det(inv(PD)) chain is closed here directly: det() projects PD
+// from the outer tensor_inv wrapper (α-2b) onto the composed
+// `1/det(inner)` result at the fold site. The det(α·PD) chain
+// remains open until #260 lands.
 
 TEST(TensorAlgebraDetPropagation, DetScalarMulPdLosesPositivityViaComposition) {
   // det(α·C) = α^d · det(C). The inner det(C) DOES get positive
@@ -670,27 +672,42 @@ TEST(TensorAlgebraDetPropagation, DetScalarMulPdLosesPositivityViaComposition) {
       << "Currently expected: composition strips positive (see #260)";
 }
 
-TEST(TensorAlgebraDetPropagation, DetInvPdLosesPositivityViaComposition) {
-  // det(inv(C)) = 1/det(C). The det() factory's `is_same<tensor_inv>`
-  // branch returns `make_expression<tensor_to_scalar_one>() / det(inner)`
-  // BEFORE the terminal `make_expression<tensor_det>` where the new
-  // α-2d annotation logic lives. So:
-  //   - The outer node is a t2s division (not a tensor_det) — α-2d's
-  //     propagation doesn't fire on it.
-  //   - The recursive `det(inner)` call CAN fire α-2d on a terminal
-  //     `tensor_det(inner)`, but here `inner = C` is PD-annotated and
-  //     the recursive det() also short-circuits (the rest of the folds
-  //     don't recognise PD specifically, so it reaches the terminal
-  //     branch — that one DOES annotate positive). Even with that
-  //     inner annotation, the outer t2s `/` doesn't propagate it.
-  // Net result: outer det(inv(C)) has no positivity tag. Documenting
-  // the gap. Once #260 (t2s op propagation through mul/div/pow) lands,
-  // 1/positive should resolve to positive; flip this expectation then.
+TEST(TensorAlgebraDetPropagation, DetInvPdIsPositiveViaWrapperProjection) {
+  // det(inv(C)) = 1/det(C) for PD C. The det() factory matches
+  // is_same<tensor_inv> and returns one/det(inner) BEFORE the
+  // terminal tensor_det branch. Two independent ingredients close
+  // the chain:
+  //   - α-2b: tensor_inv(PD C) wrapper carries positive_definite{}.
+  //   - det() projects PD from the outer wrapper onto the composed
+  //     result at the fold site (PD ⇒ det > 0 strict, 1/det > 0).
+  // Avoids waiting on t2s div positivity propagation (#260) for this
+  // particular chain. PSD inputs are NOT propagated by design
+  // (det may be zero → 1/det undefined).
   auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
   assume_positive_definite(C);
   auto d = det(inv(C));
-  EXPECT_FALSE(d.data()->assumptions().contains(positive{}))
-      << "Currently expected: t2s `/` doesn't propagate positive (#260)";
+  auto const &a = d.data()->assumptions();
+  EXPECT_TRUE(a.contains(positive{}))
+      << "PD wrapper projection onto 1/det(C) should yield positive";
+  EXPECT_TRUE(a.contains(nonnegative{}));
+  EXPECT_TRUE(a.contains(nonzero{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+}
+
+TEST(TensorAlgebraDetPropagation, DetInvPsdDoesNotPropagatePositivity) {
+  // PSD ⇒ det ≥ 0 but possibly zero. 1/0 is undefined, so we MUST
+  // NOT claim 1/det is positive (or even nonnegative — runtime would
+  // produce NaN/inf, not 0). Locks in the PSD-skip clause of the
+  // wrapper-projection fix.
+  auto H = std::get<0>(make_tensor_variable(std::tuple{"H", 3, 2}));
+  assume_positive_semidefinite(H);
+  auto d = det(inv(H));
+  auto const &a = d.data()->assumptions();
+  EXPECT_FALSE(a.contains(positive{}))
+      << "PSD: 1/det undefined when det=0; positive would be unsound";
+  EXPECT_FALSE(a.contains(nonnegative{}))
+      << "PSD: 1/det undefined when det=0; nonneg would be unsound";
+  EXPECT_FALSE(a.contains(nonzero{}));
 }
 
 TEST(TensorAlgebraDetPropagation, DetTransPdGetsPositiveViaSymmetricShortcut) {
@@ -755,14 +772,14 @@ TEST(TensorAlgebraConstants, TensorToScalarZeroCarriesNonnegativeNonpositive) {
 // review of the 1.0-α milestone.
 //
 // NOTE on α-2b's composition surface:
-//   det() short-circuits at is_same<tensor_inv> (returning 1/det(inner))
-//   BEFORE the bottom-of-function PD-propagation check runs. So α-2b's
-//   PD-tag on tensor_inv is invisible to det(). To then reach a positive
-//   result from 1/det(C) we would need t2s div to propagate positivity
-//   — open as #260. Consequence: α-2b currently has no meaningful
-//   cross-PR composition chain in this file; its coverage lives in
-//   TensorAlgebraPropagation as a direct is_positive_definite(inv(C))
-//   lock-in (kept below as a sentinel here too).
+//   det() projects PD from the tensor_inv wrapper (α-2b) onto the
+//   composed 1/det(inner) result at the is_same<tensor_inv> fold site.
+//   This closes the det(inv(PD)) chain without waiting on t2s div
+//   positivity propagation (#260, still open for the other paths like
+//   det(α·C)). See DetInvPdIsPositiveViaWrapperProjection in
+//   TensorAlgebraDetPropagation for the direct lock-in, and the
+//   InvPdPreservesPositiveDefiniteSentinel below for the α-2b wrapper
+//   contract on its own.
 
 TEST(TensorAlgebraComposition, EndToEndChainDetInvTimesOrthogonalIsPositive) {
   // Chain: det(inv(R) * R) for orthogonal R.

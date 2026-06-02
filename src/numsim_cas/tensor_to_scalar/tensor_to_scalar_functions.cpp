@@ -111,9 +111,27 @@ det(expression_holder<tensor_expression> const &expr) {
 
   // det(inv(A)) = 1/det(A). Routes through the t2s div operator which
   // composes via pow(rhs, -1) — produces canonical pow(det(A), -1).
+  //
+  // Closes the α-2b composition gap surfaced by the cross-PR review:
+  // α-2b annotates tensor_inv(PD) with positive_definite{}, but the
+  // recursive det(inner) call doesn't see the outer wrapper's tag,
+  // and t2s div positivity propagation (#260) is open. So PD on the
+  // outer expression has to be projected onto the composed result
+  // here directly. PD ⇒ det > 0 strict, so 1/det is also strictly
+  // positive. PSD is NOT propagated: det may be zero and 1/det is
+  // then undefined; any positivity claim would be incorrect.
   if (is_same<tensor_inv>(expr)) {
     auto const &inner = expr.get<tensor_inv>().expr();
-    return make_expression<tensor_to_scalar_one>() / det(inner);
+    auto result = make_expression<tensor_to_scalar_one>() / det(inner);
+    if (is_positive_definite(expr)) {
+      auto &a = result.data()->assumptions();
+      a.insert(positive{});
+      a.insert(nonnegative{});
+      a.insert(nonzero{});
+      a.insert(real_tag{});
+      a.set_inferred();
+    }
+    return result;
   }
 
   // det(trans(A)) = det(A). trans() builds permute_indices_wrapper with
