@@ -774,12 +774,16 @@ TEST(TensorAlgebraComposition, EndToEndChainDetInvTimesOrthogonalIsPositive) {
   // End result must satisfy is_positive(d).
   auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
   assume_orthogonal(R);
+  // Bind once so the ASSERT and the subsequent det() observe the
+  // same object; otherwise we'd build and fold the chain twice and
+  // could in principle diverge.
+  auto inner = inv(R) * R;
   // Intermediate lock-in: if α-2a or α-2c regress, this assertion
   // pinpoints the broken layer rather than reporting a confusing
   // final-stage failure on the t2s side.
-  ASSERT_TRUE(is_same<identity_tensor>(inv(R) * R))
+  ASSERT_TRUE(is_same<identity_tensor>(inner))
       << "α-2a + α-2c: inv(orth R) * R must collapse to identity_tensor";
-  auto d = det(inv(R) * R);
+  auto d = det(inner);
   EXPECT_TRUE(is_same<tensor_to_scalar_one>(d))
       << "chain should collapse to the constant 1, got: " << to_string(d);
   EXPECT_TRUE(d.data()->assumptions().contains(positive{}))
@@ -787,13 +791,10 @@ TEST(TensorAlgebraComposition, EndToEndChainDetInvTimesOrthogonalIsPositive) {
 }
 
 TEST(TensorAlgebraComposition, InvPdPreservesPositiveDefiniteSentinel) {
-  // α-2b sentinel kept in the composition file even though the
-  // architectural NOTE above explains why no real chain exists.
-  // Direct lock-in: a PD input survives the inv factory as a PD
-  // tensor_inv. Replaces the prior vol+orth test whose chain
-  // collapsed trivially via trans's symmetric shortcut (vol ⊂ sym)
-  // — that test was effectively asserting "shortcut returns input"
-  // and gave the false impression that α-2b had cross-PR coverage.
+  // α-2b sentinel. Kept here even though the architectural NOTE above
+  // explains why no cross-PR chain reaches further: a direct
+  // is_positive_definite(inv(C)) lock-in is the strongest assertion
+  // available against the inv factory's PD propagation today.
   auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
   assume_positive_definite(C);
   ASSERT_TRUE(is_positive_definite(C));
@@ -829,21 +830,13 @@ TEST(TensorAlgebraComposition,
 }
 
 TEST(TensorAlgebraComposition, DetIdentityIsAnnotatedPositiveAfterH1Fix) {
-  // Replaces a near-duplicate of α-2c's existing
-  // TransUnannotatedTimesOrthogonalDoesNotFold (different name, same
-  // input + assertion). The duplicate added no real coverage.
-  //
-  // This test instead locks in the H1 inconsistency fix from the
-  // cross-PR review:
-  //   det(identity_tensor) → tensor_to_scalar_one      (existing fold)
-  //   tensor_to_scalar_one annotated positive          (#263)
-  // Without #263, det(I) returns an un-annotated 1 while det(PD C)
-  // returns a tensor_det annotated positive (α-2d) — H1.
-  // With #263, both forms produce positivity-annotated results,
-  // resolving the cross-PR semantic inconsistency.
-  //
-  // Genuine cross-PR composition: existing det(I) fold + the new #263
-  // constants annotation. Two independent commits in the milestone.
+  // H1 boundary lock-in. Without #263, det(I) returned an un-annotated
+  // 1 while det(PD C) returned a tensor_det annotated positive (α-2d)
+  // — same det() function with semantically divergent result
+  // annotations. With #263, both forms produce positivity-annotated
+  // results: tensor_to_scalar_one carries positive directly.
+  // Cross-PR composition: the pre-existing det(I) fold composes with
+  // the new #263 constants annotation.
   auto I3 = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
   auto d = det(I3);
   ASSERT_TRUE(is_same<tensor_to_scalar_one>(d))
