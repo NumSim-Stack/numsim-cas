@@ -301,6 +301,50 @@ TEST(TensorAlgebraFold, InvSkewOrthogonal2DStillFolds) {
   // skew returns -R (trans()'s skew short-circuit). So inv = -R.
   EXPECT_TRUE(is_same<tensor_negative>(r))
       << "2D skew-orthogonal inv folds to -R via trans short-circuit";
+  // (-R) is itself orthogonal: (-R)^T (-R) = R^T R = I. trans()'s skew
+  // branch inserts the orthogonal annotation onto the negated result;
+  // lock that in so a refactor of the short-circuit doesn't drop it.
+  EXPECT_TRUE(is_orthogonal(r))
+      << "negated result should still carry the orthogonal annotation";
+}
+
+TEST(TensorAlgebraFold, InvScalarMulOrthogonalRecursesCorrectly) {
+  // inv(α·R) → inv(R)/α = trans(R)/α. Locks in the inv() factory
+  // ordering: the orthogonal-fold check (gated on rank-2) sits BEFORE
+  // the scalar_mul fold but must NOT fire on α·R, because
+  // tensor_scalar_mul does NOT propagate the orthogonal algebra
+  // annotation (verified in operators/scalar/tensor_scalar_mul.h —
+  // only `space` is forwarded). If a future change to scalar_mul
+  // wrongly propagated orthogonal, the fold would silently collapse
+  // α·R → trans(R) instead of preserving the 1/α factor.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto alpha = std::get<0>(make_scalar_variable("alpha"));
+  auto r = inv(alpha * R);
+  // Defensive contract: the orthogonal fold must NOT have fired on
+  // α·R, so the result is not bare trans(R) — it carries the 1/α
+  // factor structurally (typically as a tensor_scalar_mul of (1/α)
+  // and trans(R)).
+  EXPECT_FALSE(is_same<identity_tensor>(r));
+  // The inv(α·A) recursion + inv(orth) fold MUST still produce
+  // something: not a bare tensor_inv node (which would mean the
+  // recursion stalled).
+  EXPECT_FALSE(is_same<tensor_inv>(r))
+      << "inv(α·R) for orthogonal R should recurse through the "
+         "scalar_mul rule and fold the inner inv(R)";
+}
+
+TEST(TensorAlgebraFold, DetScalarMulOrthogonalIsNotOne) {
+  // det(α·R) = α^d · det(R) = α^d for orthogonal R. The result MUST
+  // NOT collapse to 1 — that would be the bug case where the
+  // orthogonal fold fired on α·R despite the scalar factor.
+  // Companion to InvScalarMulOrthogonalRecursesCorrectly above.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto alpha = std::get<0>(make_scalar_variable("alpha"));
+  auto d = det(alpha * R);
+  EXPECT_FALSE(is_same<tensor_to_scalar_one>(d))
+      << "det(α·R) is α^d, not 1 — orthogonal fold must not fire on α·R";
 }
 
 TEST(TensorAlgebraFold, InvOrthogonalEvaluatesCorrectly) {
