@@ -10,7 +10,24 @@ class tensor_to_scalar_one final
     : public tensor_to_scalar_node_base_t<tensor_to_scalar_one> {
 public:
   using base = tensor_to_scalar_node_base_t<tensor_to_scalar_one>;
-  tensor_to_scalar_one() {}
+  // The constant 1 is mathematically: positive, nonnegative, nonzero,
+  // real, integer, rational. Pre-annotate so downstream queries
+  // (e.g. is_positive(det(orthogonal R))) see the right answer without
+  // relying on a separate fold to insert these tags. Closes #261 and
+  // the H1 inconsistency surfaced by the 1.0-α cross-PR review
+  // (det(orth) returned an un-annotated 1 while det(PD) carried
+  // positive — same det() function with semantically different result
+  // annotations).
+  tensor_to_scalar_one() {
+    auto &a = this->assumptions();
+    a.insert(positive{});
+    a.insert(nonnegative{});
+    a.insert(nonzero{});
+    a.insert(real_tag{});
+    a.insert(integer{});
+    a.insert(rational{});
+    a.set_inferred();
+  }
   tensor_to_scalar_one(tensor_to_scalar_one &&data) noexcept
       : base(std::move(static_cast<base &&>(data))) {}
   tensor_to_scalar_one(tensor_to_scalar_one const &data)
