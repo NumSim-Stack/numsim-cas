@@ -753,6 +753,16 @@ TEST(TensorAlgebraConstants, TensorToScalarZeroCarriesNonnegativeNonpositive) {
 // verifies that the annotation/fold propagation composes correctly
 // across PR boundaries. Recommended by the agent-driven cross-PR
 // review of the 1.0-α milestone.
+//
+// NOTE on α-2b's composition surface:
+//   det() short-circuits at is_same<tensor_inv> (returning 1/det(inner))
+//   BEFORE the bottom-of-function PD-propagation check runs. So α-2b's
+//   PD-tag on tensor_inv is invisible to det(). To then reach a positive
+//   result from 1/det(C) we would need t2s div to propagate positivity
+//   — open as #260. Consequence: α-2b currently has no meaningful
+//   cross-PR composition chain in this file; its coverage lives in
+//   TensorAlgebraPropagation as a direct is_positive_definite(inv(C))
+//   lock-in (kept below as a sentinel here too).
 
 TEST(TensorAlgebraComposition, EndToEndChainDetInvTimesOrthogonalIsPositive) {
   // Chain: det(inv(R) * R) for orthogonal R.
@@ -764,6 +774,11 @@ TEST(TensorAlgebraComposition, EndToEndChainDetInvTimesOrthogonalIsPositive) {
   // End result must satisfy is_positive(d).
   auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
   assume_orthogonal(R);
+  // Intermediate lock-in: if α-2a or α-2c regress, this assertion
+  // pinpoints the broken layer rather than reporting a confusing
+  // final-stage failure on the t2s side.
+  ASSERT_TRUE(is_same<identity_tensor>(inv(R) * R))
+      << "α-2a + α-2c: inv(orth R) * R must collapse to identity_tensor";
   auto d = det(inv(R) * R);
   EXPECT_TRUE(is_same<tensor_to_scalar_one>(d))
       << "chain should collapse to the constant 1, got: " << to_string(d);
@@ -771,34 +786,46 @@ TEST(TensorAlgebraComposition, EndToEndChainDetInvTimesOrthogonalIsPositive) {
       << "the constant 1 should be annotated positive (#263)";
 }
 
-TEST(TensorAlgebraComposition,
-     InvVolumetricOrthogonalPreservesBothAnnotations) {
-  // Mixed-annotation composition: C is BOTH volumetric AND orthogonal.
-  //   inv(C)         → α-2a fold fires (is_orthogonal) → trans(C)
-  //   trans(C)       → trans's symmetric short-circuit (vol ⊂ sym) → returns C
-  //   final          == C (literally the same shared_ptr).
-  //
-  // IMPORTANT mechanism note: this test passes because trans()'s
-  // SYMMETRIC short-circuit returns the input holder unchanged (vol IS
-  // a sym subspace). It does NOT exercise α-2a's general-path
-  // orthogonal propagation through permute_indices_wrapper — that path
-  // only fires for non-symmetric operands. The EXPECT_EQ below locks
-  // in the mechanism: if trans()'s short-circuit ever changes (e.g. to
-  // always wrap), this test catches it loudly rather than silently
-  // passing for a different reason.
+TEST(TensorAlgebraComposition, InvPdPreservesPositiveDefiniteSentinel) {
+  // α-2b sentinel kept in the composition file even though the
+  // architectural NOTE above explains why no real chain exists.
+  // Direct lock-in: a PD input survives the inv factory as a PD
+  // tensor_inv. Replaces the prior vol+orth test whose chain
+  // collapsed trivially via trans's symmetric shortcut (vol ⊂ sym)
+  // — that test was effectively asserting "shortcut returns input"
+  // and gave the false impression that α-2b had cross-PR coverage.
   auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
-  assume_volumetric(C);
-  assume_orthogonal(C);
-  ASSERT_TRUE(is_volumetric(C));
-  ASSERT_TRUE(is_orthogonal(C));
+  assume_positive_definite(C);
+  ASSERT_TRUE(is_positive_definite(C));
   auto invC = inv(C);
-  EXPECT_EQ(invC, C)
-      << "expected trans's symmetric shortcut to return the input "
-         "holder unchanged";
-  EXPECT_TRUE(is_volumetric(invC))
-      << "volumetric annotation should survive the chain";
-  EXPECT_TRUE(is_orthogonal(invC))
-      << "orthogonal annotation should survive the chain";
+  EXPECT_TRUE(is_positive_definite(invC))
+      << "α-2b: PD annotation must propagate through inv() wrapper";
+  // PD ⇒ symmetric ⇒ trans-short-circuit kicks in too, but
+  // is_positive_definite is robust to whichever path produced invC.
+}
+
+TEST(TensorAlgebraComposition,
+     TransOrthogonalTimesDifferentOrthogonalDoesNotCollapseToIdentity) {
+  // Negative composition at the TENSOR level: two DIFFERENT orthogonal
+  // tensors. The α-2c mul fold requires the trans-of structural match,
+  // not merely "both operands orthogonal". trans(R) * S (R ≠ S, both
+  // orth) must NOT collapse to identity. Catches an over-eager future
+  // refactor that mistakes "both orthogonal" for the fold trigger.
+  //
+  // NOTE: we do NOT assert det(product) ≠ 1 — that would fail because
+  // det is multiplicative across tensor_mul and det(orth) = 1 fires
+  // for each child independently. So det(trans(R)*S) = 1*1 = 1 even
+  // when the tensor product itself does not collapse to identity.
+  // That's correct math (det of any orthogonal product is 1) and an
+  // explicit sentinel that the negative test belongs at the tensor
+  // level, not at the determinant level.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  auto S = std::get<0>(make_tensor_variable(std::tuple{"S", 3, 2}));
+  assume_orthogonal(R);
+  assume_orthogonal(S);
+  auto product = trans(R) * S;
+  EXPECT_FALSE(is_same<identity_tensor>(product))
+      << "trans(R) * S with R != S must not collapse to identity";
 }
 
 TEST(TensorAlgebraComposition, DetIdentityIsAnnotatedPositiveAfterH1Fix) {
