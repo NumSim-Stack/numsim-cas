@@ -120,6 +120,15 @@ det(expression_holder<tensor_expression> const &expr) {
   // here directly. PD ⇒ det > 0 strict, so 1/det is also strictly
   // positive. PSD is NOT propagated: det may be zero and 1/det is
   // then undefined; any positivity claim would be incorrect.
+  //
+  // CONTRACT NOTE: the is_positive_definite check below interrogates
+  // `expr` (the OUTER tensor_inv wrapper), NOT `inner`. This couples
+  // to α-2b's tensor_inv ctor, which propagates PD from inner→wrapper.
+  // A future refactor that moves the check to `inner` would change
+  // the contract: a direct make_expression<tensor_inv>(C) that bypasses
+  // the inv() factory's ctor-side propagation would suddenly behave
+  // differently from inv(C). If you ever need to read PD from the
+  // inner, do so EXPLICITLY rather than swapping the argument here.
   if (is_same<tensor_inv>(expr)) {
     auto const &inner = expr.get<tensor_inv>().expr();
     auto result = make_expression<tensor_to_scalar_one>() / det(inner);
