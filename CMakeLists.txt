@@ -220,9 +220,18 @@ if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE)
     DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
   )
 elseif(NUMSIM_CAS_INSTALL_LIBRARY)
-  message(STATUS
-    "NUMSIM_CAS_INSTALL_LIBRARY is ON, but installable package export is disabled "
-    "because tmech was not found as an external package.")
+  # NUMSIM_CAS_INSTALL_LIBRARY=ON but tmech was FetchContent'd (not found
+  # as an external package). The install(TARGETS ...) above is skipped
+  # entirely — nothing is written to the install prefix. Use WARNING so
+  # users who set the option intentionally see the silent regression
+  # (STATUS is easily lost in CMake's normal output, especially via IDE
+  # configure runs).
+  message(WARNING
+    "NUMSIM_CAS_INSTALL_LIBRARY is ON, but install was SKIPPED because "
+    "tmech is not an installable external package in this build (it was "
+    "fetched via FetchContent). To produce an installable NumSim_CAS "
+    "package, install tmech first (so find_package(tmech) succeeds), "
+    "then reconfigure.")
 endif()
 
 # -----------------------------
