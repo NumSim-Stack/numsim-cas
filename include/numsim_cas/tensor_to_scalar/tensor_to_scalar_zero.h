@@ -12,10 +12,14 @@ public:
   using base = tensor_to_scalar_node_base_t<tensor_to_scalar_zero>;
 
   // The constant 0 is mathematically: nonnegative, nonpositive, real,
-  // integer, rational. NOT positive, NOT negative, NOT nonzero. Same
-  // rationale as tensor_to_scalar_one — pre-annotate so downstream
-  // queries see the right answer without depending on a separate fold.
-  // Closes #261 (alongside the matching annotation in
+  // integer, rational. nonzero is INTENTIONALLY absent — 0 is the
+  // additive identity, not nonzero. positive and negative are likewise
+  // absent (0 is neither). The omissions are load-bearing for
+  // soundness; the matching EXPECT_FALSE checks in
+  // TensorAlgebraConstants.TensorToScalarZeroCarriesNonnegativeNonpositive
+  // lock them in. Same rationale as tensor_to_scalar_one — pre-annotate
+  // so downstream queries see the right answer without depending on a
+  // separate fold. Closes #261 (alongside the matching annotation in
   // tensor_to_scalar_one).
   tensor_to_scalar_zero() {
     auto &a = this->assumptions();
