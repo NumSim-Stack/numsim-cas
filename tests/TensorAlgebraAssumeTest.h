@@ -321,17 +321,20 @@ TEST(TensorAlgebraFold, InvScalarMulOrthogonalRecursesCorrectly) {
   assume_orthogonal(R);
   auto alpha = std::get<0>(make_scalar_variable("alpha"));
   auto r = inv(alpha * R);
-  // Defensive contract: the orthogonal fold must NOT have fired on
-  // α·R, so the result is not bare trans(R) — it carries the 1/α
-  // factor structurally (typically as a tensor_scalar_mul of (1/α)
-  // and trans(R)).
-  EXPECT_FALSE(is_same<identity_tensor>(r));
-  // The inv(α·A) recursion + inv(orth) fold MUST still produce
-  // something: not a bare tensor_inv node (which would mean the
-  // recursion stalled).
-  EXPECT_FALSE(is_same<tensor_inv>(r))
-      << "inv(α·R) for orthogonal R should recurse through the "
-         "scalar_mul rule and fold the inner inv(R)";
+  // POSITIVE structural check (not negative). In the bug case where
+  // is_orthogonal(α·R) wrongly returned true, the orthogonal fold
+  // would build permute_indices_wrapper(α·R, {2,1}) — that's
+  // neither identity_tensor nor tensor_inv, so absence-only
+  // assertions would silently miss the bug. Assert presence of the
+  // 1/α scalar factor: a tensor_scalar_mul wrapping trans(R).
+  ASSERT_TRUE(is_same<tensor_scalar_mul>(r))
+      << "expected (1/α)·trans(R); bare trans/permute means the orth "
+         "fold wrongly fired on α·R without preserving the scalar factor";
+  // Belt and braces: the inner tensor of the scalar_mul is trans(R),
+  // i.e. a permute_indices_wrapper.
+  auto const &sm = r.template get<tensor_scalar_mul>();
+  EXPECT_TRUE(is_same<permute_indices_wrapper>(sm.expr_rhs()))
+      << "inner of the scalar_mul should be trans(R)";
 }
 
 TEST(TensorAlgebraFold, DetScalarMulOrthogonalIsNotOne) {
