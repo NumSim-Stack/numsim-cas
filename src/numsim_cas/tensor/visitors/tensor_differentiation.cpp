@@ -1,8 +1,8 @@
 #include <numsim_cas/tensor/visitors/tensor_differentiation.h>
 
+#include <cassert>
 #include <numeric>
 #include <numsim_cas/core/diff.h>
-#include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_diff.h>
@@ -285,15 +285,25 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
     int sign = 0;
     if (is_symmetric(A))
       sign = +1;
-    else if (is_skew(A))
+    else if (is_skew(A)) {
+      // Defensive assert on the cross-module precondition: the inv()
+      // factory rejects odd-dim skew (singular) before any tensor_inv
+      // ever reaches this visitor. If a future refactor relaxes the
+      // factory check, the antisym kernel below would emit a meaningless
+      // expression for a singular tensor — fail loudly here instead.
+      assert(A.get().dim() % 2 == 0 &&
+             "skew odd-dim should have been rejected by inv() factory");
       sign = -1;
+    }
     if (sign != 0) {
       auto T_swap = otimes(invA, sequence{1, 4}, invA, sequence{3, 2});
-      // Shared 1/2 constant from scalar_globals (matches the
-      // get_scalar_zero/get_scalar_one convention). scalar_constant is
-      // value-immutable, so a single shared instance is safe across all
-      // call sites and threads; saves one make_expression per call.
-      T = (sign > 0 ? T + T_swap : T - T_swap) * get_scalar_half();
+      // The 1/2 constant: function-local static. scalar_constant is
+      // value-immutable so a single instance is safe across all calls
+      // and threads (magic-static initialization). Saves one allocation
+      // per call.
+      static auto const half =
+          make_expression<scalar_constant>(scalar_number{1, 2});
+      T = (sign > 0 ? T + T_swap : T - T_swap) * half;
     }
     m_result = -inner_product(T, sequence{3, 4}, dA, sequence{1, 2});
   } else {
