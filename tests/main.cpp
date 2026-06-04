@@ -16,6 +16,7 @@
 #include "TensorDifferentiationTest.h"
 #include "TensorEvaluatorTest.h"
 #include "TensorExpressionTest.h"
+#include "TensorInvDiffSymTest.h"
 #include "TensorLatexPrinterTest.h"
 #include "TensorPrinterTest.h"
 #include "TensorProjectorDifferentiationTest.h"

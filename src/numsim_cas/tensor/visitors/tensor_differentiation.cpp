@@ -240,8 +240,26 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
 }
 
 // tensor_inv: d(A^{-1})/dX = -inner(inner(inv(A), dA/dX), inv(A))
-// For rank-2: d(A^{-1})_{ij}/dX = -sum_{mn} A^{-1}_{im} * A^{-1}_{nj} *
-// dA_{mn}/dX
+// For rank-2: d(A^{-1})_{ij}/dX = -sum_{mn} T_{ijmn} * dA_{mn}/dX, where the
+// rank-4 kernel T depends on the algebraic class of A:
+//
+//   - General (no Sym/Skew annotation):
+//       T_{ijmn} = A^{-1}_{im} * A^{-1}_{nj}                  (Magnus)
+//   - Symmetric (A = A^T):
+//       T_{ijmn} = (1/2)(A^{-1}_{im} A^{-1}_{nj}
+//                      + A^{-1}_{in} A^{-1}_{mj})             (minor-sym)
+//   - Skew (A = -A^T, even dim only — odd-dim skew is singular and is
+//     already rejected by the inv() factory):
+//       T_{ijmn} = (1/2)(A^{-1}_{im} A^{-1}_{nj}
+//                      - A^{-1}_{in} A^{-1}_{mj})             (minor-antisym)
+//
+// The Sym/Skew kernels are derived from the chain rule's requirement that
+// dA_{mn} respects the symmetry of A: for symmetric A, dA_{mn} = dA_{nm};
+// for skew, dA_{mn} = -dA_{nm}. The general formula and the symmetric
+// formula AGREE numerically when contracted with a symmetric dA (the swap
+// term integrates to the same value); they DIFFER when callers pass an
+// un-symmetrized dA into a symmetric input — the symmetric formula is the
+// correct one. Closes the rank-2 portion of #250 (#246 β-1).
 void tensor_differentiation::operator()(tensor_inv const &visitable) {
   auto const &A = visitable.expr();
   auto dA = diff(A, m_arg);
@@ -252,10 +270,18 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
   auto invA = inv(A);
 
   if (A.get().rank() == 2) {
-    // Build T[i,j,m,n] = invA_{im} * invA_{nj} via
-    //   otimes(invA, {1,3}, invA, {4,2})
-    // Then contract T's {m,n} with dA's first two indices.
     auto T = otimes(invA, sequence{1, 3}, invA, sequence{4, 2});
+    if (auto const &sp = A.get().space()) {
+      if (std::holds_alternative<Symmetric>(sp->perm)) {
+        auto T_swap = otimes(invA, sequence{1, 4}, invA, sequence{3, 2});
+        auto half = make_expression<scalar_constant>(scalar_number{1, 2});
+        T = (T + T_swap) * half;
+      } else if (std::holds_alternative<Skew>(sp->perm)) {
+        auto T_swap = otimes(invA, sequence{1, 4}, invA, sequence{3, 2});
+        auto half = make_expression<scalar_constant>(scalar_number{1, 2});
+        T = (T - T_swap) * half;
+      }
+    }
     m_result = -inner_product(T, sequence{3, 4}, dA, sequence{1, 2});
   } else {
     throw not_implemented_error(
