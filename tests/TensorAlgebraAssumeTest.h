@@ -1,10 +1,14 @@
 #ifndef TENSORALGEBRAASSUMETEST_H
 #define TENSORALGEBRAASSUMETEST_H
 
+#include <cmath>
 #include <gtest/gtest.h>
+#include <memory>
+#include <numbers>
 
 #include <numsim_cas/numsim_cas.h>
 #include <numsim_cas/tensor/tensor_assume.h>
+#include <numsim_cas/tensor/visitors/tensor_evaluator.h>
 
 namespace numsim::cas {
 
@@ -187,6 +191,194 @@ TEST(TensorAlgebraAssume, AlgebraAssumptionOrthogonalToProjectorSpace) {
   EXPECT_TRUE(is_orthogonal(W));
   // The earlier Skew space tag survives — orthogonal does not clear it.
   EXPECT_TRUE(is_skew(W));
+}
+
+// ─── #246 algebra-rule folds (α-2a): inv / det for orthogonal ──────────
+
+TEST(TensorAlgebraFold, TransOrthogonalIsOrthogonal) {
+  // Algebra fact: trans of orthogonal is orthogonal. The propagation
+  // lives in trans() itself so callers that go through trans() directly
+  // (not via the inv() fold) also see it. This is the primary
+  // propagation test; InvOrthogonalFoldsToTrans below verifies the fold
+  // composes with it.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto rT = trans(R);
+  EXPECT_TRUE(is_orthogonal(rT)) << "trans(orthogonal) should be orthogonal";
+}
+
+TEST(TensorAlgebraFold, InvOrthogonalFoldsToTrans) {
+  // inv(R) = trans(R) when R is annotated orthogonal — closes the
+  // dominant simplification for rotation tensors. The result must also
+  // carry the orthogonal annotation so downstream queries / further
+  // folds see it.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto r = inv(R);
+  // Structural form is the transpose, NOT a tensor_inv node.
+  EXPECT_FALSE(is_same<tensor_inv>(r))
+      << "inv(orthogonal) should fold, not build a tensor_inv node";
+  EXPECT_TRUE(is_same<permute_indices_wrapper>(r))
+      << "expected trans(R) = permute_indices_wrapper";
+  // Annotation propagation: inv(orthogonal) is still orthogonal.
+  EXPECT_TRUE(is_orthogonal(r))
+      << "result should carry orthogonal annotation for downstream folds";
+}
+
+TEST(TensorAlgebraFold, InvOrthogonalDoesNotFireAtRank4) {
+  // The fold requires rank == 2 (trans() is rank-2 only and orthogonality
+  // at rank-4 isn't standardly defined). A rank-4 tensor with orthogonal
+  // annotation should still build a tensor_inv (routed to invf at eval).
+  auto A4 = make_expression<tensor>("A4", std::size_t{3}, std::size_t{4});
+  assume_orthogonal(A4);
+  auto r = inv(A4);
+  EXPECT_TRUE(is_same<tensor_inv>(r))
+      << "rank-4 orthogonal should NOT trigger the trans fold";
+}
+
+TEST(TensorAlgebraFold, InvUnannotatedDoesNotFireFold) {
+  // Negative case: without the orthogonal annotation the fold must NOT
+  // fire — guards against accidental over-eager folding.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto r = inv(A);
+  EXPECT_TRUE(is_same<tensor_inv>(r))
+      << "inv(unannotated rank-2) should build tensor_inv as before";
+}
+
+TEST(TensorAlgebraFold, DetOrthogonalFoldsToOne) {
+  // det(R) = 1 for proper rotations (the dominant continuum-mechanics
+  // case). The annotation doesn't distinguish improper rotations (det =
+  // -1); a future chirality sub-tag could refine this.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto d = det(R);
+  EXPECT_TRUE(is_same<tensor_to_scalar_one>(d))
+      << "det(orthogonal) should fold to tensor_to_scalar_one";
+}
+
+TEST(TensorAlgebraFold, DetUnannotatedDoesNotFireFold) {
+  // Negative case: det of an un-annotated tensor must build a tensor_det
+  // node — fold gated correctly.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto d = det(A);
+  EXPECT_TRUE(is_same<tensor_det>(d))
+      << "det(unannotated) should build tensor_det as before";
+}
+
+TEST(TensorAlgebraFold, InvSkewOrthogonalOddDimThrowsContradiction) {
+  // User asserts BOTH skew and orthogonal on an odd-dim tensor —
+  // logical contradiction (skew odd-dim ⇒ det = 0 by the (-1)^n det
+  // theorem; orthogonal ⇒ det = ±1). The skew-singularity guard
+  // (rank-2, odd-dim, contains_skew_factor) is ordered BEFORE the
+  // orthogonal fold so the contradiction is rejected loudly rather
+  // than silently folded to trans(R).
+  //
+  // The 2D case is legitimate (2D rotation by π/2 IS both skew and
+  // orthogonal: R=[[0,-1],[1,0]], R^T=-R, R^T R = I). That case is
+  // covered by InvSkewOrthogonal2DStillFolds below.
+  auto R3 = make_expression<tensor>("R3", std::size_t{3}, std::size_t{2});
+  assume_skew(R3);
+  assume_orthogonal(R3);
+  try {
+    [[maybe_unused]] auto r = inv(R3);
+    FAIL() << "Expected throw for skew+orthogonal at odd dim "
+              "(logical contradiction)";
+  } catch (invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("skew"), std::string::npos)
+        << "error message should mention skew singularity";
+  }
+}
+
+TEST(TensorAlgebraFold, InvSkewOrthogonal2DStillFolds) {
+  // Even-dim skew-and-orthogonal IS mathematically valid (e.g. 2D
+  // rotation by π/2 satisfies both). Skew guard doesn't fire (even
+  // dim) so the orthogonal fold runs: inv(R) → trans(R) = -R.
+  auto R2 = make_expression<tensor>("R2", std::size_t{2}, std::size_t{2});
+  assume_skew(R2);
+  assume_orthogonal(R2);
+  auto r = inv(R2);
+  // Even-dim skew + orthogonal is legit; fold to trans which for
+  // skew returns -R (trans()'s skew short-circuit). So inv = -R.
+  EXPECT_TRUE(is_same<tensor_negative>(r))
+      << "2D skew-orthogonal inv folds to -R via trans short-circuit";
+  // (-R) is itself orthogonal: (-R)^T (-R) = R^T R = I. trans()'s skew
+  // branch inserts the orthogonal annotation onto the negated result;
+  // lock that in so a refactor of the short-circuit doesn't drop it.
+  EXPECT_TRUE(is_orthogonal(r))
+      << "negated result should still carry the orthogonal annotation";
+}
+
+TEST(TensorAlgebraFold, InvScalarMulOrthogonalRecursesCorrectly) {
+  // inv(α·R) → inv(R)/α = trans(R)/α. Locks in the inv() factory
+  // ordering: the orthogonal-fold check (gated on rank-2) sits BEFORE
+  // the scalar_mul fold but must NOT fire on α·R, because
+  // tensor_scalar_mul does NOT propagate the orthogonal algebra
+  // annotation (verified in operators/scalar/tensor_scalar_mul.h —
+  // only `space` is forwarded). If a future change to scalar_mul
+  // wrongly propagated orthogonal, the fold would silently collapse
+  // α·R → trans(R) instead of preserving the 1/α factor.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto alpha = std::get<0>(make_scalar_variable("alpha"));
+  auto r = inv(alpha * R);
+  // POSITIVE structural check (not negative). In the bug case where
+  // is_orthogonal(α·R) wrongly returned true, the orthogonal fold
+  // would build permute_indices_wrapper(α·R, {2,1}) — that's
+  // neither identity_tensor nor tensor_inv, so absence-only
+  // assertions would silently miss the bug. Assert presence of the
+  // 1/α scalar factor: a tensor_scalar_mul wrapping trans(R).
+  ASSERT_TRUE(is_same<tensor_scalar_mul>(r))
+      << "expected (1/α)·trans(R); bare trans/permute means the orth "
+         "fold wrongly fired on α·R without preserving the scalar factor";
+  // Belt and braces: the inner tensor of the scalar_mul is trans(R),
+  // i.e. a permute_indices_wrapper.
+  auto const &sm = r.template get<tensor_scalar_mul>();
+  EXPECT_TRUE(is_same<permute_indices_wrapper>(sm.expr_rhs()))
+      << "inner of the scalar_mul should be trans(R)";
+}
+
+TEST(TensorAlgebraFold, DetScalarMulOrthogonalIsNotOne) {
+  // det(α·R) = α^d · det(R) = α^d for orthogonal R. The result MUST
+  // NOT collapse to 1 — that would be the bug case where the
+  // orthogonal fold fired on α·R despite the scalar factor.
+  // Companion to InvScalarMulOrthogonalRecursesCorrectly above.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  auto alpha = std::get<0>(make_scalar_variable("alpha"));
+  auto d = det(alpha * R);
+  EXPECT_FALSE(is_same<tensor_to_scalar_one>(d))
+      << "det(α·R) is α^d, not 1 — orthogonal fold must not fire on α·R";
+}
+
+TEST(TensorAlgebraFold, InvOrthogonalEvaluatesCorrectly) {
+  // End-to-end: inv(R) folded to trans(R) must evaluate to the actual
+  // matrix inverse for a numerically-orthogonal rotation. Build a 3D
+  // rotation about z by π/6 and verify inv(R) equals R^T componentwise.
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_orthogonal(R);
+  const double c = std::cos(std::numbers::pi / 6.0);
+  const double s = std::sin(std::numbers::pi / 6.0);
+  auto R_data = std::make_shared<tensor_data<double, 3, 2>>();
+  auto *raw = R_data->raw_data();
+  raw[0] = c;
+  raw[1] = -s;
+  raw[2] = 0;
+  raw[3] = s;
+  raw[4] = c;
+  raw[5] = 0;
+  raw[6] = 0;
+  raw[7] = 0;
+  raw[8] = 1;
+  tensor_evaluator<double> ev;
+  ev.set(R, std::static_pointer_cast<tensor_data_base<double>>(R_data));
+  auto inv_R_data = ev.apply(inv(R));
+  ASSERT_NE(inv_R_data, nullptr);
+  // For a rotation, transpose IS the inverse: R^T(0,1) = R(1,0) = s.
+  auto const &inv_R =
+      static_cast<tensor_data<double, 3, 2> const &>(*inv_R_data).data();
+  EXPECT_NEAR(inv_R(0, 1), s, 1e-12);
+  EXPECT_NEAR(inv_R(1, 0), -s, 1e-12);
+  EXPECT_NEAR(inv_R(2, 2), 1.0, 1e-12);
 }
 
 } // namespace numsim::cas
