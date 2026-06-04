@@ -7,12 +7,14 @@
 #include <numsim_cas/core/promote_expr.h>
 
 #include <numsim_cas/scalar/scalar_globals.h>
+#include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/operators/tensor/tensor_add.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_add.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_mul.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_sub.h>
 #include <numsim_cas/tensor/simplifier/tensor_with_scalar_simplifier_mul.h>
 #include <numsim_cas/tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_mul.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_one.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h>
@@ -137,6 +139,32 @@ tag_invoke(mul_fn, L &&lhs, [[maybe_unused]] R &&rhs) {
   if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
     const auto rank{rhs.get().rank() + lhs.get().rank() - 2};
     return make_expression<tensor_zero>(lhs.get().dim(), rank);
+  }
+  // R · trans(R) = I and trans(R) · R = I for orthogonal R (#246 α-2c).
+  // Orthogonality is a rank-2 concept (R^T R = I assumes square R) and
+  // is_trans_of detects the {2,1} permutation pattern (rank-2 transpose
+  // form). Gate on rank-2 so rank-4 paths fall through to the generic
+  // mul simplifier.
+  //
+  // KNOWN MISSED SIMPLIFICATIONS:
+  // - skew+orthogonal (even-dim only; e.g. 2D rotation by π/2): trans()
+  //   has a Skew short-circuit that returns -R instead of a
+  //   permute_indices_wrapper, so `trans(R) * R` becomes `(-R) * R`.
+  //   is_trans_of fails to recognise the negated form and the fold
+  //   doesn't fire, even though `(-R)·R = -R² = I` for these inputs.
+  //   Structurally correct (the math evaluates fine); just not folded.
+  // - symmetric+orthogonal (R = R⁻¹, i.e. an involution like R = I or a
+  //   reflection): `R · R = I` directly, no transpose pattern. The
+  //   current gate requires one operand to be trans(other), so this
+  //   case isn't recognised. The negative test below
+  //   (OrthogonalSelfMultiplyDoesNotFold) intentionally pins
+  //   "no fold for generic orthogonal squared" — extending to cover
+  //   sym+orth would need a separate gate, not a relaxation of this one.
+  if (lhs.get().rank() == 2 && rhs.get().rank() == 2) {
+    if (is_trans_of(rhs, lhs) && is_orthogonal(lhs))
+      return make_expression<identity_tensor>(lhs.get().dim(), std::size_t{2});
+    if (is_trans_of(lhs, rhs) && is_orthogonal(rhs))
+      return make_expression<identity_tensor>(rhs.get().dim(), std::size_t{2});
   }
   auto &_lhs{lhs.template get<tensor_visitable_t>()};
   tensor_detail::simplifier::mul_base visitor(std::forward<L>(lhs),
