@@ -381,6 +381,43 @@ TEST(TensorAlgebraFold, InvOrthogonalEvaluatesCorrectly) {
   EXPECT_NEAR(inv_R(2, 2), 1.0, 1e-12);
 }
 
+// ─── T2S constant default annotations (#261, H1 from α-2 review) ────
+
+TEST(TensorAlgebraConstants, TensorToScalarOneCarriesPositiveTags) {
+  // The constant 1 IS mathematically positive, nonnegative, nonzero,
+  // real, integer, rational. Annotated in the ctor so downstream
+  // queries see it without a separate fold needing to insert them.
+  // This closes the H1 inconsistency: det(orthogonal R) returns
+  // tensor_to_scalar_one which now carries positive directly, matching
+  // det(PD C)'s tensor_det with positive — semantically equivalent
+  // results.
+  auto one = make_expression<tensor_to_scalar_one>();
+  auto const &a = one.data()->assumptions();
+  EXPECT_TRUE(a.contains(positive{}));
+  EXPECT_TRUE(a.contains(nonnegative{}));
+  EXPECT_TRUE(a.contains(nonzero{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+  EXPECT_TRUE(a.contains(integer{}));
+  EXPECT_TRUE(a.contains(rational{}));
+}
+
+TEST(TensorAlgebraConstants, TensorToScalarZeroCarriesNonnegativeNonpositive) {
+  // The constant 0 is nonnegative AND nonpositive (both inequalities
+  // are non-strict). NOT positive, NOT negative, NOT nonzero. Real,
+  // integer, rational by trivial inclusion.
+  auto zero = make_expression<tensor_to_scalar_zero>();
+  auto const &a = zero.data()->assumptions();
+  EXPECT_TRUE(a.contains(nonnegative{}));
+  EXPECT_TRUE(a.contains(nonpositive{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+  EXPECT_TRUE(a.contains(integer{}));
+  EXPECT_TRUE(a.contains(rational{}));
+  // Negative cases:
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(negative{}));
+  EXPECT_FALSE(a.contains(nonzero{}));
+}
+
 // ─── #246 α-2d: det(PD) > 0 scalar-assumption propagation ──────────
 
 TEST(TensorAlgebraDetPropagation, DetPdIsPositive) {

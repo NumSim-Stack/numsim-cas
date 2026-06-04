@@ -125,6 +125,15 @@ public:
   void clear() { set_.clear(); }
   auto const &data() const { return set_; }
 
+  // Forward-compat marker for the assumption-propagation system.
+  // set_inferred() is called by assume_* helpers (scalar_assume.h) and
+  // construction-time annotations (e.g. tensor_to_scalar_one/zero) to
+  // signal "these facts are already established; an assumption
+  // propagator should treat them as known and skip re-derivation."
+  // No current reader uses inferred(); the flag is purely future-
+  // proofing for the planned propagator. Calls to set_inferred()
+  // exist across the codebase for consistency, but produce no
+  // observable behavior today.
   bool inferred() const noexcept { return inferred_; }
   void set_inferred() noexcept { inferred_ = true; }
 
