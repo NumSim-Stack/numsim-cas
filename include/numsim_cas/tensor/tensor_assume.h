@@ -52,14 +52,34 @@ assume_minor_major(expression_holder<tensor_expression> const &expr) {
 // must be preserved.
 
 namespace detail {
-// PD/PSD => symmetric: set the space if not already a Sym subspace.
-// Incompatible spaces (Skew, Minor, Major, MinorMajor) get overwritten.
+// PD/PSD => symmetric: set the space if not already a recognised sym
+// subspace. Two families count as "sym-or-more-specific":
+//   - Rank-2 ProjKind::Sym / Vol / Dev (the existing case).
+//   - Rank-4 Minor / MinorMajor perms (added for #246 α-2b — PD on a
+//     rank-4 stiffness with minor-major symmetry is the canonical
+//     case in continuum-mechanics elasticity tangents; without this
+//     branch the helper would overwrite MinorMajor with rank-2 Sym
+//     and lose the rank-4 structural info).
+// Incompatible spaces (Skew, plain Major-only without Minor, etc.)
+// still get overwritten — but ONLY at rank-2, since `Symmetric{}` is
+// a rank-2 perm. For rank-4 with no recognised space, the helper is
+// a no-op: writing a rank-2 Sym tag to a rank-4 tensor would be a
+// structural mismatch. The user can call assume_minor_major /
+// assume_major explicitly if they want a sym subspace on a rank-4
+// input; the PD/PSD algebra-manager implication still stands.
 inline void set_symmetric_unless_more_specific(tensor_expression *e) {
   if (auto const &sp = e->space()) {
     auto kind = classify_space(*sp);
     if (kind == ProjKind::Sym || kind == ProjKind::Vol || kind == ProjKind::Dev)
       return;
+    if (std::holds_alternative<Minor>(sp->perm) ||
+        std::holds_alternative<MinorMajor>(sp->perm))
+      return;
   }
+  // Rank gate: only rank-2 gets the Symmetric{} write. Rank-4 with no
+  // qualifying space is left untouched — see the helper doc above.
+  if (e->rank() != 2)
+    return;
   e->set_space({Symmetric{}, AnyTraceTag{}});
 }
 } // namespace detail
