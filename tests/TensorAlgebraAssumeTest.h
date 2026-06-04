@@ -381,6 +381,141 @@ TEST(TensorAlgebraFold, InvOrthogonalEvaluatesCorrectly) {
   EXPECT_NEAR(inv_R(2, 2), 1.0, 1e-12);
 }
 
+// ─── #246 α-2d: det(PD) > 0 scalar-assumption propagation ──────────
+
+TEST(TensorAlgebraDetPropagation, DetPdIsPositive) {
+  // det of a PD tensor is strictly positive — product of positive
+  // eigenvalues. The propagation lives in det()'s generic return
+  // path; folds for identity/zero/orthogonal/etc. don't go through
+  // this annotation (those produce constants that are trivially
+  // positive or zero by construction).
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_positive_definite(C);
+  auto d = det(C);
+  // Direct manager access — scalar_assume.h's is_positive is typed
+  // for scalar_expression, not t2s; both inherit assumptions() from
+  // the expression base class.
+  auto const &a = d.data()->assumptions();
+  EXPECT_TRUE(a.contains(positive{}));
+  // Joint insertions per scalar_assume convention:
+  EXPECT_TRUE(a.contains(nonnegative{}));
+  EXPECT_TRUE(a.contains(nonzero{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+}
+
+TEST(TensorAlgebraDetPropagation, DetPsdIsNonnegativeNotPositive) {
+  // det of PSD is ≥ 0 — could be zero (singular case). Propagate
+  // nonnegative but NOT positive / nonzero.
+  auto H = std::get<0>(make_tensor_variable(std::tuple{"H", 3, 2}));
+  assume_positive_semidefinite(H);
+  auto d = det(H);
+  auto const &a = d.data()->assumptions();
+  EXPECT_TRUE(a.contains(nonnegative{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+  EXPECT_FALSE(a.contains(positive{}))
+      << "PSD det may be zero; must not assert strictly positive";
+  EXPECT_FALSE(a.contains(nonzero{}))
+      << "PSD det may be zero; must not assert nonzero";
+}
+
+TEST(TensorAlgebraDetPropagation, DetUnannotatedHasNoPositivity) {
+  // Negative case: det of an un-annotated tensor must NOT gain
+  // positivity tags. Guards against over-eager propagation.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto d = det(A);
+  auto const &a = d.data()->assumptions();
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(nonnegative{}));
+  EXPECT_FALSE(a.contains(nonzero{}));
+}
+
+TEST(TensorAlgebraDetPropagation, DetSkewDoesNotFirePropagation) {
+  // Skew tensor is not PD/PSD — no propagation. Also det is in odd
+  // dimensions actually zero (caught by the existing inv-singularity
+  // guard, but that's separate). Just sanity-check the assumption
+  // doesn't leak.
+  auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 3, 2}));
+  assume_skew(W);
+  auto d = det(W);
+  auto const &a = d.data()->assumptions();
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(nonnegative{}));
+}
+
+TEST(TensorAlgebraDetPropagation, DetPdConstantFoldsBypassThePropagationPath) {
+  // Sanity: det(identity) folds to tensor_to_scalar_one (a constant),
+  // not a tensor_det node — so the annotation insertion path doesn't
+  // run. The result is already known to be 1, so positivity is
+  // implicit. Just verify the fold still fires unchanged.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  auto d = det(I);
+  EXPECT_TRUE(is_same<tensor_to_scalar_one>(d));
+}
+
+// ─── Recursive-path gap documentation (#246 α-2d) ─────────────────
+// The propagation block in det() fires only on the terminal
+// tensor_det node. The recursive paths compose results via t2s
+// mul/div/pow which do NOT yet propagate `positive` through the
+// operation (#260, t2s op propagation through mul/div/pow).
+//
+// Status of the recursive paths:
+//   - det(α·A) — gap open. Outer composition is pow(α,d) * det(A);
+//     even though det(A) carries positive via the recursive call,
+//     the t2s mul doesn't propagate. Test below pins the current
+//     incomplete behavior.
+//   - det(inv(C)) — gap CLOSED by PR #264, which projects PD directly
+//     onto the composed 1/det(C) result at the is_same<tensor_inv>
+//     fold site. The positive lock-in for that case lives in PR #264's
+//     composition test suite (TensorAlgebraDetPropagation.
+//     DetInvPdIsPositiveViaWrapperProjection) so we don't duplicate
+//     here. Once #260 lands generically, the projection at the fold
+//     site becomes redundant but remains correct.
+//   - det(tensor_mul) — also gap-open via #260; not specifically
+//     tested here (covered by composition-test PR's broader matrix).
+
+TEST(TensorAlgebraDetPropagation, DetScalarMulPd_Issue260_Sentinel) {
+  // SENTINEL for #260 (t2s mul/div/pow positivity propagation).
+  //
+  // Mathematically: det(α·C) = α^d · det(C), and for PD C the inner
+  // det(C) gets `positive` via the terminal-tensor_det propagation
+  // (α-2d). But α^d · positive is currently NOT folded to positive —
+  // the t2s mul operator doesn't propagate `positive` through the
+  // composition. So the outer expression has no positivity tag today.
+  //
+  // The EXPECT_FALSE here is INVERTED-on-purpose: this test passes
+  // today because the gap is open, but a #260 implementation that
+  // lands correct `positive * positive → positive` propagation will
+  // make it fail. The failure is the desired signal — at that point
+  // flip the expectation to EXPECT_TRUE and rename to ...IsPositive.
+  // Sentinel framing reflected in the test name so a reader scanning
+  // the test list knows it's a tracked-future-change marker rather
+  // than a permanent contract.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  auto alpha = make_scalar_variable("alpha");
+  assume_positive_definite(C);
+  auto d = det(std::get<0>(alpha) * C);
+  EXPECT_FALSE(d.data()->assumptions().contains(positive{}))
+      << "Sentinel: flip to EXPECT_TRUE when #260 lands t2s mul positivity";
+}
+
+TEST(TensorAlgebraDetPropagation, DetTransPdGetsPositiveViaSymmetricShortcut) {
+  // det(trans(PD C)) — actually DOES get the positive annotation,
+  // for a non-obvious reason: PD ⇒ symmetric, and trans()'s symmetric
+  // short-circuit returns the operand unchanged (since A^T = A for
+  // symmetric A). So trans(C) IS C, and the recursive det(C) fires
+  // the propagation normally. The "trans loses PD" gap I worried
+  // about doesn't bite here because trans never builds a wrapper in
+  // the first place. Lock in this happy-path behavior — a future
+  // change to trans()'s symmetric-shortcut (e.g. always wrap for
+  // hash consistency) would catch this test.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_positive_definite(C);
+  auto d = det(trans(C));
+  EXPECT_TRUE(d.data()->assumptions().contains(positive{}))
+      << "PD ⇒ symmetric, so trans() returns C unchanged and the "
+         "recursive det(C) fires the propagation";
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORALGEBRAASSUMETEST_H

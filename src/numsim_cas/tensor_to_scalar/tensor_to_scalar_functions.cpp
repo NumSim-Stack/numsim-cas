@@ -155,7 +155,42 @@ det(expression_holder<tensor_expression> const &expr) {
     return result;
   }
 
-  return make_expression<tensor_det>(expr);
+  auto result = make_expression<tensor_det>(expr);
+  // Propagate positivity from PD/PSD annotations on the input (#246
+  // α-2d). PD ⇒ det > 0; PSD ⇒ det ≥ 0. Insert into the t2s result's
+  // numeric_assumption_manager directly — the same one inherited from
+  // the expression base class that scalar assume() writes to. Mirrors
+  // scalar_assume.h's joint-insertion pattern.
+  //
+  // Limitation: this fires only on the terminal tensor_det node. The
+  // earlier structural folds (det(α·A) → α^d·det(A), det(inv) →
+  // 1/det(A), det(tensor_mul) → ∏det) compose results through t2s
+  // mul/div/pow which do NOT yet propagate `positive` through the
+  // operation. So `is_positive(det(α·PD))` is currently false even
+  // though it should be true. See #260 (t2s op propagation) and #261
+  // (t2s constants annotation) for the broader fix; this PR closes
+  // only the terminal-leaf case.
+  //
+  // Branches are two if's rather than if/else if to be robust against
+  // direct-manager callers who insert positive_definite{} alone (the
+  // joint PD ⇒ PSD insertion comes from assume_positive_definite, not
+  // from the manager itself).
+  auto &a = result.data()->assumptions();
+  if (is_positive_definite(expr)) {
+    a.insert(positive{});
+    a.insert(nonnegative{});
+    a.insert(nonzero{});
+    a.insert(real_tag{});
+    a.set_inferred(); // forward-compat: a future t2s assumption
+                      // propagator should treat these as already-known
+                      // facts, not as candidates for re-derivation.
+  }
+  if (is_positive_semidefinite(expr)) {
+    a.insert(nonnegative{});
+    a.insert(real_tag{});
+    a.set_inferred();
+  }
+  return result;
 }
 
 // ─── Principal invariants (#226 cheap deliverable) ─────────────────────
