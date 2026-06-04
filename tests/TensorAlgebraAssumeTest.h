@@ -833,6 +833,29 @@ TEST(TensorAlgebraComposition, InvPdPreservesPositiveDefiniteSentinel) {
 }
 
 TEST(TensorAlgebraComposition,
+     InvVolumetricOrthogonalPreservesBothAnnotations) {
+  // α-2a + projector-space cross-piece sentinel. C is BOTH volumetric
+  // AND orthogonal:
+  //   inv(C)    → α-2a fold fires (is_orthogonal)        → trans(C)
+  //   trans(C)  → trans's symmetric short-circuit (vol ⊂ sym) → C
+  //   final     == C, with both annotations intact.
+  // Verifies that the projector-space annotation (volumetric) and the
+  // algebra annotation (orthogonal) BOTH survive the cross-piece
+  // inv → trans → symmetric-shortcut chain — a different code path
+  // than the PD case above, which doesn't engage α-2a's fold.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_volumetric(C);
+  assume_orthogonal(C);
+  ASSERT_TRUE(is_volumetric(C));
+  ASSERT_TRUE(is_orthogonal(C));
+  auto invC = inv(C);
+  EXPECT_TRUE(is_volumetric(invC))
+      << "volumetric annotation should survive the chain";
+  EXPECT_TRUE(is_orthogonal(invC))
+      << "orthogonal annotation should survive the chain";
+}
+
+TEST(TensorAlgebraComposition,
      TransOrthogonalTimesDifferentOrthogonalDoesNotCollapseToIdentity) {
   // Negative composition at the TENSOR level: two DIFFERENT orthogonal
   // tensors. The α-2c mul fold requires the trans-of structural match,

@@ -132,6 +132,9 @@ det(expression_holder<tensor_expression> const &expr) {
   if (is_same<tensor_inv>(expr)) {
     auto const &inner = expr.get<tensor_inv>().expr();
     auto result = make_expression<tensor_to_scalar_one>() / det(inner);
+    // REMOVE WHEN #260 LANDS: once t2s div/pow propagate positivity
+    // generically, `1 / positive` will produce a positive-annotated
+    // result on its own and this explicit projection is redundant.
     if (is_positive_definite(expr)) {
       auto &a = result.data()->assumptions();
       a.insert(positive{});
