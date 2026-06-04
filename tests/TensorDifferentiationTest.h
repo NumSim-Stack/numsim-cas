@@ -435,7 +435,16 @@ TEST_F(TensorDifferentiationTest, DevProjectorDiff) {
       << "dev(X) derivative mismatch";
 }
 
-// d(inv(dev(X)))/dX — inv of projected tensor
+// d(inv(dev(X)))/dX — inv of projected tensor.
+//
+// CROSS-COVERAGE NOTE (β-1): dev(X) sets the result's space to
+// {perm=Symmetric, trace=DeviatoricTag}, so this test also exercises the
+// β-1 minor-symmetric inv-diff kernel via is_symmetric() dispatch in
+// tensor_differentiation.cpp's operator()(tensor_inv const&). If you
+// "simplify" this test to remove the dev() wrapper, or if you switch the
+// input to a non-Sym-classified expression, you will silently delete
+// β-1's Vol/Dev dispatch coverage (TensorInvDiffSymTest.h relies on this
+// test for that path — see the NOTE block there).
 TEST_F(TensorDifferentiationTest, InvDevProjectorDiff) {
   auto expr = inv(dev(X));
   auto d = diff(expr, X);

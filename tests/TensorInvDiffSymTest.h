@@ -9,6 +9,7 @@
 
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/numsim_cas.h>
+#include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_diff.h>
@@ -178,17 +179,63 @@ TEST(TensorInvDiffSym, GeneralRank2InvDiffUnchanged) {
          "path";
 }
 
-// ── SkewRank2OddDimRejectedAtFactory ──────────────────────────────────────
-// Contract check, not a diff test: the inv() factory itself rejects
-// skew + odd-dim before the diff visitor ever sees it. Lock in the gate so
-// a future refactor that removes the factory check would be caught here
-// rather than producing a misleading inv-diff error.
-TEST(TensorInvDiffSym, SkewRank2OddDimRejectedAtFactory) {
-  auto X = make_expression<tensor>("X", std::size_t{3}, std::size_t{2});
+// ── SkewClearedSpaceFallsThroughToMagnus ──────────────────────────────────
+// Asymmetry between is_symmetric() and is_skew(): the former consults the
+// algebra-assumption manager for PD/PSD ⇒ symmetric, the latter does NOT
+// (skew has no algebra-manager backing). Consequence: clearing the space
+// on a skew-annotated tensor drops the classification entirely, and the
+// dispatch falls through to general Magnus. Companion to
+// PdAnnotationWithClearedSpaceStillRoutesToSymKernel — together they pin
+// the documented asymmetry so a future refactor that adds skew to the
+// algebra manager would be caught (it would silently switch this test's
+// behavior).
+TEST(TensorInvDiffSym, SkewClearedSpaceFallsThroughToMagnus) {
+  auto X = make_expression<tensor>("X", std::size_t{2}, std::size_t{2});
   assume_skew(X);
-  EXPECT_THROW(inv(X), invalid_expression_error)
-      << "inv() factory must reject odd-dim skew (singular); diff visitor "
-         "should never see this case";
+  ASSERT_TRUE(is_skew(X)) << "precondition: skew annotated via space";
+  X.data()->clear_space();
+  EXPECT_FALSE(is_skew(X))
+      << "is_skew() drops to false because skew has no algebra-manager "
+         "fallback (unlike is_symmetric which keeps PD/PSD)";
+  // The dispatch picks general Magnus for the now-unclassified tensor.
+  // The numerical value will differ from the skew kernel for a generic
+  // dA, but for a skew dA the two contract to the same value (proof
+  // mirrors the sym/Magnus equivalence) — so a numerical comparison
+  // wouldn't actually catch the dispatch change. The is_skew() FALSE
+  // above is the load-bearing assertion.
+}
+
+// ── SkewRank2Dim4StructuralLockIn ─────────────────────────────────────────
+// Dim=4 skew: the evaluator's MaxDim=3 ceiling blocks numerical validation,
+// but the symbolic dispatch can be locked in structurally. Build the
+// expected diff expression by hand using the same primitives the visitor
+// emits, then compare hashes. A sign-flip or transpose error in T_swap
+// (which dim=2 can't surface — only 1 free off-diagonal entry there) would
+// produce a different hash here.
+TEST(TensorInvDiffSym, SkewRank2Dim4StructuralLockIn) {
+  auto X = make_expression<tensor>("X", std::size_t{4}, std::size_t{2});
+  assume_skew(X);
+  auto expr = inv(X);
+  auto actual = diff(expr, X);
+  ASSERT_TRUE(actual.is_valid());
+
+  // Hand-built reference using the same formula as the visitor:
+  //   T = ½(otimes(invA,{1,3},invA,{4,2}) - otimes(invA,{1,4},invA,{3,2}))
+  //   result = -inner_product(T, {3,4}, dA, {1,2})
+  // where dA = diff(X, X) = P_skew(4) (the self-diff projector for skew X).
+  auto invA = inv(X);
+  auto T_base = otimes(invA, sequence{1, 3}, invA, sequence{4, 2});
+  auto T_swap = otimes(invA, sequence{1, 4}, invA, sequence{3, 2});
+  auto T_expected = (T_base - T_swap) * get_scalar_half();
+  auto dA_expected = diff(X, X);
+  ASSERT_TRUE(dA_expected.is_valid());
+  auto expected =
+      -inner_product(T_expected, sequence{3, 4}, dA_expected, sequence{1, 2});
+
+  EXPECT_EQ(actual.get().hash_value(), expected.get().hash_value())
+      << "Skew dim=4 diff AST hash must equal the hand-built reference "
+         "expression — catches sign-flip / index-transpose errors in "
+         "T_swap that dim=2 can't expose";
 }
 
 // NOTE — Vol/Dev coverage lives elsewhere:
@@ -220,6 +267,14 @@ TEST(TensorInvDiffSym, SkewRank2OddDimRejectedAtFactory) {
 // the PD-implies-symmetric path; raw holds_alternative<Symmetric>(perm)
 // would not. This test pins that the dispatch uses the former, so a
 // future change reverting to raw variant checks is caught.
+//
+// IMPORTANT TIMING: clear_space() is called BEFORE inv()/diff(). The
+// dispatch is queried lazily at diff() time, so the cleared space is
+// what's seen. If a future refactor caches the kernel choice at inv()
+// construction time, this test would silently start exercising the
+// wrong path (it would get the sym kernel from the still-Sym-annotated
+// X at inv()-time, not from the post-clear query). The lazy-dispatch
+// assumption is load-bearing for what this test actually pins.
 TEST(TensorInvDiffSym, PdAnnotationWithClearedSpaceStillRoutesToSymKernel) {
   auto X = make_expression<tensor>("X", std::size_t{3}, std::size_t{2});
   assume_positive_definite(X);

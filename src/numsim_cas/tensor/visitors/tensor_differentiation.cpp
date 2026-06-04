@@ -2,6 +2,7 @@
 
 #include <numeric>
 #include <numsim_cas/core/diff.h>
+#include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_diff.h>
@@ -288,13 +289,11 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
       sign = -1;
     if (sign != 0) {
       auto T_swap = otimes(invA, sequence{1, 4}, invA, sequence{3, 2});
-      // Function-local static: the 1/2 constant is value-equal for all
-      // calls, no annotations vary across invocations, and expression_holder
-      // is shared_ptr-based so re-allocating per call wastes one alloc each
-      // time. Magic-static is thread-safe under C++11+.
-      static auto const half =
-          make_expression<scalar_constant>(scalar_number{1, 2});
-      T = (sign > 0 ? T + T_swap : T - T_swap) * half;
+      // Shared 1/2 constant from scalar_globals (matches the
+      // get_scalar_zero/get_scalar_one convention). scalar_constant is
+      // value-immutable, so a single shared instance is safe across all
+      // call sites and threads; saves one make_expression per call.
+      T = (sign > 0 ? T + T_swap : T - T_swap) * get_scalar_half();
     }
     m_result = -inner_product(T, sequence{3, 4}, dA, sequence{1, 2});
   } else {
