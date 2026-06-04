@@ -2,6 +2,7 @@
 #define TENSOR_INV_H
 
 #include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 namespace numsim::cas {
 
@@ -13,6 +14,7 @@ public:
   explicit tensor_inv(
       Expr &&_expr) // NOLINT(bugprone-forwarding-reference-overload)
       : base(std::forward<Expr>(_expr), _expr.get().dim(), _expr.get().rank()) {
+    // ── Space propagation (projector-space tag) ────────────────────
     if (auto const &sp = this->expr().get().space()) {
       const auto r = this->rank();
       if (r == 2) {
@@ -42,6 +44,43 @@ public:
       }
       // Other ranks: inv() factory rejects them; this branch
       // shouldn't be reached.
+    }
+
+    // ── Algebra-assumption propagation (#246 α-2b) ─────────────────
+    // inv(PD) is PD (positive-definite matrices stay PD under
+    // inversion — eigenvalues 1/λᵢ are all positive when λᵢ are).
+    // inv(PSD) propagates PSD conservatively: a non-singular PSD is
+    // actually PD, but we can't tell singularity symbolically, so we
+    // propagate exactly what the user asserted; the runtime eval
+    // throws if actually singular.
+    //
+    // PD/PSD also imply symmetric. Reuse the detail helper to set the
+    // Symmetric space iff no strictly more specific sym subspace
+    // (Vol/Dev at rank-2; Minor/MinorMajor at rank-4) is already set.
+    //
+    // NOTE on ordering: this runs AFTER the space-propagation block
+    // above. For contradictory inputs (e.g. assume_skew(W) +
+    // assume_positive_definite(W)) the space block transfers Skew to
+    // the result first; then this block OVERWRITES with Sym via the
+    // detail helper. The user-asserted contradiction resolves by
+    // honouring PD's symmetric implication on the output.
+    //
+    // Orthogonal is intentionally NOT propagated here. At rank-2 the
+    // inv() factory folds inv(orthogonal) → trans() before reaching
+    // this ctor (α-2a). At rank-4 "orthogonal" isn't a standard
+    // concept so the annotation is vacuous on input and silently
+    // dropped — calling assume_orthogonal on a rank-4 tensor is a
+    // user error, not propagated.
+    auto const &input_alg = this->expr().get().tensor_algebra_assumptions();
+    const bool input_has_pd = input_alg.contains(positive_definite{});
+    const bool input_has_psd =
+        input_has_pd || input_alg.contains(positive_semidefinite{});
+    if (input_has_psd) {
+      auto &out = this->tensor_algebra_assumptions();
+      if (input_has_pd)
+        out.insert(positive_definite{});
+      out.insert(positive_semidefinite{}); // PD ⇒ PSD (#245 convention)
+      detail::set_symmetric_unless_more_specific(this);
     }
   }
 };
