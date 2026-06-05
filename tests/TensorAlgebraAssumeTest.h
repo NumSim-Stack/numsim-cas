@@ -999,17 +999,61 @@ TEST(TensorAlgebraIdentityAssumptions, MovePreservesAnnotationRank4) {
 
 TEST(TensorAlgebraIdentityAssumptions, HashIsIndependentOfSpaceAnnotation) {
   // Architect finding A5: m_tensor_space is NOT part of update_hash_value,
-  // so two identity_tensor instances must hash equal whether the space is
-  // pre-annotated or cleared. If a future refactor folds m_tensor_space
-  // into the hash, this test surfaces the change so we can decide whether
-  // canonical-form/memoization invariants hold.
-  identity_tensor with_annotation{std::size_t{3}, std::size_t{2}};
-  identity_tensor without_annotation{std::size_t{3}, std::size_t{2}};
-  without_annotation.clear_space();
-  ASSERT_TRUE(with_annotation.space().has_value());
-  ASSERT_FALSE(without_annotation.space().has_value());
-  EXPECT_EQ(with_annotation.hash_value(), without_annotation.hash_value())
+  // so two identity_tensor instances must hash equal regardless of their
+  // space annotation. Verified by constructing two and forcing one to
+  // carry a contradictory tag (Skew on rank-2 identity) — semantically
+  // wrong but mechanically valid. clear_space() is a no-op on closed-form
+  // constants so we use set_space to drive the difference.
+  identity_tensor with_default_annotation{std::size_t{3}, std::size_t{2}};
+  identity_tensor with_contradictory_annotation{std::size_t{3}, std::size_t{2}};
+  with_contradictory_annotation.set_space({Skew{}, AnyTraceTag{}});
+  EXPECT_EQ(with_default_annotation.hash_value(),
+            with_contradictory_annotation.hash_value())
       << "m_tensor_space must not contribute to the content-addressed hash";
+}
+
+TEST(TensorAlgebraIdentityAssumptions,
+     HashIsIndependentOfSpaceAnnotationRank4) {
+  // QA Q4: rank-4 companion. If a future update_hash_value adds a
+  // MinorMajor branch only, the rank-2 test above wouldn't catch it.
+  identity_tensor with_default_annotation{std::size_t{3}, std::size_t{4}};
+  identity_tensor with_contradictory_annotation{std::size_t{3}, std::size_t{4}};
+  with_contradictory_annotation.set_space({Skew{}, AnyTraceTag{}});
+  EXPECT_EQ(with_default_annotation.hash_value(),
+            with_contradictory_annotation.hash_value());
+}
+
+TEST(TensorAlgebraIdentityAssumptions, CopyPreservesAnnotationRank4) {
+  // QA Q6 companion to MovePreservesAnnotationRank4.
+  identity_tensor src{std::size_t{3}, std::size_t{4}};
+  identity_tensor copy{src};
+  ASSERT_TRUE(copy.space().has_value());
+  EXPECT_TRUE(std::holds_alternative<MinorMajor>(copy.space()->perm));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, ClearSpaceIsNoOp) {
+  // C1 lock-in: closed-form constants override clear_space() to a no-op
+  // because the structural classification is intrinsic to the type. A
+  // caller that clears via a tensor_expression* base pointer must NOT
+  // leave the constant unclassified. Without this override the projector
+  // would return a UB-deref'd value from space() in release builds.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  ASSERT_TRUE(is_symmetric(I));
+  I.data()->clear_space();
+  EXPECT_TRUE(is_symmetric(I))
+      << "clear_space on closed-form identity must be a no-op";
+}
+
+TEST(TensorAlgebraIdentityAssumptions, AssumeSkewOverwritesSymmetricTag) {
+  // QA Q8: user assertion overwrites the pre-annotation. Mirrors the
+  // AssumeSkewOnPVol test for projectors. The contradictory assertion is
+  // semantically meaningless (I ≠ -I^T) but the contract is that user
+  // input wins over the constant's default classification.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  ASSERT_TRUE(is_symmetric(I));
+  assume_skew(I);
+  EXPECT_TRUE(is_skew(I));
+  EXPECT_FALSE(is_symmetric(I));
 }
 
 // ─── tensor_projector closed-form pre-annotation (SymPy step 2) ───────
@@ -1053,6 +1097,51 @@ TEST(TensorAlgebraProjectorAssumptions, PVolIsNotSkewOrDeviatoric) {
   EXPECT_FALSE(is_deviatoric(P));
   EXPECT_FALSE(is_minor_major(P));
   EXPECT_FALSE(is_orthogonal(P));
+}
+
+TEST(TensorAlgebraProjectorAssumptions, PSkewIsNotOtherSpaceClassifications) {
+  // QA Q1: P_skew had only one positive cell pinned (is_skew). Any
+  // regression that incorrectly tags P_skew as symmetric (e.g. a wrong
+  // classify_space branch) was invisible. Pin every negative cell.
+  auto P = P_skew(std::size_t{3});
+  EXPECT_FALSE(is_symmetric(P));
+  EXPECT_FALSE(is_volumetric(P));
+  EXPECT_FALSE(is_deviatoric(P));
+  EXPECT_FALSE(is_minor_major(P));
+  EXPECT_FALSE(is_orthogonal(P));
+  EXPECT_FALSE(is_positive_definite(P));
+}
+
+TEST(TensorAlgebraProjectorAssumptions, PDevIsNotOtherSpaceClassifications) {
+  // QA Q1: P_dev had 2/10 cells pinned. Companion negative matrix.
+  auto P = P_devi(std::size_t{3});
+  EXPECT_FALSE(is_skew(P));
+  EXPECT_FALSE(is_volumetric(P));
+  EXPECT_FALSE(is_minor_major(P));
+  EXPECT_FALSE(is_orthogonal(P));
+  EXPECT_FALSE(is_positive_definite(P));
+}
+
+TEST(TensorAlgebraProjectorAssumptions,
+     AssumeSymmetricOnPSkewOverwritesSpaceTag) {
+  // QA Q5: inverse of AssumeSkewOnPVolOverwritesSpaceTag. assume_symmetric
+  // on a Skew-tagged projector overwrites with Symmetric — same contract.
+  auto P = P_skew(std::size_t{3});
+  ASSERT_TRUE(is_skew(P));
+  assume_symmetric(P);
+  EXPECT_TRUE(is_symmetric(P));
+  EXPECT_FALSE(is_skew(P));
+}
+
+TEST(TensorAlgebraProjectorAssumptions, ClearSpaceIsNoOp) {
+  // C1 companion: closed-form constant override applies to projectors too.
+  // The release-mode UB was specifically because tensor_projector::space()
+  // dereferences m_tensor_space.value() — if clear_space() had emptied
+  // the optional, the next space() call would UB-deref.
+  auto P = P_vol(std::size_t{3});
+  ASSERT_TRUE(is_volumetric(P));
+  P.data()->clear_space();
+  EXPECT_TRUE(is_volumetric(P)) << "clear_space on projector must be a no-op";
 }
 
 TEST(TensorAlgebraProjectorAssumptions, AssumeSkewOnPVolOverwritesSpaceTag) {
@@ -1099,6 +1188,20 @@ TEST(TensorAlgebraCompoundRegression, IsSymmetricOfScalarTimesIdentity) {
   // result. Already works today; locks in composition with the step-2
   // identity pre-annotation.
   EXPECT_TRUE(is_symmetric(alpha * I));
+}
+
+TEST(TensorAlgebraCompoundRegression,
+     IsSymmetricOfVolPlusDevEqualsSymProjector) {
+  // QA Q9: round-trip through projector algebra. P_vol + P_dev → P_sym
+  // mathematically; binary_op's Vol + Dev join (or the projector
+  // simplifier folding to P_sym) must surface as is_symmetric == true.
+  // The architecturally interesting case: a future regression that loses
+  // space-tag propagation on this exact compound would silently break
+  // continuum-mechanics projector decompositions.
+  auto Pv = P_vol(std::size_t{3});
+  auto Pd = P_devi(std::size_t{3});
+  EXPECT_TRUE(is_symmetric(Pv + Pd))
+      << "P_vol + P_dev should resolve to a symmetric projector";
 }
 
 } // namespace numsim::cas

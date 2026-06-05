@@ -142,8 +142,12 @@ inline bool is_symmetric(expression_holder<tensor_expression> const &expr) {
   // maps MinorMajor → Other (it's not a rank-2 perm classification), so we
   // need an explicit branch — same cross-mechanism pattern as the PD check.
   // Plain Minor or plain Major alone don't make a tensor "symmetric" in the
-  // strongest sense, so they're not included here.
-  if (std::holds_alternative<MinorMajor>(sp->perm))
+  // strongest sense, so they're not included here. Trace gate: a
+  // {MinorMajor, VolumetricTag} combination is constructible via set_space
+  // but not via any assume_* helper; the rank-4 MinorMajor classification
+  // is only well-defined with AnyTraceTag (no trace constraint applied).
+  if (std::holds_alternative<MinorMajor>(sp->perm) &&
+      std::holds_alternative<AnyTraceTag>(sp->trace))
     return true;
   auto kind = classify_space(*sp);
   // Sym, Vol, Dev are all subspaces of Sym

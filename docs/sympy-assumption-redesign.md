@@ -38,15 +38,25 @@ rather than baking it into the structural visitor (see step 2).
 
 After migration, every `expression` node carries:
 
-| Field | Lives on | Purpose | Single source of truth |
+| Field | Lives on | Purpose | Writers |
 |---|---|---|---|
-| `m_assumption` (`numeric_assumption_manager`) | `expression` base | Numeric facts (positive, real, integer, ...) on Symbols. Renamed `leaf_facts_` conceptually; field name stays for ABI / minimal diff. | scalar Symbols, t2s Symbols (via forwarding) |
-| `tensor_leaf_facts_` (renamed from `m_tensor_algebra_assumptions`) | `tensor_expression` | Tensor algebra facts (orthogonal, PD, PSD) on tensor Symbols. | tensor Symbols only |
-| `m_tensor_space` (`tensor_space` variant) | `tensor_expression` | Perm/trace structural classification (Sym, Skew, Vol, Dev, Minor, ...). Single-valued by storage (`std::variant`). | Symbol assertion via `assume_symmetric` etc. OR derived-cache populate |
-| `derived_cache_` | `tensor_expression` | Lazily-populated derived facts from the structural visitor. Mirrors `m_tensor_space` shape (single variant — no constant claims multiple variant alternatives at once, except `tensor_zero` which is special-cased). | The structural visitor |
+| `m_assumption` (`numeric_assumption_manager`) | `expression` base | Numeric facts (positive, real, integer, ...) on Symbols. Renamed `leaf_facts_` conceptually; field name stays for ABI / minimal diff. | scalar `assume_*`, t2s constants' ctors (via forwarding) |
+| `tensor_leaf_facts_` (renamed from `m_tensor_algebra_assumptions`) | `tensor_expression` | Tensor algebra facts (orthogonal, PD, PSD) on tensor Symbols and propagated to compound wrappers. | `assume_*` helpers, compound-wrapper ctors via visitor (step 3b) |
+| `m_tensor_space` (`tensor_space` variant) | `tensor_expression` | Perm/trace structural classification (Sym, Skew, Vol, Dev, Minor, MinorMajor, ...). Single-valued by storage (`std::variant`). | `assume_*` helpers, closed-form constant ctors (step 2), compound-wrapper ctors via visitor (step 3b) |
+
+**No `derived_cache_` field**. The previous plan had one as a lazy-evaluation
+layer; review showed it has no real consumer after step 2's eager
+constructor pre-annotation. Dropped in favor of writing directly into the
+existing storage.
+
+`m_tensor_space` on closed-form constants is immutable post-construction:
+`clear_space()` is virtualized in `tensor_expression` and overridden to
+no-op in `identity_tensor` and `tensor_projector`. Same override pattern
+applies to any future closed-form constant.
 
 The `inferred_` flag on `numeric_assumption_manager` (today an ad-hoc derived
-marker) is subsumed by `derived_cache_` in step 3.
+marker, used only by t2s `det()` PR #259 path) is retired in step 3c when
+the propagator rewrite no longer needs it.
 
 ---
 
@@ -100,20 +110,28 @@ Test count: 1293 → 1295.
    old `space_` member is removed; its `space()` accessor derefs the
    optional and returns the value reference). This eliminates the
    drift-between-stores hazard surfaced in the step-2 review.
-4. `is_symmetric` gains an explicit `MinorMajor` branch — `classify_space`
-   maps MinorMajor to `Other`, but the rank-4 fully-symmetric case (which
-   identity_tensor rank-4 produces) must answer true. Same cross-mechanism
-   pattern as the existing PD check.
-5. `tensor_to_scalar_zero` already pre-annotates in its constructor
+4. `is_symmetric` gains an explicit `MinorMajor` branch (gated on
+   `AnyTraceTag` to reject the structurally invalid `{MinorMajor, VolumetricTag}`
+   combination) — `classify_space` maps MinorMajor to `Other`, but the rank-4
+   fully-symmetric case (which identity_tensor rank-4 produces) must answer
+   true. Same cross-mechanism pattern as the existing PD check.
+5. `clear_space()` virtualized in `tensor_expression`; overridden as no-op
+   in `identity_tensor` and `tensor_projector`. Closed-form constants'
+   structural classification is intrinsic to the type and cannot be
+   removed via a base-class mutator. Without this, a caller invoking
+   `clear_space()` through a `tensor_expression*` would leave projector's
+   `m_tensor_space` empty and the next `space()` call would be release-mode
+   UB (the projector's `space()` derefs the optional).
+6. `tensor_to_scalar_zero` already pre-annotates in its constructor
    (existing code at #261). No change needed; documented as the model.
-6. `levi_civita_tensor` left untouched. The current `tensor_space::perm`
+7. `levi_civita_tensor` left untouched. The current `tensor_space::perm`
    variant has no "totally antisymmetric" alternative; revisit if 1.1 needs it.
 
 **Design rationale**: same pattern as `tensor_to_scalar_zero`/`tensor_to_scalar_one`
 (#261). Eager constructor write to the existing storage avoids introducing a
-`derived_cache_` field or a structural visitor until step 3 has compound
-consumers that actually walk children. YAGNI applied — the visitor scaffolding
-moves to step 3.
+`derived_cache_` field or a structural visitor. Compound walks already work
+today via per-wrapper construction-time propagation; step 3 consolidates
+that scattered logic into one visitor without adding a new storage layer.
 
 **Test deliverables**:
 - `is_symmetric(tensor_zero{3,2}) == true` + `is_skew(tensor_zero{3,2}) == true`
@@ -140,72 +158,111 @@ return false (despite being mathematically true); they now return true. No
 downstream simplifier currently dispatches on these queries for `I` or
 `P_*`, so this is purely an answer-correctness improvement.
 
-**Estimated test count delta**: +25 (1295 → 1320).
+**Estimated test count delta**: +34 (1295 → 1329).
 
-### Step 3 — Structural visitor + per-wrapper migration
+### Step 3 — Consolidate per-wrapper propagation into a visitor
 
-**Note**: compound walks like `is_symmetric(I + I)` and `is_symmetric(α·I)`
-ALREADY work today via the existing per-wrapper space-propagation in
-n_ary_tree (binary add) and tensor_scalar_mul. Step 3 doesn't add this
-behavior — it consolidates the scattered per-constructor writes into a
-unified visitor. The migration is a refactor + memoization layer, not a
-behavior change.
+**Decided architecture (post-review)**: NO `derived_cache_` field, NO new
+storage layer. Step 3 is pure refactoring — move existing per-constructor
+propagation logic into a structural visitor that writes into the SAME
+storage already used today (`m_tensor_space`, `m_tensor_algebra_assumptions`).
 
-Today, several constructors and factories write into the assumption stores
-directly. Step 3 introduces a structural visitor over tensor expressions and
-moves each per-wrapper write into a corresponding visitor arm.
+The previous plan had `derived_cache_` as a memoization layer for visitor
+output. After step 2 eagerly pre-annotates closed-form / parameterized
+constants in their constructors AND every compound wrapper already
+propagates space at construction, there is no query path that needs lazy
+visitor evaluation. Adding the cache solved a problem step 2 obviates.
+YAGNI: dropped.
 
-A `derived_cache_` field on `tensor_expression` (mirror shape of
-`m_tensor_space`) memoizes the visitor's per-query computation. The bridge
-in `is_*` helpers reads in order:
+**Compound walks already work today.** `is_symmetric(I + I)`,
+`is_symmetric(α·I)`, `is_symmetric(trans(I))` all return true via existing
+per-wrapper space-propagation in n_ary_tree (binary add), tensor_scalar_mul,
+tensor_negative, etc. Step 3 doesn't add new behavior — it centralizes the
+propagation logic into one auditable place.
 
-1. `tensor_zero` short-circuit (stays in the helper — the variant can't
-   express Sym ∧ Skew simultaneously, so this can't migrate into the
-   variant-based cache)
-2. `m_tensor_algebra_assumptions` (user-asserted PD/PSD/orthogonal facts)
-3. `m_tensor_space` (user-asserted structural classification OR closed-form
-   constant pre-annotation from step 2)
-4. `derived_cache_` (visitor-populated derived facts)
+#### Read order (actual, per-helper)
 
-**Step 3 should be split into three sub-PRs** to keep review manageable:
+The original plan implied a uniform bridge across all `is_*` helpers. In
+reality each helper consults a different subset of storage; this is by
+design (e.g. PD only implies symmetry, not skew). Documented as-is:
 
-- **3a**: `derived_cache_` field + structural visitor scaffolding +
-  leaf-facts rename. No call-site migration; existing per-constructor
-  writes stay. Visitor exists but is only invoked through new test
-  consumers.
-- **3b**: Per-wrapper migration. Move `tensor_functions.h:391,405`
-  (trans orthogonal), `tensor_inv.h:79,83` (inv PD/PSD + Sym implication)
-  into visitor arms.
-- **3c**: Propagator rewrite. The scalar_assumption_propagator.cpp
-  changes are non-trivial and deserve their own review focus.
+| Helper | Reads (in order) |
+|---|---|
+| `is_symmetric` | tensor_zero short-circuit → `m_tensor_algebra_assumptions` (PD/PSD) → `m_tensor_space` (Sym/Vol/Dev OR MinorMajor+AnyTraceTag) |
+| `is_skew` | tensor_zero short-circuit → `m_tensor_space` (Skew) |
+| `is_volumetric` / `is_deviatoric` / `is_minor` / `is_major` / `is_minor_major` | `m_tensor_space` only |
+| `is_orthogonal` / `is_positive_definite` / `is_positive_semidefinite` | `m_tensor_algebra_assumptions` only |
+
+The `tensor_zero` short-circuit stays in `is_symmetric` and `is_skew`
+because the `tensor_space::perm` variant is single-valued and cannot
+express Sym ∧ Skew simultaneously.
+
+#### Compound-propagation sites today (the step-3 migration scope)
+
+Audit on 2026-06-05 — **16 compound-propagation sites** exist (not 5 as
+earlier drafts claimed):
+
+| Site count | Files |
+|---|---|
+| 4 | `operators/tensor/tensor_add.h` (n_ary join) |
+| 3 | `wrappers/tensor_inv.h` (PD/PSD propagation + Sym implication) |
+| 2 | `tensor_operators.h` (binary add `trans(A) + (-A) → Skew`) |
+| 2 | `wrappers/tensor_pow.h` (pow preserves child space, pow(A,2k)→Sym) |
+| 2 | `tensor_functions.h:391,405` (trans propagates orthogonal) |
+| 2 | `operators/scalar/tensor_scalar_mul.h` (scalar·tensor preserves space) |
+| 1 | `tensor_negative.h` (negation preserves space) |
+
+Plus, separately, the t2s `set_inferred()` pattern in:
+- `tensor_to_scalar_zero.h:31` (closed-form constant — subsumable into the
+  short-circuit pattern from step 2)
+- `src/.../scalar_assumption_propagator.cpp:807` (the scalar propagator)
+
+#### Sub-PRs
+
+- **3a**: Structural visitor scaffolding + leaf-facts rename
+  (`m_tensor_algebra_assumptions` → `tensor_leaf_facts_` alias accessor).
+  No migration yet; visitor exists with no consumers.
+- **3b**: Migrate the 16 compound-propagation sites into visitor arms.
+  Writes still target `m_tensor_space` / `m_tensor_algebra_assumptions`;
+  the visitor IS the construction-time propagator, called from each
+  wrapper's constructor. This eliminates the scattered set_space calls
+  while preserving behavior.
+- **3c**: Rewrite `scalar_assumption_propagator.cpp` to use the same
+  visitor pattern as the tensor side. Non-trivial; deserves its own PR.
+
+(Note: closed-form constant clear_space() is already a no-op per
+step-2 review fix; the override pattern extends naturally to any future
+closed-form constant.)
 
 **Migration sites** (verified by grep on `2026-06-05`):
 
+Each existing constructor-level propagation moves into a visitor arm that
+writes into the SAME storage (`m_tensor_space` or `m_tensor_algebra_assumptions`).
+No new storage layer. The 16 sites are listed in the audit above; the
+representative cases:
+
 | Site | Today writes | Becomes |
 |---|---|---|
-| `tensor_functions.h:391, 405` | trans() factory inserts `orthogonal{}` into result's `m_tensor_algebra_assumptions` | Visitor arm for `permute_indices_wrapper`: emit `orthogonal{}` into `derived_cache_` (or `tensor_leaf_facts_` if asserted) if child is orthogonal |
-| `tensor_inv.h:79` | inv() ctor inserts `positive_definite{}` / `positive_semidefinite{}` | Visitor arm for `tensor_inv`: emit PD/PSD into `derived_cache_` if child has it |
-| `tensor_inv.h:83` | inv() ctor calls `set_symmetric_unless_more_specific(this)` (writes `m_tensor_space`) | Visitor arm for `tensor_inv`: emit Sym into `derived_cache_` if child is PD/PSD |
-| `tensor_to_scalar_zero.h:31` | t2s_zero ctor calls `a.set_inferred()` on all numeric assumptions | Deleted; t2s `is_*` helpers short-circuit on `is_same<tensor_to_scalar_zero>` (step 2 helper change) |
-| `src/.../scalar_assumption_propagator.cpp:807` | propagator visitor calls `set_inferred()` after writing | Propagator writes into `derived_cache_` directly (or its scalar equivalent — see "scalar derived cache" below); `set_inferred()` retired once no writer remains |
+| `tensor_functions.h:391, 405` | trans() factory inserts `orthogonal{}` into result | Visitor arm for `permute_indices_wrapper` writes the same insert |
+| `tensor_inv.h:27,29,42` | inv() ctor propagates child space + PD/PSD + Sym implication | Visitor arm for `tensor_inv` writes the same |
+| `tensor_add.h:18,23,44,48` | n_ary add joins child spaces | Visitor arm for `tensor_add` writes the same |
+| `tensor_scalar_mul.h:21,28` | scalar·tensor preserves rhs space | Visitor arm for `tensor_scalar_mul` writes the same |
+| `tensor_to_scalar_zero.h:31` | t2s_zero ctor calls `set_inferred()` | Deleted; t2s `is_*` helpers short-circuit on `is_same<tensor_to_scalar_zero>` (step 2 pattern) |
+| `src/.../scalar_assumption_propagator.cpp:807` | propagator visitor calls `set_inferred()` after writing | Propagator writes into `m_assumption` directly; `set_inferred()` retired once no writer remains |
 
-**Scalar derived cache**: scalar `m_assumption` (`numeric_assumption_manager`)
-becomes the leaf-facts store on scalar Symbols. We don't add a separate
-`derived_cache_` for scalar; the propagator path writes directly into the
-result holder's `m_assumption` (today's behavior) but loses the `inferred_`
-flag. The flag was only consumed by t2s `det()` PD-propagation and one
-introspection test — both can use a static `is_inferred_from(holder)` helper
-that re-runs the inference, or we accept the loss of the flag entirely if no
-caller depends on the distinction. **Decision deferred to step 3 implementation.**
+**Inferred flag retirement**: the `inferred_` flag was only consumed by t2s
+`det()` PD-propagation (#259) and one introspection test. Both can use a
+static `is_inferred_from(holder)` helper that re-runs inference, or we
+accept the loss of the flag entirely. Decision deferred to step 3c.
 
-**Behavior change in step 3**: queries on derived facts may differ in ordering
-(cache vs. eager write) but final answers identical. Existing lock-ins from
-α-2a/b/c/d still pass.
+**Behavior change in step 3**: none. This is pure refactoring. All
+α-2a/b/c/d lock-ins continue to pass; the same writes happen at the same
+construction points, just through a centralized dispatcher.
 
 ### Step 4 — Tighten `assume_*` to throw on non-Symbols
 
-After step 3, all derived facts flow through the visitor / derived cache. At
-this point we make `assume_*` strict:
+After step 3, all derived facts flow through the visitor. At this point we
+make `assume_*` strict:
 
 - `assume_positive_definite(holder)` — guards `holder.get().is_symbol() == true`,
   else throws `invalid_assumption_error`.
@@ -238,8 +295,9 @@ A.assumption(symmetric{}, positive_definite{});  // multi-fact assertion
 
 - All `assume_*` helpers across scalar / tensor / t2s use the same
   is-Symbol-or-throw guard.
-- All `is_*` query helpers use the same read-order bridge
-  (leaf-facts → asserted-space → derived-cache).
+- All `is_*` query helpers follow the per-helper read order documented in
+  step 3 above (no uniform bridge — each helper's read order is intentionally
+  scoped to which facts can imply its predicate).
 - All closed-form constants (`tensor_zero`, `tensor_to_scalar_zero`,
   `identity_tensor`, scalar literals) answer queries via either the structural
   visitor arm OR a helper short-circuit, consistently per category.
@@ -256,16 +314,17 @@ A.assumption(symmetric{}, positive_definite{});  // multi-fact assertion
 
 ## Open decisions still to make
 
-1. **Scalar derived cache** (step 3): keep `inferred_` flag, retire it, or
-   replace with a `is_inferred_from(holder)` re-inference helper. Decided
-   during step 3 implementation; default to retire unless a consumer surfaces.
+1. **Inferred flag retirement** (step 3c): keep `inferred_` flag, retire
+   it, or replace with a `is_inferred_from(holder)` re-inference helper.
+   Default: retire unless a consumer surfaces during step 3c implementation.
 2. **Levi-Civita classification**: today's `tensor_space` variant doesn't have
-   a "totally antisymmetric" alternative. Step 2 arm is a no-op for
-   `levi_civita_tensor`. If a 1.1 use case demands `is_totally_antisymmetric()`,
-   add a new variant alternative and revisit.
-3. **`identity_tensor` at non-rank-2/non-rank-4**: undefined for higher ranks
-   in current code. Step 2 arm should gate on rank and leave higher-rank
-   identity unclassified (no fact emission).
+   a "totally antisymmetric" alternative. Step 2 left `levi_civita_tensor`
+   untouched. If a 1.1 use case demands `is_totally_antisymmetric()`, add
+   a new variant alternative and revisit.
+3. **`identity_tensor` at non-rank-2/non-rank-4**: undefined for higher
+   ranks in current code. The rank-6 identity is mathematically
+   `δ_il·δ_jm·δ_kn` which has full symmetry, but the variant has no
+   matching alternative. Tracked as the rank-6 sentinel test.
 
 ---
 
@@ -276,33 +335,31 @@ A.assumption(symmetric{}, positive_definite{});  // multi-fact assertion
 - `tensor_zero` never appears as a subterm — all 30+ `make_expression<tensor_zero>`
   sites are collapse-rule results, never wrapped as a child.
 - `m_tensor_space::perm` is `std::variant<General, Symmetric, Skew, Young,
-  Minor, Major, MinorMajor>` — structurally single-valued. Confirms
-  `derived_cache_` can mirror this shape (no need for a multi-fact set).
-- Five non-`assume_*` write sites in the codebase, listed in step 3 migration
-  table. All five are addressed.
+  Minor, Major, MinorMajor>` — structurally single-valued. Variant cannot
+  express Sym ∧ Skew simultaneously, hence the `tensor_zero` helper
+  short-circuit.
+- 16 compound-propagation sites in the codebase (audited above) — all are
+  step-3 migration targets. The earlier doc claim of "5 sites" was
+  undercounted.
+- Closed-form constants (`identity_tensor`, `tensor_projector`) override
+  `clear_space()` to no-op; their `m_tensor_space` is immutable
+  post-construction (assertion-overwrite via `set_space()` still permitted).
 
 ---
 
 ## Risks
 
-1. **Visitor invocation cost**: each `is_*` query that hits the visitor
-   populates `derived_cache_` lazily. First query is O(walk-cost), subsequent
-   queries are O(1). For deep trees this could be noticeable. Mitigation:
-   benchmark step 2 against step 1 on representative expressions; if
-   regression > 5%, add eager-cache-populate at construction time for hot
-   wrappers.
-2. **Step 3 propagator migration touches `scalar_assumption_propagator.cpp`**,
-   a non-trivial file. Plan was "2 sites", reality is 5 including the
-   propagator. Mitigation: dedicate one PR to the propagator alone; don't
-   bundle with the wrapper-ctor migrations.
-3. **`inferred_` flag retirement (step 3)**: if any external consumer
+1. **Step 3 site count larger than initially scoped**: 16 compound
+   propagation sites, not 5. Mitigation: 3b can split further if review
+   load is too high (e.g. 3b-i for n_ary nodes, 3b-ii for unary wrappers).
+2. **`inferred_` flag retirement (step 3c)**: if any external consumer
    distinguishes asserted vs. inferred, removing the flag breaks them. The
    one known consumer (#259 det-PD propagation) doesn't actually read the
    flag — it just sets it as future-proofing. Audit before retiring.
-4. **Backward compatibility**: `assume_*` helpers stay as wrappers in step 5,
-   but they now THROW on non-Symbols (step 4). Existing user code calling
-   `assume_positive_definite(A * B)` breaks at runtime. Mitigation: changelog
-   entry, migration note in 1.0 release.
+3. **Backward compatibility**: `assume_*` helpers stay as wrappers in
+   step 5, but they now THROW on non-Symbols (step 4). Existing user code
+   calling `assume_positive_definite(A * B)` breaks at runtime. Mitigation:
+   changelog entry, migration note in 1.0 release.
 
 ---
 
@@ -312,9 +369,9 @@ A.assumption(symmetric{}, positive_definite{});  // multi-fact assertion
 |---|---|---|
 | 0 | 0 (reverts) | 1293 |
 | 1 | +2 (move-ctor lock-ins) | 1295 |
-| 2 | +6 to +8 (closed-form short-circuits + visitor arms) | ~1302 |
-| 3 | +5 to +10 (per-wrapper visitor-arm equivalence) | ~1312 |
-| 4 | +10 to +15 (throwing-`assume_*` negative cases) | ~1325 |
-| 5 | +5 to +8 (`assumption()` direct method) | ~1333 |
-| 6 | +3 to +5 (cross-domain bridge consistency) | ~1338 |
-| 7 | 0 (cleanup) | ~1338 |
+| 2 | +34 (closed-form short-circuits, pre-annotations, negative matrices, hash, clear_space no-op, contradictory assume, compound regression, round-trip) | 1329 |
+| 3 | +5 to +10 (visitor-arm-equivalence lock-ins after migration) | ~1339 |
+| 4 | +10 to +15 (throwing-`assume_*` negative cases) | ~1352 |
+| 5 | +5 to +8 (`assumption()` direct method) | ~1360 |
+| 6 | +3 to +5 (cross-domain bridge consistency) | ~1365 |
+| 7 | 0 (cleanup) | ~1365 |

@@ -39,15 +39,20 @@ public:
   // Non-optional accessor — projector's m_tensor_space is always populated
   // at construction. Hides the inherited std::optional return for
   // projector-specific call sites (evaluator, projector_algebra::classify)
-  // that need the value directly. The base set_space()/clear_space() are
-  // inherited; clearing would violate the invariant — callers must not
-  // clear a projector's space.
+  // that need the value directly. The invariant is enforced by the
+  // clear_space() override below being a no-op.
   const tensor_space &space() const {
     assert(this->m_tensor_space.has_value() &&
-           "tensor_projector::space invariant violated — clear_space() must "
-           "not be called on a projector");
+           "tensor_projector::space invariant violated");
     return *this->m_tensor_space;
   }
+
+  // Closed-form constant: structural classification is intrinsic. See
+  // identity_tensor for the same override rationale. Without this,
+  // clear_space() called through a tensor_expression* would leave
+  // m_tensor_space empty and the next space() deref would be release-mode
+  // UB.
+  void clear_space() noexcept override {}
 
   friend bool operator<(tensor_projector const &lhs,
                         tensor_projector const &rhs) {

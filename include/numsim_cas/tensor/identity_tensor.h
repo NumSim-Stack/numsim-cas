@@ -116,6 +116,15 @@ public:
     hash_combine(base::m_hash_value, this->rank());
   }
 
+  // Closed-form constant: the structural classification is intrinsic to the
+  // type and cannot be removed. Override the base's clear_space() to a
+  // no-op so an external caller invoking clear_space() through a
+  // tensor_expression* doesn't silently break is_symmetric(I). Same
+  // override on tensor_projector. (Release-mode safety: the previous
+  // assert-only guard was a release-mode UB hazard since clear_space() is
+  // inherited public and non-virtual would have been clearable.)
+  void clear_space() noexcept override {}
+
 private:
   // Closed-form structural classification by rank. Rank-2 is Kronecker δ_ij
   // (Symmetric). Rank-4 minor identity is δ_ik·δ_jl (MinorMajor — fully
