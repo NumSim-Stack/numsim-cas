@@ -22,15 +22,6 @@ public:
     if (expr.is_valid()) {
       m_current = expr;
       expr.get<tensor_visitable_t>().accept(*this);
-      // Propagate the input's OUTER annotations onto the rebuilt node
-      // when a fresh node was constructed. The per-wrapper ctors only
-      // see CHILD annotations during construction; an annotation placed
-      // directly on the compound input (e.g. `assume_positive_definite(
-      // x + y)` on the outer add) would be invisible to those ctors and
-      // lost. Skip when m_result aliases m_current (leaf paths that
-      // returned the input unchanged — annotations already preserved).
-      if (m_result.is_valid() && m_result.data() != expr.data())
-        propagate_outer_annotations(expr, m_result);
       return std::move(m_result);
     }
     return expr;
@@ -128,31 +119,6 @@ public:
   }
 
 protected:
-  // Copy the input expression's outer annotations to the rebuilt result.
-  //
-  // - Algebra-assumption manager (orthogonal / PD / PSD): union — insert
-  //   every input tag into the output's manager (set-based, idempotent).
-  //   Per-wrapper ctor-inferred tags are preserved; input tags are added
-  //   alongside.
-  // - Space tag: only set if the output doesn't have one. Per-wrapper
-  //   ctor inference (e.g. tensor_inv's Sym/Vol/Dev propagation from
-  //   inner) wins on conflict — the ctor knew the structural truth; the
-  //   input's outer annotation might no longer hold after rebuild.
-  // - Numeric assumption manager (positive / nonzero / real / etc.):
-  //   set on the expression base class. Less common for tensors but
-  //   set-based union for safety. Mirrors the algebra-manager behavior.
-  static void propagate_outer_annotations(tensor_holder_t const &input,
-                                          tensor_holder_t &output) {
-    auto const &in = input.get();
-    auto &out = *output.data();
-    for (auto const &tag : in.tensor_algebra_assumptions().data())
-      out.tensor_algebra_assumptions().insert(tag);
-    if (!out.space().has_value() && in.space().has_value())
-      out.set_space(*in.space());
-    for (auto const &tag : in.assumptions().data())
-      out.assumptions().insert(tag);
-  }
-
   tensor_holder_t m_current;
   tensor_holder_t m_result;
 };
