@@ -324,9 +324,14 @@ A.assumption(symmetric{}, positive_definite{});  // multi-fact assertion
   Minor, Major, MinorMajor>` — structurally single-valued. Variant cannot
   express Sym ∧ Skew simultaneously, hence the `tensor_zero` helper
   short-circuit.
-- 16 compound-propagation sites in the codebase (audited above) — all are
-  step-3 migration targets. The earlier doc claim of "5 sites" was
-  undercounted.
+- 16 compound-propagation sites in the codebase (audited 2026-06-05). Of
+  those, only ONE pattern has real duplication worth extracting (the
+  pass-through unary preserve, used by tensor_negative and
+  tensor_scalar_mul — migrated in step 3). The remaining 14 are
+  single-caller unique logic, already centralized within their own
+  headers, or 2-line inline code tightly coupled to surrounding folds.
+  The earlier draft's framing of "16 migration targets" was technically
+  accurate as a count but pragmatically misleading.
 - Closed-form constants (`identity_tensor`, `tensor_projector`) override
   `clear_space()` to no-op; their `m_tensor_space` is immutable
   post-construction (assertion-overwrite via `set_space()` still permitted).

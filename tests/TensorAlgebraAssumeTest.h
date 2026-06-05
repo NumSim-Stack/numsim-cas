@@ -7,6 +7,7 @@
 #include <numbers>
 
 #include <numsim_cas/numsim_cas.h>
+#include <numsim_cas/tensor/structural_propagation.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
 
@@ -1228,16 +1229,36 @@ TEST(TensorAlgebraStructuralPropagation, PreserveUnaryNoopWhenChildHasNoSpace) {
 }
 
 TEST(TensorAlgebraStructuralPropagation, ScalarMulPreservesRhsSpace) {
-  // Same helper, different caller (tensor_scalar_mul). Catches divergence
-  // between the two migration sites — if one re-introduces an inline
-  // pattern, this test still passes through that path while the
-  // PreserveUnary tests pass through the other.
+  // Different caller (tensor_scalar_mul) — independent behavioral lock-in.
+  // Note: this tests OBSERVABLE behavior at the caller site, not that the
+  // helper is shared with tensor_negative. A correct re-inline at either
+  // call site would still pass; the test catches a regression, not a
+  // refactor.
   auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
   auto [alpha] = make_scalar_variable("alpha");
   assume_skew(A);
   auto scaled = alpha * A;
   ASSERT_TRUE(scaled.get().space().has_value());
   EXPECT_TRUE(std::holds_alternative<Skew>(scaled.get().space()->perm));
+}
+
+TEST(TensorAlgebraStructuralPropagation, PreserveUnaryOverwritesExistingSpace) {
+  // QA review #3: the helper has no guard against overwriting. Today's
+  // callers happen to construct `out` with empty m_tensor_space, but
+  // nothing in the helper enforces that precondition. Lock in the
+  // overwrite contract — the child's space wins — so a future caller
+  // that passes a pre-tagged expression sees defined behavior instead
+  // of relying on uninvestigated emergent behavior.
+  auto child = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_symmetric(child);
+  // tensor_negative wraps child; then we manually pre-tag with Skew
+  // (a state real wrappers wouldn't reach, but the helper must handle).
+  tensor_negative out{child};
+  out.set_space({Skew{}, AnyTraceTag{}});
+  ASSERT_TRUE(std::holds_alternative<Skew>(out.space()->perm));
+  structural_propagation::preserve_unary(out, child.get());
+  EXPECT_TRUE(std::holds_alternative<Symmetric>(out.space()->perm))
+      << "preserve_unary contract: child's space overwrites prior tag";
 }
 
 } // namespace numsim::cas

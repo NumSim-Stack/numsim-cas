@@ -22,14 +22,28 @@
 namespace numsim::cas::structural_propagation {
 
 // Unary preserve: the result inherits the child's space classification
-// unchanged. Used by tensor_negative (−A has the same Sym/Skew/Vol/Dev
-// as A) and tensor_scalar_mul (α·A has the same space as A for any α).
+// unchanged.
 //
-// No-op if the child has no space classification.
-inline void preserve_unary(tensor_expression *out,
+// Caller invariant: the caller's mathematical operation must literally
+// preserve the child's structural classification (Sym stays Sym, Skew
+// stays Skew, etc.). DO NOT call from wrappers whose operation can
+// transform the classification (`pow`, `inv`, `dev`, ...) — they have
+// their own propagation rules. The type system doesn't enforce this;
+// the helper trusts the caller.
+//
+// Today's callers:
+//   tensor_negative      — −A has the same space as A
+//   tensor_scalar_mul    — α·A has the same space as A for any α
+//
+// No-op if the child has no space classification. Today's callers
+// construct `out` immediately before calling this helper, so `out`
+// has no prior space tag; if a future caller has a pre-tagged `out`,
+// preserve_unary will OVERWRITE that tag with the child's. Audit such
+// callers before adoption.
+inline void preserve_unary(tensor_expression &out,
                            tensor_expression const &child) noexcept {
   if (auto const &sp = child.space())
-    out->set_space(*sp);
+    out.set_space(*sp);
 }
 
 } // namespace numsim::cas::structural_propagation

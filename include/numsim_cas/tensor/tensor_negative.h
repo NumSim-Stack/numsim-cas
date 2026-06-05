@@ -21,7 +21,7 @@ public:
       : base(std::forward<Expr>(_expr), _expr.get().dim(), _expr.get().rank()) {
     // −A has the same structural classification as A (Sym stays Sym,
     // Skew stays Skew, etc.). Centralized in structural_propagation.h.
-    structural_propagation::preserve_unary(this, this->expr().get());
+    structural_propagation::preserve_unary(*this, this->expr().get());
   }
 
   tensor_negative() = delete;

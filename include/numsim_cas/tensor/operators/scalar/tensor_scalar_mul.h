@@ -19,13 +19,13 @@ public:
       : base(std::forward<LHS>(lhs), std::forward<RHS>(rhs), rhs.get().dim(),
              rhs.get().rank()) {
     // α·A has the same structural classification as A for any α.
-    structural_propagation::preserve_unary(this, this->m_rhs.get());
+    structural_propagation::preserve_unary(*this, this->m_rhs.get());
   }
 
   template <typename LHS, typename RHS>
   tensor_scalar_mul(LHS const &lhs, RHS const &rhs)
       : base(lhs, rhs, rhs.get().dim(), rhs.get().rank()) {
-    structural_propagation::preserve_unary(this, this->m_rhs.get());
+    structural_propagation::preserve_unary(*this, this->m_rhs.get());
   }
 
   void update_hash_value() const noexcept override {
