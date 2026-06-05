@@ -85,17 +85,28 @@ Test count: 1293 → 1295.
 **Deliverables**:
 
 1. `tensor_zero` short-circuit in `is_symmetric` / `is_skew`:
-   `if (is_same<tensor_zero>(h)) return true;`. The "0 satisfies both" case
-   is the unique source of Sym/Skew simultaneity; every other expression has
-   a single perm classification.
+   `if (is_same<tensor_zero>(h)) return true;`. Two structural facts must
+   coexist (Sym AND Skew), and the existing `m_tensor_space::perm`
+   storage is a `std::variant` — single-valued. Pre-annotation can't
+   express the simultaneity. The helper-level branch is forced by the
+   storage shape, not by a Sym/Skew rivalry per se.
 2. `identity_tensor` constructor pre-annotates `m_tensor_space`:
    - rank-2 → `{Symmetric, AnyTraceTag}`
    - rank-4 → `{MinorMajor, AnyTraceTag}`
-3. `tensor_projector` constructor pre-annotates `m_tensor_space` from its
-   own `space_` member (single source of truth).
-4. `tensor_to_scalar_zero` already pre-annotates in its constructor
+   Each is a single-valued classification, so the variant works. Defaulted
+   copy/move ctors preserve the annotation via `tensor_expression`'s 1-arg
+   copy/move (the form that copies `m_tensor_space`).
+3. `tensor_projector` single-sources its space from `m_tensor_space` (the
+   old `space_` member is removed; its `space()` accessor derefs the
+   optional and returns the value reference). This eliminates the
+   drift-between-stores hazard surfaced in the step-2 review.
+4. `is_symmetric` gains an explicit `MinorMajor` branch — `classify_space`
+   maps MinorMajor to `Other`, but the rank-4 fully-symmetric case (which
+   identity_tensor rank-4 produces) must answer true. Same cross-mechanism
+   pattern as the existing PD check.
+5. `tensor_to_scalar_zero` already pre-annotates in its constructor
    (existing code at #261). No change needed; documented as the model.
-5. `levi_civita_tensor` left untouched. The current `tensor_space::perm`
+6. `levi_civita_tensor` left untouched. The current `tensor_space::perm`
    variant has no "totally antisymmetric" alternative; revisit if 1.1 needs it.
 
 **Design rationale**: same pattern as `tensor_to_scalar_zero`/`tensor_to_scalar_one`
@@ -108,29 +119,65 @@ moves to step 3.
 - `is_symmetric(tensor_zero{3,2}) == true` + `is_skew(tensor_zero{3,2}) == true`
   + the simultaneity is_symmetric ∧ is_skew lock-in
 - `is_symmetric(identity_tensor{3,2}) == true`
+- `is_symmetric(identity_tensor{3,4}) == true` (rank-4 minor identity via
+  the new MinorMajor branch in is_symmetric)
 - `is_minor_major(identity_tensor{3,4}) == true`
 - `is_volumetric(P_vol(3)) == true`, `is_deviatoric(P_dev(3)) == true`,
   `is_skew(P_skew(3)) == true`, `is_symmetric(P_sym(3)) == true`
+- Negative matrix: `is_orthogonal(I)`, `is_positive_definite(I)`,
+  `is_volumetric(I)`, etc. all false for each constant
+- Move/copy preservation: identity_tensor through copy and move ctors keeps
+  its m_tensor_space annotation (rank-2 Sym AND rank-4 MinorMajor branches)
+- Hash invariance: identity_tensor with and without the annotation hash equal
+  (m_tensor_space is not part of the content-addressed hash)
+- Contradictory assertion: `assume_skew(P_vol(3))` overwrites Vol with Skew
+- Compound regression: `is_symmetric(I + I)`, `is_symmetric(α·I)`,
+  `is_symmetric(trans(I))` all true via the existing per-wrapper
+  space-propagation
 
 **Behavior change**: `is_symmetric(I)` and `is_volumetric(P_vol)` used to
 return false (despite being mathematically true); they now return true. No
 downstream simplifier currently dispatches on these queries for `I` or
 `P_*`, so this is purely an answer-correctness improvement.
 
-**Estimated test count delta**: +8 to +10.
+**Estimated test count delta**: +25 (1295 → 1320).
 
 ### Step 3 — Structural visitor + per-wrapper migration
 
+**Note**: compound walks like `is_symmetric(I + I)` and `is_symmetric(α·I)`
+ALREADY work today via the existing per-wrapper space-propagation in
+n_ary_tree (binary add) and tensor_scalar_mul. Step 3 doesn't add this
+behavior — it consolidates the scattered per-constructor writes into a
+unified visitor. The migration is a refactor + memoization layer, not a
+behavior change.
+
 Today, several constructors and factories write into the assumption stores
 directly. Step 3 introduces a structural visitor over tensor expressions and
-moves each per-wrapper write into a corresponding visitor arm. The visitor
-also handles **compound walks** — `is_symmetric(I + I) → true` because both
-children carry Sym facts and the sum-of-symmetrics rule applies.
+moves each per-wrapper write into a corresponding visitor arm.
 
 A `derived_cache_` field on `tensor_expression` (mirror shape of
 `m_tensor_space`) memoizes the visitor's per-query computation. The bridge
-in `is_*` helpers reads in order: `m_tensor_algebra_assumptions` →
-`m_tensor_space` (asserted) → `derived_cache_` (visitor-populated).
+in `is_*` helpers reads in order:
+
+1. `tensor_zero` short-circuit (stays in the helper — the variant can't
+   express Sym ∧ Skew simultaneously, so this can't migrate into the
+   variant-based cache)
+2. `m_tensor_algebra_assumptions` (user-asserted PD/PSD/orthogonal facts)
+3. `m_tensor_space` (user-asserted structural classification OR closed-form
+   constant pre-annotation from step 2)
+4. `derived_cache_` (visitor-populated derived facts)
+
+**Step 3 should be split into three sub-PRs** to keep review manageable:
+
+- **3a**: `derived_cache_` field + structural visitor scaffolding +
+  leaf-facts rename. No call-site migration; existing per-constructor
+  writes stay. Visitor exists but is only invoked through new test
+  consumers.
+- **3b**: Per-wrapper migration. Move `tensor_functions.h:391,405`
+  (trans orthogonal), `tensor_inv.h:79,83` (inv PD/PSD + Sym implication)
+  into visitor arms.
+- **3c**: Propagator rewrite. The scalar_assumption_propagator.cpp
+  changes are non-trivial and deserve their own review focus.
 
 **Migration sites** (verified by grep on `2026-06-05`):
 

@@ -82,35 +82,23 @@ public:
   identity_tensor(std::size_t dim, std::size_t rank) : base(dim, rank) {
     // Pre-annotate the structural classification (SymPy-style closed-form
     // constant — see docs/sympy-assumption-redesign.md). Same pattern as
-    // tensor_to_scalar_zero / tensor_to_scalar_one. Rank-2 identity is
-    // the Kronecker δ_ij, which is symmetric. Rank-4 minor identity is
-    // δ_ik·δ_jl, which has full minor + major symmetry. Higher ranks are
-    // left unset for now — the variant has no general "all-pairs-minor"
-    // alternative and higher-rank identity is rarely queried.
-    if (rank == 2)
-      this->set_space({Symmetric{}, AnyTraceTag{}});
-    else if (rank == 4)
-      this->set_space({MinorMajor{}, AnyTraceTag{}});
+    // tensor_to_scalar_zero / tensor_to_scalar_one. The annotation is
+    // preserved by the defaulted copy/move ctors below, which route through
+    // tensor_expression's 1-arg copy/move ctor (the form that copies
+    // m_tensor_space — see tensor_expression.h:30).
+    if (auto sp = space_for_rank(rank))
+      this->set_space(*sp);
   }
-  identity_tensor(identity_tensor &&data) noexcept
-      : base(static_cast<base &&>(data), data.dim(), data.rank()) {
-    // The 3-arg base ctor intentionally does NOT copy m_tensor_space (it's
-    // used by n_ary_tree which manages space separately). Re-apply the
-    // structural pre-annotation so copy/move preserve the closed-form
-    // classification. Same footgun pattern as the step-1 tensor move-ctor
-    // fix; locked in by IdentityTensorAssumptions.MovePreservesAnnotation.
-    if (this->rank() == 2)
-      this->set_space({Symmetric{}, AnyTraceTag{}});
-    else if (this->rank() == 4)
-      this->set_space({MinorMajor{}, AnyTraceTag{}});
-  }
-  identity_tensor(identity_tensor const &data)
-      : base(static_cast<base const &>(data), data.dim(), data.rank()) {
-    if (this->rank() == 2)
-      this->set_space({Symmetric{}, AnyTraceTag{}});
-    else if (this->rank() == 4)
-      this->set_space({MinorMajor{}, AnyTraceTag{}});
-  }
+  // Defaulted copy/move: the implicit base copy/move uses
+  // tensor_expression's 1-arg ctor which preserves m_tensor_space, so the
+  // pre-annotation set in the by-name ctor above survives. Previously we
+  // used the 3-arg form which drops m_tensor_space and required an
+  // explicit re-apply — that pattern was a latent footgun (and made the
+  // move ctor's noexcept fragile if a future rank branch used a
+  // vector-bearing variant). Locked in by
+  // TensorAlgebraIdentityAssumptions.{Move,Copy}PreservesAnnotation.
+  identity_tensor(identity_tensor &&data) noexcept = default;
+  identity_tensor(identity_tensor const &data) = default;
   ~identity_tensor() override = default;
   const identity_tensor &operator=(identity_tensor &&) = delete;
 
@@ -126,6 +114,21 @@ public:
     hash_combine(base::m_hash_value, base::get_id());
     hash_combine(base::m_hash_value, this->dim());
     hash_combine(base::m_hash_value, this->rank());
+  }
+
+private:
+  // Closed-form structural classification by rank. Rank-2 is Kronecker δ_ij
+  // (Symmetric). Rank-4 minor identity is δ_ik·δ_jl (MinorMajor — fully
+  // symmetric at rank-4). Higher ranks return nullopt; the variant has no
+  // general "all-pairs-minor" alternative and higher-rank identity is
+  // rarely queried. Open decision tracked in
+  // docs/sympy-assumption-redesign.md.
+  static std::optional<tensor_space> space_for_rank(std::size_t rank) noexcept {
+    if (rank == 2)
+      return tensor_space{Symmetric{}, AnyTraceTag{}};
+    if (rank == 4)
+      return tensor_space{MinorMajor{}, AnyTraceTag{}};
+    return std::nullopt;
   }
 };
 

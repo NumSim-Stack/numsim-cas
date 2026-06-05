@@ -860,17 +860,17 @@ TEST(TensorAlgebraPropagation, AssumePdOnRank4WithNoSpaceLeavesSpaceUnset) {
 // collapse to a top-level zero, never wrap one as a child. See
 // docs/sympy-assumption-redesign.md.
 
-TEST(TensorZeroAssumptions, ZeroIsSymmetricAtRank2) {
+TEST(TensorAlgebraZeroAssumptions, ZeroIsSymmetricAtRank2) {
   auto Z = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
   EXPECT_TRUE(is_symmetric(Z));
 }
 
-TEST(TensorZeroAssumptions, ZeroIsSkewAtRank2) {
+TEST(TensorAlgebraZeroAssumptions, ZeroIsSkewAtRank2) {
   auto Z = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
   EXPECT_TRUE(is_skew(Z));
 }
 
-TEST(TensorZeroAssumptions, ZeroIsBothSymmetricAndSkew) {
+TEST(TensorAlgebraZeroAssumptions, ZeroIsBothSymmetricAndSkew) {
   // The simultaneity is the load-bearing fact for the SymPy redesign:
   // closed-form constants can satisfy multiple structural predicates
   // that would otherwise be mutually exclusive on the tensor_space variant.
@@ -878,11 +878,31 @@ TEST(TensorZeroAssumptions, ZeroIsBothSymmetricAndSkew) {
   EXPECT_TRUE(is_symmetric(Z) && is_skew(Z));
 }
 
-TEST(TensorZeroAssumptions, ZeroIsSymmetricAtRank4) {
+TEST(TensorAlgebraZeroAssumptions, ZeroIsSymmetricAtRank4) {
   // Rank-independent: 0 at any rank satisfies vacuous symmetry.
   auto Z = make_expression<tensor_zero>(std::size_t{3}, std::size_t{4});
   EXPECT_TRUE(is_symmetric(Z));
   EXPECT_TRUE(is_skew(Z));
+}
+
+TEST(TensorAlgebraZeroAssumptions, ZeroIsNotOtherAlgebraicProperties) {
+  // Negative lock-ins on every helper that might develop a short-circuit:
+  // zero has no space tag, so all the space-based helpers other than the
+  // two explicitly short-circuited ones (is_symmetric, is_skew) must
+  // return false. Zero is NOT orthogonal (0·0 ≠ I), NOT PD (0 is not
+  // strictly positive), and we deliberately do NOT claim PSD here either
+  // (PSD on zero is mathematically true but is_positive_semidefinite
+  // queries the algebra-manager set, which doesn't include zero). If a
+  // future helper develops its own short-circuit, this test will surface
+  // the new behavior.
+  auto Z = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+  EXPECT_FALSE(is_volumetric(Z));
+  EXPECT_FALSE(is_deviatoric(Z));
+  EXPECT_FALSE(is_minor(Z));
+  EXPECT_FALSE(is_minor_major(Z));
+  EXPECT_FALSE(is_orthogonal(Z));
+  EXPECT_FALSE(is_positive_definite(Z));
+  EXPECT_FALSE(is_positive_semidefinite(Z));
 }
 
 // ─── identity_tensor closed-form pre-annotation (SymPy step 2) ────────
@@ -890,65 +910,195 @@ TEST(TensorZeroAssumptions, ZeroIsSymmetricAtRank4) {
 // structural classification into m_tensor_space. is_symmetric(I) etc. now
 // answer true automatically. No visitor walk needed at this step.
 
-TEST(IdentityTensorAssumptions, Rank2IsSymmetric) {
+TEST(TensorAlgebraIdentityAssumptions, Rank2IsSymmetric) {
   auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
   EXPECT_TRUE(is_symmetric(I));
 }
 
-TEST(IdentityTensorAssumptions, Rank2IsNotSkew) {
+TEST(TensorAlgebraIdentityAssumptions, Rank2IsNotSkew) {
   // I ≠ -I, so the identity is symmetric but NOT skew. Negative lock-in.
   auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
   EXPECT_FALSE(is_skew(I));
 }
 
-TEST(IdentityTensorAssumptions, Rank4MinorIdentityIsMinorMajor) {
+TEST(TensorAlgebraIdentityAssumptions, Rank4MinorIdentityIsMinorMajor) {
   // I_{ijkl} = δ_ik · δ_jl. Has minor symmetry (swap (i,j) or (k,l)) AND
   // major symmetry (swap (ij)↔(kl)).
   auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{4});
   EXPECT_TRUE(is_minor_major(I));
 }
 
-TEST(IdentityTensorAssumptions, MovePreservesAnnotation) {
-  // The 3-arg base ctor drops m_tensor_space — same footgun pattern as the
-  // step-1 tensor move-ctor bug. identity_tensor's move ctor must re-apply
-  // the structural pre-annotation. Direct stack-construct + move triggers
-  // the move ctor; subsequent is_symmetric must still return true.
+TEST(TensorAlgebraIdentityAssumptions, Rank4MinorIdentityIsSymmetric) {
+  // C1 lock-in: is_symmetric must also return true for the rank-4 minor
+  // identity. Pre-fix the answer was false because classify_space mapped
+  // MinorMajor → Other; the explicit MinorMajor branch in is_symmetric
+  // fixes this. The rank-4 minor identity is the canonical fully-
+  // symmetric rank-4 tensor.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{4});
+  EXPECT_TRUE(is_symmetric(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank6IsUnclassified_OpenDecision) {
+  // Doc open decision #3: higher-rank identity is left unset because the
+  // variant has no general "all-pairs-minor" alternative. Lock in the
+  // CURRENT behavior so a future change is explicit. Mathematically,
+  // rank-6 minor identity δ_il·δ_jm·δ_kn does have full symmetry; if
+  // 1.1 adds a rank-6 classification, this test should flip.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{6});
+  EXPECT_FALSE(is_symmetric(I))
+      << "rank-6 identity unclassified — see open decision in scoping doc";
+  EXPECT_FALSE(is_minor_major(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank2IsNotOtherAlgebraicProperties) {
+  // Negative-test matrix for rank-2 identity. I is symmetric, NOT skew,
+  // NOT volumetric (vol(I) = (1/d)·tr(I)·I = I, so I has nonzero
+  // volumetric part but is not ITSELF in the volumetric subspace as a
+  // strict subspace classification — the codebase keeps the Symmetric
+  // tag, not the VolumetricTag), NOT a rank-4 classification, NOT
+  // orthogonal (orthogonal := R·Rᵀ = I, true for I but not annotated as
+  // such today — locked in as the deliberate omission), NOT marked PD.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_FALSE(is_volumetric(I));
+  EXPECT_FALSE(is_deviatoric(I));
+  EXPECT_FALSE(is_minor(I));
+  EXPECT_FALSE(is_major(I));
+  EXPECT_FALSE(is_minor_major(I));
+  EXPECT_FALSE(is_orthogonal(I));
+  EXPECT_FALSE(is_positive_definite(I));
+  EXPECT_FALSE(is_positive_semidefinite(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, MovePreservesAnnotationRank2) {
+  // Defaulted move ctor routes through tensor_expression's 1-arg move
+  // (preserves m_tensor_space). The previous explicit-ctor + re-apply
+  // pattern was a footgun; this test guards against a regression that
+  // reintroduces the 3-arg base ctor path.
   identity_tensor src{std::size_t{3}, std::size_t{2}};
   identity_tensor moved{std::move(src)};
   ASSERT_TRUE(moved.space().has_value());
   EXPECT_TRUE(std::holds_alternative<Symmetric>(moved.space()->perm));
 }
 
-TEST(IdentityTensorAssumptions, CopyPreservesAnnotation) {
+TEST(TensorAlgebraIdentityAssumptions, CopyPreservesAnnotationRank2) {
   identity_tensor src{std::size_t{3}, std::size_t{2}};
   identity_tensor copy{src};
   ASSERT_TRUE(copy.space().has_value());
   EXPECT_TRUE(std::holds_alternative<Symmetric>(copy.space()->perm));
 }
 
+TEST(TensorAlgebraIdentityAssumptions, MovePreservesAnnotationRank4) {
+  // Rank-4 move ctor coverage (cpp-pro F7 gap): the rank-4 branch
+  // produces MinorMajor, distinct from rank-2 Symmetric. Both must
+  // survive move construction.
+  identity_tensor src{std::size_t{3}, std::size_t{4}};
+  identity_tensor moved{std::move(src)};
+  ASSERT_TRUE(moved.space().has_value());
+  EXPECT_TRUE(std::holds_alternative<MinorMajor>(moved.space()->perm));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, HashIsIndependentOfSpaceAnnotation) {
+  // Architect finding A5: m_tensor_space is NOT part of update_hash_value,
+  // so two identity_tensor instances must hash equal whether the space is
+  // pre-annotated or cleared. If a future refactor folds m_tensor_space
+  // into the hash, this test surfaces the change so we can decide whether
+  // canonical-form/memoization invariants hold.
+  identity_tensor with_annotation{std::size_t{3}, std::size_t{2}};
+  identity_tensor without_annotation{std::size_t{3}, std::size_t{2}};
+  without_annotation.clear_space();
+  ASSERT_TRUE(with_annotation.space().has_value());
+  ASSERT_FALSE(without_annotation.space().has_value());
+  EXPECT_EQ(with_annotation.hash_value(), without_annotation.hash_value())
+      << "m_tensor_space must not contribute to the content-addressed hash";
+}
+
 // ─── tensor_projector closed-form pre-annotation (SymPy step 2) ───────
 
-TEST(ProjectorAssumptions, PSymIsSymmetric) {
+TEST(TensorAlgebraProjectorAssumptions, PSymIsSymmetric) {
   auto P = P_sym(std::size_t{3});
   EXPECT_TRUE(is_symmetric(P));
 }
 
-TEST(ProjectorAssumptions, PSkewIsSkew) {
+TEST(TensorAlgebraProjectorAssumptions, PSkewIsSkew) {
   auto P = P_skew(std::size_t{3});
   EXPECT_TRUE(is_skew(P));
 }
 
-TEST(ProjectorAssumptions, PVolIsVolumetric) {
+TEST(TensorAlgebraProjectorAssumptions, PVolIsVolumetric) {
   auto P = P_vol(std::size_t{3});
   EXPECT_TRUE(is_volumetric(P));
   // Vol is a subspace of Sym, so symmetric must also hold.
   EXPECT_TRUE(is_symmetric(P));
 }
 
-TEST(ProjectorAssumptions, PDevIsDeviatoric) {
+TEST(TensorAlgebraProjectorAssumptions, PDevIsDeviatoric) {
   auto P = P_devi(std::size_t{3});
   EXPECT_TRUE(is_deviatoric(P));
   EXPECT_TRUE(is_symmetric(P));
+}
+
+TEST(TensorAlgebraProjectorAssumptions, PSymIsNotOtherSpaceClassifications) {
+  auto P = P_sym(std::size_t{3});
+  EXPECT_FALSE(is_skew(P));
+  EXPECT_FALSE(is_volumetric(P));
+  EXPECT_FALSE(is_deviatoric(P));
+  EXPECT_FALSE(is_minor_major(P));
+  EXPECT_FALSE(is_orthogonal(P));
+  EXPECT_FALSE(is_positive_definite(P));
+}
+
+TEST(TensorAlgebraProjectorAssumptions, PVolIsNotSkewOrDeviatoric) {
+  auto P = P_vol(std::size_t{3});
+  EXPECT_FALSE(is_skew(P));
+  EXPECT_FALSE(is_deviatoric(P));
+  EXPECT_FALSE(is_minor_major(P));
+  EXPECT_FALSE(is_orthogonal(P));
+}
+
+TEST(TensorAlgebraProjectorAssumptions, AssumeSkewOnPVolOverwritesSpaceTag) {
+  // QA Gap 4: contradictory user assertion. Today's contract is that
+  // assume_skew() calls set_space() which overwrites m_tensor_space.
+  // For a pre-annotated projector this means the Vol classification is
+  // lost and replaced with Skew. Lock in the current contract so a
+  // future precedence change is explicit.
+  auto P = P_vol(std::size_t{3});
+  ASSERT_TRUE(is_volumetric(P));
+  assume_skew(P);
+  EXPECT_TRUE(is_skew(P));
+  EXPECT_FALSE(is_volumetric(P)) << "overwrite, not layered";
+  EXPECT_FALSE(is_symmetric(P)) << "Vol was the only sym route";
+}
+
+// ─── Compound regression guards on pre-annotated identity ────────────
+// Compound propagation for identity_tensor already works via the
+// existing per-wrapper space-propagation in n_ary_tree (binary add) and
+// tensor_scalar_mul. Lock in that the step-2 pre-annotation composes
+// correctly with those existing folds — a step-3 visitor migration must
+// not silently regress these.
+
+TEST(TensorAlgebraCompoundRegression, IsSymmetricOfIdentityPlusIdentity) {
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  auto I2 = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  // I + I propagates Sym through binary_op space-propagation. Already
+  // works today via the n_ary_tree merge of two Sym tagged children.
+  EXPECT_TRUE(is_symmetric(I + I2));
+}
+
+TEST(TensorAlgebraCompoundRegression, IsSymmetricOfTransOfIdentity) {
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  // trans(I) collapses to I via trans()'s Sym-space short-circuit — I is
+  // now Sym-tagged so the fold fires. Regression guard: a future trans
+  // change that misses the Sym check would here return false.
+  EXPECT_TRUE(is_symmetric(trans(I)));
+}
+
+TEST(TensorAlgebraCompoundRegression, IsSymmetricOfScalarTimesIdentity) {
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  auto [alpha] = make_scalar_variable("alpha");
+  // α·I — tensor_scalar_mul wrapper propagates m_rhs's space onto the
+  // result. Already works today; locks in composition with the step-2
+  // identity pre-annotation.
+  EXPECT_TRUE(is_symmetric(alpha * I));
 }
 
 } // namespace numsim::cas

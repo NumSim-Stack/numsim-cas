@@ -136,6 +136,15 @@ inline bool is_symmetric(expression_holder<tensor_expression> const &expr) {
   auto const &sp = expr.get().space();
   if (!sp)
     return false;
+  // MinorMajor at rank-4 is the "fully symmetric" rank-4 case (both minor
+  // C_ijkl = C_jikl = C_ijlk and major C_ijkl = C_klij symmetries). The
+  // canonical example is the rank-4 minor identity δ_ik·δ_jl. classify_space
+  // maps MinorMajor → Other (it's not a rank-2 perm classification), so we
+  // need an explicit branch — same cross-mechanism pattern as the PD check.
+  // Plain Minor or plain Major alone don't make a tensor "symmetric" in the
+  // strongest sense, so they're not included here.
+  if (std::holds_alternative<MinorMajor>(sp->perm))
+    return true;
   auto kind = classify_space(*sp);
   // Sym, Vol, Dev are all subspaces of Sym
   return kind == ProjKind::Sym || kind == ProjKind::Vol ||
