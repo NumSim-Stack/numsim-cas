@@ -50,7 +50,7 @@ public:
   pow_pow(expr_holder_t lhs, expr_holder_t rhs);
 
   /// pow(pow(x,a),b) --> pow(x,a*b)
-  /// TODO? pow(pow(x,-a), -b) --> pow(x,-a*b) only when x,a,b>0
+  /// TODO(#268): pow(pow(x,-a), -b) --> pow(x,a*b) only when x,a,b>0
   template <typename Expr> expr_holder_t dispatch(Expr const &);
 
   expr_holder_t dispatch(scalar_negative const &rhs);

@@ -52,7 +52,7 @@ tag_invoke(make_constant_fn, std::type_identity<scalar_expression>, T &&v) {
     if (v == -1)
       return -get_scalar_one();
   }
-  // TODO std::complex support
+  // TODO(#267): std::complex support
   if (v < 0) {
     return -make_expression<scalar_constant>(std::abs(static_cast<V>(v)));
   }

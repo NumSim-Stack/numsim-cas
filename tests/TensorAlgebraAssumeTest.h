@@ -248,7 +248,7 @@ TEST(TensorAlgebraFold, InvUnannotatedDoesNotFireFold) {
 TEST(TensorAlgebraFold, DetOrthogonalFoldsToOne) {
   // det(R) = 1 for proper rotations (the dominant continuum-mechanics
   // case). The annotation doesn't distinguish improper rotations (det =
-  // -1); a future chirality sub-tag could refine this.
+  // -1); TODO(#269) a chirality sub-tag could refine this.
   auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
   assume_orthogonal(R);
   auto d = det(R);
