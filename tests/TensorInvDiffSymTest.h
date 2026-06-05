@@ -186,11 +186,13 @@ TEST(TensorInvDiffSym, GeneralRank2InvDiffUnchanged) {
 // dispatch falls through to general Magnus.
 //
 // Verification uses a *structural* hash comparison between two diff results:
-// one with `assume_skew` still annotated (skew kernel: wraps a tensor_add of
-// T_base ± T_swap times ½), one after `clear_space` (Magnus kernel: just
-// T_base, no swap or scalar_mul). The two AST shapes differ in NODE TYPES,
-// not just coefficients, so the hash distinguishes them (the n_ary_tree
-// coefficient-exclusion rule doesn't affect this comparison).
+// one with `assume_skew` still annotated (skew kernel: wraps a
+// tensor_scalar_mul of `half` × `tensor_add(T_base, tensor_negative(T_swap))`
+// — n_ary_tree stores the negation via a wrapping `tensor_negative` node,
+// not via an internal sign), one after `clear_space` (Magnus kernel: bare
+// `T_base = otimes(...)`). The two AST shapes differ in NODE TYPES, not
+// just coefficients, so the hash distinguishes them — the n_ary_tree
+// coefficient-exclusion rule doesn't affect this comparison.
 TEST(TensorInvDiffSym, SkewClearedSpaceDispatchFallsThroughToMagnus) {
   auto X = make_expression<tensor>("X", std::size_t{2}, std::size_t{2});
   assume_skew(X);
@@ -212,16 +214,21 @@ TEST(TensorInvDiffSym, SkewClearedSpaceDispatchFallsThroughToMagnus) {
          "AST from the skew-kernel result above";
 }
 
-// ── VolumetricDispatchTriggersSymKernel ────────────────────────────────────
+// ── VolumetricDispatchEndToEndDiffersFromUnannotated ──────────────────────
 // `assume_volumetric(X)` sets {perm=Symmetric, trace=VolumetricTag}.
 // is_symmetric(X) returns true (Vol is a Sym subspace per classify_space),
-// so the dispatch routes through the sym kernel. Local structural lock-in
-// rather than relying on the cross-test NOTE on InvDevProjectorDiff:
-// compare diff(inv(vol_X), X) against diff(inv(unannotated_X), X), assert
-// they differ — the former uses the sym kernel (wraps T_base + T_swap),
-// the latter the bare Magnus kernel. Different AST node hierarchies, so
-// hashes differ.
-TEST(TensorInvDiffSym, VolumetricDispatchTriggersSymKernel) {
+// so the dispatch routes through the sym kernel.
+//
+// The hash inequality below catches a Vol-dispatch regression but the
+// signal is end-to-end: diff(inv(vol_X)) differs from diff(inv(unann_Y))
+// in TWO ways — (a) the leaf base case diff(X,X) returns P_vol for vol-X
+// vs identity_tensor for unannotated Y (per tensor_differentiation.h:73-92's
+// classify_space switch), AND (b) the inv-diff kernel choice (sym vs
+// Magnus). Either regressing would break the hash inequality, so this
+// test is a coverage net for "annotation is respected end-to-end" rather
+// than an isolated "sym kernel fired" lock-in. The kernel-isolation
+// version lives in PdAlgebraDispatchIsolatesSymKernel below.
+TEST(TensorInvDiffSym, VolumetricDispatchEndToEndDiffersFromUnannotated) {
   auto X = make_expression<tensor>("X", std::size_t{3}, std::size_t{2});
   assume_volumetric(X);
   ASSERT_TRUE(is_symmetric(X)) << "Vol implies symmetric";
@@ -229,8 +236,8 @@ TEST(TensorInvDiffSym, VolumetricDispatchTriggersSymKernel) {
   ASSERT_TRUE(diff_with_vol.is_valid());
 
   auto Y = make_expression<tensor>("X", std::size_t{3}, std::size_t{2});
-  // Y has the same name as X so leaf hashes match — the only structural
-  // difference between the two diffs is whether the sym kernel fired.
+  // Y has the same name as X so leaf hashes match. Annotation is the
+  // only meaningful difference between the two inputs.
   ASSERT_FALSE(is_symmetric(Y));
   auto diff_unannotated = diff(inv(Y), Y);
   ASSERT_TRUE(diff_unannotated.is_valid());
@@ -238,36 +245,93 @@ TEST(TensorInvDiffSym, VolumetricDispatchTriggersSymKernel) {
   EXPECT_NE(diff_with_vol.get().hash_value(),
             diff_unannotated.get().hash_value())
       << "Vol-annotated input must produce a different diff AST than the "
-         "unannotated case — the former routes through the sym kernel, "
-         "the latter through Magnus";
+         "unannotated case (via leaf base case P_vol AND/OR sym kernel)";
 }
 
-// LIMITATIONS NOTE — dim=4 sign-flip detection is not currently testable:
+// ── PdAlgebraDispatchIsolatesSymKernel ────────────────────────────────────
+// Kernel-isolation lock-in: uses `assume_positive_definite(X); clear_space`
+// so X has PD in the algebra-manager but no space tag. Two consequences:
+//   1. is_symmetric(X) returns true (via the algebra-manager path) →
+//      dispatch picks the sym kernel.
+//   2. diff(X, X) at the leaf base case sees empty space → returns
+//      identity_tensor (NOT a projector), same as the unannotated case.
+// So the ONLY structural difference between this diff and an unannotated
+// diff is the kernel choice. Hash inequality therefore pins the kernel
+// dispatch in isolation, unlike the end-to-end Volumetric test above.
+TEST(TensorInvDiffSym, PdAlgebraDispatchIsolatesSymKernel) {
+  auto X = make_expression<tensor>("X", std::size_t{3}, std::size_t{2});
+  assume_positive_definite(X);
+  X.data()->clear_space();
+  ASSERT_TRUE(is_symmetric(X))
+      << "precondition: PD-without-space still classifies as symmetric "
+         "via the algebra-manager path";
+  ASSERT_FALSE(X.get().space().has_value())
+      << "precondition: leaf base case will return identity_tensor (no "
+         "projector dispatch), matching the unannotated path";
+  auto diff_with_pd = diff(inv(X), X);
+  ASSERT_TRUE(diff_with_pd.is_valid());
+
+  auto Y = make_expression<tensor>("X", std::size_t{3}, std::size_t{2});
+  ASSERT_FALSE(is_symmetric(Y));
+  auto diff_unannotated = diff(inv(Y), Y);
+  ASSERT_TRUE(diff_unannotated.is_valid());
+
+  EXPECT_NE(diff_with_pd.get().hash_value(),
+            diff_unannotated.get().hash_value())
+      << "With identical leaf base cases (both return identity_tensor), "
+         "the hash inequality MUST come from the kernel choice (sym vs "
+         "Magnus). A future change that breaks the algebra-manager → "
+         "sym-kernel dispatch would be caught here.";
+}
+
+// LIMITATIONS NOTE — dim=4 sign-flip detection is not currently testable.
+// TODO(#266): when the inner_product_wrapper hash gap closes, the deleted
+// SkewRank2Dim4StructuralLockIn test (removed in commit ad4d824) can be
+// revived; see the issue for the kernel signature mismatch.
 //
 // A naive hash-comparison structural lock-in at dim=4 cannot distinguish
 // the sym kernel (T_base + T_swap)·½ from the skew kernel
-// (T_base − T_swap)·½ because the n_ary_tree hash EXCLUDES coefficients
-// (documented design choice in CLAUDE.md / n_ary_tree.h). And the
-// evaluator's MaxDim=3 ceiling blocks numerical validation at dim=4.
+// (T_base − T_swap)·½ for THREE independent reasons:
+//
+//   1. n_ary_tree's hash EXCLUDES coefficients (documented design in
+//      CLAUDE.md / n_ary_tree.h), so the sign of T_swap (via tensor_negative
+//      wrapping) doesn't flow into the add-node's hash beyond the child
+//      node's own hash, which is the same for +T_swap and -T_swap-wrapped-
+//      in-negative... actually subtle: tensor_negative IS a distinct node,
+//      so this one is partly covered. The deeper issue is below.
+//   2. tensor_scalar_mul's hash, when LHS is a scalar_constant, COLLAPSES
+//      to the RHS hash (intentional design rule for `c·T == T` hash
+//      equality — see operators/scalar/tensor_scalar_mul.h:31-39). So
+//      `(T_base + T_swap) * half` hashes identically to `T_base + T_swap`,
+//      and `(T_base - T_swap) * half` hashes identically to `T_base -
+//      T_swap`. The ½ factor is invisible.
+//   3. inner_product_wrapper does NOT hash its contraction indices
+//      (issue #266) — so a swap of {3,4}/{1,2} → {1,2}/{3,4} on the
+//      outer contraction wouldn't be caught either.
+//
+// And the evaluator's MaxDim=3 ceiling blocks numerical validation at
+// dim=4.
 //
 // What we DO catch:
-//   - sym vs general (different node hierarchy) — locked in here via
-//     VolumetricDispatchTriggersSymKernel and
-//     SkewClearedSpaceDispatchFallsThroughToMagnus.
+//   - sym vs general dispatch (different node hierarchy via the
+//     tensor_add/tensor_scalar_mul wrappers) — locked in by
+//     SkewClearedSpaceDispatchFallsThroughToMagnus,
+//     VolumetricDispatchEndToEndDiffersFromUnannotated, and
+//     PdAlgebraDispatchIsolatesSymKernel.
 //   - sym kernel correctness at dim=3 — SymmetricRank2InvDiffMatchesNumeric.
 //   - skew kernel sign correctness at dim=2 —
-//   SkewRank2Dim2InvDiffMatchesNumeric
-//     (but only 1 free off-diagonal entry — not a thorough check).
+//     SkewRank2Dim2InvDiffMatchesNumeric (only 1 free off-diagonal entry —
+//     not a thorough check; the kernel works there but doesn't exercise
+//     the full minor-antisymmetric structure).
 //
 // What we DON'T catch:
 //   - Sign-flip in T_swap at dim ≥ 4 (sym ↔ skew kernel swap).
 //   - Transpose errors in T_swap's index sequences at dim ≥ 4.
+//   - A ½-coefficient regression at any dim (per reason 2 above).
 //
-// Tracked as a separate issue against the codebase: see the open issue
-// for `inner_product_wrapper` not hashing its contraction indices — once
-// the codebase's hash function captures indices and coefficients, the
-// gap above closes. Until then, the math has to be trusted from the
-// derivation in tensor_differentiation.cpp's doc comment.
+// Until #266 lands (and ideally also a hash extension to capture
+// scalar_constant coefficients in tensor_scalar_mul), the math has to be
+// trusted from the derivation in tensor_differentiation.cpp's doc comment.
 
 // ── PdAnnotationWithClearedSpaceStillRoutesToSymKernel ────────────────────
 // Soundness regression for the dispatch logic: assume_positive_definite

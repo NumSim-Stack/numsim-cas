@@ -1,6 +1,5 @@
 #include <numsim_cas/tensor/visitors/tensor_differentiation.h>
 
-#include <cassert>
 #include <numeric>
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/scalar/scalar_operators.h>
@@ -286,21 +285,41 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
     if (is_symmetric(A))
       sign = +1;
     else if (is_skew(A)) {
-      // Defensive assert on the cross-module precondition: the inv()
-      // factory rejects odd-dim skew (singular) before any tensor_inv
-      // ever reaches this visitor. If a future refactor relaxes the
-      // factory check, the antisym kernel below would emit a meaningless
-      // expression for a singular tensor — fail loudly here instead.
-      assert(A.get().dim() % 2 == 0 &&
-             "skew odd-dim should have been rejected by inv() factory");
+      // Cross-module precondition: the inv() factory rejects odd-dim
+      // skew (singular) at tensor_functions.h:425+. A direct
+      // `make_expression<tensor_inv>(odd_dim_skew)` bypasses the factory,
+      // and a future relaxation of the factory check would silently emit
+      // a meaningless antisym kernel for a singular operand. Throw
+      // matches the factory's `invalid_expression_error` convention and
+      // — unlike `assert` — fires in Release builds too.
+      if (A.get().dim() % 2 != 0)
+        throw invalid_expression_error(
+            "tensor_differentiation: odd-dim skew inv-diff is undefined "
+            "(singular matrix); should have been rejected at the inv() "
+            "factory");
       sign = -1;
     }
     if (sign != 0) {
       auto T_swap = otimes(invA, sequence{1, 4}, invA, sequence{3, 2});
-      // The 1/2 constant: function-local static. scalar_constant is
-      // value-immutable so a single instance is safe across all calls
-      // and threads (magic-static initialization). Saves one allocation
-      // per call.
+      // The 1/2 constant: function-local static. Magic-static
+      // initialization is thread-safe per C++17 [stmt.dcl]; the lazy
+      // hash computation on the shared instance (mutable m_hash_value
+      // in expression_base) is NOT synchronized — see the note in
+      // include/numsim_cas/core/expression.h. The codebase is
+      // single-threaded today so this is fine; if multithreading lands,
+      // this static needs to participate in whatever synchronization
+      // scheme the hash cache adopts.
+      //
+      // PEER-SITE NOTE: scalar_constant(scalar_number{1, 2}) is also
+      // inlined per-call at scalar_simplifier_pow.cpp:95, scalar_std.h:
+      // 208 and :233. Those sites are construction-time and not on a
+      // hot path; the diff visitor IS called per tensor_inv per
+      // derivative, hence the local static here. DO NOT unify the four
+      // sites into a `get_scalar_half()` in scalar_globals.h — the
+      // existing get_scalar_zero / get_scalar_one return dedicated
+      // SINGLETON NODE TYPES (scalar_zero / scalar_one), not constants;
+      // promoting a rational-constant to the same API is a category
+      // mismatch (intentionally rolled back in commit ad4d824).
       static auto const half =
           make_expression<scalar_constant>(scalar_number{1, 2});
       T = (sign > 0 ? T + T_swap : T - T_swap) * half;
