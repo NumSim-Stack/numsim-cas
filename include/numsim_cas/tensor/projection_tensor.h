@@ -26,8 +26,17 @@ public:
 
   tensor_projector(std::size_t dim, std::size_t acts_on_rank,
                    tensor_space space)
-      : base(dim, 2 * acts_on_rank), r_(acts_on_rank),
-        space_(std::move(space)) {}
+      : base(dim, 2 * acts_on_rank), r_(acts_on_rank), space_(space) {
+    // Pre-annotate m_tensor_space from space_ so is_volumetric(P_vol),
+    // is_deviatoric(P_dev), etc. answer correctly. The projector's
+    // classification IS its own subspace: P_vol projects onto the
+    // volumetric subspace AND is itself volumetric (a positive multiple
+    // of I⊗I/d at rank 4 is symmetric, has zero deviatoric component,
+    // and trace-equals-dim). See docs/sympy-assumption-redesign.md
+    // step 2 — same closed-form-constant pre-annotation pattern as
+    // identity_tensor and tensor_to_scalar_zero.
+    this->set_space(std::move(space));
+  }
 
   std::size_t acts_on_rank() const { return r_; }
   const tensor_space &space() const { return space_; }

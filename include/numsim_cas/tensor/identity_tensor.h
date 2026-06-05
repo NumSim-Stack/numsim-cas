@@ -79,11 +79,38 @@ public:
   using base = tensor_node_base_t<identity_tensor>;
 
   identity_tensor() = delete;
-  identity_tensor(std::size_t dim, std::size_t rank) : base(dim, rank) {}
+  identity_tensor(std::size_t dim, std::size_t rank) : base(dim, rank) {
+    // Pre-annotate the structural classification (SymPy-style closed-form
+    // constant — see docs/sympy-assumption-redesign.md). Same pattern as
+    // tensor_to_scalar_zero / tensor_to_scalar_one. Rank-2 identity is
+    // the Kronecker δ_ij, which is symmetric. Rank-4 minor identity is
+    // δ_ik·δ_jl, which has full minor + major symmetry. Higher ranks are
+    // left unset for now — the variant has no general "all-pairs-minor"
+    // alternative and higher-rank identity is rarely queried.
+    if (rank == 2)
+      this->set_space({Symmetric{}, AnyTraceTag{}});
+    else if (rank == 4)
+      this->set_space({MinorMajor{}, AnyTraceTag{}});
+  }
   identity_tensor(identity_tensor &&data) noexcept
-      : base(static_cast<base &&>(data), data.dim(), data.rank()) {}
+      : base(static_cast<base &&>(data), data.dim(), data.rank()) {
+    // The 3-arg base ctor intentionally does NOT copy m_tensor_space (it's
+    // used by n_ary_tree which manages space separately). Re-apply the
+    // structural pre-annotation so copy/move preserve the closed-form
+    // classification. Same footgun pattern as the step-1 tensor move-ctor
+    // fix; locked in by IdentityTensorAssumptions.MovePreservesAnnotation.
+    if (this->rank() == 2)
+      this->set_space({Symmetric{}, AnyTraceTag{}});
+    else if (this->rank() == 4)
+      this->set_space({MinorMajor{}, AnyTraceTag{}});
+  }
   identity_tensor(identity_tensor const &data)
-      : base(static_cast<base const &>(data), data.dim(), data.rank()) {}
+      : base(static_cast<base const &>(data), data.dim(), data.rank()) {
+    if (this->rank() == 2)
+      this->set_space({Symmetric{}, AnyTraceTag{}});
+    else if (this->rank() == 4)
+      this->set_space({MinorMajor{}, AnyTraceTag{}});
+  }
   ~identity_tensor() override = default;
   const identity_tensor &operator=(identity_tensor &&) = delete;
 

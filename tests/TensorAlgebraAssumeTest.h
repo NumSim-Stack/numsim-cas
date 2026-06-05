@@ -852,6 +852,105 @@ TEST(TensorAlgebraPropagation, AssumePdOnRank4WithNoSpaceLeavesSpaceUnset) {
       << "rank-4 PD with no prior space must NOT get a rank-2 Sym tag";
 }
 
+// ─── tensor_zero closed-form short-circuit (SymPy step 2) ────────────
+// tensor_zero is the unique expression where Sym and Skew can BOTH be true:
+// 0 = 0^T (symmetric) AND 0 = -0^T (skew). Every other expression has a
+// single perm classification. This is safe to special-case in the helpers
+// because tensor_zero never appears as a subterm — operators and factories
+// collapse to a top-level zero, never wrap one as a child. See
+// docs/sympy-assumption-redesign.md.
+
+TEST(TensorZeroAssumptions, ZeroIsSymmetricAtRank2) {
+  auto Z = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+  EXPECT_TRUE(is_symmetric(Z));
+}
+
+TEST(TensorZeroAssumptions, ZeroIsSkewAtRank2) {
+  auto Z = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+  EXPECT_TRUE(is_skew(Z));
+}
+
+TEST(TensorZeroAssumptions, ZeroIsBothSymmetricAndSkew) {
+  // The simultaneity is the load-bearing fact for the SymPy redesign:
+  // closed-form constants can satisfy multiple structural predicates
+  // that would otherwise be mutually exclusive on the tensor_space variant.
+  auto Z = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+  EXPECT_TRUE(is_symmetric(Z) && is_skew(Z));
+}
+
+TEST(TensorZeroAssumptions, ZeroIsSymmetricAtRank4) {
+  // Rank-independent: 0 at any rank satisfies vacuous symmetry.
+  auto Z = make_expression<tensor_zero>(std::size_t{3}, std::size_t{4});
+  EXPECT_TRUE(is_symmetric(Z));
+  EXPECT_TRUE(is_skew(Z));
+}
+
+// ─── identity_tensor closed-form pre-annotation (SymPy step 2) ────────
+// Same pattern as tensor_to_scalar_zero/one: the constructor writes the
+// structural classification into m_tensor_space. is_symmetric(I) etc. now
+// answer true automatically. No visitor walk needed at this step.
+
+TEST(IdentityTensorAssumptions, Rank2IsSymmetric) {
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_TRUE(is_symmetric(I));
+}
+
+TEST(IdentityTensorAssumptions, Rank2IsNotSkew) {
+  // I ≠ -I, so the identity is symmetric but NOT skew. Negative lock-in.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_FALSE(is_skew(I));
+}
+
+TEST(IdentityTensorAssumptions, Rank4MinorIdentityIsMinorMajor) {
+  // I_{ijkl} = δ_ik · δ_jl. Has minor symmetry (swap (i,j) or (k,l)) AND
+  // major symmetry (swap (ij)↔(kl)).
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{4});
+  EXPECT_TRUE(is_minor_major(I));
+}
+
+TEST(IdentityTensorAssumptions, MovePreservesAnnotation) {
+  // The 3-arg base ctor drops m_tensor_space — same footgun pattern as the
+  // step-1 tensor move-ctor bug. identity_tensor's move ctor must re-apply
+  // the structural pre-annotation. Direct stack-construct + move triggers
+  // the move ctor; subsequent is_symmetric must still return true.
+  identity_tensor src{std::size_t{3}, std::size_t{2}};
+  identity_tensor moved{std::move(src)};
+  ASSERT_TRUE(moved.space().has_value());
+  EXPECT_TRUE(std::holds_alternative<Symmetric>(moved.space()->perm));
+}
+
+TEST(IdentityTensorAssumptions, CopyPreservesAnnotation) {
+  identity_tensor src{std::size_t{3}, std::size_t{2}};
+  identity_tensor copy{src};
+  ASSERT_TRUE(copy.space().has_value());
+  EXPECT_TRUE(std::holds_alternative<Symmetric>(copy.space()->perm));
+}
+
+// ─── tensor_projector closed-form pre-annotation (SymPy step 2) ───────
+
+TEST(ProjectorAssumptions, PSymIsSymmetric) {
+  auto P = P_sym(std::size_t{3});
+  EXPECT_TRUE(is_symmetric(P));
+}
+
+TEST(ProjectorAssumptions, PSkewIsSkew) {
+  auto P = P_skew(std::size_t{3});
+  EXPECT_TRUE(is_skew(P));
+}
+
+TEST(ProjectorAssumptions, PVolIsVolumetric) {
+  auto P = P_vol(std::size_t{3});
+  EXPECT_TRUE(is_volumetric(P));
+  // Vol is a subspace of Sym, so symmetric must also hold.
+  EXPECT_TRUE(is_symmetric(P));
+}
+
+TEST(ProjectorAssumptions, PDevIsDeviatoric) {
+  auto P = P_devi(std::size_t{3});
+  EXPECT_TRUE(is_deviatoric(P));
+  EXPECT_TRUE(is_symmetric(P));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORALGEBRAASSUMETEST_H

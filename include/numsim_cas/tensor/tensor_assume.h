@@ -1,8 +1,10 @@
 #ifndef TENSOR_ASSUME_H
 #define TENSOR_ASSUME_H
 
+#include <numsim_cas/basic_functions.h>
 #include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_zero.h>
 
 namespace numsim::cas {
 
@@ -120,6 +122,12 @@ inline void remove_assumption(expression_holder<tensor_expression> const &expr,
 // --- Query assumptions ---
 
 inline bool is_symmetric(expression_holder<tensor_expression> const &expr) {
+  // Zero short-circuit: 0 = 0^T trivially, so zero is symmetric at any rank.
+  // tensor_zero never appears as a subterm (collapse-rules ensure it's only
+  // ever a top-level result), so direct holder queries are the only path
+  // that reaches this. See docs/sympy-assumption-redesign.md.
+  if (is_same<tensor_zero>(expr))
+    return true;
   // PD / PSD imply symmetric independently of the projector-space tag, so
   // a user who annotates PD then calls clear_space() still sees symmetric.
   auto const &a = expr.get().tensor_algebra_assumptions();
@@ -135,6 +143,11 @@ inline bool is_symmetric(expression_holder<tensor_expression> const &expr) {
 }
 
 inline bool is_skew(expression_holder<tensor_expression> const &expr) {
+  // Zero short-circuit: 0 = -0^T trivially, so zero is also skew. This is
+  // the one place Sym and Skew can both be true for the same expression;
+  // every other concrete expression has a single perm classification.
+  if (is_same<tensor_zero>(expr))
+    return true;
   auto const &sp = expr.get().space();
   if (!sp)
     return false;
