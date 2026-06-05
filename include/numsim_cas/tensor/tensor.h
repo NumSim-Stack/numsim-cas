@@ -16,13 +16,19 @@ public:
   tensor(std::string const &name, std::size_t dim, std::size_t rank)
       : base(name, dim, rank) {}
 
-  tensor(tensor &&data) noexcept : base(data.m_name, data.m_dim, data.m_rank) {}
+  // Move ctor: chain through symbol_base's move ctor (which itself chains
+  // to expression's move ctor) so the m_assumption / m_hash_value / name
+  // fields all propagate. The previous form `base(data.m_name, ...)` went
+  // through symbol_base's by-name constructor, which routes through
+  // expression()'s DEFAULT ctor and silently drops m_assumption. Bug
+  // surfaced in the step-1 critical review; locked in by
+  // AssumptionFixture.TensorSymbolMovePreservesAssumptions.
+  tensor(tensor &&data) noexcept
+      : base(std::move(static_cast<base &&>(data))) {}
 
-  // tensor is a Symbol: a named, unbound variable. It accepts user
-  // assertions via expression_holder::assumption(). Constant leaves
-  // (tensor_zero, identity_tensor, levi_civita_tensor) override this
-  // implicitly via the default (false) — they're not symbols.
-  [[nodiscard]] bool is_symbol() const noexcept override { return true; }
+  // is_symbol() is inherited from symbol_base (returns true). No need to
+  // re-override here; symbol_base is the single source of truth for the
+  // Symbol classification.
 
   // const tensor &operator=(expression_holder<tensor_expression> &&data) {
   //   this->m_expr = std::move(data);

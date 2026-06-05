@@ -373,4 +373,50 @@ TEST_F(AssumptionFixture, InferMaxDiffResultIsNonnegative) {
   EXPECT_TRUE(numsim::cas::is_nonnegative(e));
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  Foundational lock-ins: base-ctor m_assumption propagation
+// ═══════════════════════════════════════════════════════════════════════
+//
+// The expression base copy/move ctors propagate m_assumption (the numeric
+// assumption manager). Without this, deep-copy of any leaf node silently
+// drops user assertions. These tests pin the invariant — a future refactor
+// that reverts the propagation would be caught here rather than via
+// downstream behavioral regressions.
+//
+// scalar's copy ctor is `= delete`, but its move ctor chains through
+// symbol_base → expression, so move-construction exercises the propagation
+// path. Tensor moves were broken pre-fix (chained through by-name ctor
+// instead of base move) — the test would have caught that.
+
+TEST_F(AssumptionFixture, ScalarSymbolMovePreservesAssumptions) {
+  // Build a scalar leaf node directly, assert on it via the manager
+  // API (assume_* helpers go through the propagator and are tested above;
+  // here we want the bare m_assumption mechanics), move-construct a new
+  // leaf from it, and confirm the assertion survives.
+  numsim::cas::scalar src{"x_src"};
+  src.assumptions().insert(numsim::cas::positive{});
+  ASSERT_TRUE(src.assumptions().contains(numsim::cas::positive{}));
+
+  numsim::cas::scalar moved{std::move(src)};
+  EXPECT_TRUE(moved.assumptions().contains(numsim::cas::positive{}))
+      << "scalar move ctor must propagate m_assumption via the "
+         "symbol_base → expression chain";
+}
+
+TEST_F(AssumptionFixture, TensorSymbolMovePreservesAssumptions) {
+  // Mirror for tensor — this is the bug the β-4 review surfaced. Before
+  // the fix, tensor's move ctor routed `base(data.m_name, data.m_dim,
+  // data.m_rank)` which goes through symbol_base's by-name ctor and
+  // never invokes expression's move ctor, silently dropping m_assumption.
+  numsim::cas::tensor src{"X_src", std::size_t{3}, std::size_t{2}};
+  src.assumptions().insert(numsim::cas::positive{});
+  ASSERT_TRUE(src.assumptions().contains(numsim::cas::positive{}));
+
+  numsim::cas::tensor moved{std::move(src)};
+  EXPECT_TRUE(moved.assumptions().contains(numsim::cas::positive{}))
+      << "tensor move ctor must propagate m_assumption via the "
+         "symbol_base → expression chain (regression test for the bug "
+         "found in the step-1 critical review)";
+}
+
 #endif // SCALARASSUMPTIONTEST_H

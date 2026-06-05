@@ -34,6 +34,14 @@ public:
    * `auto e2 = make_expression<scalar_constant>(*e1.data())`, the copied
    * node must carry the same assumptions as the source — otherwise the
    * copy loses `positive{}` / `real{}` etc. silently.
+   *
+   * INVARIANT: m_hash_value is content-addressed (depends only on node
+   * type + child hashes + payload like `name` / `value`). m_assumption is
+   * NOT folded into the hash, so copying the cached m_hash_value remains
+   * valid even though m_assumption is now also copied. If a future change
+   * makes the hash depend on m_assumption, this copy invariant must be
+   * re-examined (the assumption set isn't part of the node's structural
+   * identity in the current model — it's user-asserted metadata).
    */
   expression(expression const &data)
       : m_assumption(data.m_assumption), m_hash_value(data.m_hash_value) {}

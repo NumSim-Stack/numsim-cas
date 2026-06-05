@@ -18,9 +18,9 @@ public:
   explicit scalar(scalar &&data) noexcept
       : base_t(std::move(static_cast<base_t &&>(data))) {}
 
-  // scalar is a Symbol: a named, unbound scalar variable. Accepts user
-  // assertions via expression_holder::assumption().
-  [[nodiscard]] bool is_symbol() const noexcept override { return true; }
+  // is_symbol() is inherited from symbol_base (returns true). No need to
+  // re-override here; symbol_base is the single source of truth for the
+  // Symbol classification.
 
   using base_t::operator=;
 

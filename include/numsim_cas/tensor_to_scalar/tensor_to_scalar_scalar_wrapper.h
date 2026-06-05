@@ -27,6 +27,17 @@ public:
   const tensor_to_scalar_scalar_wrapper &
   operator=(tensor_to_scalar_scalar_wrapper &&) = delete;
 
+  // Transparent forwarding of Symbol classification: this wrapper is the
+  // bridge that lets a named scalar (e.g. scalar("x")) appear in a t2s
+  // expression. A user who has only a `holder<t2s_expression>` referring
+  // to such a wrapped scalar should still be able to call
+  // `.assumption(...)` — the wrapped child IS a Symbol. Forward through.
+  // For non-Symbol payloads (constants, compound scalar expressions),
+  // this returns the payload's own answer (typically false).
+  [[nodiscard]] bool is_symbol() const noexcept override {
+    return this->expr().is_valid() && this->expr().get().is_symbol();
+  }
+
   friend bool operator<(tensor_to_scalar_scalar_wrapper const &lhs,
                         tensor_to_scalar_scalar_wrapper const &rhs) {
     return lhs.hash_value() < rhs.hash_value();
