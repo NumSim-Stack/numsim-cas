@@ -28,14 +28,23 @@ public:
   /**
    * @brief Copy constructor.
    * @param data The expression object to copy from.
+   *
+   * Copies the numeric assumption manager along with the cached hash. The
+   * assumption set is per-node state: when a user writes
+   * `auto e2 = make_expression<scalar_constant>(*e1.data())`, the copied
+   * node must carry the same assumptions as the source — otherwise the
+   * copy loses `positive{}` / `real{}` etc. silently.
    */
-  expression(expression const &data) : m_hash_value(data.m_hash_value) {}
+  expression(expression const &data)
+      : m_assumption(data.m_assumption), m_hash_value(data.m_hash_value) {}
 
   /**
    * @brief Move constructor.
    * @param data The expression object to move from.
    */
-  expression(expression &&data) noexcept : m_hash_value(data.m_hash_value) {}
+  expression(expression &&data) noexcept
+      : m_assumption(std::move(data.m_assumption)),
+        m_hash_value(data.m_hash_value) {}
 
   /**
    * @brief Virtual destructor.

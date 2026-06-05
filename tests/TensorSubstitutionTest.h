@@ -8,6 +8,7 @@
 #include "gtest/gtest.h"
 
 #include <numsim_cas/core/substitute.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/visitors/tensor_substitution.h>
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_substitution.h>
 
@@ -110,6 +111,119 @@ TYPED_TEST(TensorSubstitutionTest, CrossDomainDepth) {
       numsim::cas::tensor_to_scalar_with_tensor_mul>(Y, expectedTr);
   EXPECT_TRUE(result == expected)
       << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
+}
+
+// ─── β-4: outer-annotation preservation across substitution ──────────────
+
+// Outer algebra annotation (PD) on a compound input survives substitution.
+// Without the rebuild-visitor propagation, the fresh tensor_add node
+// produced by `substitute(X+Y, X, Z)` would have an empty
+// algebra-assumption manager — the user-asserted PD would be lost.
+TYPED_TEST(TensorSubstitutionTest, OuterPdAnnotationSurvivesSubstitution) {
+  using numsim::cas::assume_positive_definite;
+  using numsim::cas::is_positive_definite;
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Z = this->Z;
+
+  auto C = X + Y;
+  assume_positive_definite(C);
+  ASSERT_TRUE(is_positive_definite(C));
+
+  auto result = numsim::cas::substitute(C, X, Z);
+  EXPECT_TRUE(is_positive_definite(result))
+      << "PD annotation on the outer compound input must survive rebuild";
+  // PSD ⇒ PD per the assume_* convention.
+  EXPECT_TRUE(numsim::cas::is_positive_semidefinite(result));
+}
+
+// Same shape, orthogonal instead of PD. Pure algebra-manager propagation;
+// no space-tag side effects.
+TYPED_TEST(TensorSubstitutionTest, OuterOrthogonalSurvivesSubstitution) {
+  using numsim::cas::assume_orthogonal;
+  using numsim::cas::is_orthogonal;
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Z = this->Z;
+
+  auto C = X + Y;
+  assume_orthogonal(C);
+  ASSERT_TRUE(is_orthogonal(C));
+
+  auto result = numsim::cas::substitute(C, X, Z);
+  EXPECT_TRUE(is_orthogonal(result))
+      << "Orthogonal annotation on the outer compound must survive rebuild";
+}
+
+// Space tag on the outer compound survives — the rebuild's tensor_add ctor
+// would propagate space only if children agreed, but we annotated the
+// PARENT directly. Without propagate_outer_annotations the new add would
+// have empty space.
+TYPED_TEST(TensorSubstitutionTest, OuterSpaceTagSurvivesSubstitution) {
+  using numsim::cas::assume_symmetric;
+  using numsim::cas::is_symmetric;
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Z = this->Z;
+
+  auto C = X + Y;
+  assume_symmetric(C);
+  ASSERT_TRUE(is_symmetric(C));
+
+  auto result = numsim::cas::substitute(C, X, Z);
+  EXPECT_TRUE(is_symmetric(result))
+      << "Symmetric space on the outer compound must survive rebuild";
+}
+
+// Ctor-inferred space wins over input space on conflict — don't overwrite
+// what a wrapper's ctor learned from structural analysis with a stale
+// user-asserted annotation.
+//
+// Setup: inv(X) where X is PD. Annotate the WHOLE expression `inv(X)` as
+// `assume_skew` (deliberately contradictory — PD ⇒ symmetric, not skew).
+// After substitute(_, X, Z) where Z is also PD, the new tensor_inv ctor
+// inherits Sym from Z (via α-2b propagation). propagate_outer_annotations
+// must NOT overwrite that Sym with the user's contradictory Skew.
+TYPED_TEST(TensorSubstitutionTest, CtorInferredSpaceWinsOverInputSpace) {
+  using numsim::cas::assume_positive_definite;
+  using numsim::cas::assume_skew;
+  using numsim::cas::is_symmetric;
+  auto &X = this->X;
+  auto &Z = this->Z;
+
+  assume_positive_definite(X);
+  assume_positive_definite(Z);
+  auto C = numsim::cas::inv(X);
+  ASSERT_TRUE(is_symmetric(C)) << "PD ⇒ symmetric ctor propagation";
+  // Now corrupt the outer with a contradictory annotation by directly
+  // setting Skew on the space (bypassing assume_skew's algebra-manager
+  // overwrite). This is the pathological case the helper must handle.
+  C.data()->set_space({numsim::cas::Skew{}, numsim::cas::AnyTraceTag{}});
+
+  auto result = numsim::cas::substitute(C, X, Z);
+  // The rebuilt inv(Z) gets Sym from its ctor (Z is PD). The input's
+  // Skew must NOT win because the output already has a space tag —
+  // ctor-inferred wins.
+  EXPECT_TRUE(is_symmetric(result))
+      << "Ctor-inferred Sym must not be overwritten by input's Skew";
+}
+
+// Identity substitution (subs(X, X, X)) returns m_new directly via
+// tensor_substitution::apply's fast path — no rebuild, annotations on
+// X are trivially preserved through shared_ptr aliasing. Lock-in: this
+// path should NOT regress to going through propagate_outer_annotations
+// (which would no-op anyway since m_result.data() == expr.data()).
+TYPED_TEST(TensorSubstitutionTest,
+           IdentitySubstitutionPreservesAllAnnotations) {
+  using numsim::cas::assume_positive_definite;
+  using numsim::cas::is_positive_definite;
+  auto &X = this->X;
+
+  assume_positive_definite(X);
+  auto result = numsim::cas::substitute(X, X, X);
+  EXPECT_TRUE(is_positive_definite(result));
+  EXPECT_EQ(result.data(), X.data())
+      << "identity substitution should return the same shared_ptr instance";
 }
 
 #endif // TENSORSUBSTITUTIONTEST_H
