@@ -1204,6 +1204,42 @@ TEST(TensorAlgebraCompoundRegression,
       << "P_vol + P_dev should resolve to a symmetric projector";
 }
 
+// ─── Step 3a: structural_propagation::preserve_unary lock-ins ─────────
+// Two compound wrappers (tensor_negative and tensor_scalar_mul) now share
+// a single helper for the pass-through pattern. Tests below exercise the
+// helper through each caller separately, catching divergence between the
+// two migration sites.
+
+TEST(TensorAlgebraStructuralPropagation, PreserveUnaryCopiesChildSpace) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  assume_symmetric(A);
+  // tensor_negative as consumer — its ctor calls preserve_unary(this, child).
+  auto neg_A = -A;
+  ASSERT_TRUE(neg_A.get().space().has_value());
+  EXPECT_TRUE(std::holds_alternative<Symmetric>(neg_A.get().space()->perm));
+}
+
+TEST(TensorAlgebraStructuralPropagation, PreserveUnaryNoopWhenChildHasNoSpace) {
+  // Negative case: child with no space tag must NOT cause the result to
+  // get a wrong default. preserve_unary is no-op when the optional is empty.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto neg_A = -A;
+  EXPECT_FALSE(neg_A.get().space().has_value());
+}
+
+TEST(TensorAlgebraStructuralPropagation, ScalarMulPreservesRhsSpace) {
+  // Same helper, different caller (tensor_scalar_mul). Catches divergence
+  // between the two migration sites — if one re-introduces an inline
+  // pattern, this test still passes through that path while the
+  // PreserveUnary tests pass through the other.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto [alpha] = make_scalar_variable("alpha");
+  assume_skew(A);
+  auto scaled = alpha * A;
+  ASSERT_TRUE(scaled.get().space().has_value());
+  EXPECT_TRUE(std::holds_alternative<Skew>(scaled.get().space()->perm));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORALGEBRAASSUMETEST_H
