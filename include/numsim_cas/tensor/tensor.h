@@ -18,6 +18,12 @@ public:
 
   tensor(tensor &&data) noexcept : base(data.m_name, data.m_dim, data.m_rank) {}
 
+  // tensor is a Symbol: a named, unbound variable. It accepts user
+  // assertions via expression_holder::assumption(). Constant leaves
+  // (tensor_zero, identity_tensor, levi_civita_tensor) override this
+  // implicitly via the default (false) — they're not symbols.
+  [[nodiscard]] bool is_symbol() const noexcept override { return true; }
+
   // const tensor &operator=(expression_holder<tensor_expression> &&data) {
   //   this->m_expr = std::move(data);
   //   return *this;

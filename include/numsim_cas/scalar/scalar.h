@@ -18,6 +18,10 @@ public:
   explicit scalar(scalar &&data) noexcept
       : base_t(std::move(static_cast<base_t &&>(data))) {}
 
+  // scalar is a Symbol: a named, unbound scalar variable. Accepts user
+  // assertions via expression_holder::assumption().
+  [[nodiscard]] bool is_symbol() const noexcept override { return true; }
+
   using base_t::operator=;
 
   const scalar &operator=(scalar const &data) {

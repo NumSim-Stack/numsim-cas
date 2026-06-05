@@ -66,6 +66,19 @@ public:
 
   [[nodiscard]] virtual type_id id() const noexcept = 0;
 
+  /**
+   * @brief Whether this node is a Symbol (named leaf accepting user
+   * assertions via `assumption()`).
+   *
+   * SymPy-style assumption model: only Symbols (named tensor / scalar
+   * variables) carry user-asserted facts. Constants (zero, one, identity,
+   * literals) and compound expressions return false; their facts are
+   * intrinsic to the type or derived from structure + leaves.
+   *
+   * Default: false. Symbol-class nodes override to return true.
+   */
+  [[nodiscard]] virtual bool is_symbol() const noexcept { return false; }
+
   inline auto &assumptions() noexcept { return m_assumption; }
 
   inline auto const &assumptions() const noexcept { return m_assumption; }

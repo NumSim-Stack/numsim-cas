@@ -21,6 +21,14 @@ class invalid_expression_error : public cas_error {
   using cas_error::cas_error;
 };
 
+// Thrown by expression_holder::assumption() when invoked on a compound
+// expression. In the SymPy-style assumption model, only Symbols (leaves)
+// can carry user-asserted facts; compounds derive their facts from
+// leaves + structural rules.
+class invalid_assumption_error : public cas_error {
+  using cas_error::cas_error;
+};
+
 class internal_error : public cas_error {
   using cas_error::cas_error;
 };
