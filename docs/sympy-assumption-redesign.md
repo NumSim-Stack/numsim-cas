@@ -334,6 +334,21 @@ A.assumption(symmetric{}, positive_definite{});  // multi-fact assertion
 - `assume_*` helpers stay as thin wrappers around `assumption()` for backwards
   compatibility within numsim-cas; do not advertise them in 1.0 docs.
 
+**Variadic-call API contract** (architect step-5 prep):
+
+- **0 facts** (`A.assumption()`) — no-op, returns void. Defensive choice
+  over compile-error: makes the method amenable to forwarding from
+  generic code that may pass an empty parameter pack.
+- **N facts** — no upper bound. C++ template parameter packs handle
+  arbitrary arity; the runtime cost is linear in pack size.
+- **Type-level filter** — accepted via a concept `assumption_fact<T>`
+  that constrains the variadic parameter pack: `requires (assumption_fact<Args> && ...)`.
+  The concept is satisfied by any type derivable from the
+  `numeric_assumption`/`tensor_algebra_assumption` taxonomies — i.e.
+  `positive{}`, `symmetric{}`, etc. Mistyped arguments
+  (`A.assumption(42, "foo")`) become a clear "concept not satisfied"
+  diagnostic instead of a deep template-error spew.
+
 **Variadic implication-chain ordering** (architect step-5 prep):
 
 Variadic assertion like `A.assumption(positive_definite{}, symmetric{})`

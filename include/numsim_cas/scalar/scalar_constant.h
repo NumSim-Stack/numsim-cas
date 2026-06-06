@@ -116,15 +116,13 @@ private:
               a.insert(nonpositive{});
             }
           } else if constexpr (std::is_same_v<T, rational_t>) {
+            // scalar_number's normalize_rational collapses rational_t{N,1}
+            // to int64{N} in the variant, so a rational_t alternative here
+            // is guaranteed den != 1. No integer-emission branch needed —
+            // if that invariant ever breaks, the bug should surface in
+            // scalar_number, not be silently masked by defensive code here.
             a.insert(rational{});
             a.insert(real_tag{});
-            // Defensive: scalar_number's normalize_rational collapses
-            // rational_t{N, 1} to int64{N} in the variant, so this
-            // branch is unreachable today. Keep as defense-in-depth
-            // for any future construction path that bypasses
-            // normalization.
-            if (v.den == 1)
-              a.insert(integer{});
             // num/den signs: den > 0 invariant per scalar_number ctor.
             if (v.num > 0) {
               a.insert(positive{});

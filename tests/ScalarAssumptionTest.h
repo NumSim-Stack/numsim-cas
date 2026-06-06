@@ -63,7 +63,7 @@ TEST_F(AssumptionFixture, RemoveAssumptionRemovesOnly) {
 TEST_F(AssumptionFixture, QueryHelpers) {
   numsim::cas::assume(x, numsim::cas::even{});
   EXPECT_TRUE(numsim::cas::is_even(x));
-  EXPECT_TRUE(numsim::cas::is_integer_assumed(x));
+  EXPECT_TRUE(numsim::cas::is_integer(x));
   EXPECT_TRUE(numsim::cas::is_real(x));
 }
 
@@ -463,7 +463,7 @@ TEST(ScalarConstantValueAssumptions, PositiveIntegerCarriesIntegerAndPositive) {
   EXPECT_TRUE(numsim::cas::is_positive(c));
   EXPECT_TRUE(numsim::cas::is_nonnegative(c));
   EXPECT_TRUE(numsim::cas::is_nonzero(c));
-  EXPECT_TRUE(numsim::cas::is_integer_assumed(c));
+  EXPECT_TRUE(numsim::cas::is_integer(c));
   EXPECT_TRUE(numsim::cas::is_real(c));
   EXPECT_FALSE(numsim::cas::is_negative(c));
 }
@@ -475,7 +475,7 @@ TEST(ScalarConstantValueAssumptions, NegativeIntegerCarriesNegative) {
   EXPECT_TRUE(numsim::cas::is_negative(c));
   EXPECT_TRUE(numsim::cas::is_nonpositive(c));
   EXPECT_TRUE(numsim::cas::is_nonzero(c));
-  EXPECT_TRUE(numsim::cas::is_integer_assumed(c));
+  EXPECT_TRUE(numsim::cas::is_integer(c));
   EXPECT_FALSE(numsim::cas::is_positive(c));
 }
 
@@ -496,13 +496,13 @@ TEST(ScalarConstantValueAssumptions, IntegerZeroAndDoubleZeroCarrySameFactSet) {
   EXPECT_FALSE(numsim::cas::is_nonzero(c_int));
   EXPECT_FALSE(numsim::cas::is_nonzero(c_dbl));
   // Zero is integer + rational + real regardless of spelling. The
-  // is_rational_assumed query helper was added alongside this test —
+  // is_rational query helper was added alongside this test —
   // closes the architect's final gap so a regression stripping the
   // rational tag from either branch surfaces.
-  EXPECT_TRUE(numsim::cas::is_integer_assumed(c_int));
-  EXPECT_TRUE(numsim::cas::is_integer_assumed(c_dbl));
-  EXPECT_TRUE(numsim::cas::is_rational_assumed(c_int));
-  EXPECT_TRUE(numsim::cas::is_rational_assumed(c_dbl));
+  EXPECT_TRUE(numsim::cas::is_integer(c_int));
+  EXPECT_TRUE(numsim::cas::is_integer(c_dbl));
+  EXPECT_TRUE(numsim::cas::is_rational(c_int));
+  EXPECT_TRUE(numsim::cas::is_rational(c_dbl));
   EXPECT_TRUE(numsim::cas::is_real(c_int));
   EXPECT_TRUE(numsim::cas::is_real(c_dbl));
 }
@@ -519,8 +519,10 @@ TEST(ScalarConstantValueAssumptions, NegativeDoubleCarriesNegative) {
   EXPECT_TRUE(numsim::cas::is_real(c));
   EXPECT_FALSE(numsim::cas::is_positive(c));
   EXPECT_FALSE(numsim::cas::is_nonnegative(c));
-  EXPECT_FALSE(numsim::cas::is_integer_assumed(c))
+  EXPECT_FALSE(numsim::cas::is_integer(c))
       << "non-zero doubles do NOT auto-claim integer";
+  EXPECT_FALSE(numsim::cas::is_rational(c))
+      << "non-zero doubles do NOT auto-claim rational either";
 }
 
 TEST(ScalarConstantValueAssumptions, NonzeroDoubleDoesNotClaimInteger) {
@@ -530,7 +532,7 @@ TEST(ScalarConstantValueAssumptions, NonzeroDoubleDoesNotClaimInteger) {
   auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(5.0);
   EXPECT_TRUE(numsim::cas::is_positive(c));
   EXPECT_TRUE(numsim::cas::is_real(c));
-  EXPECT_FALSE(numsim::cas::is_integer_assumed(c))
+  EXPECT_FALSE(numsim::cas::is_integer(c))
       << "non-zero doubles must not auto-claim integer";
 }
 
@@ -543,8 +545,8 @@ TEST(ScalarConstantValueAssumptions,
       numsim::cas::rational_t{1, 3});
   EXPECT_TRUE(numsim::cas::is_positive(c));
   EXPECT_TRUE(numsim::cas::is_real(c));
-  EXPECT_TRUE(numsim::cas::is_rational_assumed(c));
-  EXPECT_FALSE(numsim::cas::is_integer_assumed(c));
+  EXPECT_TRUE(numsim::cas::is_rational(c));
+  EXPECT_FALSE(numsim::cas::is_integer(c));
 }
 
 TEST(ScalarConstantValueAssumptions, ComplexCarriesNoSignOrRealPredicates) {
@@ -553,7 +555,9 @@ TEST(ScalarConstantValueAssumptions, ComplexCarriesNoSignOrRealPredicates) {
   // case because a future edit that adds real_tag for complex would be
   // silently invisible without this test. Includes is_nonnegative /
   // is_even as the most-plausible accidental insertions (e.g. if someone
-  // misused magnitude or even-bit logic on a complex value).
+  // misused magnitude or even-bit logic on a complex value). The
+  // !is_rational assertion is the false-path lock-in for the
+  // is_rational query helper (QA fifth-round gap).
   auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(
       std::complex<double>{1.0, 1.0});
   EXPECT_FALSE(numsim::cas::is_positive(c));
@@ -561,7 +565,8 @@ TEST(ScalarConstantValueAssumptions, ComplexCarriesNoSignOrRealPredicates) {
   EXPECT_FALSE(numsim::cas::is_nonzero(c));
   EXPECT_FALSE(numsim::cas::is_nonnegative(c));
   EXPECT_FALSE(numsim::cas::is_real(c));
-  EXPECT_FALSE(numsim::cas::is_integer_assumed(c));
+  EXPECT_FALSE(numsim::cas::is_integer(c));
+  EXPECT_FALSE(numsim::cas::is_rational(c));
   EXPECT_FALSE(numsim::cas::is_even(c));
 }
 
