@@ -3,6 +3,7 @@
 
 #include <numsim_cas/core/assumptions.h>
 #include <numsim_cas/core/expression_holder.h>
+#include <numsim_cas/core/require_symbol.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 
 namespace numsim::cas {
@@ -11,8 +12,15 @@ namespace numsim::cas {
 void infer_assumptions(expression_holder<scalar_expression> const &expr);
 
 // ── assume(): set assumption + implied assumptions on the node ──────────
+//
+// SymPy step 4: every assume(...) overload guards on is_symbol() and
+// throws invalid_assumption_error on compounds / constants. The previous
+// silent-accept behavior would let assume(x + y, positive{}) succeed but
+// the assumption never propagated meaningfully — the user wanted "x and
+// y are positive" (a fact about leaves) but wrote it on the compound.
 
 inline void assume(expression_holder<scalar_expression> const &expr, positive) {
+  detail::require_symbol(expr.get(), "assume(positive)");
   auto &a = expr.data()->assumptions();
   a.insert(positive{});
   a.insert(nonnegative{});
@@ -22,6 +30,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, positive) {
 }
 
 inline void assume(expression_holder<scalar_expression> const &expr, negative) {
+  detail::require_symbol(expr.get(), "assume(negative)");
   auto &a = expr.data()->assumptions();
   a.insert(negative{});
   a.insert(nonpositive{});
@@ -32,6 +41,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, negative) {
 
 inline void assume(expression_holder<scalar_expression> const &expr,
                    nonnegative) {
+  detail::require_symbol(expr.get(), "assume(nonnegative)");
   auto &a = expr.data()->assumptions();
   a.insert(nonnegative{});
   a.insert(real_tag{});
@@ -40,6 +50,7 @@ inline void assume(expression_holder<scalar_expression> const &expr,
 
 inline void assume(expression_holder<scalar_expression> const &expr,
                    nonpositive) {
+  detail::require_symbol(expr.get(), "assume(nonpositive)");
   auto &a = expr.data()->assumptions();
   a.insert(nonpositive{});
   a.insert(real_tag{});
@@ -47,12 +58,14 @@ inline void assume(expression_holder<scalar_expression> const &expr,
 }
 
 inline void assume(expression_holder<scalar_expression> const &expr, nonzero) {
+  detail::require_symbol(expr.get(), "assume(nonzero)");
   auto &a = expr.data()->assumptions();
   a.insert(nonzero{});
   expr.data()->assumptions().set_inferred();
 }
 
 inline void assume(expression_holder<scalar_expression> const &expr, integer) {
+  detail::require_symbol(expr.get(), "assume(integer)");
   auto &a = expr.data()->assumptions();
   a.insert(integer{});
   a.insert(rational{});
@@ -61,6 +74,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, integer) {
 }
 
 inline void assume(expression_holder<scalar_expression> const &expr, even) {
+  detail::require_symbol(expr.get(), "assume(even)");
   auto &a = expr.data()->assumptions();
   a.insert(even{});
   a.insert(integer{});
@@ -70,6 +84,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, even) {
 }
 
 inline void assume(expression_holder<scalar_expression> const &expr, odd) {
+  detail::require_symbol(expr.get(), "assume(odd)");
   auto &a = expr.data()->assumptions();
   a.insert(odd{});
   a.insert(integer{});
@@ -79,6 +94,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, odd) {
 }
 
 inline void assume(expression_holder<scalar_expression> const &expr, prime) {
+  detail::require_symbol(expr.get(), "assume(prime)");
   auto &a = expr.data()->assumptions();
   a.insert(prime{});
   a.insert(integer{});
@@ -91,6 +107,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, prime) {
 }
 
 inline void assume(expression_holder<scalar_expression> const &expr, rational) {
+  detail::require_symbol(expr.get(), "assume(rational)");
   auto &a = expr.data()->assumptions();
   a.insert(rational{});
   a.insert(real_tag{});
@@ -98,6 +115,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, rational) {
 }
 
 inline void assume(expression_holder<scalar_expression> const &expr, real_tag) {
+  detail::require_symbol(expr.get(), "assume(real_tag)");
   auto &a = expr.data()->assumptions();
   a.insert(real_tag{});
   expr.data()->assumptions().set_inferred();

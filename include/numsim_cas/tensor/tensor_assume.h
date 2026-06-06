@@ -2,6 +2,7 @@
 #define TENSOR_ASSUME_H
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/require_symbol.h>
 #include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_zero.h>
@@ -9,35 +10,49 @@
 namespace numsim::cas {
 
 // --- Set assumptions ---
+//
+// SymPy step 4: every assume_* helper guards on is_symbol() and throws
+// invalid_assumption_error on compounds / constants / wrappers. The
+// previous silent-accept behavior allowed user code to assert facts on
+// non-Symbols where the result was either redundant (constants are
+// already classified by their type) or semantically wrong (compounds
+// derive structure from children, not from user assertion).
 
 inline void assume_symmetric(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_symmetric");
   expr.data()->set_space({Symmetric{}, AnyTraceTag{}});
 }
 
 inline void assume_skew(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_skew");
   expr.data()->set_space({Skew{}, AnyTraceTag{}});
 }
 
 inline void
 assume_volumetric(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_volumetric");
   expr.data()->set_space({Symmetric{}, VolumetricTag{}});
 }
 
 inline void
 assume_deviatoric(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_deviatoric");
   expr.data()->set_space({Symmetric{}, DeviatoricTag{}});
 }
 
 inline void assume_minor(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_minor");
   expr.data()->set_space({Minor{}, AnyTraceTag{}});
 }
 
 inline void assume_major(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_major");
   expr.data()->set_space({Major{}, AnyTraceTag{}});
 }
 
 inline void
 assume_minor_major(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_minor_major");
   expr.data()->set_space({MinorMajor{}, AnyTraceTag{}});
 }
 
@@ -88,11 +103,13 @@ inline void set_symmetric_unless_more_specific(tensor_expression *e) {
 
 inline void
 assume_orthogonal(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_orthogonal");
   expr.data()->tensor_algebra_assumptions().insert(orthogonal{});
 }
 
 inline void
 assume_positive_definite(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_positive_definite");
   auto &a = expr.data()->tensor_algebra_assumptions();
   a.insert(positive_definite{});
   // PD => PSD by definition.
@@ -103,6 +120,7 @@ assume_positive_definite(expression_holder<tensor_expression> const &expr) {
 
 inline void
 assume_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_positive_semidefinite");
   auto &a = expr.data()->tensor_algebra_assumptions();
   a.insert(positive_semidefinite{});
   detail::set_symmetric_unless_more_specific(expr.data().get());

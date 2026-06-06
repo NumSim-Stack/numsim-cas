@@ -419,4 +419,31 @@ TEST_F(AssumptionFixture, TensorSymbolMovePreservesAssumptions) {
          "found in the step-1 critical review)";
 }
 
+// ─── Step 4: scalar assume() throws on non-Symbols ────────────────────
+// Symmetric to the tensor side. Compounds like x + y can't carry
+// user-asserted facts — the user must assert on the leaves and let the
+// propagator derive facts for the compound.
+
+TEST_F(AssumptionFixture, AssumePositiveOnCompoundThrows) {
+  EXPECT_THROW(numsim::cas::assume(x + y, numsim::cas::positive{}),
+               numsim::cas::invalid_assumption_error);
+}
+
+TEST_F(AssumptionFixture, AssumeNegativeOnCompoundThrows) {
+  EXPECT_THROW(numsim::cas::assume(x * y, numsim::cas::negative{}),
+               numsim::cas::invalid_assumption_error);
+}
+
+TEST_F(AssumptionFixture, AssumeNonzeroOnCompoundThrows) {
+  EXPECT_THROW(numsim::cas::assume(x - y, numsim::cas::nonzero{}),
+               numsim::cas::invalid_assumption_error);
+}
+
+TEST_F(AssumptionFixture, AssumePositiveOnSymbolSucceeds) {
+  // Positive case: same call on a Symbol works. Guards against
+  // over-aggressive guards rejecting valid usage.
+  EXPECT_NO_THROW(numsim::cas::assume(x, numsim::cas::positive{}));
+  EXPECT_TRUE(numsim::cas::is_positive(x));
+}
+
 #endif // SCALARASSUMPTIONTEST_H

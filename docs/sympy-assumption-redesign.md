@@ -244,21 +244,41 @@ the flag is harmless today).
 **Behavior change in step 3**: none. The two migrated wrappers continue
 to produce identical output. All α-2a/b/c/d lock-ins continue to pass.
 
-### Step 4 — Tighten `assume_*` to throw on non-Symbols
+### Step 4 — Tighten `assume_*` to throw on non-Symbols ✅ done
 
-After step 3, all derived facts flow through the visitor. At this point we
-make `assume_*` strict:
+Strict SymPy-style: only Symbols accept user-asserted facts. Compounds,
+constants, and wrappers throw `invalid_assumption_error`.
 
-- `assume_positive_definite(holder)` — guards `holder.get().is_symbol() == true`,
-  else throws `invalid_assumption_error`.
-- Same for `assume_orthogonal`, `assume_symmetric`, `assume_skew`,
-  `assume_volumetric`, `assume_deviatoric`, and their scalar siblings.
-- The `tensor_to_scalar_scalar_wrapper` forwarder makes `assume_positive(wrapped_x)`
-  work transparently (`is_symbol()` forwards through).
-- Tests: lock-in that `assume_positive_definite(A+B)` throws when A,B are
-  Symbols; succeeds when called on a tensor Symbol directly.
+**Delivered**:
 
-**Test count delta**: +10 to +15 (negative cases for each `assume_*` helper).
+1. New shared guard `include/numsim_cas/core/require_symbol.h` —
+   `detail::require_symbol(expr, fn_name)` throws if `expr.is_symbol() == false`.
+2. Tensor `assume_*` helpers (10 total: symmetric, skew, volumetric,
+   deviatoric, minor, major, minor_major, orthogonal, positive_definite,
+   positive_semidefinite) call `require_symbol` first.
+3. Scalar `assume(...)` overloads (11 total: positive, negative,
+   nonnegative, nonpositive, nonzero, integer, even, odd, prime, rational,
+   real_tag) call `require_symbol` first.
+4. `scalar_constant` constructor now self-annotates numeric assumptions
+   from its value (positive/negative/nonzero/integer/rational/real_tag).
+   Previously test code did `assume(c5, positive{})` on a literal; that
+   call now throws (literal is not a Symbol) AND is no longer needed —
+   the value self-classifies. Same pattern as `tensor_to_scalar_zero/one`
+   pre-annotation. Skips sign predicates for `std::complex` values
+   (not orderable).
+5. Step-2 overwrite tests (`AssumeSkewOverwritesSymmetricTag` on
+   identity, `AssumeSkew/SymmetricOnP*` on projectors) updated: they
+   used to lock in "user assertion overwrites pre-annotation" — under
+   SymPy that contract is a category error. Now lock in throwing
+   behavior + post-throw state preservation.
+6. One existing test (`ScalarFixture.AbsSimplification`) updated to
+   remove the now-redundant `assume(c5, positive{})` call.
+
+`tensor_to_scalar_scalar_wrapper`'s `is_symbol()` forwarder (added in
+step 1) ensures wrapped scalar Symbols remain assumable transparently.
+
+**Test count delta**: +11 (1333 → 1344). Within architect's projected
+envelope.
 
 ### Step 5 — Add `assumption()` method on `expression_holder`
 

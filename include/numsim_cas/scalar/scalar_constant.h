@@ -1,6 +1,7 @@
 #ifndef SCALAR_CONSTANT_H
 #define SCALAR_CONSTANT_H
 
+#include <numsim_cas/core/assumptions.h>
 #include <numsim_cas/core/hash_functions.h>
 #include <numsim_cas/core/scalar_number.h>
 #include <numsim_cas/scalar/scalar_expression.h>
@@ -12,7 +13,14 @@ public:
   using base = scalar_node_base_t<scalar_constant>;
   scalar_constant() = delete;
   template <typename T>
-  explicit scalar_constant(T const &v) : base(), m_value(v) {}
+  explicit scalar_constant(T const &v) : base(), m_value(v) {
+    // SymPy-style closed-form constant: derive numeric assumptions from
+    // the value at construction time (same pattern as
+    // tensor_to_scalar_zero/one). The user can no longer call
+    // assume(c, positive{}) on a literal (step 4 rejects non-Symbols),
+    // and they shouldn't need to — a literal 5 IS positive by value.
+    annotate_from_value();
+  }
   scalar_constant(scalar_constant const &) = default;
   scalar_constant(scalar_constant &&) noexcept = default;
   scalar_constant &operator=(scalar_constant const &) = delete;
@@ -48,6 +56,70 @@ protected:
 
 private:
   scalar_number m_value;
+
+  // Derive numeric assumptions from the value. int64 and double get sign
+  // + real classification; rationals get sign + rational + real; complex
+  // gets no sign predicates (not orderable). Always marked inferred so a
+  // downstream "asserted vs derived" introspection can distinguish.
+  void annotate_from_value() noexcept {
+    auto &a = this->assumptions();
+    std::visit(
+        [&a](auto const &v) {
+          using T = std::decay_t<decltype(v)>;
+          if constexpr (std::is_same_v<T, std::int64_t>) {
+            a.insert(integer{});
+            a.insert(rational{});
+            a.insert(real_tag{});
+            if (v > 0) {
+              a.insert(positive{});
+              a.insert(nonnegative{});
+              a.insert(nonzero{});
+            } else if (v < 0) {
+              a.insert(negative{});
+              a.insert(nonpositive{});
+              a.insert(nonzero{});
+            } else {
+              a.insert(nonnegative{});
+              a.insert(nonpositive{});
+            }
+          } else if constexpr (std::is_same_v<T, double>) {
+            a.insert(real_tag{});
+            if (v > 0.0) {
+              a.insert(positive{});
+              a.insert(nonnegative{});
+              a.insert(nonzero{});
+            } else if (v < 0.0) {
+              a.insert(negative{});
+              a.insert(nonpositive{});
+              a.insert(nonzero{});
+            } else {
+              a.insert(nonnegative{});
+              a.insert(nonpositive{});
+            }
+          } else if constexpr (std::is_same_v<T, rational_t>) {
+            a.insert(rational{});
+            a.insert(real_tag{});
+            if (v.den == 1)
+              a.insert(integer{});
+            // num/den signs: den > 0 invariant per scalar_number ctor.
+            if (v.num > 0) {
+              a.insert(positive{});
+              a.insert(nonnegative{});
+              a.insert(nonzero{});
+            } else if (v.num < 0) {
+              a.insert(negative{});
+              a.insert(nonpositive{});
+              a.insert(nonzero{});
+            } else {
+              a.insert(nonnegative{});
+              a.insert(nonpositive{});
+            }
+          }
+          // complex: no sign predicates apply; also not real.
+        },
+        m_value.raw());
+    a.set_inferred();
+  }
 };
 
 } // namespace numsim::cas

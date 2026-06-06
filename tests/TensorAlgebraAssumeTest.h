@@ -1045,16 +1045,17 @@ TEST(TensorAlgebraIdentityAssumptions, ClearSpaceIsNoOp) {
       << "clear_space on closed-form identity must be a no-op";
 }
 
-TEST(TensorAlgebraIdentityAssumptions, AssumeSkewOverwritesSymmetricTag) {
-  // QA Q8: user assertion overwrites the pre-annotation. Mirrors the
-  // AssumeSkewOnPVol test for projectors. The contradictory assertion is
-  // semantically meaningless (I ≠ -I^T) but the contract is that user
-  // input wins over the constant's default classification.
+TEST(TensorAlgebraIdentityAssumptions, AssumeSkewThrowsOnConstant) {
+  // SymPy step 4 supersedes the previous "user assertion overwrites
+  // pre-annotation" contract: identity_tensor is a closed-form constant,
+  // not a Symbol, so assume_skew(I) is a category error. Constants are
+  // classified by their type, not by user assertion. The contradictory
+  // case (I ≠ -I^T) the old test described is now impossible to write.
   auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
   ASSERT_TRUE(is_symmetric(I));
-  assume_skew(I);
-  EXPECT_TRUE(is_skew(I));
-  EXPECT_FALSE(is_symmetric(I));
+  EXPECT_THROW(assume_skew(I), invalid_assumption_error);
+  EXPECT_TRUE(is_symmetric(I))
+      << "throw must not partially mutate state before failing";
 }
 
 // ─── tensor_projector closed-form pre-annotation (SymPy step 2) ───────
@@ -1123,15 +1124,14 @@ TEST(TensorAlgebraProjectorAssumptions, PDevIsNotOtherSpaceClassifications) {
   EXPECT_FALSE(is_positive_definite(P));
 }
 
-TEST(TensorAlgebraProjectorAssumptions,
-     AssumeSymmetricOnPSkewOverwritesSpaceTag) {
-  // QA Q5: inverse of AssumeSkewOnPVolOverwritesSpaceTag. assume_symmetric
-  // on a Skew-tagged projector overwrites with Symmetric — same contract.
+TEST(TensorAlgebraProjectorAssumptions, AssumeSymmetricOnPSkewThrows) {
+  // SymPy step 4: projectors are closed-form constants, not Symbols.
+  // Was previously locked in as an overwrite contract; under SymPy that
+  // contract is a category error.
   auto P = P_skew(std::size_t{3});
   ASSERT_TRUE(is_skew(P));
-  assume_symmetric(P);
-  EXPECT_TRUE(is_symmetric(P));
-  EXPECT_FALSE(is_skew(P));
+  EXPECT_THROW(assume_symmetric(P), invalid_assumption_error);
+  EXPECT_TRUE(is_skew(P)) << "throw must not mutate state";
 }
 
 TEST(TensorAlgebraProjectorAssumptions, ClearSpaceIsNoOp) {
@@ -1145,18 +1145,15 @@ TEST(TensorAlgebraProjectorAssumptions, ClearSpaceIsNoOp) {
   EXPECT_TRUE(is_volumetric(P)) << "clear_space on projector must be a no-op";
 }
 
-TEST(TensorAlgebraProjectorAssumptions, AssumeSkewOnPVolOverwritesSpaceTag) {
-  // QA Gap 4: contradictory user assertion. Today's contract is that
-  // assume_skew() calls set_space() which overwrites m_tensor_space.
-  // For a pre-annotated projector this means the Vol classification is
-  // lost and replaced with Skew. Lock in the current contract so a
-  // future precedence change is explicit.
+TEST(TensorAlgebraProjectorAssumptions, AssumeSkewOnPVolThrows) {
+  // SymPy step 4 supersedes the previous overwrite contract: P_vol is
+  // a closed-form constant and rejects user assertion. The contradictory
+  // case the old test described (Skew on a Vol projector) is now
+  // impossible to express.
   auto P = P_vol(std::size_t{3});
   ASSERT_TRUE(is_volumetric(P));
-  assume_skew(P);
-  EXPECT_TRUE(is_skew(P));
-  EXPECT_FALSE(is_volumetric(P)) << "overwrite, not layered";
-  EXPECT_FALSE(is_symmetric(P)) << "Vol was the only sym route";
+  EXPECT_THROW(assume_skew(P), invalid_assumption_error);
+  EXPECT_TRUE(is_volumetric(P)) << "throw must not mutate state";
 }
 
 // ─── Compound regression guards on pre-annotated identity ────────────
@@ -1240,6 +1237,57 @@ TEST(TensorAlgebraStructuralPropagation, ScalarMulPreservesRhsSpace) {
   auto scaled = alpha * A;
   ASSERT_TRUE(scaled.get().space().has_value());
   EXPECT_TRUE(std::holds_alternative<Skew>(scaled.get().space()->perm));
+}
+
+// ─── Step 4: tensor assume_* throws on non-Symbols ─────────────────
+// SymPy-style strictness — only Symbols (named tensors) accept user
+// assertions. Compounds, constants, and wrappers throw
+// invalid_assumption_error. The compounds case is the most important
+// (it was the silent-noop footgun); the constant/wrapper cases protect
+// against accidental misuse of the API.
+
+TEST(TensorAlgebraStrictAssume, AssumeSymmetricOnCompoundThrows) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  auto sum = A + B;
+  EXPECT_THROW(assume_symmetric(sum), invalid_assumption_error);
+}
+
+TEST(TensorAlgebraStrictAssume, AssumeSkewOnCompoundThrows) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto neg = -A;
+  EXPECT_THROW(assume_skew(neg), invalid_assumption_error);
+}
+
+TEST(TensorAlgebraStrictAssume, AssumePositiveDefiniteOnCompoundThrows) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  EXPECT_THROW(assume_positive_definite(A + B), invalid_assumption_error);
+}
+
+TEST(TensorAlgebraStrictAssume, AssumeOrthogonalOnCompoundThrows) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  EXPECT_THROW(assume_orthogonal(A + B), invalid_assumption_error);
+}
+
+TEST(TensorAlgebraStrictAssume, AssumeSymmetricOnIdentityConstantThrows) {
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_THROW(assume_symmetric(I), invalid_assumption_error);
+}
+
+TEST(TensorAlgebraStrictAssume, AssumeSymmetricOnZeroConstantThrows) {
+  auto Z = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+  EXPECT_THROW(assume_symmetric(Z), invalid_assumption_error);
+}
+
+TEST(TensorAlgebraStrictAssume, AssumeOnSymbolSucceeds) {
+  // Positive case: the same call that throws on a compound succeeds on
+  // a Symbol. Guards against an over-aggressive guard that throws on
+  // legitimate inputs.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  EXPECT_NO_THROW(assume_symmetric(A));
+  EXPECT_TRUE(is_symmetric(A));
 }
 
 TEST(TensorAlgebraStructuralPropagation, PreserveUnaryOverwritesExistingSpace) {
