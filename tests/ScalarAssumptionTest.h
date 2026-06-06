@@ -495,23 +495,30 @@ TEST(ScalarConstantValueAssumptions, IntegerZeroAndDoubleZeroCarrySameFactSet) {
   // Both must be NOT nonzero (zero is the additive identity).
   EXPECT_FALSE(numsim::cas::is_nonzero(c_int));
   EXPECT_FALSE(numsim::cas::is_nonzero(c_dbl));
-  // Zero is integer + real regardless of spelling. Architect noted the
-  // original test was missing is_real — closes that gap so a future
-  // regression that strips real_tag from either branch surfaces.
+  // Zero is integer + rational + real regardless of spelling. The
+  // is_rational_assumed query helper was added alongside this test —
+  // closes the architect's final gap so a regression stripping the
+  // rational tag from either branch surfaces.
   EXPECT_TRUE(numsim::cas::is_integer_assumed(c_int));
   EXPECT_TRUE(numsim::cas::is_integer_assumed(c_dbl));
+  EXPECT_TRUE(numsim::cas::is_rational_assumed(c_int));
+  EXPECT_TRUE(numsim::cas::is_rational_assumed(c_dbl));
   EXPECT_TRUE(numsim::cas::is_real(c_int));
   EXPECT_TRUE(numsim::cas::is_real(c_dbl));
 }
 
 TEST(ScalarConstantValueAssumptions, NegativeDoubleCarriesNegative) {
   // QA: the double < 0 branch had no coverage. Structurally symmetric
-  // with negative-int but a distinct code path.
+  // with negative-int but a distinct code path. Negative assertions
+  // close the NOT-side (architect/QA: pins against a regression that
+  // accidentally inserts nonneg/positive for all non-positive values).
   auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(-5.0);
   EXPECT_TRUE(numsim::cas::is_negative(c));
   EXPECT_TRUE(numsim::cas::is_nonpositive(c));
   EXPECT_TRUE(numsim::cas::is_nonzero(c));
   EXPECT_TRUE(numsim::cas::is_real(c));
+  EXPECT_FALSE(numsim::cas::is_positive(c));
+  EXPECT_FALSE(numsim::cas::is_nonnegative(c));
   EXPECT_FALSE(numsim::cas::is_integer_assumed(c))
       << "non-zero doubles do NOT auto-claim integer";
 }
@@ -529,13 +536,14 @@ TEST(ScalarConstantValueAssumptions, NonzeroDoubleDoesNotClaimInteger) {
 
 TEST(ScalarConstantValueAssumptions,
      RationalNontrivialDenomIsRationalNotInteger) {
-  // QA Q3c: rational with non-unit denominator. Pre-fix path had a
-  // den == 1 → integer branch; verify the negation (den != 1 → not
-  // integer but still rational/real).
+  // QA Q3c: rational with non-unit denominator — the only live rational_t
+  // branch (scalar_number normalizes den==1 to int64). Verify the
+  // negation (den != 1 → not integer but still rational + real).
   auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(
       numsim::cas::rational_t{1, 3});
   EXPECT_TRUE(numsim::cas::is_positive(c));
   EXPECT_TRUE(numsim::cas::is_real(c));
+  EXPECT_TRUE(numsim::cas::is_rational_assumed(c));
   EXPECT_FALSE(numsim::cas::is_integer_assumed(c));
 }
 

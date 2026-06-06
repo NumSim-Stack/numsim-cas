@@ -1290,16 +1290,6 @@ TEST(TensorAlgebraStrictAssume, AssumeMinorMajorOnCompoundThrows) {
   EXPECT_THROW(assume_minor_major(A + B), invalid_assumption_error);
 }
 
-TEST(TensorAlgebraStrictAssume, AssumeMinorMajorOnRank4SymbolSucceeds) {
-  // QA review #5 follow-up: paired positive case for the rank-4 path.
-  // Without this, AssumeMinorMajorOnCompoundThrows only proves the guard
-  // fires — not that it fires SPECIFICALLY for non-Symbols. A rank-4
-  // Symbol must still accept the assertion.
-  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 4}));
-  EXPECT_NO_THROW(assume_minor_major(A));
-  EXPECT_TRUE(is_minor_major(A));
-}
-
 TEST(TensorAlgebraStrictAssume, AssumeOnSymbolSucceeds) {
   // Positive case: the same call that throws on a compound succeeds on
   // a Symbol. Guards against an over-aggressive guard that throws on

@@ -334,6 +334,34 @@ A.assumption(symmetric{}, positive_definite{});  // multi-fact assertion
 - `assume_*` helpers stay as thin wrappers around `assumption()` for backwards
   compatibility within numsim-cas; do not advertise them in 1.0 docs.
 
+**Variadic implication-chain ordering** (architect step-5 prep):
+
+Variadic assertion like `A.assumption(positive_definite{}, symmetric{})`
+needs a well-defined order for cross-mechanism implications. PD implies
+symmetric for real matrices — so the assertion `A.assumption(positive_definite{})`
+ALONE should produce a symmetric A. But what about combinations?
+
+Decided contract: **left-to-right, with each fact's full implication chain
+run before the next fact is processed**. This matches today's per-helper
+behavior (`assume_positive_definite` inserts PD, then PSD, then runs
+`set_symmetric_unless_more_specific`, all before returning).
+
+Trade-offs:
+- Left-to-right is predictable and matches user-write order.
+- Implication chains are idempotent (re-running has no effect), so the
+  order rarely matters in practice — most combinations converge to the
+  same final fact set regardless.
+- Contradiction reporting: if `A.assumption(skew{}, positive_definite{})`
+  is asserted, the user-write order determines the final space tag
+  (Skew first, then PD's set_symmetric_unless_more_specific overwrites
+  to Sym). Document this; throw on contradiction is OUT of scope for
+  step 5 (would need a contradiction-detection pass).
+
+Step 5 ALSO closes one architectural loose-end: today's `assume_*`
+helpers each do their own implication chain; `assumption()` is the
+opportunity to put the chain logic in one place. The per-helper
+implementations become `assumption(fact)` calls.
+
 ### Step 6 — Cross-domain consistency sweep
 
 - All `assume_*` helpers across scalar / tensor / t2s use the same

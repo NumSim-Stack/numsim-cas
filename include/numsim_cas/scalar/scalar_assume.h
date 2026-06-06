@@ -171,6 +171,12 @@ inline bool is_real(expression_holder<scalar_expression> const &expr) {
   return expr.data()->assumptions().contains(real_tag{});
 }
 
+inline bool
+is_rational_assumed(expression_holder<scalar_expression> const &expr) {
+  infer_assumptions(expr);
+  return expr.data()->assumptions().contains(rational{});
+}
+
 } // namespace numsim::cas
 
 #endif // SCALAR_ASSUME_H
