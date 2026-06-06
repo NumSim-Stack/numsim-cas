@@ -1281,6 +1281,15 @@ TEST(TensorAlgebraStrictAssume, AssumeSymmetricOnZeroConstantThrows) {
   EXPECT_THROW(assume_symmetric(Z), invalid_assumption_error);
 }
 
+TEST(TensorAlgebraStrictAssume, AssumeMinorMajorOnCompoundThrows) {
+  // QA Q1: assume_minor_major is rank-4-specific (every other helper is
+  // rank-2). If a future change adds a separate code path for rank-4
+  // and forgets the guard, the shared-guard rank-2 tests miss it.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 4}));
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 4}));
+  EXPECT_THROW(assume_minor_major(A + B), invalid_assumption_error);
+}
+
 TEST(TensorAlgebraStrictAssume, AssumeOnSymbolSucceeds) {
   // Positive case: the same call that throws on a compound succeeds on
   // a Symbol. Guards against an over-aggressive guard that throws on

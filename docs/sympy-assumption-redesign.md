@@ -277,8 +277,37 @@ constants, and wrappers throw `invalid_assumption_error`.
 `tensor_to_scalar_scalar_wrapper`'s `is_symbol()` forwarder (added in
 step 1) ensures wrapped scalar Symbols remain assumable transparently.
 
-**Test count delta**: +11 (1333 → 1344). Within architect's projected
-envelope.
+**Net test surface change**: 11 added + 3 step-2 tests semantically
+rewritten (overwrite-contract → throw-contract) + 1 existing test had
+one line removed. Cumulative count 1333 → 1344, but the "11" headline
+understates the rewritten-test impact — the original overwrite contract
+is no longer documented anywhere in the test suite (intentionally; it
+was a category error).
+
+**Follow-up review fixes** (commit after a072dac):
+
+- `annotate_from_value()` `noexcept` removed — `std::set::insert` can
+  throw `std::bad_alloc`. Specifier was technically incorrect.
+- Zero-spelling consistency: `scalar_constant(0)`, `scalar_constant(0.0)`,
+  `scalar_constant(rational_t{0,1})` now all carry the same fact set
+  including `integer` and `rational`. Pre-fix, the double-zero branch
+  diverged from the int branch. SymPy convention: zero is integer
+  regardless of spelling; 0.0 is exact in IEEE 754, so safe to claim
+  integer. Non-zero doubles still do NOT claim integer.
+- Coverage adds: 8 new tests for scalar_constant value-derived
+  assumptions (positive int, negative int, zero spelling parity,
+  non-zero double NOT integer, rational with non-trivial denominator,
+  complex no-real/no-sign) + `assume_minor_major` on compound throws +
+  `assume(even{})` on compound throws.
+
+**Known leaky abstraction** (deferred to step 7 cleanup):
+
+`tensor_expression::set_space()`, `tensor_algebra_assumptions().insert(...)`,
+and `numeric_assumption_manager::insert(...)` are all public and let
+callers bypass the `require_symbol` guard. Step 4 closes the
+`assume_*` entry points; step 7 should privatize the direct write
+accessors and route everything through `assumption()` (or `assume_*`
+wrappers around it). Documented here so step 7 has a concrete target.
 
 ### Step 5 — Add `assumption()` method on `expression_holder`
 

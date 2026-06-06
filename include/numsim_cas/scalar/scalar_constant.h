@@ -57,11 +57,21 @@ protected:
 private:
   scalar_number m_value;
 
-  // Derive numeric assumptions from the value. int64 and double get sign
-  // + real classification; rationals get sign + rational + real; complex
-  // gets no sign predicates (not orderable). Always marked inferred so a
-  // downstream "asserted vs derived" introspection can distinguish.
-  void annotate_from_value() noexcept {
+  // Derive numeric assumptions from the value. int64, double, rational
+  // get sign + real classification; complex gets no sign predicates
+  // (not orderable) and no real_tag.
+  //
+  // Zero handling: 0, 0.0, rational_t{0,1} all carry the same fact set,
+  // including integer + rational. 0 is mathematically an integer
+  // regardless of storage representation, and 0.0 is exact in IEEE 754
+  // — so the double-zero exception to "doubles aren't integer" is safe.
+  // Non-zero doubles deliberately do NOT claim integer (5.0 could be
+  // 4.9999... due to floating-point representation; SymPy treats this
+  // the same way).
+  //
+  // Note: NOT noexcept. std::set::insert can throw std::bad_alloc.
+  // Callers (the ctor) propagate to the heap-exhaustion handler.
+  void annotate_from_value() {
     auto &a = this->assumptions();
     std::visit(
         [&a](auto const &v) {
@@ -93,6 +103,11 @@ private:
               a.insert(nonpositive{});
               a.insert(nonzero{});
             } else {
+              // 0.0 case: align with int 0 and rational_t{0,1} — zero is
+              // an integer regardless of spelling. 0.0 is exact in
+              // IEEE 754 so this is sound.
+              a.insert(integer{});
+              a.insert(rational{});
               a.insert(nonnegative{});
               a.insert(nonpositive{});
             }

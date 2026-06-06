@@ -446,4 +446,95 @@ TEST_F(AssumptionFixture, AssumePositiveOnSymbolSucceeds) {
   EXPECT_TRUE(numsim::cas::is_positive(x));
 }
 
+TEST_F(AssumptionFixture, AssumeEvenOnCompoundThrows) {
+  // QA Q2: assume(even{}) inserts both even AND integer — non-trivial
+  // implication chain. Pin the throw separately from sign predicates.
+  EXPECT_THROW(numsim::cas::assume(x + y, numsim::cas::even{}),
+               numsim::cas::invalid_assumption_error);
+}
+
+// ─── Step 4: scalar_constant self-annotates from value ────────────────
+// Direct unit lock-ins for the value-derived assumption logic. Without
+// these, the only coverage is indirect via abs/sign simplifications.
+
+TEST(ScalarConstantValueAssumptions, PositiveIntegerCarriesIntegerAndPositive) {
+  auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+      std::int64_t{5});
+  EXPECT_TRUE(numsim::cas::is_positive(c));
+  EXPECT_TRUE(numsim::cas::is_nonnegative(c));
+  EXPECT_TRUE(numsim::cas::is_nonzero(c));
+  EXPECT_TRUE(numsim::cas::is_integer_assumed(c));
+  EXPECT_TRUE(numsim::cas::is_real(c));
+  EXPECT_FALSE(numsim::cas::is_negative(c));
+}
+
+TEST(ScalarConstantValueAssumptions, NegativeIntegerCarriesNegative) {
+  // QA Q3a: no existing test exercised the negative-int branch.
+  auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+      std::int64_t{-5});
+  EXPECT_TRUE(numsim::cas::is_negative(c));
+  EXPECT_TRUE(numsim::cas::is_nonpositive(c));
+  EXPECT_TRUE(numsim::cas::is_nonzero(c));
+  EXPECT_TRUE(numsim::cas::is_integer_assumed(c));
+  EXPECT_FALSE(numsim::cas::is_positive(c));
+}
+
+TEST(ScalarConstantValueAssumptions, IntegerZeroAndDoubleZeroCarrySameFactSet) {
+  // Architect b.1: zero-spelling consistency. Pre-fix, scalar_constant(0)
+  // got {integer, rational} but scalar_constant(0.0) didn't — divergent
+  // contract by storage. SymPy treats S(0), S(0.0), Rational(0)
+  // identically (zero is integer regardless of spelling).
+  auto c_int = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+      std::int64_t{0});
+  auto c_dbl = numsim::cas::make_expression<numsim::cas::scalar_constant>(0.0);
+  // Both must be nonneg AND nonpos (zero satisfies both vacuously).
+  EXPECT_TRUE(numsim::cas::is_nonnegative(c_int));
+  EXPECT_TRUE(numsim::cas::is_nonpositive(c_int));
+  EXPECT_TRUE(numsim::cas::is_nonnegative(c_dbl));
+  EXPECT_TRUE(numsim::cas::is_nonpositive(c_dbl));
+  // Both must be NOT nonzero (zero is the additive identity).
+  EXPECT_FALSE(numsim::cas::is_nonzero(c_int));
+  EXPECT_FALSE(numsim::cas::is_nonzero(c_dbl));
+  // Zero is integer regardless of spelling.
+  EXPECT_TRUE(numsim::cas::is_integer_assumed(c_int));
+  EXPECT_TRUE(numsim::cas::is_integer_assumed(c_dbl));
+}
+
+TEST(ScalarConstantValueAssumptions, NonzeroDoubleDoesNotClaimInteger) {
+  // Counterpart to the zero case: a non-zero double like 5.0 must NOT
+  // claim integer, because IEEE 754 doubles in general represent
+  // approximations. SymPy follows the same convention.
+  auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(5.0);
+  EXPECT_TRUE(numsim::cas::is_positive(c));
+  EXPECT_TRUE(numsim::cas::is_real(c));
+  EXPECT_FALSE(numsim::cas::is_integer_assumed(c))
+      << "non-zero doubles must not auto-claim integer";
+}
+
+TEST(ScalarConstantValueAssumptions,
+     RationalNontrivialDenomIsRationalNotInteger) {
+  // QA Q3c: rational with non-unit denominator. Pre-fix path had a
+  // den == 1 → integer branch; verify the negation (den != 1 → not
+  // integer but still rational/real).
+  auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+      numsim::cas::rational_t{1, 3});
+  EXPECT_TRUE(numsim::cas::is_positive(c));
+  EXPECT_TRUE(numsim::cas::is_real(c));
+  EXPECT_FALSE(numsim::cas::is_integer_assumed(c));
+}
+
+TEST(ScalarConstantValueAssumptions, ComplexCarriesNoSignOrRealPredicates) {
+  // QA Q3d: complex values get NO sign predicates AND NO real_tag. This
+  // branch is purely negative (asserts nothing inserted) — the riskiest
+  // case because a future edit that adds real_tag for complex would be
+  // silently invisible without this test.
+  auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+      std::complex<double>{1.0, 1.0});
+  EXPECT_FALSE(numsim::cas::is_positive(c));
+  EXPECT_FALSE(numsim::cas::is_negative(c));
+  EXPECT_FALSE(numsim::cas::is_nonzero(c));
+  EXPECT_FALSE(numsim::cas::is_real(c));
+  EXPECT_FALSE(numsim::cas::is_integer_assumed(c));
+}
+
 #endif // SCALARASSUMPTIONTEST_H
