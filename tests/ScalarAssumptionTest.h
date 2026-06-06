@@ -586,4 +586,64 @@ TEST(ScalarConstantValueAssumptions, ComplexCarriesNoSignOrRealPredicates) {
   EXPECT_FALSE(numsim::cas::is_even(c));
 }
 
+// ─── Step 5: expression_holder::assumption() variadic API ─────────────
+// SymPy-style fluent assertion. Single-fact, multi-fact, chained,
+// 0-fact, and on-non-Symbol error paths all covered.
+
+TEST_F(AssumptionFixture, AssumptionSingleFactSucceeds) {
+  // Equivalent to assume(x, positive{}) — same implication chain runs.
+  x.assumption(numsim::cas::positive{});
+  EXPECT_TRUE(numsim::cas::is_positive(x));
+  EXPECT_TRUE(numsim::cas::is_nonnegative(x));
+  EXPECT_TRUE(numsim::cas::is_nonzero(x));
+  EXPECT_TRUE(numsim::cas::is_real(x));
+}
+
+TEST_F(AssumptionFixture, AssumptionMultiFactRunsAllChains) {
+  // Both facts' implication chains run, in left-to-right order. positive
+  // implies {nonneg, nonzero, real}; integer implies {rational, real}.
+  // Union of all derived facts must be present.
+  x.assumption(numsim::cas::positive{}, numsim::cas::integer{});
+  EXPECT_TRUE(numsim::cas::is_positive(x));
+  EXPECT_TRUE(numsim::cas::is_integer(x));
+  EXPECT_TRUE(numsim::cas::is_rational(x));
+  EXPECT_TRUE(numsim::cas::is_real(x));
+  EXPECT_TRUE(numsim::cas::is_nonzero(x));
+}
+
+TEST_F(AssumptionFixture, AssumptionChainableReturnsSelf) {
+  // Fluent chaining: A.assumption(f1).assumption(f2).
+  x.assumption(numsim::cas::positive{}).assumption(numsim::cas::integer{});
+  EXPECT_TRUE(numsim::cas::is_positive(x));
+  EXPECT_TRUE(numsim::cas::is_integer(x));
+}
+
+TEST_F(AssumptionFixture, AssumptionZeroFactsIsNoOp) {
+  // 0-fact case must not mutate state and must not throw.
+  EXPECT_NO_THROW(x.assumption());
+  EXPECT_FALSE(numsim::cas::is_positive(x))
+      << "0-fact assumption() must not assert anything";
+}
+
+TEST_F(AssumptionFixture, AssumptionOnCompoundThrows) {
+  // Compound is not a Symbol — variadic API throws at the holder-level
+  // guard, before any per-fact dispatch fires.
+  auto sum = x + y;
+  EXPECT_THROW(sum.assumption(numsim::cas::positive{}),
+               numsim::cas::invalid_assumption_error);
+}
+
+TEST_F(AssumptionFixture, AssumptionOnSymbolStateUnchangedOnThrow) {
+  // The throw path on a compound must not mutate x's or y's state
+  // (require_symbol fires BEFORE the per-fact dispatch loop).
+  auto compound = x + y;
+  try {
+    compound.assumption(numsim::cas::positive{}, numsim::cas::integer{});
+  } catch (numsim::cas::invalid_assumption_error const &) {
+    // expected
+  }
+  EXPECT_FALSE(numsim::cas::is_positive(x));
+  EXPECT_FALSE(numsim::cas::is_integer(x));
+}
+
 #endif // SCALARASSUMPTIONTEST_H

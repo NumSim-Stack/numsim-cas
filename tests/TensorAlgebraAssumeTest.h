@@ -1318,6 +1318,55 @@ TEST(TensorAlgebraStructuralPropagation, PreserveUnaryOverwritesExistingSpace) {
       << "preserve_unary contract: child's space overwrites prior tag";
 }
 
+// ─── Step 5: expression_holder::assumption() variadic API (tensor) ───
+
+TEST(TensorAlgebraAssumption, SingleStructuralFactSucceeds) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  A.assumption(Symmetric{});
+  EXPECT_TRUE(is_symmetric(A));
+}
+
+TEST(TensorAlgebraAssumption, SingleAlgebraicFactSucceeds) {
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  C.assumption(positive_definite{});
+  EXPECT_TRUE(is_positive_definite(C));
+  EXPECT_TRUE(is_positive_semidefinite(C)); // PD implies PSD
+  EXPECT_TRUE(is_symmetric(C));             // PD implies Sym
+}
+
+TEST(TensorAlgebraAssumption, MultiFactCombinesStructuralAndAlgebraic) {
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  C.assumption(Symmetric{}, positive_definite{});
+  EXPECT_TRUE(is_symmetric(C));
+  EXPECT_TRUE(is_positive_definite(C));
+}
+
+TEST(TensorAlgebraAssumption, ChainableReturnsSelf) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  A.assumption(Symmetric{}).assumption(positive_definite{});
+  EXPECT_TRUE(is_symmetric(A));
+  EXPECT_TRUE(is_positive_definite(A));
+}
+
+TEST(TensorAlgebraAssumption, ZeroFactsIsNoOp) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  EXPECT_NO_THROW(A.assumption());
+  EXPECT_FALSE(A.get().space().has_value())
+      << "0-fact assumption() must not assert anything";
+}
+
+TEST(TensorAlgebraAssumption, OnCompoundThrows) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  auto sum = A + B;
+  EXPECT_THROW(sum.assumption(Symmetric{}), invalid_assumption_error);
+}
+
+TEST(TensorAlgebraAssumption, OnClosedFormConstantThrows) {
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_THROW(I.assumption(Skew{}), invalid_assumption_error);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORALGEBRAASSUMETEST_H

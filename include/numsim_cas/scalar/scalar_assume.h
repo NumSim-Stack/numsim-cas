@@ -175,6 +175,20 @@ inline bool is_rational(expression_holder<scalar_expression> const &expr) {
   return expr.data()->assumptions().contains(rational{});
 }
 
+// ── apply_assumption: dispatch for expression_holder::assumption() ──
+// Found via ADL from the holder's variadic assumption() method. Each
+// overload forwards to the corresponding scalar assume() overload —
+// which is responsible for the implication-chain insertions (positive
+// → nonzero → real, etc.). The require_symbol check was already done
+// at the holder level; the assume() calls here also re-check, but the
+// virtual call is cheap.
+
+template <typename Tag>
+inline void apply_assumption(expression_holder<scalar_expression> &h,
+                             Tag &&tag) {
+  assume(h, std::forward<Tag>(tag));
+}
+
 } // namespace numsim::cas
 
 #endif // SCALAR_ASSUME_H

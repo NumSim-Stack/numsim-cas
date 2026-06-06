@@ -5,6 +5,7 @@
 #include <functional>
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/make_negative.h>
+#include <numsim_cas/core/require_symbol.h>
 #include <numsim_cas/numsim_cas_forward.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
 #include <type_traits>
@@ -105,6 +106,29 @@ public:
   }
 
   constexpr inline auto free() { return m_expr.reset(); }
+
+  // SymPy-style fluent assumption API. Asserts user facts on a Symbol;
+  // chainable. Per-fact dispatch is via `tag_invoke(apply_assumption,
+  // holder, fact)` overloads defined in the per-domain headers
+  // (scalar_assume.h, tensor_assume.h). See
+  // docs/sympy-assumption-redesign.md step 5.
+  //
+  //   A.assumption(symmetric{}, positive_definite{});
+  //   x.assumption(positive{}).assumption(integer{});  // chainable
+  //   A.assumption();  // 0-fact: no-op, returns *this
+  //
+  // Throws invalid_assumption_error if the underlying expression is not
+  // a Symbol (compound, constant, or wrapper). The require_symbol guard
+  // fires ONCE at the holder level — the per-fact dispatch helpers
+  // assume the check has already happened and may skip a redundant
+  // verification.
+  template <typename... Facts> expression_holder &assumption(Facts &&...facts) {
+    if constexpr (sizeof...(Facts) > 0) {
+      detail::require_symbol(this->get(), "expression_holder::assumption");
+      (apply_assumption(*this, std::forward<Facts>(facts)), ...);
+    }
+    return *this;
+  }
 
   template <typename ExprBaseT>
   friend std::ostream &operator<<(std::ostream &os,

@@ -240,6 +240,55 @@ is_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
       positive_semidefinite{});
 }
 
+// ── apply_assumption: dispatch for expression_holder::assumption() ──
+// Found via ADL from the holder's variadic assumption() method. Each
+// overload forwards to the corresponding named assume_*() helper.
+// Tensor facts span two storage layers:
+//   - Structural perm/trace classification → m_tensor_space (via the
+//     per-fact-type tag overloads on Symmetric, Skew, etc.)
+//   - Algebraic facts (orthogonal, PD, PSD) → m_tensor_algebra_assumptions
+//
+// The require_symbol check happens at the holder level; the assume_*
+// helpers also re-check (cheap virtual call).
+
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             Symmetric) {
+  assume_symmetric(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h, Skew) {
+  assume_skew(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h, Minor) {
+  assume_minor(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h, Major) {
+  assume_major(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             MinorMajor) {
+  assume_minor_major(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             VolumetricTag) {
+  assume_volumetric(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             DeviatoricTag) {
+  assume_deviatoric(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             orthogonal) {
+  assume_orthogonal(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             positive_definite) {
+  assume_positive_definite(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             positive_semidefinite) {
+  assume_positive_semidefinite(h);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSOR_ASSUME_H

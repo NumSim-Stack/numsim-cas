@@ -318,7 +318,7 @@ protected + friend grants for the legitimate internal writers, or
 rename + audit (`set_space_internal` with documented contract) —
 without breaking the propagation pathway.
 
-### Step 5 — Add `assumption()` method on `expression_holder`
+### Step 5 — Add `assumption()` method on `expression_holder` ✅ done
 
 The SymPy-style entry point. Replaces the assorted `assume_*` helpers with one
 consistent API:
