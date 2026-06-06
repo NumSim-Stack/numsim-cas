@@ -62,12 +62,17 @@ private:
   // (not orderable) and no real_tag.
   //
   // Zero handling: 0, 0.0, rational_t{0,1} all carry the same fact set,
-  // including integer + rational. 0 is mathematically an integer
-  // regardless of storage representation, and 0.0 is exact in IEEE 754
-  // — so the double-zero exception to "doubles aren't integer" is safe.
-  // Non-zero doubles deliberately do NOT claim integer (5.0 could be
-  // 4.9999... due to floating-point representation; SymPy treats this
-  // the same way).
+  // including integer + rational. Zero is mathematically an integer
+  // regardless of storage representation.
+  //
+  // Non-zero doubles deliberately do NOT claim integer — this is an
+  // intent rule, not a representability rule. Many double literals
+  // (1.0, 2.0, 1024.0, ...) are exact in IEEE 754, but a user who
+  // writes `5.0` is signaling floating-point intent. Auto-promoting
+  // representable integer-valued doubles to integer-domain would
+  // invert that intent and surprise users who deliberately chose a
+  // float spelling to avoid integer-only rewrites (e.g. `pow(x, 5.0)`
+  // vs `pow(x, 5)`). SymPy follows the same convention.
   //
   // Note: NOT noexcept. std::set::insert can throw std::bad_alloc.
   // Callers (the ctor) propagate to the heap-exhaustion handler.
@@ -103,9 +108,8 @@ private:
               a.insert(nonpositive{});
               a.insert(nonzero{});
             } else {
-              // 0.0 case: align with int 0 and rational_t{0,1} — zero is
-              // an integer regardless of spelling. 0.0 is exact in
-              // IEEE 754 so this is sound.
+              // 0.0 case: align with int 0 — zero is integer + rational
+              // regardless of spelling.
               a.insert(integer{});
               a.insert(rational{});
               a.insert(nonnegative{});

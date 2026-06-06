@@ -300,14 +300,23 @@ was a category error).
   complex no-real/no-sign) + `assume_minor_major` on compound throws +
   `assume(even{})` on compound throws.
 
-**Known leaky abstraction** (deferred to step 7 cleanup):
+**Public mutators bypass the guard** (deferred to step 7 cleanup):
 
 `tensor_expression::set_space()`, `tensor_algebra_assumptions().insert(...)`,
-and `numeric_assumption_manager::insert(...)` are all public and let
-callers bypass the `require_symbol` guard. Step 4 closes the
-`assume_*` entry points; step 7 should privatize the direct write
-accessors and route everything through `assumption()` (or `assume_*`
-wrappers around it). Documented here so step 7 has a concrete target.
+and `numeric_assumption_manager::insert(...)` are public mutators. They
+have ~28 legitimate internal call sites (tensor_add, tensor_inv,
+tensor_pow, projection_tensor and identity_tensor ctors, projector
+algebra simplifier, structural_propagation helpers, the `assume_*`
+helpers themselves, and the dev/sym/vol/skew factories). These are all
+correct ctor-time propagation — they are the mechanism the design uses
+to carry space info through compound expressions.
+
+The step-7 concern isn't that internal writers exist (they're necessary)
+but that the visibility is public, so user code CAN bypass the
+`require_symbol` guard. Step 7 should restrict visibility — either
+protected + friend grants for the legitimate internal writers, or
+rename + audit (`set_space_internal` with documented contract) —
+without breaking the propagation pathway.
 
 ### Step 5 — Add `assumption()` method on `expression_holder`
 

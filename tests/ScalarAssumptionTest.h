@@ -495,9 +495,25 @@ TEST(ScalarConstantValueAssumptions, IntegerZeroAndDoubleZeroCarrySameFactSet) {
   // Both must be NOT nonzero (zero is the additive identity).
   EXPECT_FALSE(numsim::cas::is_nonzero(c_int));
   EXPECT_FALSE(numsim::cas::is_nonzero(c_dbl));
-  // Zero is integer regardless of spelling.
+  // Zero is integer + real regardless of spelling. Architect noted the
+  // original test was missing is_real — closes that gap so a future
+  // regression that strips real_tag from either branch surfaces.
   EXPECT_TRUE(numsim::cas::is_integer_assumed(c_int));
   EXPECT_TRUE(numsim::cas::is_integer_assumed(c_dbl));
+  EXPECT_TRUE(numsim::cas::is_real(c_int));
+  EXPECT_TRUE(numsim::cas::is_real(c_dbl));
+}
+
+TEST(ScalarConstantValueAssumptions, NegativeDoubleCarriesNegative) {
+  // QA: the double < 0 branch had no coverage. Structurally symmetric
+  // with negative-int but a distinct code path.
+  auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(-5.0);
+  EXPECT_TRUE(numsim::cas::is_negative(c));
+  EXPECT_TRUE(numsim::cas::is_nonpositive(c));
+  EXPECT_TRUE(numsim::cas::is_nonzero(c));
+  EXPECT_TRUE(numsim::cas::is_real(c));
+  EXPECT_FALSE(numsim::cas::is_integer_assumed(c))
+      << "non-zero doubles do NOT auto-claim integer";
 }
 
 TEST(ScalarConstantValueAssumptions, NonzeroDoubleDoesNotClaimInteger) {
@@ -527,14 +543,18 @@ TEST(ScalarConstantValueAssumptions, ComplexCarriesNoSignOrRealPredicates) {
   // QA Q3d: complex values get NO sign predicates AND NO real_tag. This
   // branch is purely negative (asserts nothing inserted) — the riskiest
   // case because a future edit that adds real_tag for complex would be
-  // silently invisible without this test.
+  // silently invisible without this test. Includes is_nonnegative /
+  // is_even as the most-plausible accidental insertions (e.g. if someone
+  // misused magnitude or even-bit logic on a complex value).
   auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(
       std::complex<double>{1.0, 1.0});
   EXPECT_FALSE(numsim::cas::is_positive(c));
   EXPECT_FALSE(numsim::cas::is_negative(c));
   EXPECT_FALSE(numsim::cas::is_nonzero(c));
+  EXPECT_FALSE(numsim::cas::is_nonnegative(c));
   EXPECT_FALSE(numsim::cas::is_real(c));
   EXPECT_FALSE(numsim::cas::is_integer_assumed(c));
+  EXPECT_FALSE(numsim::cas::is_even(c));
 }
 
 #endif // SCALARASSUMPTIONTEST_H

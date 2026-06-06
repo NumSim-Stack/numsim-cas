@@ -54,6 +54,8 @@ void scalar_assumption_propagator::operator()(scalar_constant const &v) {
   m_result = {};
 
   bool is_int = std::holds_alternative<std::int64_t>(v.value().raw());
+  bool is_rational =
+      std::holds_alternative<rational_t>(v.value().raw());
   double val = std::visit(
       [](auto const &x) -> double {
         using V = std::decay_t<decltype(x)>;
@@ -68,8 +70,17 @@ void scalar_assumption_propagator::operator()(scalar_constant const &v) {
       v.value().raw());
 
   m_result.insert(real_tag{});
-  if (is_int)
+  // Parity with scalar_constant::annotate_from_value: int64 implies
+  // {integer, rational}; rational_t implies rational; zero (any spelling)
+  // implies {integer, rational}. cpp-pro F1: the inferred-flag
+  // short-circuit masks this path today, but a future cache
+  // invalidation would otherwise strip facts that the ctor set.
+  if (is_int) {
     m_result.insert(integer{});
+    m_result.insert(rational{});
+  } else if (is_rational) {
+    m_result.insert(rational{});
+  }
 
   if (val > 0) {
     m_result.insert(positive{});
@@ -82,6 +93,10 @@ void scalar_assumption_propagator::operator()(scalar_constant const &v) {
   } else {
     m_result.insert(nonnegative{});
     m_result.insert(nonpositive{});
+    // Zero is integer regardless of storage spelling (S(0), S(0.0),
+    // Rational(0)). SymPy convention.
+    m_result.insert(integer{});
+    m_result.insert(rational{});
   }
 }
 
@@ -521,6 +536,7 @@ public:
     m_result = {};
     auto const &cv = v.value();
     bool is_int = std::holds_alternative<std::int64_t>(cv.raw());
+    bool is_rational = std::holds_alternative<rational_t>(cv.raw());
     double val = std::visit(
         [](auto const &x) -> double {
           using V = std::decay_t<decltype(x)>;
@@ -533,8 +549,13 @@ public:
         },
         cv.raw());
     m_result.insert(real_tag{});
-    if (is_int)
+    // Parity with annotate_from_value — see operator() above for rationale.
+    if (is_int) {
       m_result.insert(integer{});
+      m_result.insert(rational{});
+    } else if (is_rational) {
+      m_result.insert(rational{});
+    }
     if (val > 0) {
       m_result.insert(positive{});
       m_result.insert(nonnegative{});
@@ -546,6 +567,8 @@ public:
     } else {
       m_result.insert(nonnegative{});
       m_result.insert(nonpositive{});
+      m_result.insert(integer{});
+      m_result.insert(rational{});
     }
   }
 
