@@ -527,13 +527,29 @@ TEST(ScalarConstantValueAssumptions, NegativeDoubleCarriesNegative) {
 
 TEST(ScalarConstantValueAssumptions, NonzeroDoubleDoesNotClaimInteger) {
   // Counterpart to the zero case: a non-zero double like 5.0 must NOT
-  // claim integer, because IEEE 754 doubles in general represent
-  // approximations. SymPy follows the same convention.
+  // claim integer or rational. QA: symmetric with negative-double test.
   auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(5.0);
   EXPECT_TRUE(numsim::cas::is_positive(c));
   EXPECT_TRUE(numsim::cas::is_real(c));
   EXPECT_FALSE(numsim::cas::is_integer(c))
       << "non-zero doubles must not auto-claim integer";
+  EXPECT_FALSE(numsim::cas::is_rational(c))
+      << "non-zero doubles must not auto-claim rational either";
+}
+
+TEST(ScalarConstantValueAssumptions, RationalDenomOneNormalizesToInteger) {
+  // Architect dead-code-removal lock-in: scalar_number's normalize_rational
+  // is documented to collapse rational_t{N, 1} to int64{N} in the variant.
+  // The annotate_from_value rational_t branch trusts this invariant — if
+  // normalization ever regressed, integer-claiming on a rational_t with
+  // unit denominator would silently fail. This test pins the invariant
+  // via the constant's observable behavior.
+  auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+      numsim::cas::rational_t{7, 1});
+  EXPECT_TRUE(numsim::cas::is_integer(c))
+      << "rational_t{N, 1} must normalize to int64{N} and claim integer";
+  EXPECT_TRUE(numsim::cas::is_rational(c));
+  EXPECT_TRUE(numsim::cas::is_positive(c));
 }
 
 TEST(ScalarConstantValueAssumptions,

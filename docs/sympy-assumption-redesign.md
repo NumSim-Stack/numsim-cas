@@ -336,9 +336,12 @@ A.assumption(symmetric{}, positive_definite{});  // multi-fact assertion
 
 **Variadic-call API contract** (architect step-5 prep):
 
-- **0 facts** (`A.assumption()`) — no-op, returns void. Defensive choice
-  over compile-error: makes the method amenable to forwarding from
-  generic code that may pass an empty parameter pack.
+- **Return type**: `expression_holder<E>&` (returns `*this`). Enables
+  SymPy-style fluent chaining: `A.assumption(symmetric{}).assumption(positive_definite{})`.
+  The 0-fact case also returns `*this` for consistency — same return type
+  regardless of arity.
+- **0 facts** (`A.assumption()`) — no-op, returns `*this`. Defensible for
+  forwarding from generic code that may pass an empty parameter pack.
 - **N facts** — no upper bound. C++ template parameter packs handle
   arbitrary arity; the runtime cost is linear in pack size.
 - **Type-level filter** — accepted via a concept `assumption_fact<T>`
@@ -348,6 +351,13 @@ A.assumption(symmetric{}, positive_definite{});  // multi-fact assertion
   `positive{}`, `symmetric{}`, etc. Mistyped arguments
   (`A.assumption(42, "foo")`) become a clear "concept not satisfied"
   diagnostic instead of a deep template-error spew.
+- **Domain dispatch**: single template on `expression_holder<E>`;
+  per-fact-type dispatch (via tag matching on the fact's type) routes
+  structural facts (Sym/Skew/Vol/Dev for tensor) to `m_tensor_space`
+  and numeric/algebraic facts to the appropriate manager
+  (`m_assumption` for scalar/t2s, `tensor_algebra_assumptions` for
+  tensor). Per-domain free-function tag invoke handles the dispatch
+  so the holder method body stays simple.
 
 **Variadic implication-chain ordering** (architect step-5 prep):
 
