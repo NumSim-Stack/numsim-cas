@@ -797,6 +797,34 @@ TEST_F(AssumptionFixture, Step6_ConceptDispatchT2sParityWithScalar) {
   static_assert(!numsim::cas::assumption_fact_for<TS, numsim::cas::irrational>);
 }
 
+TEST_F(AssumptionFixture, Step6_T2sWrapperQueryRequiresInnerUnwrap) {
+  // Mixed-domain sentinel: the propagator and is_* helpers are scalar-only.
+  // A t2s wrapper around a positive scalar Symbol does NOT have its own
+  // m_assumption populated — the wrapper's assumption set is independent
+  // of the inner scalar's. Querying the wrapper directly is impossible
+  // (no is_* overload for t2s holders); the supported workaround is to
+  // unwrap and query the inner scalar.
+  //
+  // This test documents the current limitation. A future step (1.1 or
+  // later) could add t2s query helpers that forward through the wrapper;
+  // when that lands, the workaround portion stays valid as a parallel
+  // path, and this sentinel can be replaced with the forwarded query.
+  numsim::cas::assume(x, numsim::cas::positive{});
+  auto wrapped = numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_scalar_wrapper>(x);
+
+  // Sentinel: the wrapper's OWN assumption set is empty — the inner
+  // scalar's assumption set is what got populated.
+  EXPECT_FALSE(wrapped.get().assumptions().contains(numsim::cas::positive{}))
+      << "wrapper's m_assumption is independent of the inner scalar's";
+
+  // Workaround: unwrap and query the inner scalar.
+  auto inner =
+      wrapped.get<numsim::cas::tensor_to_scalar_scalar_wrapper>().expr();
+  EXPECT_TRUE(numsim::cas::is_positive(inner))
+      << "unwrap-and-query is the supported path until t2s inference lands";
+}
+
 TEST_F(AssumptionFixture, Step6_ScalarAssumeUniformGuardSampling) {
   // Step-4 made every scalar assume() overload guard on require_symbol.
   // This sweep samples the 11 overloads (positive, negative, nonnegative,

@@ -441,6 +441,15 @@ constant query consistency — were all delivered piecewise in steps
    ranks in current code. The rank-6 identity is mathematically
    `δ_il·δ_jm·δ_kn` which has full symmetry, but the variant has no
    matching alternative. Tracked as the rank-6 sentinel test.
+4. **T2s mixed-domain query inference**: `is_*` query helpers exist
+   only for scalar holders. A `tensor_to_scalar_scalar_wrapper` around
+   a scalar Symbol has its own (independent) `m_assumption` set. The
+   wrapper does NOT forward queries to the inner scalar; users must
+   unwrap via `wrapper.expr()` and query the inner scalar holder.
+   The variadic `assumption()` WRITE path already routes through the
+   wrapper (step 5); a future addition could add `is_*` overloads for
+   t2s holders that forward through similarly. Tracked as the
+   `Step6_T2sWrapperQueryRequiresInnerUnwrap` sentinel.
 
 ---
 

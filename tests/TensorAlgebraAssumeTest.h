@@ -1427,6 +1427,60 @@ TEST(TensorAlgebraStep6, TensorAssumeUniformGuardSampling) {
   EXPECT_THROW(assume_positive_semidefinite(sum), invalid_assumption_error);
 }
 
+// ─── Step 6: tensor compound propagation through Symbols ─────────────
+// Parallel to the scalar PropagateAddBothPositive family — verify that
+// space-propagation through n_ary_tree / tensor_scalar_mul / tensor_negative
+// works for SYMBOL operands, not just constants (step-2's
+// IsSymmetricOfIdentityPlusIdentity et al. covered constants only).
+
+TEST(TensorAlgebraStep6, SymPlusSymIsSymmetric_Symbols) {
+  // QA-flagged gap: tensor parallel to PropagateAddBothPositive. Sum of
+  // two Sym Symbols inherits Sym via n_ary_tree's binary_op space join.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  assume_symmetric(A);
+  assume_symmetric(B);
+  EXPECT_TRUE(is_symmetric(A + B));
+}
+
+TEST(TensorAlgebraStep6, SkewPlusSkewIsSkew_Symbols) {
+  // Mirror for the Skew classification — separate variant alternative,
+  // distinct space-join path.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  assume_skew(A);
+  assume_skew(B);
+  EXPECT_TRUE(is_skew(A + B));
+}
+
+TEST(TensorAlgebraStep6, ScalarTimesSymIsSymmetric_Symbol) {
+  // tensor_scalar_mul preserves rhs's space (step-3's preserve_unary
+  // helper).
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto [alpha] = make_scalar_variable("alpha");
+  assume_symmetric(A);
+  EXPECT_TRUE(is_symmetric(alpha * A));
+}
+
+TEST(TensorAlgebraStep6, NegOfSymIsSymmetric_Symbol) {
+  // tensor_negative preserves the child's space (same preserve_unary
+  // helper). Sym Symbol → -Sym still Sym.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  assume_symmetric(A);
+  EXPECT_TRUE(is_symmetric(-A));
+}
+
+TEST(TensorAlgebraStep6, SymPlusUnannotatedIsNotSymmetric) {
+  // Negative-case lock-in: the propagation requires BOTH operands to be
+  // Sym. Without that the result has no space tag.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  assume_symmetric(A);
+  // B is left unannotated
+  EXPECT_FALSE(is_symmetric(A + B))
+      << "n_ary_tree space-join requires all children to carry the tag";
+}
+
 TEST(TensorAlgebraStep6, ClosedFormConstantQueryConsistency) {
   // All closed-form constants answer is_* queries consistently — either
   // via helper short-circuit (tensor_zero) or ctor pre-annotation
