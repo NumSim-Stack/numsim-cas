@@ -13,6 +13,17 @@
 namespace numsim::cas {
 
 template <typename ExpressionBase> struct expression_details;
+template <typename ExprBase> class expression_holder;
+
+// Concept: T is a valid assumption fact for `expression_holder<ExprBase>` iff
+// a free `apply_assumption(holder, T)` overload is reachable via ADL. The
+// per-domain headers (scalar_assume.h, tensor_assume.h, the t2s wrapper-
+// assume header) declare the per-fact overloads. Bogus tags
+// (`A.assumption(42)`) fail this concept and yield a "constraints not
+// satisfied" diagnostic instead of a deep template-instantiation error.
+template <typename ExprBase, typename T>
+concept assumption_fact_for =
+    requires(expression_holder<ExprBase> &h, T t) { apply_assumption(h, t); };
 
 template <typename ExprBase> class expression_holder {
 public:
@@ -108,21 +119,31 @@ public:
   constexpr inline auto free() { return m_expr.reset(); }
 
   // SymPy-style fluent assumption API. Asserts user facts on a Symbol;
-  // chainable. Per-fact dispatch is via `tag_invoke(apply_assumption,
-  // holder, fact)` overloads defined in the per-domain headers
-  // (scalar_assume.h, tensor_assume.h). See
-  // docs/sympy-assumption-redesign.md step 5.
+  // chainable. Per-fact dispatch is via free `apply_assumption(holder,
+  // fact)` overloads found via ADL — declared in the per-domain headers
+  // (scalar_assume.h, tensor_assume.h, tensor_to_scalar_scalar_wrapper.h).
+  // The `assumption_fact_for` concept constrains the pack so invalid
+  // tags surface as a constraint-not-satisfied diagnostic rather than
+  // a deep ADL-lookup error.
   //
-  //   A.assumption(symmetric{}, positive_definite{});
+  //   A.assumption(Symmetric{}, positive_definite{});
   //   x.assumption(positive{}).assumption(integer{});  // chainable
   //   A.assumption();  // 0-fact: no-op, returns *this
   //
   // Throws invalid_assumption_error if the underlying expression is not
   // a Symbol (compound, constant, or wrapper). The require_symbol guard
-  // fires ONCE at the holder level — the per-fact dispatch helpers
-  // assume the check has already happened and may skip a redundant
-  // verification.
-  template <typename... Facts> expression_holder &assumption(Facts &&...facts) {
+  // fires ONCE at the holder level; the per-fact dispatch helpers ALSO
+  // re-check (cheap virtual call on is_symbol()).
+  //
+  // Exception guarantee: BASIC. The fold evaluates facts left-to-right.
+  // If apply_assumption for fact K throws (e.g. a future fact whose
+  // implication chain detects a contradiction), facts 0..K-1 are already
+  // committed and not rolled back. Today no per-fact overload throws
+  // after the holder-level require_symbol passes, so this caveat is
+  // forward-looking.
+  template <typename... Facts>
+  requires(assumption_fact_for<ExprBase, std::remove_cvref_t<Facts>> && ...)
+  expression_holder &assumption(Facts &&...facts) {
     if constexpr (sizeof...(Facts) > 0) {
       detail::require_symbol(this->get(), "expression_holder::assumption");
       (apply_assumption(*this, std::forward<Facts>(facts)), ...);

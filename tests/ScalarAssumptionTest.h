@@ -646,4 +646,71 @@ TEST_F(AssumptionFixture, AssumptionOnSymbolStateUnchangedOnThrow) {
   EXPECT_FALSE(numsim::cas::is_integer(x));
 }
 
+TEST_F(AssumptionFixture, AssumptionThreeFactsAllApplied) {
+  // QA: fold expansion with arity > 2. Pins all three implication chains
+  // fire in left-to-right order; even though C++17+ fold expressions are
+  // language-guaranteed to do this, the test catches accidental refactors
+  // (e.g. someone writes a manual loop that short-circuits early).
+  x.assumption(numsim::cas::positive{}, numsim::cas::integer{},
+               numsim::cas::nonzero{});
+  EXPECT_TRUE(numsim::cas::is_positive(x));
+  EXPECT_TRUE(numsim::cas::is_integer(x));
+  EXPECT_TRUE(numsim::cas::is_nonzero(x));
+  EXPECT_TRUE(numsim::cas::is_real(x));
+}
+
+TEST_F(AssumptionFixture, AssumptionAccumulatesAcrossSeparateCalls) {
+  // QA: pin that a later assumption() call doesn't clear or overwrite
+  // earlier facts. The ChainableReturnsSelf test only queries final state;
+  // this checks the intermediate state survives.
+  x.assumption(numsim::cas::positive{});
+  EXPECT_TRUE(numsim::cas::is_positive(x));
+  x.assumption(numsim::cas::integer{});
+  EXPECT_TRUE(numsim::cas::is_positive(x)) << "first call must not be cleared";
+  EXPECT_TRUE(numsim::cas::is_integer(x));
+}
+
+TEST_F(AssumptionFixture, AssumptionChainableReturnsSelfByIdentity) {
+  // QA: ChainableReturnsSelf passed even if assumption() returned a copy
+  // (shared_ptr semantics make all copies see the same node). This test
+  // pins the actual contract — returns *this by reference, not a copy.
+  auto &ref = x.assumption(numsim::cas::positive{});
+  EXPECT_EQ(&ref, &x)
+      << "assumption() must return *this by reference, not a copy";
+}
+
+TEST_F(AssumptionFixture, AssumptionZeroFactsChainable) {
+  // QA: x.assumption().assumption() must compile and preserve identity
+  // (the if constexpr early-return path also returns *this).
+  EXPECT_NO_THROW(x.assumption().assumption());
+  EXPECT_FALSE(numsim::cas::is_positive(x));
+}
+
+TEST_F(AssumptionFixture, AssumptionOnT2sWrappedScalarSymbol) {
+  // Architect Q2 step-5 review gap: a holder<t2s_expression> over a
+  // wrapped scalar Symbol must accept assumption(fact). is_symbol()
+  // forwards (step 1); apply_assumption now forwards too (this commit).
+  // Without the t2s overload this call was a compile error despite the
+  // require_symbol guard claiming the holder was a Symbol.
+  auto wrapped = numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_scalar_wrapper>(x);
+  wrapped.assumption(numsim::cas::positive{});
+  // The fact lands on the inner scalar x — both holders see it via the
+  // shared underlying node.
+  EXPECT_TRUE(numsim::cas::is_positive(x));
+}
+
+TEST(ScalarAssumptionConcept, RejectsBogusFactTypes) {
+  // Architect Q1: the assumption_fact_for concept gates the variadic
+  // pack. Bogus types like int produce a "constraints not satisfied"
+  // diagnostic rather than a deep ADL-failure spew.
+  static_assert(
+      numsim::cas::assumption_fact_for<numsim::cas::scalar_expression,
+                                       numsim::cas::positive>,
+      "positive must satisfy assumption_fact_for<scalar_expression, ...>");
+  static_assert(
+      !numsim::cas::assumption_fact_for<numsim::cas::scalar_expression, int>,
+      "bogus int must NOT satisfy assumption_fact_for<scalar_expression, ...>");
+}
+
 #endif // SCALARASSUMPTIONTEST_H

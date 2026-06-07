@@ -1367,6 +1367,45 @@ TEST(TensorAlgebraAssumption, OnClosedFormConstantThrows) {
   EXPECT_THROW(I.assumption(Skew{}), invalid_assumption_error);
 }
 
+TEST(TensorAlgebraAssumption, OrthogonalDoesNotImplySymmetric) {
+  // QA: orthogonal is the only algebraic fact WITHOUT the symmetric
+  // cross-mechanism implication (PD/PSD both imply Sym via
+  // set_symmetric_unless_more_specific). A future refactor that
+  // accidentally routes orthogonal through that helper would silently
+  // change semantics. Pin the distinction.
+  auto Q = std::get<0>(make_tensor_variable(std::tuple{"Q", 3, 2}));
+  Q.assumption(orthogonal{});
+  EXPECT_TRUE(is_orthogonal(Q));
+  EXPECT_FALSE(is_symmetric(Q))
+      << "orthogonal must NOT imply Sym (R^T R = I doesn't make R symmetric)";
+  EXPECT_FALSE(is_positive_definite(Q));
+}
+
+TEST(TensorAlgebraAssumption, SkewThenPDLastWriterWinsLeftToRight) {
+  // QA: pin the documented left-to-right ordering by constructing a case
+  // where order matters. assume(Skew{}, positive_definite{}):
+  //   1. assume_skew sets space = {Skew, AnyTrace}
+  //   2. assume_positive_definite calls set_symmetric_unless_more_specific
+  //      which sees classify_space(Skew) — not in the Sym/Vol/Dev/Minor/
+  //      MinorMajor guard — and OVERWRITES with {Symmetric, AnyTrace}.
+  // Final state under left-to-right: Sym + PD (Skew lost).
+  // Right-to-left would give: PD then Skew, with Skew the final space tag.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  A.assumption(Skew{}, positive_definite{});
+  EXPECT_TRUE(is_positive_definite(A));
+  EXPECT_TRUE(is_symmetric(A))
+      << "PD's set_symmetric_unless_more_specific overwrites the Skew tag";
+  EXPECT_FALSE(is_skew(A))
+      << "left-to-right contract: Skew was overwritten by PD's chain";
+}
+
+TEST(TensorAlgebraAssumption, ChainableReturnsSelfByIdentity) {
+  // QA: address-of identity check, same as the scalar counterpart.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto &ref = A.assumption(Symmetric{});
+  EXPECT_EQ(&ref, &A);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORALGEBRAASSUMETEST_H

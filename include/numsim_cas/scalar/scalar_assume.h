@@ -180,10 +180,34 @@ inline bool is_rational(expression_holder<scalar_expression> const &expr) {
 // overload forwards to the corresponding scalar assume() overload —
 // which is responsible for the implication-chain insertions (positive
 // → nonzero → real, etc.). The require_symbol check was already done
-// at the holder level; the assume() calls here also re-check, but the
-// virtual call is cheap.
+// at the holder level; the assume() calls here also re-check (cheap
+// virtual call).
+
+namespace detail {
+// Membership in numeric_assumption's variant alternatives. Constrains the
+// scalar apply_assumption template so the assumption_fact_for concept on
+// the holder correctly rejects bogus types (e.g. int). Without this
+// constraint, the unconstrained template would accept ANY Tag and the
+// concept's requires-expression would succeed for any T, defeating the
+// diagnostic-quality purpose of the concept.
+template <typename T> struct is_numeric_assumption_tag : std::false_type {};
+template <> struct is_numeric_assumption_tag<positive> : std::true_type {};
+template <> struct is_numeric_assumption_tag<negative> : std::true_type {};
+template <> struct is_numeric_assumption_tag<nonzero> : std::true_type {};
+template <> struct is_numeric_assumption_tag<nonnegative> : std::true_type {};
+template <> struct is_numeric_assumption_tag<nonpositive> : std::true_type {};
+template <> struct is_numeric_assumption_tag<integer> : std::true_type {};
+template <> struct is_numeric_assumption_tag<even> : std::true_type {};
+template <> struct is_numeric_assumption_tag<odd> : std::true_type {};
+template <> struct is_numeric_assumption_tag<rational> : std::true_type {};
+template <> struct is_numeric_assumption_tag<irrational> : std::true_type {};
+template <> struct is_numeric_assumption_tag<real_tag> : std::true_type {};
+template <> struct is_numeric_assumption_tag<complex_tag> : std::true_type {};
+template <> struct is_numeric_assumption_tag<prime> : std::true_type {};
+} // namespace detail
 
 template <typename Tag>
+requires detail::is_numeric_assumption_tag<std::remove_cvref_t<Tag>>::value
 inline void apply_assumption(expression_holder<scalar_expression> &h,
                              Tag &&tag) {
   assume(h, std::forward<Tag>(tag));

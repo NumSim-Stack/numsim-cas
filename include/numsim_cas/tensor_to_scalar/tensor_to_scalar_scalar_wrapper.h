@@ -2,6 +2,7 @@
 #define TENSOR_TO_SCALAR_SCALAR_WRAPPER_H
 
 #include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
@@ -66,6 +67,28 @@ public:
     }
   }
 };
+
+// Transparent apply_assumption forwarding for the t2s scalar wrapper.
+// The holder-level require_symbol passed via is_symbol() forwarding above;
+// here we unwrap to the inner scalar holder and dispatch via its
+// apply_assumption overload (defined in scalar_assume.h). Constrained to
+// the same set of valid fact tags as the scalar overload — keeps the
+// assumption_fact_for concept's diagnostic-quality guarantees consistent
+// across domains.
+//
+// Architect step-5 review gap: without this, a user holding
+// `expression_holder<tensor_to_scalar_expression>` over a wrapped scalar
+// Symbol would pass the holder-level guard but fail ADL on the per-fact
+// dispatch — compile error for a perfectly valid call. Fixes the
+// inconsistency between the is_symbol() forwarder (says "Symbol") and
+// the assumption() dispatch (says "no overload").
+template <typename Tag>
+requires detail::is_numeric_assumption_tag<std::remove_cvref_t<Tag>>::value
+inline void apply_assumption(expression_holder<tensor_to_scalar_expression> &h,
+                             Tag &&tag) {
+  auto inner = h.template get<tensor_to_scalar_scalar_wrapper>().expr();
+  apply_assumption(inner, std::forward<Tag>(tag));
+}
 
 } // namespace numsim::cas
 
