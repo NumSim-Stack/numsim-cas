@@ -327,6 +327,51 @@ double tr = ev.apply(trace(A));   // 5.0
 double det = ev.apply(det(A));    // -2.0
 ```
 
+## Assumptions
+
+The t2s domain doesn't define its own assumption types — facts flow through
+from the underlying scalar/tensor operands:
+
+- `tensor_to_scalar_scalar_wrapper` — bridges a scalar Symbol into the
+  t2s domain. Forwards `is_symbol()` to the inner scalar so a wrapped
+  Symbol stays a Symbol from the assumption-system's perspective.
+- The variadic `assumption()` API on `expression_holder<tensor_to_scalar_expression>`
+  unwraps to the inner scalar holder and dispatches to its `apply_assumption`
+  overload — supported scalar tags work transparently:
+
+  ```cpp
+  auto [x] = make_scalar_variable("x");
+  auto wrapped = make_expression<tensor_to_scalar_scalar_wrapper>(x);
+  wrapped.assumption(positive{}, integer{});   // lands on inner x
+  EXPECT_TRUE(is_positive(x));                 // observable via x
+  ```
+
+  See `docs/sympy-assumption-redesign.md` step 5 for the dispatch design.
+
+### Closed-form constants
+
+`tensor_to_scalar_zero` and `tensor_to_scalar_one` self-annotate their
+numeric assumptions at construction (same pattern as `scalar_constant`):
+
+- `tensor_to_scalar_zero` → `{integer, rational, real_tag, nonnegative, nonpositive}`
+  (zero is the additive identity — NOT nonzero, NOT positive)
+- `tensor_to_scalar_one` → `{integer, rational, real_tag, positive, nonnegative, nonzero}`
+
+### Querying facts: known limitation
+
+The `is_*` query helpers (`is_positive`, `is_integer`, …) are scalar-only.
+To query a t2s wrapper's underlying scalar facts, unwrap via
+`wrapper.expr()`:
+
+```cpp
+auto inner = wrapped.get<tensor_to_scalar_scalar_wrapper>().expr();
+EXPECT_TRUE(is_positive(inner));
+```
+
+A future t2s `is_*` forwarder (parallel to step-5's `apply_assumption`
+forwarder) would close this gap; tracked as open decision #4 in the
+SymPy redesign doc.
+
 ## File Reference
 
 | File | Purpose |

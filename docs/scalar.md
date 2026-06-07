@@ -309,6 +309,89 @@ ev.set(x, M_PI / 4);
 double val = ev.apply(sin(x));  // ~0.7071
 ```
 
+## Assumptions
+
+Symbolic facts about a scalar Symbol's value (sign, integrality, etc.) drive
+construction-time simplification and the assumption propagator. The model
+follows SymPy: only **Symbols** carry user-asserted facts; compounds derive
+facts from structure + leaves, and constants self-classify from their value.
+
+### Asserting facts
+
+The fluent API on `expression_holder<scalar_expression>`:
+
+```cpp
+auto [x, y] = make_scalar_variable("x", "y");
+x.assumption(positive{});                        // single fact
+x.assumption(positive{}, integer{});             // multi-fact + chain
+x.assumption(positive{}).assumption(integer{});  // chainable
+```
+
+The variadic `assumption()` method:
+- Returns `*this` for chaining (0-fact form is a no-op).
+- Throws `invalid_assumption_error` on non-Symbols (compounds, constants,
+  wrappers).
+- Constrained by the `assumption_fact_for<scalar_expression, T>` concept
+  so invalid tags produce a clean diagnostic.
+
+The legacy `assume(holder, fact)` free-function form remains:
+
+```cpp
+assume(x, positive{});   // equivalent to x.assumption(positive{})
+```
+
+Both routes invoke the same implication chain (`positive` → `nonnegative` +
+`nonzero` + `real_tag`).
+
+### Supported fact tags
+
+| Tag | Implies | Notes |
+|---|---|---|
+| `positive` | `nonnegative`, `nonzero`, `real_tag` | |
+| `negative` | `nonpositive`, `nonzero`, `real_tag` | |
+| `nonzero` | – | |
+| `nonnegative` | `real_tag` | |
+| `nonpositive` | `real_tag` | |
+| `integer` | `rational`, `real_tag` | |
+| `even` | `integer`, `rational`, `real_tag` | |
+| `odd` | `integer`, `rational`, `real_tag` | |
+| `prime` | `integer`, `positive`, `nonnegative`, `nonzero`, `rational`, `real_tag` | |
+| `rational` | `real_tag` | |
+| `real_tag` | – | |
+
+`irrational` and `complex_tag` are part of the `numeric_assumption` variant
+but have no `assume()` overload today — the `is_numeric_assumption_tag` trait
+deliberately omits them so the concept rejects them at compile time.
+
+### Querying facts
+
+```cpp
+is_positive(x);   is_negative(x);   is_nonzero(x);
+is_nonnegative(x); is_nonpositive(x);
+is_integer(x);    is_even(x);
+is_rational(x);   is_real(x);
+```
+
+Each helper calls `infer_assumptions(expr)` (a no-op if the
+`numeric_assumption_manager::inferred_` flag is set, the lazy-evaluation
+cache) before reading the assumption set. So compound queries
+(`is_positive(x + y)`) trigger the propagator on first call.
+
+### Closed-form constants
+
+`scalar_constant` auto-derives numeric facts from its value at construction:
+
+- `scalar_constant(5)` → `{positive, nonnegative, nonzero, integer, rational, real_tag}`
+- `scalar_constant(-5.0)` → `{negative, nonpositive, nonzero, real_tag}` (NOT integer)
+- `scalar_constant(0)` / `scalar_constant(0.0)` / `scalar_constant(rational_t{0,1})`
+  → all carry `{integer, rational, real_tag, nonnegative, nonpositive}` —
+  zero is integer regardless of spelling
+- `scalar_constant(std::complex<double>{1, 1})` → empty set (complex values
+  are not orderable and not real in general)
+
+User code cannot call `assume()` on a constant — the `require_symbol` guard
+throws. Constants are classified by their value, not by user assertion.
+
 ## File Reference
 
 | File | Purpose |

@@ -419,22 +419,40 @@ constant query consistency — were all delivered piecewise in steps
   routes through the wrapper's `apply_assumption` overload to the inner
   scalar's assumption set, observable via the original scalar holder.
 
-### Step 7 — Cleanup and 1.0 lockdown
+### Step 7 — Cleanup and 1.0 lockdown ✅ done
 
-- Delete dead code: `set_inferred()` if no remaining caller, deprecated
-  accessor `tensor_algebra_assumptions()` (rename complete).
-- Doc updates: `docs/tensor.md`, `docs/scalar.md`, `docs/tensor-to-scalar.md`
-  get a "Assumptions" section pointing at the SymPy model.
-- Mark `assumption()` as part of the stable public API.
+Audit results:
+
+- **`set_inferred()` is NOT dead code.** The scalar propagator at
+  `src/numsim_cas/scalar/visitors/scalar_assumption_propagator.cpp:837`
+  reads `.inferred()` as a cache flag — if set, the propagator
+  short-circuits. Callers are the 11 scalar `assume()` overloads,
+  `scalar_constant`'s ctor, `tensor_to_scalar_zero/one` ctors, and the
+  t2s `tensor_to_scalar_functions.cpp` det() PD-propagation path
+  (#259). Earlier rounds incorrectly assumed this was dead; the audit
+  reversed that. The flag stays. Open decision #1 (retirement) is
+  closed as "keep" — it's the propagator's memoization mechanism.
+- **`tensor_algebra_assumptions()` rename never happened.** The earlier
+  plan to rename to `tensor_leaf_facts_` was tied to the dropped
+  derived_cache_ design (step 2 review). The current name is the
+  long-term name. No deprecated accessor to delete.
+- **Doc updates landed**: `docs/scalar.md`, `docs/tensor.md`, and
+  `docs/tensor-to-scalar.md` all gained an "Assumptions" section
+  documenting the variadic API, the legacy helpers, the supported tags
+  + implication chains, closed-form constant pre-annotations, and the
+  known query-limitation for t2s holders.
+- **`assumption()` is stable public API**. Documented in the per-domain
+  docs as the primary fluent entry point; legacy helpers
+  (`assume(holder, tag)`, `assume_*(holder)`) remain supported.
 
 ---
 
 ## Open decisions still to make
 
-1. **Inferred flag retirement**: keep `inferred_` flag, retire it, or
-   replace with a `is_inferred_from(holder)` re-inference helper.
-   Default: retire unless a consumer surfaces. Land alongside step 5
-   or step 7 cleanup.
+1. **Inferred flag retirement** ✅ resolved: **keep**. Step-7 audit
+   surfaced the real reader in `scalar_assumption_propagator.cpp:837`
+   — `inferred_` is the propagator's cache hit/miss flag, not dead
+   code as earlier rounds assumed. Retirement is OFF the table.
 2. **Levi-Civita classification**: today's `tensor_space` variant doesn't have
    a "totally antisymmetric" alternative. Step 2 left `levi_civita_tensor`
    untouched. If a 1.1 use case demands `is_totally_antisymmetric()`, add
