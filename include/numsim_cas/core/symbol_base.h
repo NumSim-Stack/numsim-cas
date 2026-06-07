@@ -25,7 +25,7 @@ public:
 
   [[nodiscard]] inline auto &name() const noexcept { return m_name; }
 
-  [[nodiscard]] virtual bool is_symbol() const noexcept { return true; }
+  [[nodiscard]] bool is_symbol() const noexcept override { return true; }
 
   template <typename BaseExprT>
   friend bool operator<(symbol_base<BaseExprT> const &lhs,
