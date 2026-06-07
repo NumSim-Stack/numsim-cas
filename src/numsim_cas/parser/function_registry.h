@@ -220,8 +220,7 @@ function_registry() {
               scalar_unary([](auto x) { return macauley_plus(x); }));
     m.emplace("macauley_minus",
               scalar_unary([](auto x) { return macauley_minus(x); }));
-    m.emplace("heaviside",
-              scalar_unary([](auto x) { return heaviside(x); }));
+    m.emplace("heaviside", scalar_unary([](auto x) { return heaviside(x); }));
 
     // ─── Scalar ternary (piecewise) ────────────────────────────
     // Registers the (scalar, scalar, scalar) form only. The
