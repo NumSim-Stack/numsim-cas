@@ -28,9 +28,12 @@
 // recognize (`otimes` → tensor-product notation from differential
 // geometry; `dot` → physics/ML terse usage). Names like `asin`,
 // `acos`, `log` etc. that come from std::math do NOT get long-form
-// aliases — those are already universal. A future name-vs-alias
-// question should be decided against this rule before adding to the
-// registry.
+// aliases — those are already universal. Functions whose C++ name
+// is itself the long form (`macauley_plus`, `smoothed_macauley`,
+// `heaviside`, `if_then_else`) are registered once under that name
+// — the policy speaks to alias *creation*, not to renaming. A
+// future name-vs-alias question should be decided against this rule
+// before adding to the registry.
 //
 // Round-trip (β-2d) caveat: several registered names construct
 // compound expressions out of existing AST nodes rather than

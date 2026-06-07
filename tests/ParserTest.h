@@ -691,12 +691,17 @@ TEST(ParserGrammar, HeavisideLowersToGe) {
 
 TEST(ParserGrammar, SmoothedMacauleyLowersToArithmetic) {
   // smoothed_macauley(x, eps) constructs `(x + sqrt(x² + eps²)) / 2`.
+  // Division composes as `a/b → a * pow(b, -1)` per the project's
+  // div-via-mul-pow contract, so the top-level node is scalar_mul.
+  // Pass-5 hardening: symmetric with the other *LowersTo* tests
+  // (pin the expected top-level type alongside the hash equality).
   symbol_table syms_named;
   auto from_name = parse_scalar("smoothed_macauley(x, eps)", syms_named);
   symbol_table syms_lowered;
   auto from_lowered =
       parse_scalar("(x + sqrt(pow(x, 2) + pow(eps, 2))) / 2", syms_lowered);
   EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+  EXPECT_TRUE(is_same<scalar_mul>(from_name));
 }
 
 TEST(ParserGrammar, BinaryFunctionSmoothedMacauleyZeroEpsCollapses) {
