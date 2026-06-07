@@ -202,6 +202,9 @@ inline bool is_rational(expression_holder<scalar_expression> const &expr) {
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
 #endif
 
 namespace detail {
@@ -239,6 +242,8 @@ inline void apply_assumption(expression_holder<scalar_expression> &h,
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
 #endif
 
 } // namespace numsim::cas
