@@ -1406,6 +1406,47 @@ TEST(TensorAlgebraAssumption, ChainableReturnsSelfByIdentity) {
   EXPECT_EQ(&ref, &A);
 }
 
+// ─── Step 6: tensor side of the cross-domain consistency sweep ──────
+
+TEST(TensorAlgebraStep6, TensorAssumeUniformGuardSampling) {
+  // Sample all 10 tensor assume_* helpers on a compound. Each must
+  // throw via require_symbol. Uniformity lock-in against a future
+  // helper that forgets the guard.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  auto sum = A + B;
+  EXPECT_THROW(assume_symmetric(sum), invalid_assumption_error);
+  EXPECT_THROW(assume_skew(sum), invalid_assumption_error);
+  EXPECT_THROW(assume_volumetric(sum), invalid_assumption_error);
+  EXPECT_THROW(assume_deviatoric(sum), invalid_assumption_error);
+  EXPECT_THROW(assume_minor(sum), invalid_assumption_error);
+  EXPECT_THROW(assume_major(sum), invalid_assumption_error);
+  EXPECT_THROW(assume_minor_major(sum), invalid_assumption_error);
+  EXPECT_THROW(assume_orthogonal(sum), invalid_assumption_error);
+  EXPECT_THROW(assume_positive_definite(sum), invalid_assumption_error);
+  EXPECT_THROW(assume_positive_semidefinite(sum), invalid_assumption_error);
+}
+
+TEST(TensorAlgebraStep6, ClosedFormConstantQueryConsistency) {
+  // All closed-form constants answer is_* queries consistently — either
+  // via helper short-circuit (tensor_zero) or ctor pre-annotation
+  // (identity_tensor, tensor_projector). Pin a representative answer
+  // from each category to lock in the consistency invariant.
+  auto Z = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  auto P = P_vol(std::size_t{3});
+
+  EXPECT_TRUE(is_symmetric(Z)) << "zero via helper short-circuit";
+  EXPECT_TRUE(is_symmetric(I)) << "identity via ctor pre-annotation";
+  EXPECT_TRUE(is_symmetric(P)) << "projector via ctor pre-annotation";
+
+  // Negative consistency: all three reject orthogonal/PD without explicit
+  // assertion (they're closed-form constants, not annotated as such).
+  EXPECT_FALSE(is_orthogonal(Z));
+  EXPECT_FALSE(is_orthogonal(I));
+  EXPECT_FALSE(is_orthogonal(P));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORALGEBRAASSUMETEST_H

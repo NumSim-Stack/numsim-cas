@@ -758,4 +758,75 @@ TEST(ScalarAssumptionConcept, IrrationalAndComplexAreUnsupported) {
                 "complex_tag has no assume() overload; concept must reject");
 }
 
+// ─── Step 6: cross-domain consistency sweep ─────────────────────────
+// Verification (not new feature) that the step-2/3/4/5 work landed
+// consistently across the scalar / tensor / t2s domains. Audits the
+// three step-6 invariants spelled out in
+// docs/sympy-assumption-redesign.md.
+
+TEST_F(AssumptionFixture, Step6_AssumeOnT2sWrapperRoutesToInnerScalar) {
+  // Cross-domain integration: the variadic API on a t2s holder over a
+  // wrapped scalar Symbol must apply the fact to the inner scalar's
+  // assumption set, observable via the original scalar holder.
+  auto wrapped = numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_scalar_wrapper>(x);
+  wrapped.assumption(numsim::cas::positive{}, numsim::cas::integer{});
+  // The shared underlying scalar node has both facts.
+  EXPECT_TRUE(numsim::cas::is_positive(x));
+  EXPECT_TRUE(numsim::cas::is_integer(x));
+}
+
+TEST_F(AssumptionFixture, Step6_ConceptDispatchT2sParityWithScalar) {
+  // The t2s wrapper's apply_assumption overload is constrained by the
+  // same is_numeric_assumption_tag trait as the scalar template. Pin
+  // that the concept produces the same answer through both routes for
+  // the supported tags AND the deliberately-unsupported tags.
+  using SE = numsim::cas::scalar_expression;
+  using TS = numsim::cas::tensor_to_scalar_expression;
+
+  // Supported scalar tag: accepted on both scalar and t2s holders.
+  static_assert(numsim::cas::assumption_fact_for<SE, numsim::cas::positive>);
+  static_assert(numsim::cas::assumption_fact_for<TS, numsim::cas::positive>);
+
+  // Tensor structural tag: rejected on both scalar and t2s holders.
+  static_assert(!numsim::cas::assumption_fact_for<SE, numsim::cas::Symmetric>);
+  static_assert(!numsim::cas::assumption_fact_for<TS, numsim::cas::Symmetric>);
+
+  // Deliberately unsupported tag: rejected on both.
+  static_assert(!numsim::cas::assumption_fact_for<SE, numsim::cas::irrational>);
+  static_assert(!numsim::cas::assumption_fact_for<TS, numsim::cas::irrational>);
+}
+
+TEST_F(AssumptionFixture, Step6_ScalarAssumeUniformGuardSampling) {
+  // Step-4 made every scalar assume() overload guard on require_symbol.
+  // This sweep samples the 11 overloads (positive, negative, nonnegative,
+  // nonpositive, nonzero, integer, even, odd, prime, rational, real_tag)
+  // on the same compound expression and asserts every one throws — pins
+  // the uniformity invariant against any future overload that forgets
+  // the guard.
+  auto compound = x + y;
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::positive{}),
+               numsim::cas::invalid_assumption_error);
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::negative{}),
+               numsim::cas::invalid_assumption_error);
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::nonnegative{}),
+               numsim::cas::invalid_assumption_error);
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::nonpositive{}),
+               numsim::cas::invalid_assumption_error);
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::nonzero{}),
+               numsim::cas::invalid_assumption_error);
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::integer{}),
+               numsim::cas::invalid_assumption_error);
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::even{}),
+               numsim::cas::invalid_assumption_error);
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::odd{}),
+               numsim::cas::invalid_assumption_error);
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::prime{}),
+               numsim::cas::invalid_assumption_error);
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::rational{}),
+               numsim::cas::invalid_assumption_error);
+  EXPECT_THROW(numsim::cas::assume(compound, numsim::cas::real_tag{}),
+               numsim::cas::invalid_assumption_error);
+}
+
 #endif // SCALARASSUMPTIONTEST_H

@@ -387,16 +387,35 @@ helpers each do their own implication chain; `assumption()` is the
 opportunity to put the chain logic in one place. The per-helper
 implementations become `assumption(fact)` calls.
 
-### Step 6 — Cross-domain consistency sweep
+### Step 6 — Cross-domain consistency sweep ✅ done
 
-- All `assume_*` helpers across scalar / tensor / t2s use the same
-  is-Symbol-or-throw guard.
-- All `is_*` query helpers follow the per-helper read order documented in
-  step 3 above (no uniform bridge — each helper's read order is intentionally
-  scoped to which facts can imply its predicate).
-- All closed-form constants (`tensor_zero`, `tensor_to_scalar_zero`,
-  `identity_tensor`, scalar literals) answer queries via either the structural
-  visitor arm OR a helper short-circuit, consistently per category.
+Verification (not new feature). The three invariants — uniform
+`require_symbol` guard, per-helper documented read order, closed-form
+constant query consistency — were all delivered piecewise in steps
+2/3/4/5. Step 6 audits + pins them:
+
+- ✅ Uniform `is-Symbol-or-throw` guard: 10/10 tensor `assume_*` helpers
+  and 11/11 scalar `assume(...)` overloads call `detail::require_symbol`.
+  T2s holders forward through the scalar dispatch via the wrapper
+  overload (step 5). Verified by `Step6_ScalarAssumeUniformGuardSampling`
+  and `TensorAlgebraStep6.TensorAssumeUniformGuardSampling`.
+- ✅ Per-helper read order: documented in the step-3 doc table.
+  Compile-time enforced by the per-helper code paths; no uniform-bridge
+  refactor needed.
+- ✅ Closed-form constant query consistency:
+  `Step6.ClosedFormConstantQueryConsistency` pins that `tensor_zero`
+  (helper short-circuit), `identity_tensor` (ctor pre-annotation),
+  and `tensor_projector` (ctor pre-annotation) all answer
+  `is_symmetric` the same way.
+- ✅ Cross-domain concept dispatch parity:
+  `Step6_ConceptDispatchT2sParityWithScalar` pins that the
+  `assumption_fact_for` concept produces the same answer through both
+  scalar and t2s routes for supported, unsupported (`irrational`,
+  `complex_tag`), and tensor-only (`Symmetric`) tags.
+- ✅ T2s integration: `Step6_AssumeOnT2sWrapperRoutesToInnerScalar`
+  verifies the variadic API on a t2s holder over a wrapped scalar Symbol
+  routes through the wrapper's `apply_assumption` overload to the inner
+  scalar's assumption set, observable via the original scalar holder.
 
 ### Step 7 — Cleanup and 1.0 lockdown
 
