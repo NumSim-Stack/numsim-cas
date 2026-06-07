@@ -76,6 +76,15 @@ public:
 // assumption_fact_for concept's diagnostic-quality guarantees consistent
 // across domains.
 //
+// SAFETY INVARIANT: this overload assumes that any t2s node with
+// is_symbol() == true is a tensor_to_scalar_scalar_wrapper. Today that
+// is airtight because only symbol_base returns true and the only t2s
+// node forwarding is_symbol() is this wrapper. If a future t2s leaf
+// overrides is_symbol() to true without also being a wrapper, the
+// static_cast inside get<wrapper>() becomes UB in release. Whenever
+// a new t2s Symbol-shaped node is added, this overload (and its
+// invariant) MUST be revisited.
+//
 // Architect step-5 review gap: without this, a user holding
 // `expression_holder<tensor_to_scalar_expression>` over a wrapped scalar
 // Symbol would pass the holder-level guard but fail ADL on the per-fact

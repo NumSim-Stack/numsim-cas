@@ -681,8 +681,12 @@ TEST_F(AssumptionFixture, AssumptionChainableReturnsSelfByIdentity) {
 
 TEST_F(AssumptionFixture, AssumptionZeroFactsChainable) {
   // QA: x.assumption().assumption() must compile and preserve identity
-  // (the if constexpr early-return path also returns *this).
-  EXPECT_NO_THROW(x.assumption().assumption());
+  // (the if constexpr early-return path also returns *this). Also pins
+  // the address identity for the 0-fact branch — a regression that
+  // default-constructed the return holder would fail the EXPECT_EQ.
+  auto &ref0 = x.assumption();
+  EXPECT_EQ(&ref0, &x) << "0-fact assumption() must return *this by reference";
+  EXPECT_NO_THROW(ref0.assumption());
   EXPECT_FALSE(numsim::cas::is_positive(x));
 }
 
@@ -711,6 +715,47 @@ TEST(ScalarAssumptionConcept, RejectsBogusFactTypes) {
   static_assert(
       !numsim::cas::assumption_fact_for<numsim::cas::scalar_expression, int>,
       "bogus int must NOT satisfy assumption_fact_for<scalar_expression, ...>");
+}
+
+TEST(AssumptionConceptCrossDomain, RejectsWrongDomainFactTypes) {
+  // QA Q4 / architect: cross-domain rejection. Scalar tags must NOT
+  // satisfy the concept on tensor holders, and vice versa. If someone
+  // accidentally widens an overload (e.g. catch-all template forwarding)
+  // these static_asserts surface the leak.
+  using TE = numsim::cas::tensor_expression;
+  using SE = numsim::cas::scalar_expression;
+
+  // Tensor holder must reject scalar-only tags (no apply_assumption
+  // overload exists for that pair).
+  static_assert(!numsim::cas::assumption_fact_for<TE, numsim::cas::positive>,
+                "scalar tag 'positive' must NOT be valid on tensor holders");
+
+  // Tensor holder must accept its own structural tags.
+  static_assert(numsim::cas::assumption_fact_for<TE, numsim::cas::Symmetric>,
+                "Symmetric must be valid on tensor holders");
+
+  // Scalar holder must reject tensor structural tags.
+  static_assert(!numsim::cas::assumption_fact_for<SE, numsim::cas::Symmetric>,
+                "tensor tag 'Symmetric' must NOT be valid on scalar holders");
+
+  // Cross-domain algebraic facts (orthogonal lives on tensor only).
+  static_assert(numsim::cas::assumption_fact_for<TE, numsim::cas::orthogonal>,
+                "orthogonal must be valid on tensor holders");
+  static_assert(!numsim::cas::assumption_fact_for<SE, numsim::cas::orthogonal>,
+                "orthogonal (tensor-only) must NOT be valid on scalar holders");
+}
+
+TEST(ScalarAssumptionConcept, IrrationalAndComplexAreUnsupported) {
+  // cpp-pro F1: irrational and complex_tag are part of numeric_assumption
+  // but have NO assume() overloads. The trait deliberately omits them so
+  // the concept rejects them up-front instead of admitting them and
+  // failing inside the template body. If support is later added (assume()
+  // overload + trait specialization), this test should flip.
+  using SE = numsim::cas::scalar_expression;
+  static_assert(!numsim::cas::assumption_fact_for<SE, numsim::cas::irrational>,
+                "irrational has no assume() overload; concept must reject");
+  static_assert(!numsim::cas::assumption_fact_for<SE, numsim::cas::complex_tag>,
+                "complex_tag has no assume() overload; concept must reject");
 }
 
 #endif // SCALARASSUMPTIONTEST_H

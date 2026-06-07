@@ -184,12 +184,17 @@ inline bool is_rational(expression_holder<scalar_expression> const &expr) {
 // virtual call).
 
 namespace detail {
-// Membership in numeric_assumption's variant alternatives. Constrains the
+// Membership in numeric_assumption's variant alternatives that have a
+// corresponding scalar `assume(holder, tag)` overload. Constrains the
 // scalar apply_assumption template so the assumption_fact_for concept on
-// the holder correctly rejects bogus types (e.g. int). Without this
-// constraint, the unconstrained template would accept ANY Tag and the
-// concept's requires-expression would succeed for any T, defeating the
-// diagnostic-quality purpose of the concept.
+// the holder correctly rejects bogus types (e.g. int).
+//
+// NOTE: `irrational` and `complex_tag` are part of the numeric_assumption
+// variant but have NO assume() overloads today — they're intentionally
+// omitted here so the concept rejects them up-front instead of admitting
+// them and failing inside the template body. cpp-pro seventh-pass F1
+// flagged this concept/dispatch mismatch. If those tags are ever needed,
+// add the assume() overloads first, then re-include them in this trait.
 template <typename T> struct is_numeric_assumption_tag : std::false_type {};
 template <> struct is_numeric_assumption_tag<positive> : std::true_type {};
 template <> struct is_numeric_assumption_tag<negative> : std::true_type {};
@@ -200,9 +205,7 @@ template <> struct is_numeric_assumption_tag<integer> : std::true_type {};
 template <> struct is_numeric_assumption_tag<even> : std::true_type {};
 template <> struct is_numeric_assumption_tag<odd> : std::true_type {};
 template <> struct is_numeric_assumption_tag<rational> : std::true_type {};
-template <> struct is_numeric_assumption_tag<irrational> : std::true_type {};
 template <> struct is_numeric_assumption_tag<real_tag> : std::true_type {};
-template <> struct is_numeric_assumption_tag<complex_tag> : std::true_type {};
 template <> struct is_numeric_assumption_tag<prime> : std::true_type {};
 } // namespace detail
 
