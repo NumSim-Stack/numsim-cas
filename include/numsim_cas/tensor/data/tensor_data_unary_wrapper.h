@@ -127,7 +127,7 @@ private:
 // dim-4 case is useful inside expressions that ultimately collapse before
 // numerical evaluation — but `tensor_evaluator::apply` on a bare
 // `levi_civita_tensor(4)` will throw. Lifting that ceiling is part of the
-// broader MaxDim-bump effort tracked elsewhere.
+// broader MaxDim-bump effort (#270).
 template <typename ValueType>
 class tensor_data_levi_civita final
     : public tensor_data_eval_up_unary<tensor_data_levi_civita<ValueType>,

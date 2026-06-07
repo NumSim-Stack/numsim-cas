@@ -48,8 +48,7 @@ namespace numsim::cas {
  * see `tensor_data_levi_civita`'s doxygen for the full reasoning.
  * For dim 4 the eval framework's `MaxDim = 3` ceiling still makes a
  * bare numerical apply throw `evaluation_error`, even though the
- * symbolic construction is allowed — that's a separate limitation
- * tracked outside this node.
+ * symbolic construction is allowed — see #270 for the bump effort.
  *
  * ## Differentiation
  *

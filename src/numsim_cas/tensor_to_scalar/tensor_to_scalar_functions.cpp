@@ -104,7 +104,8 @@ det(expression_holder<tensor_expression> const &expr) {
   // annotation in this codebase doesn't distinguish proper rotations
   // (det = +1) from improper ones / reflections (det = -1); the
   // common continuum-mechanics use case is proper rotation so we
-  // default to +1. A future `chirality` sub-tag could refine this.
+  // default to +1. TODO(#269): a `chirality` sub-tag could refine this
+  // for callers working with reflections / improper rotations.
   // Closes one half of #246.
   if (is_orthogonal(expr))
     return make_expression<tensor_to_scalar_one>();
