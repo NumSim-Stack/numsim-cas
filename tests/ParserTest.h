@@ -552,13 +552,62 @@ TEST(ParserGrammar, BinaryFunctionMin) {
 }
 
 TEST(ParserGrammar, TernaryFunctionIfThenElse) {
-  // Condition non-zero → 'then' branch.
+  // Condition non-zero → 'then' branch. Uses symbolic args so the
+  // construction-time folds in scalar_std.h (cond==scalar_zero,
+  // cond==scalar_one, numeric-constant cond) cannot fire; the
+  // dispatch genuinely flows through the registered entry and the
+  // make_expression<scalar_if_then_else> call.
   symbol_table syms;
   auto e = parse_scalar("if_then_else(c, a, b)", syms);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"c", 1}, {"a", 10}, {"b", 20}}),
                    10.0);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"c", 0}, {"a", 10}, {"b", 20}}),
                    20.0);
+  // Structural lock-in (qa review H1): parse must produce the same
+  // node as a hand-built if_then_else with identical sub-expressions.
+  // If the registration were removed, the parser would throw
+  // unknown_function_error; if it were rewired to a different factory,
+  // the hash would diverge.
+  auto c = syms.get_or_declare_scalar("c");
+  auto a = syms.get_or_declare_scalar("a");
+  auto b = syms.get_or_declare_scalar("b");
+  auto expected = if_then_else(c, a, b);
+  EXPECT_EQ(e.get().hash_value(), expected.get().hash_value());
+}
+
+TEST(ParserGrammar, TernaryFunctionIfThenElseArityErrors) {
+  // qa review H3: the first 3-arg registry entry — confirm the
+  // dispatch enforces arity. Out-of-bounds access in scalar_ternary
+  // (reading a[2] from a length-2 arg_vec) would be UB and only an
+  // explicit arity check catches it cleanly.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("if_then_else(x, y)", syms); },
+      arity_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("if_then_else(x)", syms); },
+      arity_error);
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse_scalar("if_then_else(x, y, z, w)", syms);
+      },
+      arity_error);
+}
+
+TEST(ParserGrammar, TernaryFunctionIfThenElseTensorBranchesNotReachable) {
+  // Code-reviewer MED-2: documents the partial-coverage decision in
+  // function_registry.h — the (scalar cond, tensor then, tensor else)
+  // overload from tensor_std.h is unreachable from the parser, and
+  // any future change that "fixes" this without updating the comment
+  // should fail here.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse("if_then_else(x, A{rank=2, dim=3}, B{rank=2, dim=3})", syms);
+      },
+      type_mismatch_error);
 }
 
 TEST(ParserGrammar, UnaryFunctionMacauleyPlus) {
@@ -571,15 +620,20 @@ TEST(ParserGrammar, UnaryFunctionMacauleyPlus) {
 }
 
 TEST(ParserGrammar, UnaryFunctionMacauleyMinus) {
-  // <e>- = -min(e, 0): magnitude of the negative part, 0 on positives.
+  // <e>- = -min(e, 0): magnitude of the negative part, 0 on
+  // non-negatives. qa review M2: include the x=0 boundary (parallel
+  // to macauley_plus above).
   symbol_table syms;
   auto e = parse_scalar("macauley_minus(x)", syms);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3.5}}), 0.0);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", -2.0}}), 2.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 0.0}}), 0.0);
 }
 
 TEST(ParserGrammar, UnaryFunctionHeaviside) {
-  // H(e) = ge(e, 0): right-continuous step, H(0) = 1.
+  // H(e) = ge(e, 0): right-continuous step, H(0) = 1. The argument is
+  // a symbol (not a literal) so the runtime evaluator path is tested;
+  // a literal 0 would constant-fold in ge() before the evaluator runs.
   symbol_table syms;
   auto e = parse_scalar("heaviside(x)", syms);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 1.0}}), 1.0);
@@ -595,6 +649,20 @@ TEST(ParserGrammar, BinaryFunctionSmoothedMacauley) {
   const double expected = (1.0 + std::sqrt(1.0 + 0.01)) / 2.0;
   EXPECT_NEAR(eval_scalar(e, syms, {{"x", 1.0}, {"eps", 0.1}}), expected,
               1e-12);
+}
+
+TEST(ParserGrammar, BinaryFunctionSmoothedMacauleyZeroEpsCollapses) {
+  // qa review M1: ε → 0 limit recovers the non-smooth Macauley
+  // bracket (scalar_std.h:756). Whether the literal "0" parses to
+  // scalar_zero (and triggers the construction-time fold) or to a
+  // scalar_constant{0} (and goes through the (e + sqrt(e² + 0))/2
+  // numerical path), the *evaluated* result is max(x, 0) — that is
+  // the contract this test pins, independent of which path fires.
+  symbol_table syms;
+  auto e = parse_scalar("smoothed_macauley(x, 0)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3.0}}), 3.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", -3.0}}), 0.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 0.0}}), 0.0);
 }
 
 TEST(ParserGrammar, FunctionCallNestedInArithmetic) {
@@ -765,6 +833,29 @@ TEST(ParserGrammar, SymOfScalarThrowsTypeMismatch) {
       type_mismatch_error);
 }
 
+TEST(ParserGrammar, DevOfScalarThrowsTypeMismatch) {
+  // qa review M4: arg-kind checks are per-entry; mistyping one of the
+  // projection helpers would only be caught by its own test.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("dev(x)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, VolOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("vol(x)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, SkewOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("skew(x)", syms); },
+      type_mismatch_error);
+}
+
 TEST(ParserGrammar, OuterProductReturnsTensor) {
   // otimes(A_ij, B_kl) is a rank-4 tensor; parser names it `otimes`
   // or `outer_product` (alias). Both bind to the 2-arg form.
@@ -777,6 +868,20 @@ TEST(ParserGrammar, OuterProductReturnsTensor) {
       parse_tensor("outer_product(A{rank=2, dim=3}, B{rank=2, dim=3})", syms2);
   EXPECT_TRUE(e2.is_valid());
   EXPECT_EQ(e2.get().rank(), 4u);
+}
+
+TEST(ParserGrammar, OuterProductAliasProducesIdenticalExpression) {
+  // qa review H2: `otimes` and `outer_product` are two registry
+  // entries each holding their own dispatch lambda. Lock the alias
+  // contract: identical source expression → identical hash. A future
+  // editor that "optimizes" one path without touching the other
+  // would fail here.
+  symbol_table syms1;
+  auto e1 = parse_tensor("otimes(A{rank=2, dim=3}, B{rank=2, dim=3})", syms1);
+  symbol_table syms2;
+  auto e2 =
+      parse_tensor("outer_product(A{rank=2, dim=3}, B{rank=2, dim=3})", syms2);
+  EXPECT_EQ(e1.get().hash_value(), e2.get().hash_value());
 }
 
 TEST(ParserGrammar, OuterProductOfScalarThrowsTypeMismatch) {

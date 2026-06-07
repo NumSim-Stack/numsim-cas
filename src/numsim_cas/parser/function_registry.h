@@ -241,8 +241,15 @@ function_registry() {
 
     // 2-arg outer product. The 4-arg index-list variant
     // (otimes(A, [i...], B, [j...])) is deferred until the grammar
-    // grows bracket-list literals. `outer_product` is registered as
-    // an alias for users who prefer the long name.
+    // grows bracket-list literals.
+    //
+    // Two registered names: `otimes` matches the C++ API name (used
+    // throughout the library) and `outer_product` is the long-form
+    // alias for users following the longer-name convention from
+    // SymPy / NumPy. The aliases are separate registry entries with
+    // their own dispatch lambdas; `OuterProductAliasProducesIdentical
+    // Expression` in ParserTest.h locks the equivalence via hash so a
+    // future divergence is caught.
     m.emplace("otimes",
               tensor_binary([](auto a, auto b) { return otimes(a, b); }));
     m.emplace("outer_product",
