@@ -5,6 +5,7 @@
 
 #include <numsim_cas/core/print_mul_fractions.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
+#include <numsim_cas/scalar/visitors/scalar_comparison_print_helper.h>
 #include <numsim_cas/scalar/visitors/scalar_latex_printer.h>
 #include <numsim_cas/scalar/visitors/scalar_printer.h>
 
@@ -237,6 +238,66 @@ void scalar_latex_printer<Stream>::operator()(scalar_asin const &visitable) {
 template <typename Stream>
 void scalar_latex_printer<Stream>::operator()(scalar_acos const &visitable) {
   print_unary("\\arccos", visitable);
+}
+
+// ─── Comparison nodes (#136) ───────────────────────────────────────
+// Printed as `\left( lhs op rhs \right)` for all six ops; the only
+// per-op variation is the operator glyph.
+#define NUMSIM_DEFINE_LATEX_COMPARISON(Node, OpStr)                            \
+  template <typename Stream>                                                   \
+  void scalar_latex_printer<Stream>::operator()(Node const &v) {               \
+    detail::print_infix_comparison(this->m_out, v, "\\left(", OpStr,           \
+                                   "\\right)",                                 \
+                                   [this](auto const &e) { apply(e); });       \
+  }
+
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_lt, "<")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_gt, ">")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_le, "\\le")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_ge, "\\ge")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_eq, "=")
+NUMSIM_DEFINE_LATEX_COMPARISON(scalar_ne, "\\ne")
+
+#undef NUMSIM_DEFINE_LATEX_COMPARISON
+
+// ─── Min / max (#137) ──────────────────────────────────────────────
+// LaTeX function-call notation: `\max\!\left( a, b \right)`. The
+// `\!` is a thin-space corrector that pulls the operand block close
+// to the operator name in the typeset form, matching the usual
+// physics/math convention.
+#define NUMSIM_DEFINE_LATEX_MINMAX(Node, FnName)                               \
+  template <typename Stream>                                                   \
+  void scalar_latex_printer<Stream>::operator()(Node const &v) {               \
+    this->m_out << "\\" FnName "\\!\\left(";                                   \
+    apply(v.expr_lhs());                                                       \
+    this->m_out << ", ";                                                       \
+    apply(v.expr_rhs());                                                       \
+    this->m_out << "\\right)";                                                 \
+  }
+
+NUMSIM_DEFINE_LATEX_MINMAX(scalar_max, "max")
+NUMSIM_DEFINE_LATEX_MINMAX(scalar_min, "min")
+
+#undef NUMSIM_DEFINE_LATEX_MINMAX
+
+// ─── if_then_else (#135) ───────────────────────────────────────────
+// Typeset as a named operator with three comma-separated arguments:
+// `\operatorname{if\_then\_else}\!\left( cond, then, else \right)`.
+// Matches the plain-text printer's function-call form. The thin-space
+// corrector `\!` pulls the operand block close to the operator name
+// in the typeset output. An Iverson-bracket-style form was
+// considered but the function-call form is consistent with the rest
+// of the visitor (sin, max, etc.) and survives nesting better in
+// inline math.
+template <typename Stream>
+void scalar_latex_printer<Stream>::operator()(scalar_if_then_else const &v) {
+  this->m_out << "\\operatorname{if\\_then\\_else}\\!\\left(";
+  apply(v.expr_cond());
+  this->m_out << ", ";
+  apply(v.expr_then());
+  this->m_out << ", ";
+  apply(v.expr_else());
+  this->m_out << "\\right)";
 }
 
 template class scalar_latex_printer<std::ostream>;

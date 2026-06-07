@@ -108,6 +108,36 @@ public:
     m_result = abs(apply(v.expr()));
   }
 
+  // ─── Comparison nodes (#136) ─────────────────────────────────────
+  void operator()(scalar_lt const &v) override {
+    m_result = lt(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_gt const &v) override {
+    m_result = gt(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_le const &v) override {
+    m_result = le(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_ge const &v) override {
+    m_result = ge(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_eq const &v) override {
+    m_result = eq(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_ne const &v) override {
+    m_result = ne(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_max const &v) override {
+    m_result = max(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_min const &v) override {
+    m_result = min(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_if_then_else const &v) override {
+    m_result = if_then_else(apply(v.expr_cond()), apply(v.expr_then()),
+                            apply(v.expr_else()));
+  }
+
 protected:
   expr_holder_t m_current;
   expr_holder_t m_result;

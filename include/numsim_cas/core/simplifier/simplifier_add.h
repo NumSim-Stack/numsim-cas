@@ -295,7 +295,7 @@ public:
     if (pos != add.symbol_map().end()) {
       auto expr{pos->second + base::m_rhs};
       add.symbol_map().erase(pos);
-      add.push_back(std::move(expr));
+      add.merge_or_insert(std::move(expr));
       return expr_add;
     }
     add.push_back(base::m_rhs);

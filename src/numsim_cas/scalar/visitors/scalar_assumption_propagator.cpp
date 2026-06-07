@@ -54,6 +54,9 @@ void scalar_assumption_propagator::operator()(scalar_constant const &v) {
   m_result = {};
 
   bool is_int = std::holds_alternative<std::int64_t>(v.value().raw());
+  bool is_rational = std::holds_alternative<rational_t>(v.value().raw());
+  bool is_complex =
+      std::holds_alternative<std::complex<double>>(v.value().raw());
   double val = std::visit(
       [](auto const &x) -> double {
         using V = std::decay_t<decltype(x)>;
@@ -67,9 +70,25 @@ void scalar_assumption_propagator::operator()(scalar_constant const &v) {
       },
       v.value().raw());
 
+  // Complex values get NO predicates — not orderable, not real in general.
+  // Parity with scalar_constant::annotate_from_value's silent-no-op branch
+  // for complex. cpp-pro F7: previously the propagator unconditionally
+  // inserted real_tag even for complex, diverging from the ctor.
+  if (is_complex)
+    return;
+
   m_result.insert(real_tag{});
-  if (is_int)
+  // Parity with scalar_constant::annotate_from_value: int64 implies
+  // {integer, rational}; rational_t implies rational; zero (any spelling)
+  // implies {integer, rational}. cpp-pro F1: the inferred-flag
+  // short-circuit masks this path today, but a future cache
+  // invalidation would otherwise strip facts that the ctor set.
+  if (is_int) {
     m_result.insert(integer{});
+    m_result.insert(rational{});
+  } else if (is_rational) {
+    m_result.insert(rational{});
+  }
 
   if (val > 0) {
     m_result.insert(positive{});
@@ -82,6 +101,10 @@ void scalar_assumption_propagator::operator()(scalar_constant const &v) {
   } else {
     m_result.insert(nonnegative{});
     m_result.insert(nonpositive{});
+    // Zero is integer regardless of storage spelling (S(0), S(0.0),
+    // Rational(0)). SymPy convention.
+    m_result.insert(integer{});
+    m_result.insert(rational{});
   }
 }
 
@@ -311,6 +334,149 @@ void scalar_assumption_propagator::operator()(
   m_result = {};
 }
 
+// ─── Comparison nodes (#136) ───────────────────────────────────────
+// Indicator values: always in {0, 1} ⇒ real, integer, nonnegative.
+// Children visited for completeness so their assumptions land in any
+// downstream caches; only the indicator's own tags get reported.
+namespace {
+void set_indicator_assumptions(numeric_assumption_manager &r) {
+  r = {};
+  r.insert(real_tag{});
+  r.insert(integer{});
+  r.insert(nonnegative{});
+}
+} // namespace
+
+template <typename BinaryNode>
+void scalar_assumption_propagator::handle_comparison_node(BinaryNode const &v) {
+  apply(v.expr_lhs());
+  apply(v.expr_rhs());
+  set_indicator_assumptions(m_result);
+}
+
+void scalar_assumption_propagator::operator()(scalar_lt const &v) {
+  handle_comparison_node(v);
+}
+void scalar_assumption_propagator::operator()(scalar_gt const &v) {
+  handle_comparison_node(v);
+}
+void scalar_assumption_propagator::operator()(scalar_le const &v) {
+  handle_comparison_node(v);
+}
+void scalar_assumption_propagator::operator()(scalar_ge const &v) {
+  handle_comparison_node(v);
+}
+void scalar_assumption_propagator::operator()(scalar_eq const &v) {
+  handle_comparison_node(v);
+}
+void scalar_assumption_propagator::operator()(scalar_ne const &v) {
+  handle_comparison_node(v);
+}
+
+// Min / max (#137). Recurse into both children to populate the inference
+// cache; the result range is bounded by the operand ranges in the obvious
+// Sign-monotonicity propagation (review of #207):
+//
+//   max(a, b) ≥ max(lower(a), lower(b))   ⇒ either side ≥ 0 ⇒ max ≥ 0
+//   min(a, b) ≤ min(upper(a), upper(b))   ⇒ either side ≤ 0 ⇒ min ≤ 0
+//
+// In particular for max:
+//   - either operand positive       → max positive
+//   - either operand nonnegative    → max nonnegative
+//   - both operands nonpositive     → max nonpositive
+//   - both operands negative        → max negative
+// And symmetric facts for min. `real_tag` propagates when both operands
+// are real. Used by the Macauley-bracket downstream consumer (#138) so
+// that `max(x, 0) ≥ 0` and `min(x, 0) ≤ 0` aren't dropped.
+namespace {
+
+inline void propagate_max_signs(numeric_assumption_manager const &cl,
+                                numeric_assumption_manager const &cr,
+                                numeric_assumption_manager &out) {
+  if (cl.contains(real_tag{}) && cr.contains(real_tag{}))
+    out.insert(real_tag{});
+  if (cl.contains(positive{}) || cr.contains(positive{})) {
+    out.insert(positive{});
+    out.insert(nonnegative{});
+    out.insert(nonzero{});
+  } else if (cl.contains(nonnegative{}) || cr.contains(nonnegative{})) {
+    out.insert(nonnegative{});
+  } else if (cl.contains(negative{}) && cr.contains(negative{})) {
+    out.insert(negative{});
+    out.insert(nonpositive{});
+    out.insert(nonzero{});
+  } else if (cl.contains(nonpositive{}) && cr.contains(nonpositive{})) {
+    out.insert(nonpositive{});
+  }
+}
+
+inline void propagate_min_signs(numeric_assumption_manager const &cl,
+                                numeric_assumption_manager const &cr,
+                                numeric_assumption_manager &out) {
+  if (cl.contains(real_tag{}) && cr.contains(real_tag{}))
+    out.insert(real_tag{});
+  if (cl.contains(negative{}) || cr.contains(negative{})) {
+    out.insert(negative{});
+    out.insert(nonpositive{});
+    out.insert(nonzero{});
+  } else if (cl.contains(nonpositive{}) || cr.contains(nonpositive{})) {
+    out.insert(nonpositive{});
+  } else if (cl.contains(positive{}) && cr.contains(positive{})) {
+    out.insert(positive{});
+    out.insert(nonnegative{});
+    out.insert(nonzero{});
+  } else if (cl.contains(nonnegative{}) && cr.contains(nonnegative{})) {
+    out.insert(nonnegative{});
+  }
+}
+
+} // namespace
+
+void scalar_assumption_propagator::operator()(scalar_max const &v) {
+  auto const cl = apply(v.expr_lhs());
+  auto const cr = apply(v.expr_rhs());
+  m_result = numeric_assumption_manager{};
+  propagate_max_signs(cl, cr, m_result);
+}
+void scalar_assumption_propagator::operator()(scalar_min const &v) {
+  auto const cl = apply(v.expr_lhs());
+  auto const cr = apply(v.expr_rhs());
+  m_result = numeric_assumption_manager{};
+  propagate_min_signs(cl, cr, m_result);
+}
+
+// if_then_else (#135). The result is either expr_then or expr_else,
+// so any assumption tag they BOTH carry is also carried by the
+// if_then_else as a whole — i.e. the intersection. We don't need
+// interval-union machinery for this; tag intersection is enough to
+// catch the common cases (both branches nonnegative ⇒ result
+// nonnegative, both real ⇒ real, etc.). #209 review.
+namespace {
+inline void
+propagate_if_then_else_intersection(numeric_assumption_manager const &ct,
+                                    numeric_assumption_manager const &ce,
+                                    numeric_assumption_manager &out) {
+  auto intersect = [&](auto tag) {
+    if (ct.contains(tag) && ce.contains(tag))
+      out.insert(tag);
+  };
+  intersect(positive{});
+  intersect(negative{});
+  intersect(nonzero{});
+  intersect(nonnegative{});
+  intersect(nonpositive{});
+  intersect(real_tag{});
+  intersect(integer{});
+}
+} // namespace
+void scalar_assumption_propagator::operator()(scalar_if_then_else const &v) {
+  apply(v.expr_cond());
+  auto const ct = apply(v.expr_then());
+  auto const ce = apply(v.expr_else());
+  m_result = numeric_assumption_manager{};
+  propagate_if_then_else_intersection(ct, ce, m_result);
+}
+
 // ─── Convenience function ──────────────────────────────────────────
 
 numeric_assumption_manager
@@ -378,6 +544,8 @@ public:
     m_result = {};
     auto const &cv = v.value();
     bool is_int = std::holds_alternative<std::int64_t>(cv.raw());
+    bool is_rational = std::holds_alternative<rational_t>(cv.raw());
+    bool is_complex = std::holds_alternative<std::complex<double>>(cv.raw());
     double val = std::visit(
         [](auto const &x) -> double {
           using V = std::decay_t<decltype(x)>;
@@ -389,9 +557,16 @@ public:
             return static_cast<double>(x);
         },
         cv.raw());
+    // Parity with annotate_from_value — see other propagator handler.
+    if (is_complex)
+      return;
     m_result.insert(real_tag{});
-    if (is_int)
+    if (is_int) {
       m_result.insert(integer{});
+      m_result.insert(rational{});
+    } else if (is_rational) {
+      m_result.insert(rational{});
+    }
     if (val > 0) {
       m_result.insert(positive{});
       m_result.insert(nonnegative{});
@@ -403,6 +578,8 @@ public:
     } else {
       m_result.insert(nonnegative{});
       m_result.insert(nonpositive{});
+      m_result.insert(integer{});
+      m_result.insert(rational{});
     }
   }
 
@@ -606,7 +783,51 @@ public:
       m_result.insert(real_tag{});
   }
 
+  // ─── Comparison nodes (#136) ─────────────────────────────────────
+  // Indicator values: {0, 1} ⇒ real, integer, nonnegative.
+  void operator()(scalar_lt const &v) override { handle_comparison(v); }
+  void operator()(scalar_gt const &v) override { handle_comparison(v); }
+  void operator()(scalar_le const &v) override { handle_comparison(v); }
+  void operator()(scalar_ge const &v) override { handle_comparison(v); }
+  void operator()(scalar_eq const &v) override { handle_comparison(v); }
+  void operator()(scalar_ne const &v) override { handle_comparison(v); }
+
+  // ─── Min / max (#137) ────────────────────────────────────────────
+  // The result is real iff both operands are real (real numbers are
+  // totally ordered, so min/max is well-defined). Conservatively
+  // assume nothing beyond that.
+  void operator()(scalar_max const &v) override {
+    auto const &cl = ensure_assumptions(v.expr_lhs());
+    auto const &cr = ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    propagate_max_signs(cl, cr, m_result);
+  }
+  void operator()(scalar_min const &v) override {
+    auto const &cl = ensure_assumptions(v.expr_lhs());
+    auto const &cr = ensure_assumptions(v.expr_rhs());
+    m_result = {};
+    propagate_min_signs(cl, cr, m_result);
+  }
+
+  // ─── if_then_else (#135) ─────────────────────────────────────────
+  // The result is real iff both branches are real. The condition
+  // assumptions don't propagate (they describe a 0/1 indicator,
+  // not the selected value).
+  void operator()(scalar_if_then_else const &v) override {
+    ensure_assumptions(v.expr_cond());
+    auto const &ct = ensure_assumptions(v.expr_then());
+    auto const &ce = ensure_assumptions(v.expr_else());
+    m_result = {};
+    propagate_if_then_else_intersection(ct, ce, m_result);
+  }
+
 private:
+  template <typename BinaryNode> void handle_comparison(BinaryNode const &v) {
+    ensure_assumptions(v.expr_lhs());
+    ensure_assumptions(v.expr_rhs());
+    set_indicator_assumptions(m_result);
+  }
+
   numeric_assumption_manager m_result;
 };
 

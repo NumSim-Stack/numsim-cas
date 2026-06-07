@@ -1,0 +1,64 @@
+name: DCO
+
+# Enforces the Developer Certificate of Origin: every non-merge commit
+# on a PR must carry at least one `Signed-off-by:` trailer. The DCO
+# certifies the *committer's* right to submit; we don't require the
+# trailer identity to match the commit author (matches the upstream
+# DCO GitHub App's behaviour). Merge commits are skipped because they
+# typically don't carry signoffs.
+# See CONTRIBUTING.md and https://developercertificate.org/
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Cancel an in-progress check when a new commit is pushed to the same
+# PR, so the latest push gets the authoritative result.
+concurrency:
+  group: dco-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dco-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify Signed-off-by on every non-merge PR commit
+        # Pass SHAs via env vars rather than inline ${{ }} interpolation
+        # — GitHub Actions security best-practice avoids script-injection
+        # from PR metadata fields. Both SHAs are hex-only and GitHub-
+        # controlled, so this is brittle-not-broken, but the env pattern
+        # is the documented safe form.
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          missing=0
+          # --no-merges skips merge commits, which typically don't carry
+          # signoffs (e.g. when a PR branch pulls in main).
+          while IFS= read -r sha; do
+            signoff="$(git log -1 --format='%(trailers:key=Signed-off-by,valueonly)' "$sha")"
+            if [ -z "$signoff" ]; then
+              author="$(git log -1 --format='%an <%ae>' "$sha")"
+              echo "::error::Commit $sha has no Signed-off-by trailer."
+              echo "  Author: $author"
+              echo "  Fix:    git rebase --signoff $PR_BASE_SHA"
+              missing=$((missing + 1))
+            fi
+          done < <(git rev-list --no-merges "$PR_BASE_SHA..$PR_HEAD_SHA")
+          if [ "$missing" -gt 0 ]; then
+            echo ""
+            echo "DCO check failed: $missing commit(s) missing Signed-off-by."
+            echo "See CONTRIBUTING.md and https://developercertificate.org/"
+            exit 1
+          fi
+          echo "All non-merge commits carry a Signed-off-by trailer."

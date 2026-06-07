@@ -6,7 +6,7 @@
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/core/operators.h>
-#include <numsim_cas/tensor/kronecker_delta.h>
+#include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/projection_tensor.h>
 #include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/tensor_expression.h>
@@ -43,7 +43,7 @@ public:
   explicit tensor_differentiation(tensor_holder_t const &arg) : m_arg(arg) {
     m_dim = arg.get().dim();
     m_rank_arg = arg.get().rank();
-    m_I = make_expression<kronecker_delta>(m_dim);
+    m_I = make_expression<identity_tensor>(m_dim, std::size_t{2});
   }
 
   tensor_differentiation(tensor_differentiation const &) = delete;
@@ -101,11 +101,11 @@ public:
     // derivative of zero is zero (handled by apply returning zero)
   }
 
-  void operator()(kronecker_delta const &) override {
+  void operator()(identity_tensor const &) override {
     // constant -> zero
   }
 
-  void operator()(identity_tensor const &) override {
+  void operator()(levi_civita_tensor const &) override {
     // constant -> zero
   }
 
@@ -131,6 +131,21 @@ public:
     }
   }
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  // d/dA if_then_else(cond, X(A), Y(A)) = if_then_else(cond, dX/dA, dY/dA)
+  // when cond doesn't depend on A. Same lazy-eval-vs-eager-diff
+  // asymmetry as the scalar/t2s variants: the diff visitor MUST build
+  // both arms' derivatives because the cond value isn't fixed at
+  // differentiation time.
+  void operator()(tensor_if_then_else const &visitable) override {
+    auto dt = diff(visitable.expr_then(), m_arg);
+    auto de = diff(visitable.expr_else(), m_arg);
+    if (dt.is_valid() && de.is_valid()) {
+      m_result =
+          if_then_else(visitable.expr_cond(), std::move(dt), std::move(de));
+    }
+  }
+
   void operator()(tensor_scalar_mul const &visitable) override {
     // (scalar * tensor)' = scalar * tensor' (scalar is constant w.r.t. tensor
     // arg)
@@ -147,7 +162,7 @@ public:
   void operator()(simple_outer_product const &visitable) override;
   void operator()(tensor_inv const &visitable) override;
   void operator()(inner_product_wrapper const &visitable) override;
-  void operator()(basis_change_imp const &visitable) override;
+  void operator()(permute_indices_wrapper const &visitable) override;
   void operator()(outer_product_wrapper const &visitable) override;
   void operator()(tensor_to_scalar_with_tensor_mul const &visitable) override;
 

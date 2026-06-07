@@ -76,6 +76,17 @@ public:
     apply(visitable.expr(), precedence);
   }
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  void operator()(tensor_to_scalar_if_then_else const &visitable) override {
+    this->m_out << "\\operatorname{if\\_then\\_else}\\!\\left(";
+    apply(visitable.expr_cond());
+    this->m_out << ", ";
+    apply(visitable.expr_then());
+    this->m_out << ", ";
+    apply(visitable.expr_else());
+    this->m_out << "\\right)";
+  }
+
   void operator()(tensor_to_scalar_mul const &visitable) override {
     using traits = domain_traits<tensor_to_scalar_expression>;
     const auto parent_precedence{m_parent_precedence};

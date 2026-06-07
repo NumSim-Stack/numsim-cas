@@ -212,4 +212,52 @@ void scalar_limit_visitor::operator()(
   m_result = {dir::unknown};
 }
 
+// ─── Comparison nodes (#136) ─────────────────────────────────────
+// Indicators are step functions in {0, 1}. Resolving the limit
+// requires knowing the comparison's exact crossing point relative to
+// the limit target, which the children's one-sided behaviour alone
+// rarely pins down. The conservative `unknown` here can be tightened
+// later (e.g. lt(+inf, finite) → 0) if that ever shows up as a real
+// bottleneck. Tightening goes in one place because all six ops share
+// this implementation via the static_assert below.
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_lt const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_gt const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_le const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_ge const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_eq const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_ne const &) {
+  m_result = {dir::unknown};
+}
+
+// ─── Min / max (#137) ──────────────────────────────────────────────
+// The limit of max(a, b) is max(lim a, lim b) when both limits exist
+// and the comparison is decidable. We don't have that machinery in
+// the limit_visitor yet, so report unknown — same as the comparison
+// nodes above. Future tightening: when both children's limits are
+// finite real numbers, evaluate max/min concretely.
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_max const &) {
+  m_result = {dir::unknown};
+}
+void scalar_limit_visitor::operator()([[maybe_unused]] scalar_min const &) {
+  m_result = {dir::unknown};
+}
+
+// if_then_else (#135): limit depends on the condition's eventual
+// behaviour near the limit target — out of scope for the current
+// limit machinery. Report unknown.
+void scalar_limit_visitor::operator()(
+    [[maybe_unused]] scalar_if_then_else const &) {
+  m_result = {dir::unknown};
+}
+
 } // namespace numsim::cas

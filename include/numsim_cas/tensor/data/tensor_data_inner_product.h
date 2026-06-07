@@ -2,7 +2,7 @@
 #define TENSOR_DATA_INNER_PRODUCT_H
 
 #include "tensor_data.h"
-#include "tensor_data_basis_change.h"
+#include "tensor_data_permute_indices.h"
 #include <cstdlib>
 #include <numsim_cas/core/cas_error.h>
 #include <vector>
@@ -60,22 +60,35 @@ public:
     new_basis_rhs.insert(new_basis_rhs.end(), sequence_outer_rhs.begin(),
                          sequence_outer_rhs.end());
 
-    bool basis_change_lhs{false};
+    // tensor_data_permute_indices convention: lhs(i0,...) = rhs(i_{m[0]}, ...).
+    // new_basis maps output positions to original dimensions (new_basis[k] =
+    // which original dim goes to position k). permute_indices needs the
+    // inverse: m[k] = which output index feeds into the k-th slot of the
+    // source.
+    std::vector<std::size_t> inv_basis_lhs(RankLHS);
+    for (std::size_t i = 0; i < RankLHS; ++i)
+      inv_basis_lhs[new_basis_lhs[i]] = i;
+
+    std::vector<std::size_t> inv_basis_rhs(RankRHS);
+    for (std::size_t i = 0; i < RankRHS; ++i)
+      inv_basis_rhs[new_basis_rhs[i]] = i;
+
+    bool permute_indices_lhs{false};
     if (lhs_sequence != new_basis_lhs) {
-      basis_change_lhs = true;
+      permute_indices_lhs = true;
       m_lhs_temp = make_tensor_data<ValueType>(Dim, RankLHS);
-      tensor_data_basis_change<ValueType> basis_change_temp(
-          *m_lhs_temp.get(), m_lhs, new_basis_lhs);
-      basis_change_temp.evaluate(Dim, RankLHS);
+      tensor_data_permute_indices<ValueType> permute_indices_temp(
+          *m_lhs_temp.get(), m_lhs, inv_basis_lhs);
+      permute_indices_temp.evaluate(Dim, RankLHS);
     }
 
-    bool basis_change_rhs{false};
+    bool permute_indices_rhs{false};
     if (rhs_sequence != new_basis_rhs) {
-      basis_change_rhs = true;
+      permute_indices_rhs = true;
       m_rhs_temp = make_tensor_data<ValueType>(Dim, RankRHS);
-      tensor_data_basis_change<ValueType> basis_change_temp(
-          *m_rhs_temp.get(), m_rhs, new_basis_rhs);
-      basis_change_temp.evaluate(Dim, RankRHS);
+      tensor_data_permute_indices<ValueType> permute_indices_temp(
+          *m_rhs_temp.get(), m_rhs, inv_basis_rhs);
+      permute_indices_temp.evaluate(Dim, RankRHS);
     }
 
     const auto RowsLHS{get_size(Dim, sequence_outer_lhs.size())};
@@ -83,19 +96,19 @@ public:
     const auto RowsRHS{get_size(Dim, size_rhs)};
     const auto ColsRHS{get_size(Dim, sequence_outer_rhs.size())};
 
-    if (basis_change_lhs && basis_change_rhs) {
+    if (permute_indices_lhs && permute_indices_rhs) {
       evaluate_implementation(m_result.raw_data(), m_lhs_temp->raw_data(),
                               m_rhs_temp->raw_data(), RowsLHS, ColsLHS, RowsRHS,
                               ColsRHS);
-    } else if (!basis_change_lhs && basis_change_rhs) {
+    } else if (!permute_indices_lhs && permute_indices_rhs) {
       evaluate_implementation(m_result.raw_data(), m_lhs.raw_data(),
                               m_rhs_temp->raw_data(), RowsLHS, ColsLHS, RowsRHS,
                               ColsRHS);
-    } else if (basis_change_lhs && !basis_change_rhs) {
+    } else if (permute_indices_lhs && !permute_indices_rhs) {
       evaluate_implementation(m_result.raw_data(), m_lhs_temp->raw_data(),
                               m_rhs.raw_data(), RowsLHS, ColsLHS, RowsRHS,
                               ColsRHS);
-    } else if (!basis_change_lhs && !basis_change_rhs) {
+    } else if (!permute_indices_lhs && !permute_indices_rhs) {
       evaluate_implementation(m_result.raw_data(), m_lhs.raw_data(),
                               m_rhs.raw_data(), RowsLHS, ColsLHS, RowsRHS,
                               ColsRHS);

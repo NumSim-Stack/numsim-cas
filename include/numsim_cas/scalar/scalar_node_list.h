@@ -25,6 +25,15 @@
   NEXT(scalar_log)                                                             \
   NEXT(scalar_exp)                                                             \
   NEXT(scalar_sign)                                                            \
-  NEXT(scalar_abs)
+  NEXT(scalar_abs)                                                             \
+  NEXT(scalar_lt)                                                              \
+  NEXT(scalar_gt)                                                              \
+  NEXT(scalar_le)                                                              \
+  NEXT(scalar_ge)                                                              \
+  NEXT(scalar_eq)                                                              \
+  NEXT(scalar_ne)                                                              \
+  NEXT(scalar_max)                                                             \
+  NEXT(scalar_min)                                                             \
+  NEXT(scalar_if_then_else)
 
 #endif // SCALAR_NODE_LIST_H

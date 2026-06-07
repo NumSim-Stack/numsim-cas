@@ -41,7 +41,7 @@ protected:
     // X has no assumption
     X = std::get<0>(make_tensor_variable(std::tuple{"X", dim, 2}));
 
-    I = make_expression<kronecker_delta>(dim);
+    I = make_expression<identity_tensor>(dim, std::size_t{2});
 
     std::tie(_2, _3) = make_scalar_constant(2, 3);
     std::tie(x) = make_scalar_variable("x");
@@ -63,7 +63,7 @@ TEST_F(TensorSpacePropagationTest, SymOfScalarMul) {
 
 TEST_F(TensorSpacePropagationTest, SkewOfScalarMul) {
   // skew(2*C) → 0 when C is symmetric
-  EXPECT_PRINT(skew(2 * C), "0");
+  EXPECT_PRINT(skew(2 * C), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, DevOfScalarMulDeviatoric) {
@@ -73,7 +73,7 @@ TEST_F(TensorSpacePropagationTest, DevOfScalarMulDeviatoric) {
 
 TEST_F(TensorSpacePropagationTest, VolOfScalarMulDeviatoric) {
   // vol(2*D) → 0 when D is deviatoric
-  EXPECT_PRINT(vol(2 * D), "0");
+  EXPECT_PRINT(vol(2 * D), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, SymOfScalarMulSymbolicCoeff) {
@@ -92,7 +92,7 @@ TEST_F(TensorSpacePropagationTest, SymOfNeg) {
 
 TEST_F(TensorSpacePropagationTest, SkewOfNeg) {
   // skew(-C) → 0 when C is symmetric
-  EXPECT_PRINT(skew(-C), "0");
+  EXPECT_PRINT(skew(-C), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, DevOfNegDeviatoric) {
@@ -111,7 +111,7 @@ TEST_F(TensorSpacePropagationTest, SymOfPow) {
 
 TEST_F(TensorSpacePropagationTest, SkewOfPow) {
   // skew(pow(C,2)) → 0 when C is symmetric
-  EXPECT_PRINT(skew(pow(C, 2)), "0");
+  EXPECT_PRINT(skew(pow(C, 2)), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, PowSkewDoesNotPropagateSkew) {
@@ -158,7 +158,7 @@ TEST_F(TensorSpacePropagationTest, SymOfInv) {
 
 TEST_F(TensorSpacePropagationTest, SkewOfInv) {
   // skew(inv(C)) → 0 when C is symmetric
-  EXPECT_PRINT(skew(inv(C)), "0");
+  EXPECT_PRINT(skew(inv(C)), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, InvDevDoesNotPropagateDeviatoric) {
@@ -180,10 +180,58 @@ TEST_F(TensorSpacePropagationTest, SymOfInvDev) {
   EXPECT_PRINT(sym(inv(D)), "inv(D)");
 }
 
-TEST_F(TensorSpacePropagationTest, InvSkewPreservesSkew) {
-  // inv(W) preserves Skew: (W^{-1})^T = (W^T)^{-1} = (-W)^{-1} = -W^{-1}
-  auto i = inv(W);
-  EXPECT_TRUE(is_skew(i)) << "inv(W) should be skew — (W^{-1})^T = -W^{-1}";
+TEST_F(TensorSpacePropagationTest, InvSkewRejectedInOddDim) {
+  // dim=3 W is singular (det=0 by det(-A^T) = (-1)^n det(A)); inv must reject.
+  EXPECT_THROW({ [[maybe_unused]] auto r = inv(W); }, invalid_expression_error);
+}
+
+TEST_F(TensorSpacePropagationTest, InvSkewPreservesSkewInEvenDim) {
+  // inv(W) preserves Skew in even dimension: (W^{-1})^T = (W^T)^{-1} = -W^{-1}.
+  auto W4 = std::get<0>(
+      make_tensor_variable(std::tuple{"W4", std::size_t{4}, std::size_t{2}}));
+  assume_skew(W4);
+  auto i = inv(W4);
+  EXPECT_TRUE(is_skew(i)) << "inv(W4) should be skew — (W^{-1})^T = -W^{-1}";
+}
+
+TEST_F(TensorSpacePropagationTest, InvRejectsScaledSkewFactorInTensorMul) {
+  // contains_skew_factor must reject tensor_mul whose factor is a scaled skew.
+  // On this build tensor_scalar_mul propagates the Skew space annotation, so
+  // detection succeeds via the space fast-path; this test additionally locks in
+  // the contract for paths where the annotation might be lost (the recursive
+  // walk into tensor_mul children is the structural fallback).
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = inv(B * (_2 * W)); },
+      invalid_expression_error);
+}
+
+TEST_F(TensorSpacePropagationTest, InvRejectsNegatedSkewFactorInTensorMul) {
+  // Same contract for tensor_negative as the wrapper child.
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = inv(B * (-W)); }, invalid_expression_error);
+}
+
+TEST_F(TensorSpacePropagationTest, TransMinusSelfIsAnnotatedSkewInEvenDim) {
+  // trans(A) - A is skew-symmetric by definition in any dimension. The
+  // construction-time annotation must not be gated on odd dim — even-dim
+  // callers still need it for skew/projector simplifications.
+  auto A4 = std::get<0>(
+      make_tensor_variable(std::tuple{"A4", std::size_t{4}, std::size_t{2}}));
+  auto expr = trans(A4) - A4;
+  EXPECT_TRUE(is_skew(expr))
+      << "trans(A) - A must carry the Skew annotation regardless of dim";
+}
+
+TEST_F(TensorSpacePropagationTest, TransPlusNegIsAnnotatedSkew) {
+  // trans(A) + (-A) is the same expression as trans(A) - A up to spelling;
+  // the add operator must mirror the sub operator's annotation so consumers
+  // that fast-path on the Skew annotation behave consistently.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", dim, 2}));
+  auto expr = trans(A) + (-A);
+  EXPECT_TRUE(is_skew(expr))
+      << "trans(A) + (-A) must carry the Skew annotation";
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -203,7 +251,7 @@ TEST_F(TensorSpacePropagationTest, SymOfSymPlusVol) {
 
 TEST_F(TensorSpacePropagationTest, SkewOfSymPlusVol) {
   // C+V has join Sym; skew(C+V) → 0
-  EXPECT_PRINT(skew(C + V), "0");
+  EXPECT_PRINT(skew(C + V), "0{2}");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -233,12 +281,12 @@ TEST_F(TensorSpacePropagationTest, VolOfI) {
 
 TEST_F(TensorSpacePropagationTest, DevOfI) {
   // dev(I) → 0  (because dev = sym - vol, so dev(I) = I - I = 0)
-  EXPECT_PRINT(dev(I), "0");
+  EXPECT_PRINT(dev(I), "0{2}");
 }
 
 TEST_F(TensorSpacePropagationTest, SkewOfI) {
   // skew(I) → 0  (I is symmetric, so skew part is zero)
-  EXPECT_PRINT(skew(I), "0");
+  EXPECT_PRINT(skew(I), "0{2}");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

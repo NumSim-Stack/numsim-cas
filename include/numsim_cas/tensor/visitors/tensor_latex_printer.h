@@ -49,7 +49,22 @@ public:
 
   void operator()([[maybe_unused]] identity_tensor const &visitable) override {
     auto font = m_config.font_for_rank(visitable.rank());
-    m_out << font << "{I}^{(" << visitable.rank() << ")}";
+    // Rank-2 identity is the Kronecker delta — emit without the
+    // rank superscript. Higher ranks keep it so the minor-identity
+    // form stays distinguishable in printed math.
+    if (visitable.rank() == 2)
+      m_out << font << "{I}";
+    else
+      m_out << font << "{I}^{(" << visitable.rank() << ")}";
+  }
+
+  void
+  operator()([[maybe_unused]] levi_civita_tensor const &visitable) override {
+    auto font = m_config.font_for_rank(visitable.rank());
+    // Levi-Civita symbol is conventionally typeset as ε with the
+    // dimension annotated as a superscript. Always keep the dim
+    // marker since rank-2 ε in 2D is distinct from rank-3 ε in 3D.
+    m_out << font << "{\\varepsilon}^{(" << visitable.dim() << ")}";
   }
 
   void operator()([[maybe_unused]] tensor_projector const &visitable) override {
@@ -119,6 +134,17 @@ public:
     begin(precedence, parent_precedence);
     apply(visitable.expr(), precedence);
     end(precedence, parent_precedence);
+  }
+
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  void operator()(tensor_if_then_else const &v) override {
+    this->m_out << "\\operatorname{if\\_then\\_else}\\!\\left(";
+    apply(v.expr_cond());
+    this->m_out << ", ";
+    apply(v.expr_then());
+    this->m_out << ", ";
+    apply(v.expr_else());
+    this->m_out << "\\right)";
   }
 
   void operator()(inner_product_wrapper const &visitable) override {
@@ -193,7 +219,7 @@ public:
     m_out << "\\right)";
   }
 
-  void operator()(basis_change_imp const &visitable) override {
+  void operator()(permute_indices_wrapper const &visitable) override {
     auto const &indices_temp = visitable.indices();
     if (indices_temp == sequence{2, 1}) {
       m_out << "{";
@@ -255,10 +281,6 @@ public:
     }
     m_out << "\\right)";
     end(precedence, parent_precedence);
-  }
-
-  void operator()([[maybe_unused]] kronecker_delta const &visitable) override {
-    m_out << m_config.format_tensor("I", 2);
   }
 
   void operator()(tensor_scalar_mul const &visitable) override {

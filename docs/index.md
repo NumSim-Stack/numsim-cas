@@ -25,7 +25,7 @@ graph TB
         SV["Visitors: printer, evaluator,<br/>differentiator, substitution"]
     end
 
-    subgraph Tensor["Tensor Domain (20 nodes)"]
+    subgraph Tensor["Tensor Domain (19 nodes)"]
         TE[tensor_expression]
         TN["Variables, products,<br/>projections, inverse"]
         TS[Simplifiers: add, sub, mul]
@@ -76,7 +76,7 @@ auto Y = make_expression<tensor>("Y", 3, 2);
 
 // Differentiate trace(X) with respect to X
 auto tr = trace(X);
-auto dtr = diff(tr, X);  // kronecker_delta (identity)
+auto dtr = diff(tr, X);  // identity_tensor (rank-2 Kronecker delta)
 
 // Differentiate determinant
 auto d = det(X);
@@ -89,7 +89,8 @@ auto dd = diff(d, X);    // det(X) * inv(trans(X))
 |----------|-------------|
 | [Core Layer](core.md) | Expression system, visitor pattern, operators, node bases, domain traits, errors |
 | [Scalar Domain](scalar.md) | 21 node types, operators, simplifiers, visitors, evaluation |
-| [Tensor Domain](tensor.md) | 20 node types, index/sequence system, tensor functions, visitors |
+| [Tensor Domain](tensor.md) | 19 node types, index/sequence system, tensor functions, visitors |
 | [Tensor-to-Scalar Domain](tensor-to-scalar.md) | 13 node types, trace/det/norm functions, simplifiers |
 | [Cross-Domain Interactions](cross-domain.md) | Cross-domain nodes, expression lifecycle, build system |
 | [Differentiation](differentiation.md) | Symbolic differentiation rules with mathematical notation |
+| [String Parser](parser.md) | PEGTL-based parser: grammar, type system, error catalogue, build flag |

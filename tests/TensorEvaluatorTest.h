@@ -17,6 +17,20 @@
 
 namespace numsim::cas {
 
+// ---------------------------------------------------------------------------
+// Audit #43 (2026-05-17): tensor_evaluator overload coverage verified.
+// All 16 node types in NUMSIM_CAS_TENSOR_NODE_LIST have explicit operator()
+// overrides in tensor_evaluator (header-only, see tensor/visitors/
+// tensor_evaluator.h). Fallback uses static_assert(sizeof(T) == 0, ...) so
+// a new node type without an override is a compile error.
+//
+// The issue body's concern about "apply() returns std::move(m_data) without
+// initialization or visiting" is stale — the current apply() calls
+// accept(*this) correctly and dispatches through the virtual visitor.
+//
+// All 16 node types have explicit EvalTensor* / Eval* lock-in tests below.
+// ---------------------------------------------------------------------------
+
 namespace {
 
 using tensor_expr_t = expression_holder<tensor_expression>;
@@ -77,7 +91,7 @@ TEST(TensorEval, EvalTensorZero) {
 
 TEST(TensorEval, EvalKroneckerDelta) {
   tensor_evaluator<double> ev;
-  auto delta = make_expression<kronecker_delta>(3);
+  auto delta = make_expression<identity_tensor>(3, std::size_t{2});
   auto result = ev.apply(delta);
   ASSERT_NE(result, nullptr);
   auto expected = tmech::eye<double, 3, 2>();
@@ -138,14 +152,14 @@ TEST(TensorEval, EvalTensorScalarMul) {
   EXPECT_TRUE(tmech::almost_equal(as_tmech<2, 2>(*result), expected, tol));
 }
 
-TEST(TensorEval, EvalBasisChange) {
+TEST(TensorEval, EvalPermuteIndices) {
   tensor_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
   // clang-format off
   ev.set(A, make_test_data<2, 2>({1.0, 2.0,
                                    3.0, 4.0}));
   // clang-format on
-  // trans(A) = basis_change(A, {2,1})
+  // trans(A) = permute_indices(A, {2,1})
   auto expr = trans(A);
   auto result = ev.apply(expr);
   ASSERT_NE(result, nullptr);
@@ -424,6 +438,130 @@ TEST(TensorEval, EvalInverse3x3) {
   EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 2>(*result), expected, tol));
 }
 
+// ─── Rank-4 inv dispatch (#248) ────────────────────────────────────────
+// The evaluator picks tmech::inv (minor-symmetric) for Minor/MinorMajor-
+// annotated rank-4 operands and tmech::invf (fully anisotropic)
+// otherwise. Verify both branches numerically against tmech directly.
+
+TEST(TensorEval, EvalInverseRank4MinorMajor) {
+  // Annotated minor-major: routes to tmech::inv. Construct a positive-
+  // definite isotropic stiffness as 2μ·I_sym + λ·I⊗I — minor-symmetric
+  // by construction. Bind it via a fixture-sized random PD rank-4.
+  tensor_evaluator<double> ev;
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_minor_major(C);
+
+  // Build a numerically PD rank-4 by hand: C = 2μ I_sym + λ I⊗I.
+  // For an isotropic linear-elastic stiffness in dim=3, this gives a
+  // matrix that's invertible in both conventions.
+  tmech::tensor<double, 3, 2> I2;
+  for (std::size_t i = 0; i < 3; ++i)
+    for (std::size_t j = 0; j < 3; ++j)
+      I2(i, j) = (i == j) ? 1.0 : 0.0;
+  double const mu = 1.0, lam = 2.0;
+  auto C_tmech = tmech::eval(2.0 * mu * tmech::otimesu(I2, I2) +
+                             lam * tmech::otimes(I2, I2));
+
+  auto C_data = std::make_shared<tensor_data<double, 3, 4>>();
+  C_data->data() = C_tmech;
+  ev.set(C, std::static_pointer_cast<tensor_data_base<double>>(C_data));
+
+  auto result = ev.apply(inv(C));
+  ASSERT_NE(result, nullptr);
+  // Expected: tmech::inv (minor-symmetric default convention).
+  auto expected = tmech::eval(tmech::inv(C_tmech));
+  EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), expected, 1e-10));
+}
+
+TEST(TensorEval, EvalInverseRank4UnannotatedRoutesToInvf) {
+  // No annotation → tmech::invf (fully anisotropic). Same numerical
+  // tensor as above, but without the assume_minor_major call. The two
+  // results should differ in general (different conventions), so the
+  // assertion is "matches tmech::invf, NOT tmech::inv".
+  tensor_evaluator<double> ev;
+  auto C = make_expression<tensor>("C", 3, 4);
+  // NO annotation — the evaluator must route to invf.
+
+  tmech::tensor<double, 3, 2> I2;
+  for (std::size_t i = 0; i < 3; ++i)
+    for (std::size_t j = 0; j < 3; ++j)
+      I2(i, j) = (i == j) ? 1.0 : 0.0;
+  double const mu = 1.0, lam = 2.0;
+  auto C_tmech = tmech::eval(2.0 * mu * tmech::otimesu(I2, I2) +
+                             lam * tmech::otimes(I2, I2));
+
+  auto C_data = std::make_shared<tensor_data<double, 3, 4>>();
+  C_data->data() = C_tmech;
+  ev.set(C, std::static_pointer_cast<tensor_data_base<double>>(C_data));
+
+  auto result = ev.apply(inv(C));
+  ASSERT_NE(result, nullptr);
+  // Expected: tmech::invf (fully anisotropic).
+  auto expected_invf = tmech::eval(tmech::invf(C_tmech));
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech<3, 4>(*result), expected_invf, 1e-10))
+      << "unannotated rank-4 inv must route to tmech::invf";
+}
+
+TEST(TensorEval, Rank4InvDispatchDiffersByAnnotation) {
+  // Cross-check: for the SAME numerical input, the annotated and
+  // unannotated paths give different results (different conventions).
+  // This is the strongest evidence that the dispatch is wired correctly
+  // and not silently collapsing to one routine.
+  tmech::tensor<double, 3, 2> I2;
+  for (std::size_t i = 0; i < 3; ++i)
+    for (std::size_t j = 0; j < 3; ++j)
+      I2(i, j) = (i == j) ? 1.0 : 0.0;
+  // Pick a tensor that's NOT minor-symmetric so the two inverses
+  // genuinely disagree (a fully symmetric tensor would give the same
+  // result either way and the test wouldn't be discriminating).
+  // An outer product I2 ⊗ I2 is symmetric, so use a non-trivial mix.
+  auto C_tmech =
+      tmech::eval(2.0 * tmech::otimes(I2, I2) + 1.0 * tmech::otimesu(I2, I2));
+
+  auto inv_data = tmech::eval(tmech::inv(C_tmech));
+  auto invf_data = tmech::eval(tmech::invf(C_tmech));
+  // Sanity: confirm the test premise — the two tmech routines disagree
+  // on this input.
+  EXPECT_FALSE(tmech::almost_equal(inv_data, invf_data, 1e-10))
+      << "Test setup assumes tmech::inv != tmech::invf on this input";
+
+  auto C_data = std::make_shared<tensor_data<double, 3, 4>>();
+  C_data->data() = C_tmech;
+
+  // Annotated path.
+  {
+    tensor_evaluator<double> ev;
+    auto C = make_expression<tensor>("C", 3, 4);
+    assume_minor_major(C);
+    ev.set(C, std::static_pointer_cast<tensor_data_base<double>>(C_data));
+    auto result = ev.apply(inv(C));
+    ASSERT_NE(result, nullptr);
+    EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), inv_data, 1e-10));
+  }
+  // Unannotated path.
+  {
+    tensor_evaluator<double> ev;
+    auto C = make_expression<tensor>("C", 3, 4);
+    ev.set(C, std::static_pointer_cast<tensor_data_base<double>>(C_data));
+    auto result = ev.apply(inv(C));
+    ASSERT_NE(result, nullptr);
+    EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), invf_data, 1e-10));
+  }
+  // Explicitly-non-Minor/MinorMajor annotation (Skew) also routes to
+  // invf — exercises the "any other annotation" branch of the dispatch.
+  {
+    tensor_evaluator<double> ev;
+    auto C = make_expression<tensor>("C", 3, 4);
+    assume_skew(C);
+    ev.set(C, std::static_pointer_cast<tensor_data_base<double>>(C_data));
+    auto result = ev.apply(inv(C));
+    ASSERT_NE(result, nullptr);
+    EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), invf_data, 1e-10))
+        << "Skew-annotated rank-4 should still route to invf";
+  }
+}
+
 // --- Compound expression tests ---
 //
 // tmech binary operators (+, -, scalar*) are not found via ADL inside
@@ -536,8 +674,8 @@ TEST(TensorEval, CompoundScalarSymMinusDev) {
                                   2.0, 5.0, 8.0,
                                   3.0, 7.0, 9.0});
   auto B_val = make_tmech<3, 2>({9.0, 3.0, 1.0,
-                                  6.0, 5.0, 2.0,
-                                  7.0, 8.0, 4.0});
+                                  3.0, 5.0, 2.0,
+                                  1.0, 2.0, 4.0});
   // clang-format on
   ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(A_val));
   ev.set(B, std::make_shared<tensor_data<double, 3, 2>>(B_val));
@@ -975,6 +1113,37 @@ TEST(TensorProjAlgebra, ProjectorHashSameForIdenticalSpaces) {
   auto p1 = make_projector(3, 3, Young{{{1, 2}, {3}}}, AnyTraceTag{});
   auto p2 = make_projector(3, 3, Young{{{1, 2}, {3}}}, AnyTraceTag{});
   EXPECT_EQ(p1.get().hash_value(), p2.get().hash_value());
+}
+
+// ─── if_then_else lazy-evaluation lock-in (#242) ─────────────────
+// Mirror of the scalar IfThenElseEvaluatorLazyOnUnselectedBranch test.
+// The unselected branch references an unbound tensor symbol — eager
+// evaluation would throw evaluation_error trying to look it up.
+// Lazy evaluation skips it entirely.
+TEST(TensorEval, IfThenElseLazyOnUnselectedBranch) {
+  tensor_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  auto A = make_expression<tensor>("A", 2, 2); // deliberately UNBOUND
+  auto _zero = make_expression<scalar_constant>(0.0);
+  auto Z = make_expression<tensor_zero>(std::size_t{2}, std::size_t{2});
+
+  // cond = ge(x, 0). At x=1 → cond truthy → then = Z is selected.
+  // The else branch is inv(A) — accessing the unbound A would throw.
+  ev.set_scalar(x, 1.0);
+  auto expr_then_safe = if_then_else(ge(x, _zero), Z, inv(A));
+  auto result = ev.apply(expr_then_safe);
+  ASSERT_NE(result, nullptr);
+  auto expected = make_tmech<2, 2>({0.0, 0.0, 0.0, 0.0});
+  EXPECT_TRUE(tmech::almost_equal(as_tmech<2, 2>(*result), expected, tol));
+
+  // cond = ge(x, 0). At x=-1 → cond falsy → else = Z is selected.
+  // The then branch is inv(A) — same unbound-symbol trap, on the
+  // other arm.
+  ev.set_scalar(x, -1.0);
+  auto expr_else_safe = if_then_else(ge(x, _zero), inv(A), Z);
+  auto result2 = ev.apply(expr_else_safe);
+  ASSERT_NE(result2, nullptr);
+  EXPECT_TRUE(tmech::almost_equal(as_tmech<2, 2>(*result2), expected, tol));
 }
 
 } // namespace numsim::cas

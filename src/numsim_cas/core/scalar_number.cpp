@@ -276,6 +276,28 @@ bool operator==(scalar_number const &a, scalar_number const &b) {
       a.v_, b.v_);
 }
 
+namespace {
+// Compare two rationals safely against int64 overflow in the
+// cross-multiplication. With both denominators positive (rational_t
+// invariant) the inequality `a.num/a.den < b.num/b.den` is equivalent
+// to `a.num*b.den < b.num*a.den`, but each product can overflow int64
+// for numerator/denominator pairs near 2^63. (#142)
+//
+// __int128 path: GCC/Clang. Exact, no precision loss, single multiply.
+// long-double fallback: MSVC. Correct for the typical small-rational
+// CAS use case (≤ ~2^53 magnitude); loses precision beyond that.
+bool rat_less(rational_t a, rational_t b) {
+#if defined(__SIZEOF_INT128__)
+  __int128 lhs = static_cast<__int128>(a.num) * b.den;
+  __int128 rhs = static_cast<__int128>(b.num) * a.den;
+  return lhs < rhs;
+#else
+  return static_cast<long double>(a.num) * static_cast<long double>(b.den) <
+         static_cast<long double>(b.num) * static_cast<long double>(a.den);
+#endif
+}
+} // namespace
+
 bool operator<(scalar_number const &a, scalar_number const &b) {
   int ra = promotion_rank(a.v_.index());
   int rb = promotion_rank(b.v_.index());
@@ -292,14 +314,35 @@ bool operator<(scalar_number const &a, scalar_number const &b) {
             return x.real() < y.real();
           return x.imag() < y.imag();
         } else if constexpr (is_rat_v<X>) {
-          // Cross-multiply: a.num/a.den < b.num/b.den
-          // Since den > 0, this is: a.num * b.den < b.num * a.den
-          return x.num * y.den < y.num * x.den;
+          return rat_less(x, y);
         } else {
           return x < y;
         }
       },
       a.v_);
+}
+
+bool numeric_less(scalar_number const &a, scalar_number const &b) {
+  return std::visit(
+      [](auto const &x, auto const &y) -> bool {
+        using X = std::decay_t<decltype(x)>;
+        using Y = std::decay_t<decltype(y)>;
+        if constexpr (is_cplx_v<X> || is_cplx_v<Y>) {
+          auto cx = to_complex(x);
+          auto cy = to_complex(y);
+          if (cx.real() != cy.real())
+            return cx.real() < cy.real();
+          return cx.imag() < cy.imag();
+        } else if constexpr (std::is_same_v<X, double> ||
+                             std::is_same_v<Y, double>) {
+          return to_double(x) < to_double(y);
+        } else if constexpr (is_rat_v<X> || is_rat_v<Y>) {
+          return rat_less(to_rational(x), to_rational(y));
+        } else {
+          return static_cast<std::int64_t>(x) < static_cast<std::int64_t>(y);
+        }
+      },
+      a.v_, b.v_);
 }
 
 // ─── Misc ────────────────────────────────────────────────────────
@@ -324,6 +367,62 @@ scalar_number scalar_number::abs() const noexcept {
         }
       },
       v_);
+}
+
+// ─── Pow ──────────────────────────────────────────────────────────
+
+std::optional<scalar_number> pow(scalar_number const &base,
+                                 scalar_number const &exp) {
+  // Extract integer exponent from the variant.
+  std::optional<std::int64_t> int_exp;
+  std::visit(
+      [&](auto const &v) {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, std::int64_t>) {
+          int_exp = v;
+        } else if constexpr (is_rat_v<T>) {
+          if (v.den == 1)
+            int_exp = v.num;
+        }
+        // double, complex → not exact
+      },
+      exp.raw());
+
+  if (!int_exp)
+    return std::nullopt;
+
+  auto n = *int_exp;
+
+  // base == 0 && n < 0 → division by zero
+  if (base == scalar_number{0}) {
+    if (n < 0)
+      return std::nullopt;
+    if (n == 0)
+      return scalar_number{1}; // 0^0 = 1 by convention
+    return scalar_number{0};
+  }
+
+  if (n == 0)
+    return scalar_number{1};
+
+  // Compute |n| via repeated squaring
+  bool negative = n < 0;
+  std::uint64_t abs_n =
+      negative ? static_cast<std::uint64_t>(-n) : static_cast<std::uint64_t>(n);
+
+  scalar_number result{1};
+  scalar_number b = base;
+  while (abs_n > 0) {
+    if (abs_n & 1)
+      result = result * b;
+    b = b * b;
+    abs_n >>= 1;
+  }
+
+  if (negative)
+    result = scalar_number{1} / result;
+
+  return result;
 }
 
 } // namespace numsim::cas

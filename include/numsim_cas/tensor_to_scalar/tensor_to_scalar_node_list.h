@@ -16,6 +16,7 @@
   NEXT(tensor_to_scalar_log)                                                   \
   NEXT(tensor_to_scalar_exp)                                                   \
   NEXT(tensor_to_scalar_sqrt)                                                  \
-  NEXT(tensor_to_scalar_scalar_wrapper)
+  NEXT(tensor_to_scalar_scalar_wrapper)                                        \
+  NEXT(tensor_to_scalar_if_then_else)
 
 #endif // TENSOR_TO_SCALAR_NODE_LIST_H

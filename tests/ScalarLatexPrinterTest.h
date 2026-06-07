@@ -107,6 +107,22 @@ TEST_F(ScalarLatexFixture, LATEX_RationalConstants) {
   EXPECT_LATEX(r, "\\frac{3}{4}");
 }
 
+// --- Comparison nodes (#136) ---
+TEST_F(ScalarLatexFixture, LATEX_Comparisons) {
+  using numsim::cas::eq;
+  using numsim::cas::ge;
+  using numsim::cas::gt;
+  using numsim::cas::le;
+  using numsim::cas::lt;
+  using numsim::cas::ne;
+  EXPECT_LATEX(lt(x, y), "\\left(x < y\\right)");
+  EXPECT_LATEX(gt(x, y), "\\left(x > y\\right)");
+  EXPECT_LATEX(le(x, y), "\\left(x \\le y\\right)");
+  EXPECT_LATEX(ge(x, y), "\\left(x \\ge y\\right)");
+  EXPECT_LATEX(eq(x, y), "\\left(x = y\\right)");
+  EXPECT_LATEX(ne(x, y), "\\left(x \\ne y\\right)");
+}
+
 #undef EXPECT_LATEX
 
 #endif // SCALARLATEXPRINTERTEST_H

@@ -50,7 +50,7 @@ struct PartialTraceTag { // remove/keep traces on selected pairs
 
 // Bundle them (rank and dim are on the projector node)
 struct tensor_space {
-  std::variant<General, Symmetric, Skew, Young> perm;
+  std::variant<General, Symmetric, Skew, Young, Minor, Major, MinorMajor> perm;
   std::variant<AnyTraceTag, VolumetricTag, DeviatoricTag, HarmonicTag,
                PartialTraceTag>
       trace;

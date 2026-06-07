@@ -97,7 +97,15 @@ inline expression_holder<scalar_expression> tag_invoke(div_fn, L &&lhs,
       return get_scalar_one();
     return traits::make_constant(result);
   }
-  return lhs * pow(rhs, -get_scalar_one());
+  // x / 1 → x
+  if (rhs_val && *rhs_val == scalar_number{1}) {
+    return std::forward<L>(lhs);
+  }
+  // General: x / y → x * y^(-1)
+  // Use binary_scalar_pow_simplify to bypass pow() constant folding
+  // so that pow(c, -1) stays structural and the printer formats as x/c.
+  return std::forward<L>(lhs) *
+         binary_scalar_pow_simplify(std::forward<R>(rhs), -get_scalar_one());
 }
 
 } // namespace numsim::cas::detail

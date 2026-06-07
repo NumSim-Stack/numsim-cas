@@ -2,6 +2,7 @@
 #define TENSOR_SCALAR_MUL_H
 
 #include <numsim_cas/core/binary_op.h>
+#include <numsim_cas/tensor/structural_propagation.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
@@ -17,15 +18,14 @@ public:
   tensor_scalar_mul(LHS &&lhs, RHS &&rhs)
       : base(std::forward<LHS>(lhs), std::forward<RHS>(rhs), rhs.get().dim(),
              rhs.get().rank()) {
-    if (auto const &sp = this->m_rhs.get().space())
-      this->set_space(*sp);
+    // α·A has the same structural classification as A for any α.
+    structural_propagation::preserve_unary(*this, this->m_rhs.get());
   }
 
   template <typename LHS, typename RHS>
   tensor_scalar_mul(LHS const &lhs, RHS const &rhs)
       : base(lhs, rhs, rhs.get().dim(), rhs.get().rank()) {
-    if (auto const &sp = this->m_rhs.get().space())
-      this->set_space(*sp);
+    structural_propagation::preserve_unary(*this, this->m_rhs.get());
   }
 
   void update_hash_value() const noexcept override {

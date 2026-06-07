@@ -5,6 +5,7 @@
 
 #include <numsim_cas/core/print_mul_fractions.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
+#include <numsim_cas/scalar/visitors/scalar_comparison_print_helper.h>
 #include <numsim_cas/scalar/visitors/scalar_printer.h>
 
 namespace numsim::cas {
@@ -225,6 +226,57 @@ template<typename Stream>
   void scalar_printer<Stream>::operator()(scalar_acos const &visitable/*,
                    [[maybe_unused]] Precedence parent_precedence*/) {
   print_unary("acos", visitable);
+}
+
+// ─── Comparison nodes (#136) ───────────────────────────────────────
+// Printed in C-style infix form, parenthesised so the indicator
+// product `(a < b) * x` stays unambiguous.
+#define NUMSIM_DEFINE_PRINT_COMPARISON(Node, OpStr)                            \
+  template <typename Stream>                                                   \
+  void scalar_printer<Stream>::operator()(Node const &v) {                     \
+    detail::print_infix_comparison(m_out, v, "(", OpStr, ")",                  \
+                                   [this](auto const &e) { apply(e); });       \
+  }
+
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_lt, "<")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_gt, ">")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_le, "<=")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_ge, ">=")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_eq, "==")
+NUMSIM_DEFINE_PRINT_COMPARISON(scalar_ne, "!=")
+
+#undef NUMSIM_DEFINE_PRINT_COMPARISON
+
+// ─── Min / max (#137) ──────────────────────────────────────────────
+// Function-call notation: `max(a, b)` / `min(a, b)`. Operands always
+// emitted at outermost precedence inside the parens.
+#define NUMSIM_DEFINE_PRINT_MINMAX(Node, FnName)                               \
+  template <typename Stream>                                                   \
+  void scalar_printer<Stream>::operator()(Node const &v) {                     \
+    m_out << FnName << "(";                                                    \
+    apply(v.expr_lhs(), Precedence::None);                                     \
+    m_out << ",";                                                              \
+    apply(v.expr_rhs(), Precedence::None);                                     \
+    m_out << ")";                                                              \
+  }
+
+NUMSIM_DEFINE_PRINT_MINMAX(scalar_max, "max")
+NUMSIM_DEFINE_PRINT_MINMAX(scalar_min, "min")
+
+#undef NUMSIM_DEFINE_PRINT_MINMAX
+
+// ─── if_then_else (#135) ───────────────────────────────────────────
+// Function-call notation: if_then_else(cond, then, else). Each operand
+// at outermost precedence so the parens disambiguate.
+template <typename Stream>
+void scalar_printer<Stream>::operator()(scalar_if_then_else const &v) {
+  m_out << "if_then_else(";
+  apply(v.expr_cond(), Precedence::None);
+  m_out << ",";
+  apply(v.expr_then(), Precedence::None);
+  m_out << ",";
+  apply(v.expr_else(), Precedence::None);
+  m_out << ")";
 }
 
 template class scalar_printer<std::ostream>;

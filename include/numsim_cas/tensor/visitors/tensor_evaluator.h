@@ -14,9 +14,9 @@
 #include <numsim_cas/scalar/visitors/scalar_evaluator.h>
 #include <numsim_cas/tensor/data/tensor_data.h>
 #include <numsim_cas/tensor/data/tensor_data_add.h>
-#include <numsim_cas/tensor/data/tensor_data_basis_change.h>
 #include <numsim_cas/tensor/data/tensor_data_inner_product.h>
 #include <numsim_cas/tensor/data/tensor_data_outer_product.h>
+#include <numsim_cas/tensor/data/tensor_data_permute_indices.h>
 #include <numsim_cas/tensor/data/tensor_data_projector.h>
 #include <numsim_cas/tensor/data/tensor_data_scalar_mul.h>
 #include <numsim_cas/tensor/data/tensor_data_sub.h>
@@ -67,9 +67,13 @@ public:
     m_result = make_tensor_data<ValueType>(v.dim(), v.rank());
   }
 
-  void operator()(kronecker_delta const &v) override { eval_identity(v); }
-
   void operator()(identity_tensor const &v) override { eval_identity(v); }
+
+  void operator()(levi_civita_tensor const &v) override {
+    m_result = make_tensor_data<ValueType>(v.dim(), v.rank());
+    tensor_data_levi_civita<ValueType> lc(*m_result);
+    lc.evaluate(v.dim(), v.rank());
+  }
 
   // ─── Arithmetic ──────────────────────────────────────────────
 
@@ -91,6 +95,19 @@ public:
 
   void operator()(tensor_negative const &v) override {
     eval_unary_tmech<tmech_ops::neg>(v);
+  }
+
+  // ─── if_then_else (#135 / #210) ──────────────────────────────────
+  // Lazy on the unselected branch: evaluate cond (scalar), then
+  // dispatch to only the selected tensor arm. Same load-bearing
+  // lazy-eval contract as the scalar / t2s variants — the unselected
+  // arm may contain expressions that would error at evaluation
+  // (e.g. inv of a singular tensor).
+  void operator()(tensor_if_then_else const &v) override {
+    if (m_scalar_eval.apply(v.expr_cond()) != ValueType{0})
+      m_result = apply(v.expr_then());
+    else
+      m_result = apply(v.expr_else());
   }
 
   void operator()(tensor_scalar_mul const &visitable) override {
@@ -156,11 +173,11 @@ public:
     op.evaluate(visitable.dim(), rhs_data->rank(), lhs_data->rank());
   }
 
-  void operator()(basis_change_imp const &visitable) override {
+  void operator()(permute_indices_wrapper const &visitable) override {
     auto temp = apply(visitable.expr());
     m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
-    tensor_data_basis_change<ValueType> bc(*m_result, *temp,
-                                           visitable.indices().indices());
+    tensor_data_permute_indices<ValueType> bc(*m_result, *temp,
+                                              visitable.indices().indices());
     bc.evaluate(visitable.dim(), visitable.rank());
   }
 
@@ -262,6 +279,20 @@ public:
   }
 
   void operator()(tensor_inv const &v) override {
+    // Rank-2: tmech::inv. Rank-4 with Minor/MinorMajor annotation:
+    // tmech::inv (minor-symmetric default convention). Rank-4 with any
+    // other annotation (or no annotation): tmech::invf (fully
+    // anisotropic). See the factory in tensor_functions.h for the
+    // policy rationale (#248).
+    if (v.rank() == 4) {
+      auto const &sp = v.expr().get().space();
+      bool minor_sym = sp && (std::holds_alternative<Minor>(sp->perm) ||
+                              std::holds_alternative<MinorMajor>(sp->perm));
+      if (!minor_sym) {
+        eval_unary_tmech<tmech_ops::invf>(v);
+        return;
+      }
+    }
     eval_unary_tmech<tmech_ops::inv>(v);
   }
 
@@ -364,6 +395,7 @@ void tensor_evaluator<ValueType>::operator()(
   for (auto const &[key, val] : m_tensor_values) {
     t2s_eval.set(key, val);
   }
+  m_scalar_eval.forward_values_to(t2s_eval);
   const auto scalar_val = t2s_eval.apply(visitable.expr_rhs());
   auto src = apply(visitable.expr_lhs());
   const auto dim = src->dim();

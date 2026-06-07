@@ -201,4 +201,12 @@ void tensor_to_scalar_limit_visitor::operator()(
   m_result = {dir::finite_positive};
 }
 
+// if_then_else (#135 / #210): limit depends on the condition's eventual
+// behaviour near the limit target — out of scope for the current limit
+// machinery. Report unknown, matching the scalar variant's behavior.
+void tensor_to_scalar_limit_visitor::operator()(
+    [[maybe_unused]] tensor_to_scalar_if_then_else const &) {
+  m_result = {dir::unknown};
+}
+
 } // namespace numsim::cas

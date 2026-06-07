@@ -49,8 +49,11 @@ template <> struct domain_traits<tensor_to_scalar_expression> {
   }
 
   static expr_holder_t make_constant(scalar_number const &value) {
+    // Wrap the canonical scalar form (#184) — keeps t2s-coefficient
+    // shapes identical to user-built ones for -1/0/1/negative cases.
     return make_expression<tensor_to_scalar_scalar_wrapper>(
-        make_expression<scalar_constant>(value));
+        detail::tag_invoke(detail::make_constant_fn{},
+                           std::type_identity<scalar_expression>{}, value));
   }
 };
 

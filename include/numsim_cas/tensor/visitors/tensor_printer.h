@@ -78,7 +78,26 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()([[maybe_unused]] identity_tensor const &visitable) override {
-    m_out << "I{" << visitable.rank() << "}";
+    // Rank-2 identity is the Kronecker delta — print without the rank
+    // suffix for the common case. Higher even ranks (rank-4 minor
+    // identity etc.) carry the suffix to disambiguate from
+    // δ_ij ⊗ δ_kl-style outer products.
+    if (visitable.rank() == 2)
+      m_out << "I";
+    else
+      m_out << "I{" << visitable.rank() << "}";
+  }
+
+  /**
+   * @brief Prints the Levi-Civita symbol.
+   *
+   * Prints as `eps{N}` where N is the dimension (and rank). The dim
+   * suffix is always shown because ε's rank is fixed by dim — so the
+   * suffix uniquely identifies the symbol.
+   */
+  void
+  operator()([[maybe_unused]] levi_civita_tensor const &visitable) override {
+    m_out << "eps{" << visitable.dim() << "}";
   }
 
   /**
@@ -161,6 +180,17 @@ public:
     end(precedence, parent_precedence);
   }
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  void operator()(tensor_if_then_else const &v) override {
+    m_out << "if_then_else(";
+    apply(v.expr_cond(), Precedence::None);
+    m_out << ",";
+    apply(v.expr_then(), Precedence::None);
+    m_out << ",";
+    apply(v.expr_else(), Precedence::None);
+    m_out << ")";
+  }
+
   /**
    * @brief Prints an inner product.
    *
@@ -240,12 +270,12 @@ public:
   }
 
   /**
-   * @brief Prints a basis change expression.
+   * @brief Prints a permute_indices expression.
    *
-   * @param visitable The basis change expression to be printed.
+   * @param visitable The permute_indices expression to be printed.
    * @param parent_precedence The precedence of the parent expression.
    */
-  void operator()(basis_change_imp const &visitable) override {
+  void operator()(permute_indices_wrapper const &visitable) override {
     auto const &indices_temp = visitable.indices();
     if (indices_temp == sequence{2, 1}) {
       m_out << "trans(";
@@ -325,36 +355,12 @@ public:
     end(precedence, parent_precedence);
   }
 
-  /**
-   * @brief Prints a Kronecker delta expression.
-   *
-   * @param visitable The Kronecker delta expression to be printed.
-   * @param parent_precedence The precedence of the parent expression.
-   */
-  void operator()([[maybe_unused]] kronecker_delta const &visitable) override {
-    m_out << "I";
-  }
-
   //  /**
   //   * @brief Prints a simple outer product expression.
   //   *
   //   * @param visitable The simple outer product expression to be printed.
   //   * @param parent_precedence The precedence of the parent expression.
   //   */
-  //  void operator()(simple_outer_product &visitable, Precedence
-  //  parent_precedence) {
-  //    //constexpr auto precedence{Precedence::Multiplication};
-  //    m_out << "simple_outer(";
-  //    //bool first = true;
-  ////    for (auto &child : visitable) {
-  ////      if (!first) {
-  ////        m_out << ", ";
-  ////      }
-  ////      apply(child, precedence);
-  ////      first = false;
-  ////    }
-  //    m_out << ")";
-  //  }
 
   /**
    * @brief Prints a tensor scalar multiplication expression.
@@ -452,23 +458,6 @@ public:
   //   end(precedence, parent_precedence);
   // }
 
-  /**
-   * @brief Prints a tensor scalar division expression.
-   *
-   * @param visitable The tensor scalar division expression to be printed.
-   * @param parent_precedence The precedence of the parent expression.
-   */
-  // void operator()([[maybe_unused]] tensor_scalar_div const &visitable,
-  //                 [[maybe_unused]] Precedence parent_precedence) {
-  //   constexpr auto precedence{Precedence::Multiplication};
-  //   begin(precedence, parent_precedence);
-  //   scalar_printer<StreamType> scalar_printer(m_out);
-  //   apply(visitable.expr_lhs(), Precedence::Division_LHS);
-  //   m_out << "/";
-  //   scalar_printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
-  //   end(precedence, parent_precedence);
-  // }
-
   void operator()([[maybe_unused]] tensor_to_scalar_with_tensor_mul const
                       &visitable) override {
     constexpr auto precedence{Precedence::Multiplication};
@@ -481,20 +470,6 @@ public:
     end(precedence, parent_precedence);
   }
 
-  // void
-  // operator()([[maybe_unused]] tensor_to_scalar_with_tensor_div const
-  // &visitable,
-  //            [[maybe_unused]] Precedence parent_precedence) {
-  //   constexpr auto precedence{Precedence::Multiplication};
-  //       const auto parent_precedence{m_parent_precedence};
-  //   tensor_to_scalar_printer<StreamType> printer(m_out);
-  //   begin(precedence, parent_precedence);
-  //   apply(visitable.expr_lhs(), Precedence::Division_LHS);
-  //   m_out << "/";
-  //   printer.apply(visitable.expr_rhs(), Precedence::Division_RHS);
-  //   end(precedence, parent_precedence);
-  // }
-
   void operator()(tensor_inv const &visitable) override {
     print_unary("inv", visitable);
   }
@@ -506,7 +481,7 @@ public:
    * @param parent_precedence The precedence of the parent expression.
    */
   void operator()([[maybe_unused]] tensor_zero const &visitable) override {
-    m_out << "0";
+    m_out << "0{" << visitable.rank() << "}";
   }
 
   void operator()(tensor_pow const &visitable) override {

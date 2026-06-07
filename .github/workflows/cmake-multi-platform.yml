@@ -40,12 +40,16 @@ jobs:
             c_compiler: clang
             cpp_compiler: clang++
             build_type: Release
-          # ── Ubuntu: GCC-14 + ASAN/UBSAN ────────────────
+          # ── Ubuntu: GCC-14 + ASAN/UBSAN + parser ───────
+          # The parser library (issue #214) is built only on this row.
+          # Pairing it with ASan/UBSan catches memory issues in the
+          # action-stack manipulation and snippet-renderer paths.
           - os: ubuntu-24.04
             c_compiler: gcc-14
             cpp_compiler: g++-14
             build_type: Debug
             sanitizers: ON
+            parser: ON
           # ── Windows: MSVC ──────────────────────────────
           - os: windows-latest
             c_compiler: cl
@@ -70,6 +74,7 @@ jobs:
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -DNUMSIM_CAS_BUILD_EXAMPLES=ON
         -DNUMSIM_CAS_SANITIZERS=${{ matrix.sanitizers || 'OFF' }}
+        -DNUMSIM_CAS_BUILD_PARSER=${{ matrix.parser || 'OFF' }}
         -S ${{ github.workspace }}
     - name: Build
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}

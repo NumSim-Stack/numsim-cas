@@ -35,6 +35,26 @@ public:
     return ValueType{0};
   }
 
+  // Forward every stored (scalar_symbol -> ValueType) entry into `target` via
+  // target.set_scalar(...). Skips entries whose stored std::any type does not
+  // match ValueType (defensive against future precision-mixing). Skips entries
+  // whose key is not actually a scalar_expression at runtime — guards against
+  // a tensor key ever landing in this map.
+  template <typename TargetEvaluator>
+  void forward_values_to(TargetEvaluator &target) const {
+    for (auto const &[key, val] : base::m_symbols_to_value) {
+      if (val.type() != typeid(ValueType))
+        continue;
+      auto scalar_ptr =
+          std::dynamic_pointer_cast<scalar_expression>(key.data());
+      if (!scalar_ptr)
+        continue;
+      target.set_scalar(
+          expression_holder<scalar_expression>(std::move(scalar_ptr)),
+          std::any_cast<ValueType>(val));
+    }
+  }
+
   void operator()(scalar const &) override { base::dispatch(); }
 
   void operator()([[maybe_unused]] scalar_zero const &) override {
@@ -144,6 +164,57 @@ public:
 
   void operator()(scalar_named_expression const &visitable) override {
     m_result = apply(visitable.expr());
+  }
+
+  // ─── Comparison nodes (#136) ─────────────────────────────────────
+  // Each evaluates to ValueType{1} when the comparison holds and {0}
+  // otherwise — the indicator-function representation that makes
+  // `(a < b) * x` work directly as a damage-activation pattern and
+  // gives if_then_else a uniform Real-typed condition.
+
+  void operator()(scalar_lt const &v) override {
+    m_result =
+        apply(v.expr_lhs()) < apply(v.expr_rhs()) ? ValueType{1} : ValueType{0};
+  }
+  void operator()(scalar_gt const &v) override {
+    m_result =
+        apply(v.expr_lhs()) > apply(v.expr_rhs()) ? ValueType{1} : ValueType{0};
+  }
+  void operator()(scalar_le const &v) override {
+    m_result = apply(v.expr_lhs()) <= apply(v.expr_rhs()) ? ValueType{1}
+                                                          : ValueType{0};
+  }
+  void operator()(scalar_ge const &v) override {
+    m_result = apply(v.expr_lhs()) >= apply(v.expr_rhs()) ? ValueType{1}
+                                                          : ValueType{0};
+  }
+  void operator()(scalar_eq const &v) override {
+    m_result = apply(v.expr_lhs()) == apply(v.expr_rhs()) ? ValueType{1}
+                                                          : ValueType{0};
+  }
+  void operator()(scalar_ne const &v) override {
+    m_result = apply(v.expr_lhs()) != apply(v.expr_rhs()) ? ValueType{1}
+                                                          : ValueType{0};
+  }
+
+  // ─── Min / max (#137) ────────────────────────────────────────────
+  void operator()(scalar_max const &v) override {
+    m_result = std::max(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+  void operator()(scalar_min const &v) override {
+    m_result = std::min(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  }
+
+  // ─── if_then_else (#135) ─────────────────────────────────────────
+  // Condition evaluates to a scalar; non-zero ⇒ take the `then` arm.
+  // Lazy evaluation: only apply the selected branch to avoid
+  // triggering symbolic errors in the non-taken arm (e.g. evaluating
+  // log(x) when x ≤ 0 in the wrong branch).
+  void operator()(scalar_if_then_else const &v) override {
+    if (apply(v.expr_cond()) != ValueType{0})
+      m_result = apply(v.expr_then());
+    else
+      m_result = apply(v.expr_else());
   }
 
   template <class T> void operator()([[maybe_unused]] T const &) noexcept {

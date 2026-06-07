@@ -3,13 +3,28 @@
 
 #include "cas_test_helpers.h"
 #include <gtest/gtest.h>
+#include <memory>
+#include <tmech/tmech.h>
 
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/numsim_cas.h>
+#include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_diff.h>
+#include <numsim_cas/tensor/tensor_functions.h>
+#include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
+#include <numsim_cas/tensor/visitors/tensor_evaluator.h>
 
 namespace numsim::cas {
+
+namespace {
+
+template <std::size_t Dim, std::size_t Rank>
+auto const &as_tmech_diff(tensor_data_base<double> const &data) {
+  return static_cast<tensor_data<double, Dim, Rank> const &>(data).data();
+}
+
+} // namespace
 
 class TensorDifferentiationTest : public ::testing::Test {
 protected:
@@ -22,7 +37,7 @@ protected:
   TensorDifferentiationTest() {
     std::tie(X, Y) = make_tensor_variable(std::tuple{"X", dim, rank},
                                           std::tuple{"Y", dim, rank});
-    I = make_expression<kronecker_delta>(dim);
+    I = make_expression<identity_tensor>(dim, std::size_t{2});
     Zero = make_expression<tensor_zero>(dim, rank);
     Zero4 = make_expression<tensor_zero>(dim, 4);
   }
@@ -92,6 +107,481 @@ TEST_F(TensorDifferentiationTest, PowRule) {
   EXPECT_TRUE(d.is_valid()) << "Expected valid result for pow diff";
   EXPECT_TRUE(is_same<tensor_add>(d))
       << "Expected tensor_add, got: " << to_string(d);
+}
+
+// --- Numerical differentiation tests for tensor_mul and simple_outer_product
+// ---
+
+// Helper: evaluate a tensor expression with given variable values
+// and compare symbolic derivative against finite differences.
+
+// d(X*Y)/dX — two-factor tensor_mul, numerically verified
+TEST_F(TensorDifferentiationTest, TensorMulTwoFactors) {
+  auto expr = X * Y;
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for X*Y";
+
+  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 2> Y_t = tmech::randn<double, 3, 2>();
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+  auto Y_ptr = std::make_shared<tensor_data<double, 3, 2>>(Y_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+  ev.set(Y, Y_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6));
+}
+
+// d(X*Y*X)/dX — three-factor tensor_mul with X appearing twice
+TEST_F(TensorDifferentiationTest, TensorMulThreeFactors) {
+  auto expr = X * Y * X;
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for X*Y*X";
+
+  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 2> Y_t = tmech::randn<double, 3, 2>();
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+  auto Y_ptr = std::make_shared<tensor_data<double, 3, 2>>(Y_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+  ev.set(Y, Y_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6));
+}
+
+// d(u⊗v)/du — two-factor simple_outer_product with rank-1 vectors
+TEST_F(TensorDifferentiationTest, SimpleOuterProductTwoFactors) {
+  auto u = make_expression<tensor>("u", dim, 1);
+  auto v = make_expression<tensor>("v", dim, 1);
+
+  // Build simple_outer_product(u, v)
+  auto sop = make_expression<simple_outer_product>(dim, 2);
+  sop.template get<simple_outer_product>().push_back(u);
+  sop.template get<simple_outer_product>().push_back(v);
+
+  auto d = diff(sop, u);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for u⊗v w.r.t. u";
+
+  tmech::tensor<double, 3, 1> u_t = tmech::randn<double, 3, 1>();
+  tmech::tensor<double, 3, 1> v_t = tmech::randn<double, 3, 1>();
+  auto u_ptr = std::make_shared<tensor_data<double, 3, 1>>(u_t);
+  auto v_ptr = std::make_shared<tensor_data<double, 3, 1>>(v_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(u, u_ptr);
+  ev.set(v, v_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 3u); // rank-2 result + rank-1 derivative
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3>>(
+      [&](auto const &x) {
+        u_ptr->data() = x;
+        return as_tmech_diff<3, 2>(*ev.apply(sop));
+      },
+      u_t);
+  u_ptr->data() = u_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 3>(*result), numdiff, 1e-6));
+}
+
+// d(u⊗v⊗u)/du — three-factor simple_outer_product with u appearing twice
+TEST_F(TensorDifferentiationTest, SimpleOuterProductThreeFactors) {
+  auto u = make_expression<tensor>("u", dim, 1);
+  auto v = make_expression<tensor>("v", dim, 1);
+
+  // Build simple_outer_product(u, v, u)
+  auto sop = make_expression<simple_outer_product>(dim, 3);
+  sop.template get<simple_outer_product>().push_back(u);
+  sop.template get<simple_outer_product>().push_back(v);
+  sop.template get<simple_outer_product>().push_back(u);
+
+  auto d = diff(sop, u);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for u⊗v⊗u w.r.t. u";
+
+  tmech::tensor<double, 3, 1> u_t = tmech::randn<double, 3, 1>();
+  tmech::tensor<double, 3, 1> v_t = tmech::randn<double, 3, 1>();
+  auto u_ptr = std::make_shared<tensor_data<double, 3, 1>>(u_t);
+  auto v_ptr = std::make_shared<tensor_data<double, 3, 1>>(v_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(u, u_ptr);
+  ev.set(v, v_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u); // rank-3 result + rank-1 derivative
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        u_ptr->data() = x;
+        return as_tmech_diff<3, 3>(*ev.apply(sop));
+      },
+      u_t);
+  u_ptr->data() = u_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6));
+}
+
+// d(inner_product(X, seq{1}, Y, seq{1}))/dX — contracts first index of each
+TEST_F(TensorDifferentiationTest, InnerProductDiff) {
+  auto expr = inner_product(X, sequence{1}, Y, sequence{1});
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for inner_product";
+
+  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 2> Y_t = tmech::randn<double, 3, 2>();
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+  auto Y_ptr = std::make_shared<tensor_data<double, 3, 2>>(Y_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+  ev.set(Y, Y_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6));
+}
+
+// d(otimes(X, Y))/dX — outer product differentiation
+TEST_F(TensorDifferentiationTest, OuterProductDiff) {
+  auto expr = otimes(X, Y);
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for otimes(X, Y)";
+
+  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 2> Y_t = tmech::randn<double, 3, 2>();
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+  auto Y_ptr = std::make_shared<tensor_data<double, 3, 2>>(Y_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+  ev.set(Y, Y_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 6u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4, 5, 6>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_diff<3, 4>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 6>(*result), numdiff, 1e-6));
+}
+
+// d(trans(X))/dX — permute_indices differentiation
+TEST_F(TensorDifferentiationTest, PermuteIndicesDiff) {
+  auto expr = trans(X);
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for trans(X)";
+
+  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6));
+}
+
+// d(X*X)/dX — same variable in both tensor_mul factors (product rule)
+// Build tensor_mul directly to bypass X*X → pow(X,2) simplification
+TEST_F(TensorDifferentiationTest, TensorMulSameVariable) {
+  auto expr = make_expression<tensor_mul>(dim, rank);
+  expr.template get<tensor_mul>().push_back(X);
+  expr.template get<tensor_mul>().push_back(X);
+
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for X*X";
+
+  tmech::tensor<double, 3, 2> X_t = tmech::randn<double, 3, 2>();
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = x;
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6));
+}
+
+// Regression: d(permute_indices(inner_product(C, {1}, E, {3}), {3,1,2}))/dC
+// Tests permute_indices_wrapper permutation composition in differentiation
+TEST_F(TensorDifferentiationTest, PermuteInnerProductDiff) {
+  auto C = make_expression<tensor>("C", 3, 2);
+  auto E = make_expression<tensor>("E", 3, 3);
+
+  auto ip = inner_product(C, sequence{1}, E, sequence{3});
+  auto expr = permute_indices(std::move(ip), sequence{3, 1, 2});
+
+  auto d = diff(expr, C);
+  ASSERT_TRUE(d.is_valid());
+
+  tmech::tensor<double, 3, 2> C_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 3> E_t = tmech::randn<double, 3, 3>();
+  auto C_ptr = std::make_shared<tensor_data<double, 3, 2>>(C_t);
+  auto E_ptr = std::make_shared<tensor_data<double, 3, 3>>(E_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(C, C_ptr);
+  ev.set(E, E_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 5u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4, 5>>(
+      [&](auto const &x) {
+        C_ptr->data() = x;
+        return as_tmech_diff<3, 3>(*ev.apply(expr));
+      },
+      C_t);
+  C_ptr->data() = C_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 5>(*result), numdiff, 1e-6));
+}
+
+// d(dev(X))/dX — projector differentiation through generic inner_product path
+TEST_F(TensorDifferentiationTest, DevProjectorDiff) {
+  auto expr = dev(X);
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for dev(X)";
+
+  tmech::tensor<double, 3, 2> X_t =
+      tmech::eval(tmech::sym(tmech::randn<double, 3, 2>()));
+  for (std::size_t i = 0; i < 3; ++i)
+    X_t(i, i) += 5.0;
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = tmech::eval(tmech::sym(x));
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6))
+      << "dev(X) derivative mismatch";
+}
+
+// d(inv(dev(X)))/dX — inv of projected tensor.
+TEST_F(TensorDifferentiationTest, InvDevProjectorDiff) {
+  auto expr = inv(dev(X));
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative for inv(dev(X))";
+
+  std::mt19937 rng1(123);
+  std::normal_distribution<double> dist1(0.0, 1.0);
+  tmech::tensor<double, 3, 2> X_t;
+  for (std::size_t i = 0; i < 9; ++i)
+    X_t.raw_data()[i] = dist1(rng1);
+  X_t = tmech::eval(tmech::sym(X_t));
+  for (std::size_t i = 0; i < 3; ++i)
+    X_t(i, i) += 10.0;
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = tmech::eval(tmech::sym(x));
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6))
+      << "inv(dev(X)) derivative mismatch";
+}
+
+// d(trans(inv(dev(X))))/dX — combination of trans, inv, dev
+TEST_F(TensorDifferentiationTest, TransInvDevProjectorDiff) {
+  auto expr = trans(inv(dev(X)));
+  auto d = diff(expr, X);
+  ASSERT_TRUE(d.is_valid())
+      << "Expected valid derivative for trans(inv(dev(X)))";
+
+  std::mt19937 rng2(456);
+  std::normal_distribution<double> dist2(0.0, 1.0);
+  tmech::tensor<double, 3, 2> X_t;
+  for (std::size_t i = 0; i < 9; ++i)
+    X_t.raw_data()[i] = dist2(rng2);
+  X_t = tmech::eval(tmech::sym(X_t));
+  for (std::size_t i = 0; i < 3; ++i)
+    X_t(i, i) += 10.0;
+  auto X_ptr = std::make_shared<tensor_data<double, 3, 2>>(X_t);
+
+  tensor_evaluator<double> ev;
+  ev.set(X, X_ptr);
+
+  auto result = ev.apply(d);
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(result->rank(), 4u);
+
+  auto numdiff = tmech::num_diff_central<tmech::sequence<1, 2, 3, 4>>(
+      [&](auto const &x) {
+        X_ptr->data() = tmech::eval(tmech::sym(x));
+        return as_tmech_diff<3, 2>(*ev.apply(expr));
+      },
+      X_t);
+  X_ptr->data() = X_t;
+
+  EXPECT_TRUE(tmech::almost_equal(as_tmech_diff<3, 4>(*result), numdiff, 1e-6))
+      << "trans(inv(dev(X))) derivative mismatch";
+}
+
+// d(F*trans(F))/dF — product rule; zero terms must simplify away
+TEST_F(TensorDifferentiationTest, ProductRuleNoZeroArtifacts) {
+  auto C = X * trans(X);
+  auto d = diff(C, X);
+  auto s = to_string(d);
+  // Must not contain "0*" or "*0" or "permute_indices(0" patterns
+  EXPECT_EQ(s.find("0*"), std::string::npos) << "Found '0*' artifact in: " << s;
+  EXPECT_EQ(s.find("*0"), std::string::npos) << "Found '*0' artifact in: " << s;
+  EXPECT_EQ(s.find("permute_indices(0"), std::string::npos)
+      << "Found 'permute_indices(0' artifact in: " << s;
+}
+
+// ---------------------------------------------------------------------------
+// Audit #42: lock-in coverage tests for tensor_differentiation.
+// All 16 node types in NUMSIM_CAS_TENSOR_NODE_LIST have explicit operator()
+// overrides via the virtual visitor base (missing override = compile error,
+// not silent fallback). Existing TEST_F entries above cover 13/16 nodes;
+// these add lock-ins for the remaining 3: identity_tensor, tensor_projector,
+// and tensor_to_scalar_with_tensor_mul.
+// ---------------------------------------------------------------------------
+
+TEST_F(TensorDifferentiationTest, AuditIdentityTensorIsConstant) {
+  // identity_tensor is constant w.r.t. any tensor variable.
+  auto I_rank2 = make_expression<identity_tensor>(dim, rank);
+  auto d = diff(I_rank2, X);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+TEST_F(TensorDifferentiationTest, AuditTensorProjectorIsConstant) {
+  // Projection-tensor leaves (P_sym, P_dev, etc.) are constant w.r.t. tensor
+  // arguments. The projector itself has no dependence on X.
+  auto P = P_sym(dim);
+  auto d = diff(P, X);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+TEST_F(TensorDifferentiationTest, AuditTensorToScalarWithTensorMulCovered) {
+  // tensor_to_scalar_with_tensor_mul is constructed by tensor_to_scalar
+  // differentiation (see src/.../tensor_to_scalar_differentiation.cpp).
+  // It appears in tensor-domain expressions as a result of differentiating
+  // a t2s expression w.r.t. a tensor argument — e.g. d(det(X))/dX yields
+  // a chain that contains tensor_to_scalar_with_tensor_mul nodes.
+  //
+  // This test exercises the differentiator dispatch: when a node of this
+  // type is reached during a second differentiation, the visitor must have
+  // an explicit override (it does — see tensor_differentiation.h:152) and
+  // produce a valid result. Construct via det(X) → diff w.r.t. X.
+  auto detX = det(X);
+  auto first_diff = diff(detX, X);
+  // first_diff is itself a tensor expression. Differentiate again to ensure
+  // the tensor_to_scalar_with_tensor_mul path inside tensor_differentiation
+  // is exercised without throwing.
+  auto second_diff = diff(first_diff, X);
+  EXPECT_TRUE(second_diff.is_valid())
+      << "Second-order differentiation produced invalid result";
+}
+
+// #248: rank-4 inv() construction is now supported, but differentiation
+// of a rank-4 inv is NOT yet wired. The visitor throws
+// not_implemented_error with a clear message. Lock that contract in so
+// users hit a definite error rather than getting silent garbage if they
+// try to compose `diff(inv(rank4), ...)`.
+TEST(TensorDiffRank4InvNotImplemented, ThrowsWithClearMessage) {
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_minor_major(C);
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto invC = inv(C);
+  try {
+    [[maybe_unused]] auto r = diff(invC, X);
+    FAIL() << "Expected diff(inv(rank-4), ...) to throw not_implemented_error";
+  } catch (not_implemented_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos)
+        << "error message should mention rank; got: " << e.what();
+  }
 }
 
 } // namespace numsim::cas

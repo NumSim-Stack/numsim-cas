@@ -93,6 +93,17 @@ public:
     // end(precedence, m_parent_precedence);
   }
 
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  void operator()(tensor_to_scalar_if_then_else const &v) override {
+    m_out << "if_then_else(";
+    apply(v.expr_cond(), Precedence::None);
+    m_out << ",";
+    apply(v.expr_then(), Precedence::None);
+    m_out << ",";
+    apply(v.expr_else(), Precedence::None);
+    m_out << ")";
+  }
+
   void operator()(tensor_to_scalar_mul const &visitable) override {
     using traits = domain_traits<tensor_to_scalar_expression>;
     constexpr auto precedence{Precedence::Multiplication};
@@ -191,15 +202,6 @@ public:
     end(precedence, parent_precedence);
   }
 
-  // void operator()(tensor_to_scalar_div const &visitable) {
-  //   constexpr auto precedence{Precedence::Multiplication};
-  //   begin(precedence, m_parent_precedence);
-  //   apply(visitable.expr_lhs(), Precedence::Division_LHS);
-  //   m_out << "/";
-  //   apply(visitable.expr_rhs(), Precedence::Division_RHS);
-  //   end(precedence, m_parent_precedence);
-  // }
-
   void operator()(tensor_to_scalar_pow const &visitable) override {
     m_out << "pow(";
     m_out << visitable.expr_lhs();
@@ -207,51 +209,6 @@ public:
     m_out << visitable.expr_rhs();
     m_out << ")";
   }
-
-  // void operator()(tensor_to_scalar_pow_with_scalar_exponent const &visitable)
-  // noexcept{
-  //   m_out << "pow(";
-  //   m_out << visitable.expr_lhs();
-  //   m_out << ",";
-  //   m_out << visitable.expr_rhs();
-  //   m_out << ")";
-  // }
-
-  // void operator()(tensor_to_scalar_with_scalar_mul const &visitable) {
-  //   constexpr auto precedence{Precedence::Multiplication};
-  //   begin(precedence, m_parent_precedence);
-  //   print(m_out, visitable.expr_lhs(), precedence);
-  //   m_out << "*";
-  //   apply(visitable.expr_rhs(), precedence);
-  //   end(precedence, m_parent_precedence);
-  // }
-
-  // void operator()(tensor_to_scalar_with_scalar_add const &visitable) {
-  //   constexpr auto precedence{Precedence::Addition};
-  //   begin(precedence, m_parent_precedence);
-  //   print(m_out, visitable.expr_lhs(), precedence);
-  //   m_out << "+";
-  //   apply(visitable.expr_rhs(), precedence);
-  //   end(precedence, m_parent_precedence);
-  // }
-
-  // void operator()(tensor_to_scalar_with_scalar_div const &visitable) {
-  //   constexpr auto precedence{Precedence::Multiplication};
-  //   begin(precedence, m_parent_precedence);
-  //   apply(visitable.expr_lhs(), Precedence::Division_LHS);
-  //   m_out << "/";
-  //   print(m_out, visitable.expr_rhs(), Precedence::Division_RHS);
-  //   end(precedence, m_parent_precedence);
-  // }
-
-  // void operator()(scalar_with_tensor_to_scalar_div const &visitable) {
-  //   constexpr auto precedence{Precedence::Multiplication};
-  //   begin(precedence, m_parent_precedence);
-  //   print(m_out, visitable.expr_lhs(), Precedence::Division_LHS);
-  //   m_out << "/";
-  //   apply(visitable.expr_rhs(), Precedence::Division_RHS);
-  //   end(precedence, m_parent_precedence);
-  // }
 
   void operator()(tensor_inner_product_to_scalar const &visitable) override {
     const auto &indices_lhs{visitable.indices_lhs()};

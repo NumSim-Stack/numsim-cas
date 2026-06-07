@@ -78,11 +78,36 @@ public:
     check(v.expr());
   }
 
+  // ─── Comparison nodes (#136) ─────────────────────────────────────
+  void operator()(scalar_lt const &v) override { check_binary(v); }
+  void operator()(scalar_gt const &v) override { check_binary(v); }
+  void operator()(scalar_le const &v) override { check_binary(v); }
+  void operator()(scalar_ge const &v) override { check_binary(v); }
+  void operator()(scalar_eq const &v) override { check_binary(v); }
+  void operator()(scalar_ne const &v) override { check_binary(v); }
+
+  // ─── Min / max (#137) ────────────────────────────────────────────
+  void operator()(scalar_max const &v) override { check_binary(v); }
+  void operator()(scalar_min const &v) override { check_binary(v); }
+
+  // ─── if_then_else (#135) ─────────────────────────────────────────
+  void operator()(scalar_if_then_else const &v) override {
+    check(v.expr_cond());
+    check(v.expr_then());
+    check(v.expr_else());
+  }
+
 private:
   void check(expr_holder_t const &expr) {
     if (m_found)
       return;
     m_found = apply(expr);
+  }
+
+  template <typename BinaryNode> void check_binary(BinaryNode const &v) {
+    check(v.expr_lhs());
+    if (!m_found)
+      check(v.expr_rhs());
   }
 
   expr_holder_t m_needle;
@@ -110,7 +135,7 @@ public:
   void operator()(tensor const &) override {}
   void operator()(tensor_zero const &) override {}
   void operator()(identity_tensor const &) override {}
-  void operator()(kronecker_delta const &) override {}
+  void operator()(levi_civita_tensor const &) override {}
   void operator()(tensor_projector const &) override {}
 
   void operator()(tensor_add const &v) override {
@@ -154,7 +179,9 @@ public:
       check(child);
     }
   }
-  void operator()(basis_change_imp const &v) override { check(v.expr()); }
+  void operator()(permute_indices_wrapper const &v) override {
+    check(v.expr());
+  }
 
   // tensor_scalar_mul: lhs is scalar, rhs is tensor
   void operator()(tensor_scalar_mul const &v) override { check(v.expr_rhs()); }
@@ -163,6 +190,15 @@ public:
   // tensor child
   void operator()(tensor_to_scalar_with_tensor_mul const &v) override {
     check(v.expr_lhs());
+  }
+
+  // ─── if_then_else (#135 / #210) ─────────────────────────────────
+  // Cond is scalar (skip — we're matching a tensor needle); then/else
+  // are tensors, so check both.
+  void operator()(tensor_if_then_else const &v) override {
+    check(v.expr_then());
+    if (!m_found)
+      check(v.expr_else());
   }
 
 private:
@@ -245,6 +281,17 @@ public:
   void operator()(tensor_to_scalar_zero const &) override {}
   void operator()(tensor_to_scalar_one const &) override {}
   void operator()(tensor_to_scalar_scalar_wrapper const &) override {}
+
+  // ─── if_then_else (#135 / #210) — check all three children ──────
+  void operator()(tensor_to_scalar_if_then_else const &v) override {
+    check_t2s(v.expr_cond());
+    if (m_found)
+      return;
+    check_t2s(v.expr_then());
+    if (m_found)
+      return;
+    check_t2s(v.expr_else());
+  }
 
 private:
   void check_tensor(tensor_holder_t const &expr) {

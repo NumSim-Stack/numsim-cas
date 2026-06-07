@@ -15,15 +15,16 @@
   NEXT(tensor_pow)                                                             \
   NEXT(tensor_negative)                                                        \
   NEXT(inner_product_wrapper)                                                  \
-  NEXT(basis_change_imp)                                                       \
+  NEXT(permute_indices_wrapper)                                                \
   NEXT(outer_product_wrapper)                                                  \
-  NEXT(kronecker_delta)                                                        \
   NEXT(simple_outer_product)                                                   \
   NEXT(tensor_inv)                                                             \
   NEXT(tensor_zero)                                                            \
   NEXT(tensor_projector)                                                       \
   NEXT(identity_tensor)                                                        \
+  NEXT(levi_civita_tensor)                                                     \
   NEXT(tensor_scalar_mul)                                                      \
-  NEXT(tensor_to_scalar_with_tensor_mul)
+  NEXT(tensor_to_scalar_with_tensor_mul)                                       \
+  NEXT(tensor_if_then_else)
 
 #endif // TENSOR_NODE_LIST_H

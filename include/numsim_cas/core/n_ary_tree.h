@@ -5,8 +5,6 @@
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/hash_functions.h>
-#include <numsim_cas/expression_crtp.h>
-#include <numsim_cas/is_symbol.h>
 #include <numsim_cas/numsim_cas_forward.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
 #include <ranges>
@@ -51,6 +49,29 @@ public:
 
   inline void push_back(expression_holder<expr_t> &&expr) {
     insert_hash(std::move(expr));
+  }
+
+  // Insert `entry`, combining with any colliding map entry first.
+  // After combination, `+` may algebraically simplify to an expression with a
+  // different key (cos(x)^2 + sin(x)^2 -> 1, x + (-x) -> 0, projector
+  // identities) which can collide with yet another entry in the map. Loop
+  // until insertion produces no further collisions.
+  //
+  // Not atomic under exception: if `+` throws on iteration N>1, prior
+  // erasures are already committed. Current callers (merge_add,
+  // n_ary_add_dispatch) build a fresh result tree and discard it on throw,
+  // so the partial state is never observed. Do not call this from a context
+  // that catches the exception and continues using the tree.
+  inline void merge_or_insert(expression_holder<expr_t> entry) {
+    while (true) {
+      auto it = m_symbol_map.find(entry);
+      if (it == m_symbol_map.end())
+        break;
+      auto combined = it->second + entry;
+      m_symbol_map.erase(it);
+      entry = std::move(combined);
+    }
+    insert_hash(std::move(entry));
   }
 
   inline void reserve([[maybe_unused]] std::size_t size) noexcept {

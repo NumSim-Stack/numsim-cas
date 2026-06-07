@@ -30,7 +30,7 @@ protected:
     nY = norm(Y);
     detY = det(Y);
 
-    I = make_expression<kronecker_delta>(dim);
+    I = make_expression<identity_tensor>(dim, std::size_t{2});
     Zero = make_expression<tensor_zero>(dim, rank);
   }
 
@@ -117,6 +117,84 @@ TEST_F(TensorToScalarDifferentiationTest,
 
   auto d2 = diff(trX, Y);
   EXPECT_SAME_PRINT(d2, Zero);
+}
+
+// Regression: dot(B)-(det(B)*det(A)*tr(A)) w.r.t. symmetric B
+// derivative must have rank 2, not rank 4
+TEST_F(TensorToScalarDifferentiationTest, SymmetricDotDetDiff) {
+  // Create symmetric variables
+  tensor_space sym_space{Symmetric{}, AnyTraceTag{}};
+  auto A = make_expression<tensor>("A", dim, rank);
+  auto B = make_expression<tensor>("B", dim, rank);
+  A.data()->set_space(sym_space);
+  B.data()->set_space(sym_space);
+
+  auto expr = dot(B) - (det(B) * det(A) * trace(A));
+  auto d = diff(expr, B);
+  ASSERT_TRUE(d.is_valid()) << "Expected valid derivative";
+  EXPECT_EQ(d.get().rank(), 2u)
+      << "derivative of t2s expr w.r.t. rank-2 var must be rank 2\n"
+      << "  d: " << to_string(d);
+}
+
+// ---------------------------------------------------------------------------
+// Audit #38: lock-in coverage tests for tensor_to_scalar_differentiation.
+// All 15 node types in NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST have explicit
+// operator() overrides via the pure-virtual visitor base (missing override
+// = compile error, not silent fallback). Existing TEST_F entries above
+// cover trace, det, dot, norm, log, add, negative, one, zero. These add
+// lock-ins for the remaining six nodes.
+// ---------------------------------------------------------------------------
+
+TEST_F(TensorToScalarDifferentiationTest, AuditNode_ScalarWrapper) {
+  // d(scalar_wrapper(c))/dY = 0 — scalar constant inside t2s is independent.
+  auto c = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar_constant>(2.0));
+  auto d = diff(c, Y);
+  EXPECT_TRUE(d.is_valid()) << "Expected valid derivative for scalar_wrapper";
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+TEST_F(TensorToScalarDifferentiationTest, AuditNode_Mul) {
+  // d(trace(Y) * det(Y))/dY — product rule applied to t2s factors.
+  auto expr = trace(Y) * det(Y);
+  auto d = diff(expr, Y);
+  EXPECT_TRUE(d.is_valid()) << "Expected valid derivative for t2s mul";
+  EXPECT_EQ(d.get().rank(), rank);
+}
+
+TEST_F(TensorToScalarDifferentiationTest, AuditNode_Pow) {
+  // d(trace(Y)^3)/dY — exercise the t2s pow differentiation path.
+  auto expr = pow(trace(Y), 3);
+  auto d = diff(expr, Y);
+  EXPECT_TRUE(d.is_valid()) << "Expected valid derivative for t2s pow";
+  EXPECT_EQ(d.get().rank(), rank);
+}
+
+TEST_F(TensorToScalarDifferentiationTest, AuditNode_Exp) {
+  // d(exp(trace(Y)))/dY — chain rule via t2s exp.
+  auto expr = exp(trace(Y));
+  auto d = diff(expr, Y);
+  EXPECT_TRUE(d.is_valid()) << "Expected valid derivative for t2s exp";
+  EXPECT_EQ(d.get().rank(), rank);
+}
+
+TEST_F(TensorToScalarDifferentiationTest, AuditNode_Sqrt) {
+  // d(sqrt(trace(Y)))/dY — chain rule via t2s sqrt.
+  auto expr = sqrt(trace(Y));
+  auto d = diff(expr, Y);
+  EXPECT_TRUE(d.is_valid()) << "Expected valid derivative for t2s sqrt";
+  EXPECT_EQ(d.get().rank(), rank);
+}
+
+TEST_F(TensorToScalarDifferentiationTest, AuditNode_InnerProductToScalar) {
+  // d(Y:Y)/dY via dot_product (constructs tensor_inner_product_to_scalar).
+  auto expr = dot_product(Y, sequence{1, 2}, Y, sequence{1, 2});
+  auto d = diff(expr, Y);
+  EXPECT_TRUE(d.is_valid())
+      << "Expected valid derivative for inner_product_to_scalar";
+  EXPECT_EQ(d.get().rank(), rank);
 }
 
 } // namespace numsim::cas

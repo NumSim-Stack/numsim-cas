@@ -3,6 +3,7 @@
 
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_pow.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_if_then_else.h>
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_printer.h>
 #include <sstream>
 
@@ -16,6 +17,16 @@ to_string(const expression_holder<tensor_to_scalar_expression> &expr) {
   return ss.str();
 }
 
+// CONTRACT NOTE: `pow(x, -1)` is deliberately NOT short-circuited to a
+// dedicated reciprocal node. The tensor ÷ tensor_to_scalar operator
+// (tensor_operators.h, see #147) implements division as
+// `lhs × pow(rhs, -1)` and relies on the result being a regular
+// `tensor_to_scalar_pow` node so the existing pow-of-pow flatten
+// (`pow(pow(x, m), n) → pow(x, m*n)`) handles further composition. If
+// you add a `pow(x, -1) → reciprocal_node` rule here, also update the
+// div operator to construct that node directly, and update the lock-in
+// tests in `tests/TensorToScalarDivOperatorTest.h::ResultShapeIsMulPow`
+// and `DivByPowFlattensExponent`.
 template <tensor_to_scalar_expr_holder ExprLHS,
           tensor_to_scalar_expr_holder ExprRHS>
 [[nodiscard]] auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
@@ -113,6 +124,34 @@ template <tensor_to_scalar_expr_holder Expr>
   }
 
   return make_expression<tensor_to_scalar_sqrt>(std::forward<Expr>(expr));
+}
+
+// ─── if_then_else (#135 / #210) ────────────────────────────────────────
+// Piecewise t2s selection: cond != 0 ? then : else. The condition lives
+// in the t2s domain (typically a comparison built from tensor
+// invariants — e.g. `trace(A) > 0`). All three operands are t2s.
+//
+// Construction-time simplifications (mirroring scalar_if_then_else):
+//   if_then_else(t2s_zero, a, b) → b
+//   if_then_else(t2s_one, a, b)  → a
+//   if_then_else(cond, a, a) → a   (then and else identical)
+template <tensor_to_scalar_expr_holder Cond, tensor_to_scalar_expr_holder Then,
+          tensor_to_scalar_expr_holder Else>
+[[nodiscard]] auto if_then_else(Cond &&cond, Then &&then_expr,
+                                Else &&else_expr) {
+  assert(cond.is_valid());
+  assert(then_expr.is_valid());
+  assert(else_expr.is_valid());
+  if (is_same<tensor_to_scalar_zero>(cond))
+    return std::forward<Else>(else_expr);
+  if (is_same<tensor_to_scalar_one>(cond))
+    return std::forward<Then>(then_expr);
+  // Identical branches collapse regardless of cond
+  if (then_expr == else_expr)
+    return std::forward<Then>(then_expr);
+  return make_expression<tensor_to_scalar_if_then_else>(
+      std::forward<Cond>(cond), std::forward<Then>(then_expr),
+      std::forward<Else>(else_expr));
 }
 
 } // namespace numsim::cas

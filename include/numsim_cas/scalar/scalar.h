@@ -18,6 +18,10 @@ public:
   explicit scalar(scalar &&data) noexcept
       : base_t(std::move(static_cast<base_t &&>(data))) {}
 
+  // is_symbol() is inherited from symbol_base (returns true). No need to
+  // re-override here; symbol_base is the single source of truth for the
+  // Symbol classification.
+
   using base_t::operator=;
 
   const scalar &operator=(scalar const &data) {

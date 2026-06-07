@@ -273,6 +273,43 @@ public:
    */
   void operator()(scalar_log const &visitable) override;
 
+  // Comparison nodes (#136) — derivative is the sub-gradient zero almost
+  // everywhere (Dirac contributions at the boundary are measure-zero in
+  // the constitutive-modelling use cases that motivated comparisons).
+  void operator()([[maybe_unused]] scalar_lt const &) override {
+    m_result = get_scalar_zero();
+  }
+  void operator()([[maybe_unused]] scalar_gt const &) override {
+    m_result = get_scalar_zero();
+  }
+  void operator()([[maybe_unused]] scalar_le const &) override {
+    m_result = get_scalar_zero();
+  }
+  void operator()([[maybe_unused]] scalar_ge const &) override {
+    m_result = get_scalar_zero();
+  }
+  void operator()([[maybe_unused]] scalar_eq const &) override {
+    m_result = get_scalar_zero();
+  }
+  void operator()([[maybe_unused]] scalar_ne const &) override {
+    m_result = get_scalar_zero();
+  }
+
+  // Min / max (#137) — sub-gradient differentiation expressed
+  // piecewise via if_then_else (now available, #135). At the
+  // boundary a == b the derivative is technically discontinuous;
+  // the constitutive-modelling use cases hit that on a measure-zero
+  // set in time evolution, so picking either side is acceptable.
+  void operator()(scalar_max const &v) override;
+  void operator()(scalar_min const &v) override;
+
+  // if_then_else (#135). Assumes the condition does not depend on x.
+  //   d/dx if_then_else(cond, a(x), b(x)) = if_then_else(cond, da/dx, db/dx)
+  // For x-dependent conditions strictly there are Dirac contributions
+  // at the boundary; these are zero in practice for the usual
+  // yield-function / contact-gap use cases.
+  void operator()(scalar_if_then_else const &v) override;
+
   /**
    * @brief Default overload for safety reasons.
    */
@@ -306,13 +343,15 @@ private:
    * @return Derivative expression.
    */
   expr_holder_t apply_imp(expr_holder_t const &expr) {
+    m_result = expr_holder_t{};
     if (expr.is_valid()) {
       m_expr = expr;
       expr.get<scalar_visitable_t>().accept(*this);
-      return m_result;
-    } else {
+    }
+    if (!m_result.is_valid()) {
       return get_scalar_zero();
     }
+    return m_result;
   }
 
   ///< Differentiation variable.

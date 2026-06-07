@@ -51,6 +51,21 @@ public:
   void operator()(scalar_asin const &visitable) override;
   void operator()(scalar_acos const &visitable) override;
 
+  // ─── Comparison nodes (#136) ─────────────────────────────────────
+  void operator()(scalar_lt const &visitable) override;
+  void operator()(scalar_gt const &visitable) override;
+  void operator()(scalar_le const &visitable) override;
+  void operator()(scalar_ge const &visitable) override;
+  void operator()(scalar_eq const &visitable) override;
+  void operator()(scalar_ne const &visitable) override;
+
+  // ─── Min / max (#137) ────────────────────────────────────────────
+  void operator()(scalar_max const &visitable) override;
+  void operator()(scalar_min const &visitable) override;
+
+  // ─── if_then_else (#135) ─────────────────────────────────────────
+  void operator()(scalar_if_then_else const &visitable) override;
+
   template <class T> void operator()([[maybe_unused]] T const &visitable) {
     static_assert(sizeof(T) == 0,
                   "scalar_latex_printer: missing overload for this node type");
