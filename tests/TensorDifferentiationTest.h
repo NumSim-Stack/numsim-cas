@@ -435,7 +435,7 @@ TEST_F(TensorDifferentiationTest, DevProjectorDiff) {
       << "dev(X) derivative mismatch";
 }
 
-// d(inv(dev(X)))/dX — inv of projected tensor
+// d(inv(dev(X)))/dX — inv of projected tensor.
 TEST_F(TensorDifferentiationTest, InvDevProjectorDiff) {
   auto expr = inv(dev(X));
   auto d = diff(expr, X);

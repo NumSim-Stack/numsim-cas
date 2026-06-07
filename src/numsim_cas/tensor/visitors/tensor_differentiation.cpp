@@ -3,6 +3,7 @@
 #include <numeric>
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/scalar/scalar_operators.h>
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
@@ -239,9 +240,35 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
   m_result = std::move(sum);
 }
 
-// tensor_inv: d(A^{-1})/dX = -inner(inner(inv(A), dA/dX), inv(A))
-// For rank-2: d(A^{-1})_{ij}/dX = -sum_{mn} A^{-1}_{im} * A^{-1}_{nj} *
-// dA_{mn}/dX
+// tensor_inv: d(A^{-1})/dX = -T : dA/dX, with rank-4 kernel T chosen by the
+// input's algebraic class:
+//
+//   - General (no Sym/Skew annotation):
+//       T_{ijmn} = A^{-1}_{im} * A^{-1}_{nj}                  (Magnus)
+//   - Symmetric (A = A^T):
+//       T_{ijmn} = (1/2)(A^{-1}_{im} A^{-1}_{nj}
+//                      + A^{-1}_{in} A^{-1}_{mj})             (minor-sym)
+//   - Skew (A = -A^T, even dim only — odd-dim skew is singular and is
+//     already rejected by the inv() factory):
+//       T_{ijmn} = (1/2)(A^{-1}_{im} A^{-1}_{nj}
+//                      - A^{-1}_{in} A^{-1}_{mj})             (minor-antisym)
+//
+// The Sym/Skew kernels are NOT a contraction trick over Magnus — they are
+// the unique correct derivatives on the symmetric / skew sub-manifold (the
+// Magnus formula's projection onto the (m,n)-minor-(anti)symmetric
+// subspace). For a symmetric A, the Magnus kernel and the sym kernel happen
+// to contract to the same value when dA is also symmetric (swap-index
+// proof), so callers who feed sym dA in won't observe a numerical
+// difference — but the AST is now structurally honest, and callers who
+// pass an un-symmetrized dA against a symmetric input get the
+// mathematically correct answer instead of silently-wrong.
+//
+// Dispatch goes through is_symmetric() / is_skew() (tensor_assume.h), not
+// raw holds_alternative on perm. This picks up the PD/PSD ⇒ symmetric
+// implication from the algebra-assumption manager, including the case
+// where space() is cleared but the algebra tag remains. Vol/Dev inputs
+// route through the sym branch too (their space()->perm is Symmetric{}).
+// Closes the rank-2 portion of #250 (#246 β-1).
 void tensor_differentiation::operator()(tensor_inv const &visitable) {
   auto const &A = visitable.expr();
   auto dA = diff(A, m_arg);
@@ -252,14 +279,56 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
   auto invA = inv(A);
 
   if (A.get().rank() == 2) {
-    // Build T[i,j,m,n] = invA_{im} * invA_{nj} via
-    //   otimes(invA, {1,3}, invA, {4,2})
-    // Then contract T's {m,n} with dA's first two indices.
     auto T = otimes(invA, sequence{1, 3}, invA, sequence{4, 2});
+    // Pick sym/skew kernel sign; sign==0 means general (Magnus) — no swap term.
+    int sign = 0;
+    if (is_symmetric(A))
+      sign = +1;
+    else if (is_skew(A)) {
+      // Cross-module precondition: the inv() factory rejects odd-dim
+      // skew (singular) at tensor_functions.h:425+. A direct
+      // `make_expression<tensor_inv>(odd_dim_skew)` bypasses the factory,
+      // and a future relaxation of the factory check would silently emit
+      // a meaningless antisym kernel for a singular operand. Throw
+      // matches the factory's `invalid_expression_error` convention and
+      // — unlike `assert` — fires in Release builds too.
+      if (A.get().dim() % 2 != 0)
+        throw invalid_expression_error(
+            "tensor_differentiation: odd-dim skew inv-diff is undefined "
+            "(singular matrix); should have been rejected at the inv() "
+            "factory");
+      sign = -1;
+    }
+    if (sign != 0) {
+      auto T_swap = otimes(invA, sequence{1, 4}, invA, sequence{3, 2});
+      // The 1/2 constant: function-local static. Magic-static
+      // initialization is thread-safe per C++17 [stmt.dcl]; the lazy
+      // hash computation on the shared instance (mutable m_hash_value
+      // in expression_base) is NOT synchronized — see the note in
+      // include/numsim_cas/core/expression.h. The codebase is
+      // single-threaded today so this is fine; if multithreading lands,
+      // this static needs to participate in whatever synchronization
+      // scheme the hash cache adopts.
+      //
+      // PEER-SITE NOTE: scalar_constant(scalar_number{1, 2}) is also
+      // inlined per-call at scalar_simplifier_pow.cpp:95, scalar_std.h:
+      // 208 and :233. Those sites are construction-time and not on a
+      // hot path; the diff visitor IS called per tensor_inv per
+      // derivative, hence the local static here. DO NOT unify the four
+      // sites into a `get_scalar_half()` in scalar_globals.h — the
+      // existing get_scalar_zero / get_scalar_one return dedicated
+      // SINGLETON NODE TYPES (scalar_zero / scalar_one), not constants;
+      // promoting a rational-constant to the same API is a category
+      // mismatch (intentionally rolled back in commit ad4d824).
+      static auto const half =
+          make_expression<scalar_constant>(scalar_number{1, 2});
+      T = (sign > 0 ? T + T_swap : T - T_swap) * half;
+    }
     m_result = -inner_product(T, sequence{3, 4}, dA, sequence{1, 2});
   } else {
     throw not_implemented_error(
-        "tensor_differentiation: inv derivative for rank != 2");
+        "tensor_differentiation: inv derivative for rank != 2 not "
+        "implemented (rank-4 minor-major case tracked under #251 β-2)");
   }
 }
 

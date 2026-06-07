@@ -47,6 +47,7 @@ add_numsim_cas_test(numsim_cas_test
     TensorDifferentiationTest.h
     TensorEvaluatorTest.h
     TensorExpressionTest.h
+    TensorInvDiffSymTest.h
     TensorProjectorDifferentiationTest.h
     TensorSpacePropagationTest.h
     TensorSubstitutionTest.h
