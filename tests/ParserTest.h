@@ -535,6 +535,68 @@ TEST(ParserGrammar, BinaryFunctionLt) {
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 5}, {"y", 2}}), 0.0);
 }
 
+// ─── β-2a additions: piecewise + constitutive primitives ──────────
+
+TEST(ParserGrammar, BinaryFunctionMax) {
+  symbol_table syms;
+  auto e = parse_scalar("max(x, y)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 2}, {"y", 5}}), 5.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 7}, {"y", 5}}), 7.0);
+}
+
+TEST(ParserGrammar, BinaryFunctionMin) {
+  symbol_table syms;
+  auto e = parse_scalar("min(x, y)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 2}, {"y", 5}}), 2.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 7}, {"y", 5}}), 5.0);
+}
+
+TEST(ParserGrammar, TernaryFunctionIfThenElse) {
+  // Condition non-zero → 'then' branch.
+  symbol_table syms;
+  auto e = parse_scalar("if_then_else(c, a, b)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"c", 1}, {"a", 10}, {"b", 20}}),
+                   10.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"c", 0}, {"a", 10}, {"b", 20}}),
+                   20.0);
+}
+
+TEST(ParserGrammar, UnaryFunctionMacauleyPlus) {
+  // <e>+ = max(e, 0): clips negatives to 0.
+  symbol_table syms;
+  auto e = parse_scalar("macauley_plus(x)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3.5}}), 3.5);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", -2.0}}), 0.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 0.0}}), 0.0);
+}
+
+TEST(ParserGrammar, UnaryFunctionMacauleyMinus) {
+  // <e>- = -min(e, 0): magnitude of the negative part, 0 on positives.
+  symbol_table syms;
+  auto e = parse_scalar("macauley_minus(x)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3.5}}), 0.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", -2.0}}), 2.0);
+}
+
+TEST(ParserGrammar, UnaryFunctionHeaviside) {
+  // H(e) = ge(e, 0): right-continuous step, H(0) = 1.
+  symbol_table syms;
+  auto e = parse_scalar("heaviside(x)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 1.0}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 0.0}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", -1.0}}), 0.0);
+}
+
+TEST(ParserGrammar, BinaryFunctionSmoothedMacauley) {
+  // (e + sqrt(e² + ε²)) / 2 — for ε > 0, smooths max(e, 0).
+  symbol_table syms;
+  auto e = parse_scalar("smoothed_macauley(x, eps)", syms);
+  // At ε = 0.1, x = 1: (1 + sqrt(1 + 0.01)) / 2.
+  const double expected = (1.0 + std::sqrt(1.0 + 0.01)) / 2.0;
+  EXPECT_NEAR(eval_scalar(e, syms, {{"x", 1.0}, {"eps", 0.1}}), expected,
+              1e-12);
+}
+
 TEST(ParserGrammar, FunctionCallNestedInArithmetic) {
   // sin(x)^2 + cos(x)^2 == 1 for any x — the classic identity.
   symbol_table syms;
@@ -668,6 +730,60 @@ TEST(ParserGrammar, InvOfTensorReturnsTensor) {
   symbol_table syms;
   auto result = parse_tensor("inv(A{rank=2, dim=3})", syms);
   EXPECT_TRUE(result.is_valid());
+}
+
+// ─── β-2a additions: rank-2 projectors + outer product ────────────
+
+TEST(ParserGrammar, SymReturnsTensor) {
+  symbol_table syms;
+  auto result = parse_tensor("sym(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(result.is_valid());
+}
+
+TEST(ParserGrammar, SkewReturnsTensor) {
+  symbol_table syms;
+  auto result = parse_tensor("skew(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(result.is_valid());
+}
+
+TEST(ParserGrammar, DevReturnsTensor) {
+  symbol_table syms;
+  auto result = parse_tensor("dev(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(result.is_valid());
+}
+
+TEST(ParserGrammar, VolReturnsTensor) {
+  symbol_table syms;
+  auto result = parse_tensor("vol(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(result.is_valid());
+}
+
+TEST(ParserGrammar, SymOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("sym(x)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, OuterProductReturnsTensor) {
+  // otimes(A_ij, B_kl) is a rank-4 tensor; parser names it `otimes`
+  // or `outer_product` (alias). Both bind to the 2-arg form.
+  symbol_table syms;
+  auto e1 = parse_tensor("otimes(A{rank=2, dim=3}, B{rank=2, dim=3})", syms);
+  EXPECT_TRUE(e1.is_valid());
+  EXPECT_EQ(e1.get().rank(), 4u);
+  symbol_table syms2;
+  auto e2 =
+      parse_tensor("outer_product(A{rank=2, dim=3}, B{rank=2, dim=3})", syms2);
+  EXPECT_TRUE(e2.is_valid());
+  EXPECT_EQ(e2.get().rank(), 4u);
+}
+
+TEST(ParserGrammar, OuterProductOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("otimes(x, y)", syms); },
+      type_mismatch_error);
 }
 
 TEST(ParserGrammar, TraceOfScalarThrowsTypeMismatch) {

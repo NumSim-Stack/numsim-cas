@@ -9,14 +9,17 @@
 // Phase 2d: tensor→tensor (trans, inv) and tensor→t2s (trace, det,
 // norm, dot) added to the same table. Entries now return
 // `parsed_expression` and type-check their args against `arg_kinds`.
+// 1.0-β: piecewise + constitutive helpers (max, min, if_then_else,
+// macauley_plus, macauley_minus, heaviside, smoothed_macauley),
+// rank-2 projectors (dev, sym, vol, skew), and the 2-arg outer
+// product (`otimes`, aliased as `outer_product`).
 //
-// Not yet registered (still on unmerged PRs): max, min, if_then_else,
-// macauley_plus, macauley_minus, heaviside, smoothed_macauley
-// (#207/#208/#209). dev/sym/vol/skew projectors and inner_product /
-// outer_product / dot_product also still missing — the latter need
-// bracket-list index notation in the grammar, which is the next
-// integration after #207-#209 land. Calls to any of those names
-// fire `unknown_function_error`.
+// Overload resolution note: the registry keys on name only, so each
+// name binds to ONE dispatch entry. `if_then_else` registers the
+// 3-scalar form; the (scalar, tensor, tensor) overload would need a
+// dispatch-on-actual-types path or a separately named entry. The
+// 4-arg index-list form of `outer_product` likewise needs bracket-
+// list grammar support and is deferred.
 
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/parser/parser.h>
@@ -89,6 +92,23 @@ inline function_entry scalar_binary(auto fn) {
             return fn(std::move(l), std::move(r));
           }};
 }
+inline function_entry scalar_ternary(auto fn) {
+  return {{arg_kind::scalar, arg_kind::scalar, arg_kind::scalar},
+          [fn = std::move(fn)](arg_vec a) -> parsed_expression {
+            auto &x = std::get<scalar_expr>(a[0]);
+            auto &y = std::get<scalar_expr>(a[1]);
+            auto &z = std::get<scalar_expr>(a[2]);
+            return fn(std::move(x), std::move(y), std::move(z));
+          }};
+}
+inline function_entry tensor_binary(auto fn) {
+  return {{arg_kind::tensor, arg_kind::tensor},
+          [fn = std::move(fn)](arg_vec a) -> parsed_expression {
+            auto &l = std::get<tensor_expr>(a[0]);
+            auto &r = std::get<tensor_expr>(a[1]);
+            return fn(std::move(l), std::move(r));
+          }};
+}
 inline function_entry tensor_unary(auto fn) {
   return {{arg_kind::tensor},
           [fn = std::move(fn)](arg_vec a) -> parsed_expression {
@@ -155,7 +175,9 @@ function_registry() {
   static auto const r = [] {
     std::unordered_map<std::string, function_entry> m;
     using detail::scalar_binary;
+    using detail::scalar_ternary;
     using detail::scalar_unary;
+    using detail::tensor_binary;
     using detail::tensor_to_scalar_unary;
     using detail::tensor_unary;
 
@@ -187,10 +209,45 @@ function_registry() {
     m.emplace("ge", scalar_binary([](auto a, auto b) { return ge(a, b); }));
     m.emplace("eq", scalar_binary([](auto a, auto b) { return eq(a, b); }));
     m.emplace("ne", scalar_binary([](auto a, auto b) { return ne(a, b); }));
+    m.emplace("max", scalar_binary([](auto a, auto b) { return max(a, b); }));
+    m.emplace("min", scalar_binary([](auto a, auto b) { return min(a, b); }));
+    m.emplace("smoothed_macauley", scalar_binary([](auto e, auto eps) {
+                return smoothed_macauley(e, eps);
+              }));
+
+    // ─── Scalar unary (piecewise / constitutive) ───────────────
+    m.emplace("macauley_plus",
+              scalar_unary([](auto x) { return macauley_plus(x); }));
+    m.emplace("macauley_minus",
+              scalar_unary([](auto x) { return macauley_minus(x); }));
+    m.emplace("heaviside",
+              scalar_unary([](auto x) { return heaviside(x); }));
+
+    // ─── Scalar ternary (piecewise) ────────────────────────────
+    // Registers the (scalar, scalar, scalar) form only. The
+    // (scalar cond, tensor then, tensor else) overload from
+    // tensor_std.h needs a separately-named entry — the registry
+    // is keyed on name alone.
+    m.emplace("if_then_else", scalar_ternary([](auto c, auto t, auto e) {
+                return if_then_else(c, t, e);
+              }));
 
     // ─── Tensor → tensor ───────────────────────────────────────
     m.emplace("trans", tensor_unary([](auto t) { return trans(t); }));
     m.emplace("inv", tensor_unary([](auto t) { return inv(t); }));
+    m.emplace("sym", tensor_unary([](auto t) { return sym(t); }));
+    m.emplace("dev", tensor_unary([](auto t) { return dev(t); }));
+    m.emplace("vol", tensor_unary([](auto t) { return vol(t); }));
+    m.emplace("skew", tensor_unary([](auto t) { return skew(t); }));
+
+    // 2-arg outer product. The 4-arg index-list variant
+    // (otimes(A, [i...], B, [j...])) is deferred until the grammar
+    // grows bracket-list literals. `outer_product` is registered as
+    // an alias for users who prefer the long name.
+    m.emplace("otimes",
+              tensor_binary([](auto a, auto b) { return otimes(a, b); }));
+    m.emplace("outer_product",
+              tensor_binary([](auto a, auto b) { return otimes(a, b); }));
 
     // ─── Tensor → t2s ──────────────────────────────────────────
     m.emplace("trace", tensor_to_scalar_unary([](auto t) { return trace(t); }));
