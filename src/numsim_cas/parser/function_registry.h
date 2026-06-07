@@ -9,10 +9,10 @@
 // Phase 2d: tensor→tensor (trans, inv) and tensor→t2s (trace, det,
 // norm, dot) added to the same table. Entries now return
 // `parsed_expression` and type-check their args against `arg_kinds`.
-// 1.0-β: piecewise + constitutive helpers (max, min, if_then_else,
-// macauley_plus, macauley_minus, heaviside, smoothed_macauley),
-// rank-2 projectors (dev, sym, vol, skew), and the 2-arg outer
-// product (`otimes`, aliased as `outer_product`).
+// 1.0-β: piecewise / clamp helpers (max, min, if_then_else),
+// constitutive primitives (macauley_plus, macauley_minus, heaviside,
+// smoothed_macauley), rank-2 projectors (dev, sym, vol, skew), and
+// the 2-arg outer product (`otimes`, aliased as `outer_product`).
 //
 // Overload resolution note: the registry keys on name only, so each
 // name binds to ONE dispatch entry. `if_then_else` registers the
@@ -20,6 +20,28 @@
 // dispatch-on-actual-types path or a separately named entry. The
 // 4-arg index-list form of `outer_product` likewise needs bracket-
 // list grammar support and is deferred.
+//
+// Aliasing policy (#229): `outer_product` is the first long-form
+// alias to land. Policy chosen here, applied going forward: aliases
+// are added only when the C++ name is a domain-specific abbreviation
+// that non-domain users wouldn't recognize (`otimes` → tensor-product
+// notation from differential geometry). Names like `asin`, `acos`,
+// `log` etc. that come from std::math do NOT get long-form aliases —
+// those are already universal. A future name-vs-alias question
+// should be decided against this rule before adding to the registry.
+//
+// Round-trip (β-2d) caveat: several registered names construct
+// compound expressions out of existing AST nodes rather than
+// producing a dedicated node of their own. Those are:
+//   sinh, cosh, tanh, asinh, acosh, atanh, log10 (pre-existing),
+//   macauley_plus, macauley_minus, heaviside, smoothed_macauley.
+// Their printed form is the LOWERED expression (e.g. macauley_plus(x)
+// prints as `max(x, 0)`), so parse→print→parse is SEMANTICALLY
+// round-trip (hash-equal — locked in by the *LowersTo* tests in
+// ParserTest.h) but NOT SYNTACTICALLY round-trip (the source name is
+// irrecoverable from the printed form). β-2d should pick a stance
+// (semantic-only vs. add dedicated AST nodes for these names) — this
+// PR locks in the current state so the choice is visible.
 
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/parser/parser.h>
@@ -227,6 +249,9 @@ function_registry() {
     // (scalar cond, tensor then, tensor else) overload from
     // tensor_std.h needs a separately-named entry — the registry
     // is keyed on name alone.
+    // (IfThenElseTensorBranchesRaiseTypeMismatch in ParserTest.h
+    //  pins the rejection so a future fix that broadens the entry
+    //  without updating this comment fails the test.)
     m.emplace("if_then_else", scalar_ternary([](auto c, auto t, auto e) {
                 return if_then_else(c, t, e);
               }));

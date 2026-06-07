@@ -651,6 +651,48 @@ TEST(ParserGrammar, BinaryFunctionSmoothedMacauley) {
               1e-12);
 }
 
+TEST(ParserGrammar, MacauleyPlusLowersToMax) {
+  // Pass-3 review (architect F4 + qa F1): macauley_plus has no
+  // dedicated AST node — it constructs `max(x, 0)` at parse time.
+  // Lock the lowering with a hash check so β-2d's round-trip story
+  // has a documented baseline: SEMANTIC round-trip (hash) holds;
+  // SYNTACTIC round-trip (string) does not (printer emits
+  // `max(x, 0)`, not `macauley_plus(x)`).
+  symbol_table syms_named;
+  auto from_name = parse_scalar("macauley_plus(x)", syms_named);
+  symbol_table syms_lowered;
+  auto from_lowered = parse_scalar("max(x, 0)", syms_lowered);
+  EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+}
+
+TEST(ParserGrammar, MacauleyMinusLowersToNegMin) {
+  // macauley_minus(x) constructs `-min(x, 0)`.
+  symbol_table syms_named;
+  auto from_name = parse_scalar("macauley_minus(x)", syms_named);
+  symbol_table syms_lowered;
+  auto from_lowered = parse_scalar("-min(x, 0)", syms_lowered);
+  EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+}
+
+TEST(ParserGrammar, HeavisideLowersToGe) {
+  // heaviside(x) constructs `ge(x, 0)` (right-continuous step).
+  symbol_table syms_named;
+  auto from_name = parse_scalar("heaviside(x)", syms_named);
+  symbol_table syms_lowered;
+  auto from_lowered = parse_scalar("ge(x, 0)", syms_lowered);
+  EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+}
+
+TEST(ParserGrammar, SmoothedMacauleyLowersToArithmetic) {
+  // smoothed_macauley(x, eps) constructs `(x + sqrt(x² + eps²)) / 2`.
+  symbol_table syms_named;
+  auto from_name = parse_scalar("smoothed_macauley(x, eps)", syms_named);
+  symbol_table syms_lowered;
+  auto from_lowered =
+      parse_scalar("(x + sqrt(pow(x, 2) + pow(eps, 2))) / 2", syms_lowered);
+  EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+}
+
 TEST(ParserGrammar, BinaryFunctionSmoothedMacauleyZeroEpsCollapses) {
   // qa review M1: ε → 0 limit recovers the non-smooth Macauley
   // bracket (scalar_std.h:756). Whether the literal "0" parses to
