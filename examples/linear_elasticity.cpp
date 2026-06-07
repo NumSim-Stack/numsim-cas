@@ -54,6 +54,23 @@ int main() {
   auto [lambda, mu] = make_scalar_variable("lambda", "mu");
   auto _2 = make_scalar_constant(2);
 
+  // Assert physical constraints via the SymPy-style assumption() API:
+  //   - Strain ε is symmetric by small-strain theory: ε_ij = ε_ji.
+  //   - Lamé parameters λ, μ are positive for stable, physically
+  //     admissible materials (Poisson's ratio < 1/2 ⇒ μ > 0; bulk
+  //     modulus K = λ + 2μ/3 > 0).
+  // These flow into the simplifier and query helpers; downstream queries
+  // like is_symmetric(eps) and is_positive(mu) now answer true. Future
+  // simplifier rules can fire on these (e.g. sym(trans(ε)) → ε).
+  eps.assumption(Symmetric{});
+  lambda.assumption(positive{});
+  mu.assumption(positive{});
+
+  std::cout << "Physical assumptions asserted:\n"
+            << "  is_symmetric(ε) = " << is_symmetric(eps) << "\n"
+            << "  is_positive(λ)  = " << is_positive(lambda) << "\n"
+            << "  is_positive(μ)  = " << is_positive(mu) << "\n\n";
+
   // Strain energy: ψ(ε) = λ/2 (tr ε)² + μ (ε : ε)
   // tr(ε) is t2s; the squaring is via t2s × t2s product. ε:ε is the
   // double-contraction `dot(ε)` returning a t2s.

@@ -12,6 +12,7 @@ add_numsim_cas_example(scalar_differentiation scalar_differentiation.cpp)
 add_numsim_cas_example(scalar_evaluation scalar_evaluation.cpp)
 add_numsim_cas_example(tensor_basics tensor_basics.cpp)
 add_numsim_cas_example(tensor_to_scalar_basics tensor_to_scalar_basics.cpp)
+add_numsim_cas_example(assumptions_basics assumptions_basics.cpp)
 add_numsim_cas_example(linear_elasticity linear_elasticity.cpp)
 
 # Parser examples — only built when NUMSIM_CAS_BUILD_PARSER=ON, since
@@ -37,3 +38,4 @@ endif()
 # numerical mismatch.
 enable_testing()
 add_test(NAME example_linear_elasticity COMMAND linear_elasticity)
+add_test(NAME example_assumptions_basics COMMAND assumptions_basics)
