@@ -331,8 +331,11 @@ A.assumption(symmetric{}, positive_definite{});  // multi-fact assertion
 - Symbol → writes to `tensor_leaf_facts_` (or `m_tensor_space` for structural
   facts like Sym/Skew/Vol/Dev).
 - Non-Symbol → throws `invalid_assumption_error`.
-- `assume_*` helpers stay as thin wrappers around `assumption()` for backwards
-  compatibility within numsim-cas; do not advertise them in 1.0 docs.
+- `assume_*` helpers remain available as the legacy entry point and
+  ARE documented in the per-domain docs alongside `assumption()` — real
+  user code will encounter them, and pretending they don't exist would
+  hurt discoverability. (Earlier draft said "don't advertise"; that
+  decision was reversed in step 7's doc audit.)
 
 **Variadic-call API contract** (architect step-5 prep):
 
@@ -441,9 +444,20 @@ Audit results:
   documenting the variadic API, the legacy helpers, the supported tags
   + implication chains, closed-form constant pre-annotations, and the
   known query-limitation for t2s holders.
-- **`assumption()` is stable public API**. Documented in the per-domain
-  docs as the primary fluent entry point; legacy helpers
-  (`assume(holder, tag)`, `assume_*(holder)`) remain supported.
+- **`assumption()` documented as the intended-stable public API**.
+  No mechanical enforcement (no `[[stable]]` markers, no API-freeze
+  CI gate) — the stability is a documentation contract, not a code
+  contract. A future contributor can still change the signature; the
+  domain doc + this scoping doc are the only "lockdown" surface.
+  Legacy helpers (`assume(holder, tag)`, `assume_*(holder)`) remain
+  documented and supported.
+
+**Honest caveat on the "Cleanup and 1.0 lockdown" framing**: the audit
+revealed no dead code to clean (`set_inferred()` is live, the
+`tensor_algebra_assumptions()` rename never happened). What shipped is
+domain-doc updates. No version bump, no `[[deprecated]]` markers, no
+CHANGELOG entry. The scoping doc has been updated to reflect what was
+actually delivered.
 
 ---
 
