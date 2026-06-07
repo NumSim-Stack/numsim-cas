@@ -658,11 +658,15 @@ TEST(ParserGrammar, MacauleyPlusLowersToMax) {
   // has a documented baseline: SEMANTIC round-trip (hash) holds;
   // SYNTACTIC round-trip (string) does not (printer emits
   // `max(x, 0)`, not `macauley_plus(x)`).
+  // Pass-4 hardening (qa): also assert the node type so a
+  // hypothetical hash-coincidental rewrite to a different node would
+  // be caught (paranoid but cheap — the assertion documents intent).
   symbol_table syms_named;
   auto from_name = parse_scalar("macauley_plus(x)", syms_named);
   symbol_table syms_lowered;
   auto from_lowered = parse_scalar("max(x, 0)", syms_lowered);
   EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+  EXPECT_TRUE(is_same<scalar_max>(from_name));
 }
 
 TEST(ParserGrammar, MacauleyMinusLowersToNegMin) {
@@ -672,6 +676,7 @@ TEST(ParserGrammar, MacauleyMinusLowersToNegMin) {
   symbol_table syms_lowered;
   auto from_lowered = parse_scalar("-min(x, 0)", syms_lowered);
   EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+  EXPECT_TRUE(is_same<scalar_negative>(from_name));
 }
 
 TEST(ParserGrammar, HeavisideLowersToGe) {
@@ -681,6 +686,7 @@ TEST(ParserGrammar, HeavisideLowersToGe) {
   symbol_table syms_lowered;
   auto from_lowered = parse_scalar("ge(x, 0)", syms_lowered);
   EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+  EXPECT_TRUE(is_same<scalar_ge>(from_name));
 }
 
 TEST(ParserGrammar, SmoothedMacauleyLowersToArithmetic) {

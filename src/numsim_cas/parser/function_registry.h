@@ -21,14 +21,16 @@
 // 4-arg index-list form of `outer_product` likewise needs bracket-
 // list grammar support and is deferred.
 //
-// Aliasing policy (#229): `outer_product` is the first long-form
-// alias to land. Policy chosen here, applied going forward: aliases
-// are added only when the C++ name is a domain-specific abbreviation
-// that non-domain users wouldn't recognize (`otimes` → tensor-product
-// notation from differential geometry). Names like `asin`, `acos`,
-// `log` etc. that come from std::math do NOT get long-form aliases —
-// those are already universal. A future name-vs-alias question
-// should be decided against this rule before adding to the registry.
+// Aliasing policy (#229): `outer_product` follows the same shape as
+// the pre-existing `dot_product` alias of `dot`. Policy chosen here,
+// applied going forward: aliases are added only when the C++ name
+// is a domain-specific abbreviation that non-domain users wouldn't
+// recognize (`otimes` → tensor-product notation from differential
+// geometry; `dot` → physics/ML terse usage). Names like `asin`,
+// `acos`, `log` etc. that come from std::math do NOT get long-form
+// aliases — those are already universal. A future name-vs-alias
+// question should be decided against this rule before adding to the
+// registry.
 //
 // Round-trip (β-2d) caveat: several registered names construct
 // compound expressions out of existing AST nodes rather than
