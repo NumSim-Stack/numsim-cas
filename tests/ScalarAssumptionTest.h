@@ -797,28 +797,43 @@ TEST_F(AssumptionFixture, Step6_ConceptDispatchT2sParityWithScalar) {
   static_assert(!numsim::cas::assumption_fact_for<TS, numsim::cas::irrational>);
 }
 
+// SFINAE flip-sentinel: detects whether `is_positive(t2s_holder)` is
+// callable. Today no such overload exists, so the concept is false.
+// When t2s `is_*` forwarders land (open decision #4 in
+// docs/sympy-assumption-redesign.md), this concept becomes true.
+namespace step6_detail {
+template <typename Holder>
+concept has_is_positive_query =
+    requires(Holder &h) { numsim::cas::is_positive(h); };
+} // namespace step6_detail
+
 TEST_F(AssumptionFixture, Step6_T2sWrapperQueryRequiresInnerUnwrap) {
   // Mixed-domain sentinel: the propagator and is_* helpers are scalar-only.
-  // A t2s wrapper around a positive scalar Symbol does NOT have its own
-  // m_assumption populated — the wrapper's assumption set is independent
-  // of the inner scalar's. Querying the wrapper directly is impossible
-  // (no is_* overload for t2s holders); the supported workaround is to
-  // unwrap and query the inner scalar.
+  // Querying a t2s holder directly for a numeric assumption is a compile
+  // error today (no overload of is_positive for t2s holders). The
+  // supported workaround is to unwrap to the inner scalar holder.
   //
-  // This test documents the current limitation. A future step (1.1 or
-  // later) could add t2s query helpers that forward through the wrapper;
-  // when that lands, the workaround portion stays valid as a parallel
-  // path, and this sentinel can be replaced with the forwarded query.
+  // The static_assert below is the FLIP detector: it pins the absence of
+  // the t2s is_* forwarder. When the feature lands, the concept evaluates
+  // to true, the static_assert fires, and a developer is forced to
+  // convert this sentinel into a forwarded-query test.
+  //
+  // QA seventh-pass review caught that the previous form (asserting on
+  // the wrapper's own m_assumption being empty) would have STAYED green
+  // even after the feature landed — a non-catching pin. The SFINAE
+  // concept correctly auto-flips.
+  static_assert(
+      !step6_detail::has_is_positive_query<numsim::cas::expression_holder<
+          numsim::cas::tensor_to_scalar_expression>>,
+      "t2s holder has no is_positive overload today. If this "
+      "static_assert fires, t2s is_* forwarders have landed — "
+      "remove this sentinel and replace with a positive-path "
+      "test asserting is_positive(wrapper) returns true.");
+
+  // Workaround demonstration: unwrap and query the inner scalar.
   numsim::cas::assume(x, numsim::cas::positive{});
   auto wrapped = numsim::cas::make_expression<
       numsim::cas::tensor_to_scalar_scalar_wrapper>(x);
-
-  // Sentinel: the wrapper's OWN assumption set is empty — the inner
-  // scalar's assumption set is what got populated.
-  EXPECT_FALSE(wrapped.get().assumptions().contains(numsim::cas::positive{}))
-      << "wrapper's m_assumption is independent of the inner scalar's";
-
-  // Workaround: unwrap and query the inner scalar.
   auto inner =
       wrapped.get<numsim::cas::tensor_to_scalar_scalar_wrapper>().expr();
   EXPECT_TRUE(numsim::cas::is_positive(inner))

@@ -402,11 +402,13 @@ constant query consistency — were all delivered piecewise in steps
 - ✅ Per-helper read order: documented in the step-3 doc table.
   Compile-time enforced by the per-helper code paths; no uniform-bridge
   refactor needed.
-- ✅ Closed-form constant query consistency:
+- ✅ Tensor closed-form constant query consistency:
   `Step6.ClosedFormConstantQueryConsistency` pins that `tensor_zero`
   (helper short-circuit), `identity_tensor` (ctor pre-annotation),
   and `tensor_projector` (ctor pre-annotation) all answer
-  `is_symmetric` the same way.
+  `is_symmetric` the same way. (Scalar `scalar_constant` and t2s
+  `tensor_to_scalar_zero/one` consistency is covered by their
+  domain-specific test batteries — they don't need a tensor-side sweep.)
 - ✅ Cross-domain concept dispatch parity:
   `Step6_ConceptDispatchT2sParityWithScalar` pins that the
   `assumption_fact_for` concept produces the same answer through both
