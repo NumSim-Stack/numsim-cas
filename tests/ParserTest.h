@@ -595,7 +595,7 @@ TEST(ParserGrammar, TernaryFunctionIfThenElseArityErrors) {
       arity_error);
 }
 
-TEST(ParserGrammar, TernaryFunctionIfThenElseTensorBranchesNotReachable) {
+TEST(ParserGrammar, IfThenElseTensorBranchesRaiseTypeMismatch) {
   // Code-reviewer MED-2: documents the partial-coverage decision in
   // function_registry.h — the (scalar cond, tensor then, tensor else)
   // overload from tensor_std.h is unreachable from the parser, and
