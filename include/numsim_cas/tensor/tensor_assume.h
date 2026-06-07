@@ -18,38 +18,45 @@ namespace numsim::cas {
 // already classified by their type) or semantically wrong (compounds
 // derive structure from children, not from user assertion).
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void assume_symmetric(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_symmetric");
   expr.data()->set_space({Symmetric{}, AnyTraceTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void assume_skew(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_skew");
   expr.data()->set_space({Skew{}, AnyTraceTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_volumetric(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_volumetric");
   expr.data()->set_space({Symmetric{}, VolumetricTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_deviatoric(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_deviatoric");
   expr.data()->set_space({Symmetric{}, DeviatoricTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void assume_minor(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_minor");
   expr.data()->set_space({Minor{}, AnyTraceTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void assume_major(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_major");
   expr.data()->set_space({Major{}, AnyTraceTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_minor_major(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_minor_major");
@@ -101,12 +108,14 @@ inline void set_symmetric_unless_more_specific(tensor_expression *e) {
 }
 } // namespace detail
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_orthogonal(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_orthogonal");
   expr.data()->tensor_algebra_assumptions().insert(orthogonal{});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_positive_definite(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_positive_definite");
@@ -118,6 +127,7 @@ assume_positive_definite(expression_holder<tensor_expression> const &expr) {
   detail::set_symmetric_unless_more_specific(expr.data().get());
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_positive_semidefinite");
@@ -240,6 +250,15 @@ is_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
       positive_semidefinite{});
 }
 
+// Diagnostic suppression for the apply_assumption forwarders: see
+// scalar_assume.h for the rationale. assume_*() are [[deprecated]] to
+// nudge users toward assumption(); internal forwarding from the
+// variadic API is intentional and should not warn.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 // ── apply_assumption: dispatch for expression_holder::assumption() ──
 // Found via ADL from the holder's variadic assumption() method. Each
 // overload forwards to the corresponding named assume_*() helper.
@@ -288,6 +307,10 @@ inline void apply_assumption(expression_holder<tensor_expression> &h,
                              positive_semidefinite) {
   assume_positive_semidefinite(h);
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 } // namespace numsim::cas
 

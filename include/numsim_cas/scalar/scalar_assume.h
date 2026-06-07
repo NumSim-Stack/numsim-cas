@@ -19,6 +19,7 @@ void infer_assumptions(expression_holder<scalar_expression> const &expr);
 // the assumption never propagated meaningfully — the user wanted "x and
 // y are positive" (a fact about leaves) but wrote it on the compound.
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, positive) {
   detail::require_symbol(expr.get(), "assume(positive)");
   auto &a = expr.data()->assumptions();
@@ -29,6 +30,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, positive) {
   expr.data()->assumptions().set_inferred();
 }
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, negative) {
   detail::require_symbol(expr.get(), "assume(negative)");
   auto &a = expr.data()->assumptions();
@@ -39,6 +41,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, negative) {
   expr.data()->assumptions().set_inferred();
 }
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr,
                    nonnegative) {
   detail::require_symbol(expr.get(), "assume(nonnegative)");
@@ -48,6 +51,7 @@ inline void assume(expression_holder<scalar_expression> const &expr,
   expr.data()->assumptions().set_inferred();
 }
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr,
                    nonpositive) {
   detail::require_symbol(expr.get(), "assume(nonpositive)");
@@ -57,6 +61,7 @@ inline void assume(expression_holder<scalar_expression> const &expr,
   expr.data()->assumptions().set_inferred();
 }
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, nonzero) {
   detail::require_symbol(expr.get(), "assume(nonzero)");
   auto &a = expr.data()->assumptions();
@@ -64,6 +69,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, nonzero) {
   expr.data()->assumptions().set_inferred();
 }
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, integer) {
   detail::require_symbol(expr.get(), "assume(integer)");
   auto &a = expr.data()->assumptions();
@@ -73,6 +79,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, integer) {
   expr.data()->assumptions().set_inferred();
 }
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, even) {
   detail::require_symbol(expr.get(), "assume(even)");
   auto &a = expr.data()->assumptions();
@@ -83,6 +90,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, even) {
   expr.data()->assumptions().set_inferred();
 }
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, odd) {
   detail::require_symbol(expr.get(), "assume(odd)");
   auto &a = expr.data()->assumptions();
@@ -93,6 +101,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, odd) {
   expr.data()->assumptions().set_inferred();
 }
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, prime) {
   detail::require_symbol(expr.get(), "assume(prime)");
   auto &a = expr.data()->assumptions();
@@ -106,6 +115,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, prime) {
   expr.data()->assumptions().set_inferred();
 }
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, rational) {
   detail::require_symbol(expr.get(), "assume(rational)");
   auto &a = expr.data()->assumptions();
@@ -114,6 +124,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, rational) {
   expr.data()->assumptions().set_inferred();
 }
 
+[[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, real_tag) {
   detail::require_symbol(expr.get(), "assume(real_tag)");
   auto &a = expr.data()->assumptions();
@@ -182,6 +193,16 @@ inline bool is_rational(expression_holder<scalar_expression> const &expr) {
 // → nonzero → real, etc.). The require_symbol check was already done
 // at the holder level; the assume() calls here also re-check (cheap
 // virtual call).
+//
+// Diagnostic suppression: assume() is marked [[deprecated]] to nudge
+// users toward assumption(). Internal calls from apply_assumption are
+// intentional — the variadic API delegates through the legacy helper.
+// Suppress the deprecation warning here so the variadic path doesn't
+// emit spurious warnings at every template instantiation.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 namespace detail {
 // Membership in numeric_assumption's variant alternatives that have a
@@ -215,6 +236,10 @@ inline void apply_assumption(expression_holder<scalar_expression> &h,
                              Tag &&tag) {
   assume(h, std::forward<Tag>(tag));
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 } // namespace numsim::cas
 

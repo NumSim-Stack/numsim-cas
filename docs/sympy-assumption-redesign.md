@@ -447,17 +447,22 @@ Audit results:
 - **`assumption()` documented as the intended-stable public API**.
   No mechanical enforcement (no `[[stable]]` markers, no API-freeze
   CI gate) — the stability is a documentation contract, not a code
-  contract. A future contributor can still change the signature; the
-  domain doc + this scoping doc are the only "lockdown" surface.
-  Legacy helpers (`assume(holder, tag)`, `assume_*(holder)`) remain
-  documented and supported.
+  contract.
+- **Legacy helpers `[[deprecated]]`-marked**. The architect's step-7
+  follow-up landed: 11 scalar `assume(holder, tag)` overloads and 10
+  tensor `assume_*(holder)` helpers carry `[[deprecated("use
+  expression_holder<...>::assumption() instead")]]`. Internal calls
+  from the variadic `apply_assumption` forwarders are suppressed via
+  `#pragma GCC diagnostic` so the variadic API doesn't emit its own
+  warnings. Test build downgrades deprecation-warning to non-error
+  (`-Wno-error=deprecated-declarations`) so the ~200 existing test
+  call sites keep building; warnings stay visible but don't fail CI.
 
 **Honest caveat on the "Cleanup and 1.0 lockdown" framing**: the audit
 revealed no dead code to clean (`set_inferred()` is live, the
 `tensor_algebra_assumptions()` rename never happened). What shipped is
-domain-doc updates. No version bump, no `[[deprecated]]` markers, no
-CHANGELOG entry. The scoping doc has been updated to reflect what was
-actually delivered.
+domain-doc updates plus the `[[deprecated]]` soft-deprecation. No
+version bump or API-freeze CI gate was added.
 
 ---
 
