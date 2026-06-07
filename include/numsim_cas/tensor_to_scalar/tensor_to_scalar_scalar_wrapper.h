@@ -2,6 +2,7 @@
 #define TENSOR_TO_SCALAR_SCALAR_WRAPPER_H
 
 #include <numsim_cas/core/unary_op.h>
+#include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
@@ -26,6 +27,17 @@ public:
 
   const tensor_to_scalar_scalar_wrapper &
   operator=(tensor_to_scalar_scalar_wrapper &&) = delete;
+
+  // Transparent forwarding of Symbol classification: this wrapper is the
+  // bridge that lets a named scalar (e.g. scalar("x")) appear in a t2s
+  // expression. A user who has only a `holder<t2s_expression>` referring
+  // to such a wrapped scalar should still be able to call
+  // `.assumption(...)` — the wrapped child IS a Symbol. Forward through.
+  // For non-Symbol payloads (constants, compound scalar expressions),
+  // this returns the payload's own answer (typically false).
+  [[nodiscard]] bool is_symbol() const noexcept override {
+    return this->expr().is_valid() && this->expr().get().is_symbol();
+  }
 
   friend bool operator<(tensor_to_scalar_scalar_wrapper const &lhs,
                         tensor_to_scalar_scalar_wrapper const &rhs) {
@@ -55,6 +67,37 @@ public:
     }
   }
 };
+
+// Transparent apply_assumption forwarding for the t2s scalar wrapper.
+// The holder-level require_symbol passed via is_symbol() forwarding above;
+// here we unwrap to the inner scalar holder and dispatch via its
+// apply_assumption overload (defined in scalar_assume.h). Constrained to
+// the same set of valid fact tags as the scalar overload — keeps the
+// assumption_fact_for concept's diagnostic-quality guarantees consistent
+// across domains.
+//
+// SAFETY INVARIANT: this overload assumes that any t2s node with
+// is_symbol() == true is a tensor_to_scalar_scalar_wrapper. Today that
+// is airtight because only symbol_base returns true and the only t2s
+// node forwarding is_symbol() is this wrapper. If a future t2s leaf
+// overrides is_symbol() to true without also being a wrapper, the
+// static_cast inside get<wrapper>() becomes UB in release. Whenever
+// a new t2s Symbol-shaped node is added, this overload (and its
+// invariant) MUST be revisited.
+//
+// Architect step-5 review gap: without this, a user holding
+// `expression_holder<tensor_to_scalar_expression>` over a wrapped scalar
+// Symbol would pass the holder-level guard but fail ADL on the per-fact
+// dispatch — compile error for a perfectly valid call. Fixes the
+// inconsistency between the is_symbol() forwarder (says "Symbol") and
+// the assumption() dispatch (says "no overload").
+template <typename Tag>
+requires detail::is_numeric_assumption_tag<std::remove_cvref_t<Tag>>::value
+inline void apply_assumption(expression_holder<tensor_to_scalar_expression> &h,
+                             Tag &&tag) {
+  auto inner = h.template get<tensor_to_scalar_scalar_wrapper>().expr();
+  apply_assumption(inner, std::forward<Tag>(tag));
+}
 
 } // namespace numsim::cas
 

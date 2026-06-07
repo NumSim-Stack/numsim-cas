@@ -68,7 +68,14 @@ add_numsim_cas_test(numsim_cas_fuzz_test
 
 foreach(target numsim_cas_test numsim_cas_fuzz_test)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(${target} PRIVATE -Wall -Wuninitialized -Werror=uninitialized -Wpedantic -Werror -Wextra -pedantic -Wno-error=comment -Wno-error=overloaded-virtual -Wno-error=pessimizing-move)
+        # Deprecation warnings stay visible but don't fail the build.
+        # Step 7 of the SymPy assumption-system redesign marked the
+        # legacy assume(holder, tag) and assume_*(holder) helpers as
+        # [[deprecated]] in favor of expression_holder::assumption().
+        # ~200 existing test call sites use them and would all become
+        # errors under -Werror; downgrade just this one warning so the
+        # soft-deprecation signal stays present without breaking CI.
+        target_compile_options(${target} PRIVATE -Wall -Wuninitialized -Werror=uninitialized -Wpedantic -Werror -Wextra -pedantic -Wno-error=comment -Wno-error=overloaded-virtual -Wno-error=pessimizing-move -Wno-error=deprecated-declarations)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
         target_compile_options(${target} PRIVATE /WX /bigobj /Zc:preprocessor)
     endif()

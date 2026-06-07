@@ -1,41 +1,65 @@
 #ifndef TENSOR_ASSUME_H
 #define TENSOR_ASSUME_H
 
+#include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/require_symbol.h>
 #include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_zero.h>
 
 namespace numsim::cas {
 
 // --- Set assumptions ---
+//
+// SymPy step 4: every assume_* helper guards on is_symbol() and throws
+// invalid_assumption_error on compounds / constants / wrappers. The
+// previous silent-accept behavior allowed user code to assert facts on
+// non-Symbols where the result was either redundant (constants are
+// already classified by their type) or semantically wrong (compounds
+// derive structure from children, not from user assertion).
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void assume_symmetric(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_symmetric");
   expr.data()->set_space({Symmetric{}, AnyTraceTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void assume_skew(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_skew");
   expr.data()->set_space({Skew{}, AnyTraceTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_volumetric(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_volumetric");
   expr.data()->set_space({Symmetric{}, VolumetricTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_deviatoric(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_deviatoric");
   expr.data()->set_space({Symmetric{}, DeviatoricTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void assume_minor(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_minor");
   expr.data()->set_space({Minor{}, AnyTraceTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void assume_major(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_major");
   expr.data()->set_space({Major{}, AnyTraceTag{}});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_minor_major(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_minor_major");
   expr.data()->set_space({MinorMajor{}, AnyTraceTag{}});
 }
 
@@ -84,13 +108,17 @@ inline void set_symmetric_unless_more_specific(tensor_expression *e) {
 }
 } // namespace detail
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_orthogonal(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_orthogonal");
   expr.data()->tensor_algebra_assumptions().insert(orthogonal{});
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_positive_definite(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_positive_definite");
   auto &a = expr.data()->tensor_algebra_assumptions();
   a.insert(positive_definite{});
   // PD => PSD by definition.
@@ -99,8 +127,10 @@ assume_positive_definite(expression_holder<tensor_expression> const &expr) {
   detail::set_symmetric_unless_more_specific(expr.data().get());
 }
 
+[[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_positive_semidefinite");
   auto &a = expr.data()->tensor_algebra_assumptions();
   a.insert(positive_semidefinite{});
   detail::set_symmetric_unless_more_specific(expr.data().get());
@@ -120,6 +150,12 @@ inline void remove_assumption(expression_holder<tensor_expression> const &expr,
 // --- Query assumptions ---
 
 inline bool is_symmetric(expression_holder<tensor_expression> const &expr) {
+  // Zero short-circuit: 0 = 0^T trivially, so zero is symmetric at any rank.
+  // tensor_zero never appears as a subterm (collapse-rules ensure it's only
+  // ever a top-level result), so direct holder queries are the only path
+  // that reaches this. See docs/sympy-assumption-redesign.md.
+  if (is_same<tensor_zero>(expr))
+    return true;
   // PD / PSD imply symmetric independently of the projector-space tag, so
   // a user who annotates PD then calls clear_space() still sees symmetric.
   auto const &a = expr.get().tensor_algebra_assumptions();
@@ -128,6 +164,19 @@ inline bool is_symmetric(expression_holder<tensor_expression> const &expr) {
   auto const &sp = expr.get().space();
   if (!sp)
     return false;
+  // MinorMajor at rank-4 is the "fully symmetric" rank-4 case (both minor
+  // C_ijkl = C_jikl = C_ijlk and major C_ijkl = C_klij symmetries). The
+  // canonical example is the rank-4 minor identity δ_ik·δ_jl. classify_space
+  // maps MinorMajor → Other (it's not a rank-2 perm classification), so we
+  // need an explicit branch — same cross-mechanism pattern as the PD check.
+  // Plain Minor or plain Major alone don't make a tensor "symmetric" in the
+  // strongest sense, so they're not included here. Trace gate: a
+  // {MinorMajor, VolumetricTag} combination is constructible via set_space
+  // but not via any assume_* helper; the rank-4 MinorMajor classification
+  // is only well-defined with AnyTraceTag (no trace constraint applied).
+  if (std::holds_alternative<MinorMajor>(sp->perm) &&
+      std::holds_alternative<AnyTraceTag>(sp->trace))
+    return true;
   auto kind = classify_space(*sp);
   // Sym, Vol, Dev are all subspaces of Sym
   return kind == ProjKind::Sym || kind == ProjKind::Vol ||
@@ -135,6 +184,11 @@ inline bool is_symmetric(expression_holder<tensor_expression> const &expr) {
 }
 
 inline bool is_skew(expression_holder<tensor_expression> const &expr) {
+  // Zero short-circuit: 0 = -0^T trivially, so zero is also skew. This is
+  // the one place Sym and Skew can both be true for the same expression;
+  // every other concrete expression has a single perm classification.
+  if (is_same<tensor_zero>(expr))
+    return true;
   auto const &sp = expr.get().space();
   if (!sp)
     return false;
@@ -195,6 +249,73 @@ is_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
   return expr.get().tensor_algebra_assumptions().contains(
       positive_semidefinite{});
 }
+
+// Diagnostic suppression for the apply_assumption forwarders: see
+// scalar_assume.h for the rationale. assume_*() are [[deprecated]] to
+// nudge users toward assumption(); internal forwarding from the
+// variadic API is intentional and should not warn.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
+
+// ── apply_assumption: dispatch for expression_holder::assumption() ──
+// Found via ADL from the holder's variadic assumption() method. Each
+// overload forwards to the corresponding named assume_*() helper.
+// Tensor facts span two storage layers:
+//   - Structural perm/trace classification → m_tensor_space (via the
+//     per-fact-type tag overloads on Symmetric, Skew, etc.)
+//   - Algebraic facts (orthogonal, PD, PSD) → m_tensor_algebra_assumptions
+//
+// The require_symbol check happens at the holder level; the assume_*
+// helpers also re-check (cheap virtual call).
+
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             Symmetric) {
+  assume_symmetric(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h, Skew) {
+  assume_skew(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h, Minor) {
+  assume_minor(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h, Major) {
+  assume_major(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             MinorMajor) {
+  assume_minor_major(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             VolumetricTag) {
+  assume_volumetric(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             DeviatoricTag) {
+  assume_deviatoric(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             orthogonal) {
+  assume_orthogonal(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             positive_definite) {
+  assume_positive_definite(h);
+}
+inline void apply_assumption(expression_holder<tensor_expression> &h,
+                             positive_semidefinite) {
+  assume_positive_semidefinite(h);
+}
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 } // namespace numsim::cas
 

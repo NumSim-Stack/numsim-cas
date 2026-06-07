@@ -459,9 +459,11 @@ TEST_F(ScalarFixture, AbsSimplification) {
   assume(py, positive{});
   EXPECT_PRINT(abs(neg_py), "py");
 
-  // abs(positive constant) → constant
+  // abs(positive constant) → constant. scalar_constant now self-annotates
+  // its sign assumptions from the value (SymPy step 4); no user assume()
+  // needed. The previous assume() call would now throw because constants
+  // aren't Symbols.
   auto c5 = make_expression<scalar_constant>(5);
-  assume(c5, positive{});
   EXPECT_PRINT(abs(c5), "5");
 }
 

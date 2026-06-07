@@ -26,11 +26,33 @@ public:
 
   tensor_projector(std::size_t dim, std::size_t acts_on_rank,
                    tensor_space space)
-      : base(dim, 2 * acts_on_rank), r_(acts_on_rank),
-        space_(std::move(space)) {}
+      : base(dim, 2 * acts_on_rank), r_(acts_on_rank) {
+    // Single source of truth: the projector's classification lives in the
+    // base m_tensor_space (no separate space_ member). The non-optional
+    // space() accessor below derefs the optional. Same closed-form-constant
+    // pre-annotation pattern as identity_tensor — see
+    // docs/sympy-assumption-redesign.md step 2.
+    this->set_space(std::move(space));
+  }
 
   std::size_t acts_on_rank() const { return r_; }
-  const tensor_space &space() const { return space_; }
+  // Non-optional accessor — projector's m_tensor_space is always populated
+  // at construction. Hides the inherited std::optional return for
+  // projector-specific call sites (evaluator, projector_algebra::classify)
+  // that need the value directly. The invariant is enforced by the
+  // clear_space() override below being a no-op.
+  const tensor_space &space() const {
+    assert(this->m_tensor_space.has_value() &&
+           "tensor_projector::space invariant violated");
+    return *this->m_tensor_space;
+  }
+
+  // Closed-form constant: structural classification is intrinsic. See
+  // identity_tensor for the same override rationale. Without this,
+  // clear_space() called through a tensor_expression* would leave
+  // m_tensor_space empty and the next space() deref would be release-mode
+  // UB.
+  void clear_space() noexcept override {}
 
   friend bool operator<(tensor_projector const &lhs,
                         tensor_projector const &rhs) {
@@ -57,8 +79,9 @@ public:
     hash_combine(base::m_hash_value, base::get_id());
     hash_combine(base::m_hash_value, this->dim());
     hash_combine(base::m_hash_value, r_);
-    hash_combine(base::m_hash_value, space_.perm.index());
-    hash_combine(base::m_hash_value, space_.trace.index());
+    auto const &sp = this->space();
+    hash_combine(base::m_hash_value, sp.perm.index());
+    hash_combine(base::m_hash_value, sp.trace.index());
     std::visit(
         [this](auto const &v) {
           using T = std::decay_t<decltype(v)>;
@@ -67,7 +90,7 @@ public:
               hash_combine(base::m_hash_value, block);
           }
         },
-        space_.perm);
+        sp.perm);
     std::visit(
         [this](auto const &v) {
           using T = std::decay_t<decltype(v)>;
@@ -78,12 +101,11 @@ public:
             }
           }
         },
-        space_.trace);
+        sp.trace);
   }
 
 private:
   std::size_t r_;
-  tensor_space space_;
 };
 
 inline auto make_projector(std::size_t dim, std::size_t r,

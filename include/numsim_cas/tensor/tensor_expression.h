@@ -53,7 +53,14 @@ public:
     return m_tensor_space;
   }
   void set_space(tensor_space s) noexcept { m_tensor_space = std::move(s); }
-  void clear_space() noexcept { m_tensor_space.reset(); }
+  // Virtualized so closed-form constants (identity_tensor, tensor_projector,
+  // ...) can override to a no-op. Their structural classification is
+  // intrinsic to the type, not user-supplied — clearing would create
+  // is_symmetric(I) == false (release-mode UB on projector::space() after
+  // a clear). One virtual call here; called once in
+  // tensor_add::join_child_space on this (an n_ary_tree, not a closed-form
+  // constant), so the overhead is irrelevant in practice.
+  virtual void clear_space() noexcept { m_tensor_space.reset(); }
 
   // Algebra-property assumptions on the tensor's values (orthogonal, PD,
   // PSD). Orthogonal to the projector-space classification carried by

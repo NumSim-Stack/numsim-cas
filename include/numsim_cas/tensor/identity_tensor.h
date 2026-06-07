@@ -79,11 +79,26 @@ public:
   using base = tensor_node_base_t<identity_tensor>;
 
   identity_tensor() = delete;
-  identity_tensor(std::size_t dim, std::size_t rank) : base(dim, rank) {}
-  identity_tensor(identity_tensor &&data) noexcept
-      : base(static_cast<base &&>(data), data.dim(), data.rank()) {}
-  identity_tensor(identity_tensor const &data)
-      : base(static_cast<base const &>(data), data.dim(), data.rank()) {}
+  identity_tensor(std::size_t dim, std::size_t rank) : base(dim, rank) {
+    // Pre-annotate the structural classification (SymPy-style closed-form
+    // constant — see docs/sympy-assumption-redesign.md). Same pattern as
+    // tensor_to_scalar_zero / tensor_to_scalar_one. The annotation is
+    // preserved by the defaulted copy/move ctors below, which route through
+    // tensor_expression's 1-arg copy/move ctor (the form that copies
+    // m_tensor_space — see tensor_expression.h:30).
+    if (auto sp = space_for_rank(rank))
+      this->set_space(*sp);
+  }
+  // Defaulted copy/move: the implicit base copy/move uses
+  // tensor_expression's 1-arg ctor which preserves m_tensor_space, so the
+  // pre-annotation set in the by-name ctor above survives. Previously we
+  // used the 3-arg form which drops m_tensor_space and required an
+  // explicit re-apply — that pattern was a latent footgun (and made the
+  // move ctor's noexcept fragile if a future rank branch used a
+  // vector-bearing variant). Locked in by
+  // TensorAlgebraIdentityAssumptions.{Move,Copy}PreservesAnnotation.
+  identity_tensor(identity_tensor &&data) noexcept = default;
+  identity_tensor(identity_tensor const &data) = default;
   ~identity_tensor() override = default;
   const identity_tensor &operator=(identity_tensor &&) = delete;
 
@@ -99,6 +114,30 @@ public:
     hash_combine(base::m_hash_value, base::get_id());
     hash_combine(base::m_hash_value, this->dim());
     hash_combine(base::m_hash_value, this->rank());
+  }
+
+  // Closed-form constant: the structural classification is intrinsic to the
+  // type and cannot be removed. Override the base's clear_space() to a
+  // no-op so an external caller invoking clear_space() through a
+  // tensor_expression* doesn't silently break is_symmetric(I). Same
+  // override on tensor_projector. (Release-mode safety: the previous
+  // assert-only guard was a release-mode UB hazard since clear_space() is
+  // inherited public and non-virtual would have been clearable.)
+  void clear_space() noexcept override {}
+
+private:
+  // Closed-form structural classification by rank. Rank-2 is Kronecker δ_ij
+  // (Symmetric). Rank-4 minor identity is δ_ik·δ_jl (MinorMajor — fully
+  // symmetric at rank-4). Higher ranks return nullopt; the variant has no
+  // general "all-pairs-minor" alternative and higher-rank identity is
+  // rarely queried. Open decision tracked in
+  // docs/sympy-assumption-redesign.md.
+  static std::optional<tensor_space> space_for_rank(std::size_t rank) noexcept {
+    if (rank == 2)
+      return tensor_space{Symmetric{}, AnyTraceTag{}};
+    if (rank == 4)
+      return tensor_space{MinorMajor{}, AnyTraceTag{}};
+    return std::nullopt;
   }
 };
 
