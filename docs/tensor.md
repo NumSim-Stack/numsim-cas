@@ -486,7 +486,10 @@ Space tags propagate through compounds at construction time:
 - `α · A` — `tensor_scalar_mul` preserves the tensor's space
 - `−A` — `tensor_negative` preserves the space
 - `trans(A)` — folds to `A` when Sym is set, to `−A` when Skew is set
-- `inv(A)` — propagates Sym, PD, PSD; folds to `trans(A)` when orthogonal
+- `inv(A)` — propagates the input's structural space tag (Sym, Vol, Dev,
+  Minor, MinorMajor, ...) unchanged at rank-2; additionally propagates
+  PD and PSD via the algebra-assumption manager with cross-mechanism
+  Sym implication. Folds to `trans(A)` when the input is `orthogonal`.
 
 ## File Reference
 
