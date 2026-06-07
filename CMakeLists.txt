@@ -15,6 +15,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(GNUInstallDirs)
 include(FetchContent)
+include(CMakePackageConfigHelpers)
 
 # -----------------------------
 # Options
@@ -37,22 +38,35 @@ set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 # -----------------------------
 # Dependencies: tmech
 # -----------------------------
-# Pinned FetchContent — no find_package. Header-only, fast to fetch, and
-# pinning avoids the stale-system-install footgun from #248 (older tmech
-# silently produces NaN through the rank-4 Voigt inv path). Bump the
-# GIT_TAG as a separate maintenance PR.
-set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-  tmech
-  GIT_REPOSITORY https://github.com/petlenz/tmech.git
-  GIT_TAG db5d8aa
-)
-FetchContent_MakeAvailable(tmech)
-set(BUILD_TESTS ON CACHE BOOL "" FORCE)
-set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
-# tmech::tmech is an ALIAS — resolve to real target name and mark as SYSTEM
-# so its warnings don't pollute our build.
+# tmech dependency. Strategy:
+#   1. Try find_package(tmech) — supports downstream consumers who have
+#      already installed tmech, and is required for the installable-
+#      package smoke test (#84).
+#   2. If not found, FetchContent a PINNED tag (#248: stale-system tmech
+#      silently produces NaN through the rank-4 Voigt inv path; pinning
+#      to a known-good commit avoids that footgun). Bump GIT_TAG as a
+#      separate maintenance PR.
+set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE OFF)
+find_package(tmech QUIET)
+if(tmech_FOUND)
+  set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE ON)
+else()
+  # Disable tmech's own tests and examples (it uses BUILD_TESTS/BUILD_EXAMPLES).
+  set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(
+    tmech
+    GIT_REPOSITORY https://github.com/petlenz/tmech.git
+    GIT_TAG db5d8aa
+  )
+  FetchContent_MakeAvailable(tmech)
+  # Restore so our own tests/examples are not affected.
+  set(BUILD_TESTS ON CACHE BOOL "" FORCE)
+  set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
+endif()
+
+# tmech::tmech is an ALIAS — resolve to the real target so set_target_properties
+# can mark its includes as SYSTEM (suppresses third-party header warnings).
 get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
 if(NOT _tmech_real)
   set(_tmech_real tmech::tmech)
@@ -255,7 +269,12 @@ endif()
 # -----------------------------
 # Install
 # -----------------------------
-if(NUMSIM_CAS_INSTALL_LIBRARY)
+set(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST OFF)
+if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE)
+  set(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST ON)
+  set(NUMSIM_CAS_INSTALL_CMAKEDIR
+      "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS")
+
   install(TARGETS ${PROJECT_NAME}
     EXPORT NumSim_CASTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -274,14 +293,8 @@ if(NUMSIM_CAS_INSTALL_LIBRARY)
       PATTERN "*.tpp"
   )
 
-  if(tmech_FOUND)
-    install(EXPORT NumSim_CASTargets
-      NAMESPACE NumSim_CAS::
-      DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS"
-    )
-  endif()
-
-  # Parser library + its public headers (conditional on the option).
+  # Parser library + its public headers (must register with the export
+  # set BEFORE install(EXPORT) runs below).
   if(NUMSIM_CAS_BUILD_PARSER)
     install(TARGETS NumSim_CAS_Parser
       EXPORT NumSim_CASTargets
@@ -295,6 +308,43 @@ if(NUMSIM_CAS_INSTALL_LIBRARY)
       FILES_MATCHING PATTERN "*.h"
     )
   endif()
+
+  install(EXPORT NumSim_CASTargets
+    NAMESPACE NumSim_CAS::
+    DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
+  )
+
+  write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+  )
+
+  configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NumSim_CASConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfig.cmake"
+    INSTALL_DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
+  )
+
+  install(
+    FILES
+      "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfig.cmake"
+      "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfigVersion.cmake"
+    DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
+  )
+elseif(NUMSIM_CAS_INSTALL_LIBRARY)
+  # NUMSIM_CAS_INSTALL_LIBRARY=ON but tmech was FetchContent'd (not found
+  # as an external package). The install(TARGETS ...) above is skipped
+  # entirely — nothing is written to the install prefix. Use WARNING so
+  # users who set the option intentionally see the silent regression
+  # (STATUS is easily lost in CMake's normal output, especially via IDE
+  # configure runs).
+  message(WARNING
+    "NUMSIM_CAS_INSTALL_LIBRARY is ON, but install was SKIPPED because "
+    "tmech is not an installable external package in this build (it was "
+    "fetched via FetchContent). To produce an installable NumSim_CAS "
+    "package, install tmech first (so find_package(tmech) succeeds), "
+    "then reconfigure.")
 endif()
 
 # -----------------------------

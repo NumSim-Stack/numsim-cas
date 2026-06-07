@@ -89,3 +89,19 @@ if(NUMSIM_CAS_BUILD_PARSER)
     target_compile_definitions(numsim_cas_test PRIVATE NUMSIM_CAS_PARSER_ENABLED)
     target_link_libraries(numsim_cas_test PRIVATE NumSim_CAS::Parser)
 endif()
+
+# Package install smoke test (PR #84): verifies that a downstream consumer
+# can find_package(NumSim_CAS) from the install tree. Pure CMake test
+# (no C++ compilation step). Gated on NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST
+# because it requires a fully populated install prefix.
+if(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
+  add_test(
+    NAME numsim_cas_package_smoke
+    COMMAND
+      ${CMAKE_COMMAND}
+      -DNUMSIM_CAS_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+      -DNUMSIM_CAS_BINARY_DIR=${CMAKE_BINARY_DIR}
+      -DTEST_CONFIG=$<CONFIG>
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/package_smoke/package_smoke_test.cmake
+  )
+endif()
