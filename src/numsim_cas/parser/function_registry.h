@@ -243,14 +243,22 @@ inline function_entry inner_product_entry() {
 }
 
 // Tensor-constant factories. Function-form: `zero_tensor(dim, rank)`,
-// `identity_tensor(dim, rank)`, `eps(dim)`. The plan originally
-// considered literal-form (`0{rank=R, dim=D}`, `I{rank=R, dim=D}`,
-// `eps{dim=D}`) matching the existing tensor_decl syntax, but those
-// shapes either need new grammar rules (number-literal followed by
-// `{`) or shadow user variable names (`I` and `eps` are legal scalar
-// identifiers). Function-form is unambiguous, reuses existing
-// dispatch, and is consistent with `permute_indices`. The literal
-// form is a separate design decision deferred to a follow-up.
+// `identity_tensor(dim, rank)`, `levi_civita(dim)`. The plan
+// originally considered literal-form (`0{rank=R, dim=D}`,
+// `I{rank=R, dim=D}`, `eps{dim=D}`) matching the existing
+// tensor_decl syntax, but those shapes either need new grammar rules
+// (number-literal followed by `{`) or shadow user variable names
+// (`I`, `eps` are common scalar identifiers). Function-form is
+// unambiguous, reuses existing dispatch, and is consistent with
+// `permute_indices`. The literal form is a separate design decision
+// deferred to a follow-up.
+//
+// Naming: `levi_civita` matches the C++ free function in
+// tensor_std.h rather than the printer's short `eps{N}` form
+// (#281 review M1). `eps` is a common scalar variable name (machine
+// epsilon, Newton tolerance) so registering it as a function would
+// shadow user programs that bind it — long-form registration only
+// per the aliasing policy at the top of this file.
 inline function_entry zero_tensor_entry() {
   return {{arg_kind::scalar, arg_kind::scalar},
           [](arg_vec a) -> parsed_expression {
@@ -271,10 +279,10 @@ inline function_entry identity_tensor_entry() {
             return make_expression<identity_tensor>(dim, rank);
           }};
 }
-inline function_entry eps_entry() {
+inline function_entry levi_civita_entry() {
   return {{arg_kind::scalar}, [](arg_vec a) -> parsed_expression {
             auto const &dim_arg = std::get<scalar_expr>(a[0]);
-            auto dim = to_positive_size_t(dim_arg, "eps", "dim");
+            auto dim = to_positive_size_t(dim_arg, "levi_civita", "dim");
             // Qualified call: dim is std::size_t which provides no ADL
             // hook into numsim::cas.
             return ::numsim::cas::levi_civita(dim);
@@ -412,7 +420,7 @@ function_registry() {
     // ─── Tensor constants (function-form; β-2c) ────────────────
     m.emplace("zero_tensor", detail::zero_tensor_entry());
     m.emplace("identity_tensor", detail::identity_tensor_entry());
-    m.emplace("eps", detail::eps_entry());
+    m.emplace("levi_civita", detail::levi_civita_entry());
 
     // ─── Index permutation (tensor, [idx]) ─────────────────────
     m.emplace("permute_indices", detail::permute_indices_entry());

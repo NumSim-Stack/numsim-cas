@@ -965,8 +965,7 @@ TEST(ParserGrammar, ZeroTensorFactoryBuildsTensorZero) {
   // dim+rank in tensor_zero, so a wrong arg order would fail.
   symbol_table syms;
   auto from_name = parse_tensor("zero_tensor(3, 2)", syms);
-  auto expected = expression_holder<tensor_expression>{
-      std::make_shared<tensor_zero>(std::size_t{3}, std::size_t{2})};
+  auto expected = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
   EXPECT_EQ(from_name.get().hash_value(), expected.get().hash_value());
   EXPECT_EQ(from_name.get().rank(), 2u);
   EXPECT_EQ(from_name.get().dim(), 3u);
@@ -975,21 +974,38 @@ TEST(ParserGrammar, ZeroTensorFactoryBuildsTensorZero) {
 TEST(ParserGrammar, IdentityTensorFactoryBuildsIdentity) {
   symbol_table syms;
   auto from_name = parse_tensor("identity_tensor(3, 2)", syms);
-  auto expected = expression_holder<tensor_expression>{
-      std::make_shared<identity_tensor>(std::size_t{3}, std::size_t{2})};
+  auto expected =
+      make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
   EXPECT_EQ(from_name.get().hash_value(), expected.get().hash_value());
   EXPECT_EQ(from_name.get().rank(), 2u);
   EXPECT_EQ(from_name.get().dim(), 3u);
 }
 
-TEST(ParserGrammar, EpsFactoryBuildsLeviCivita) {
-  // eps(3) → levi_civita_tensor(dim=3). Rank == dim for LC.
+TEST(ParserGrammar, LeviCivitaFactoryBuildsTensor) {
+  // levi_civita(3) → levi_civita_tensor(dim=3). Rank == dim for LC.
+  // Renamed from `eps` (#281 review M1) because `eps` is a standard
+  // scalar identifier for machine epsilon / Newton tolerance.
   symbol_table syms;
-  auto from_name = parse_tensor("eps(3)", syms);
+  auto from_name = parse_tensor("levi_civita(3)", syms);
   auto expected = numsim::cas::levi_civita(std::size_t{3});
   EXPECT_EQ(from_name.get().hash_value(), expected.get().hash_value());
   EXPECT_EQ(from_name.get().rank(), 3u);
   EXPECT_EQ(from_name.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, LeviCivitaCoversMultipleDims) {
+  // Dim 2 / 4 stress separate code paths in the LC factory. The
+  // happy-path test above only covers dim=3 (the eval ceiling per
+  // #270, also the most-used). Without these the dim=4 register path
+  // could regress silently.
+  symbol_table syms2;
+  auto lc2 = parse_tensor("levi_civita(2)", syms2);
+  EXPECT_EQ(lc2.get().rank(), 2u);
+  EXPECT_EQ(lc2.get().dim(), 2u);
+  symbol_table syms4;
+  auto lc4 = parse_tensor("levi_civita(4)", syms4);
+  EXPECT_EQ(lc4.get().rank(), 4u);
+  EXPECT_EQ(lc4.get().dim(), 4u);
 }
 
 TEST(ParserGrammar, ZeroTensorRejectsNonPositiveDim) {
@@ -1021,23 +1037,58 @@ TEST(ParserGrammar, ZeroTensorRejectsNonConstantExpression) {
       type_mismatch_error);
 }
 
-TEST(ParserGrammar, EpsRejectsNonPositiveDim) {
+TEST(ParserGrammar, IdentityTensorRejectsNonPositiveDim) {
+  // Pass-1 review M3: each factory's `m.emplace` is a separate site;
+  // a typo in identity_tensor_entry's call to to_positive_size_t
+  // (wrong arg name, wrong index) wouldn't be caught by zero_tensor's
+  // error tests. Cover each registered factory's error path.
   symbol_table syms;
   EXPECT_THROW(
-      { [[maybe_unused]] auto e = parse("eps(0)", syms); },
+      { [[maybe_unused]] auto e = parse("identity_tensor(0, 2)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, IdentityTensorRejectsNonIntegerLiteral) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("identity_tensor(3, 2.5)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaRejectsNonPositiveDim) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(0)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaRejectsNonIntegerLiteral) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(3.5)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaRejectsNonConstantExpression) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(n)", syms); },
       type_mismatch_error);
 }
 
 TEST(ParserGrammar, PermuteIndicesFactoryBuildsPermutation) {
   // permute_indices(A{rank=2, dim=3}, [2, 1]) is the trans form.
-  // Validates the dispatch fires and the index_list grammar (added
-  // in β-2a's contraction work) accepts a 2-arg shape just as it
-  // already accepted the 4-arg inner_product / dot_product shapes.
-  symbol_table syms;
-  auto result = parse_tensor("permute_indices(A{rank=2, dim=3}, [2, 1])", syms);
-  EXPECT_TRUE(result.is_valid());
-  EXPECT_EQ(result.get().rank(), 2u);
-  EXPECT_EQ(result.get().dim(), 3u);
+  // Pass-1 review QA-4: hash-compare against trans(A) so the test
+  // catches a registry bug that silently returns the original
+  // tensor (which would have the right rank/dim but wrong content).
+  symbol_table syms_a;
+  auto from_permute =
+      parse_tensor("permute_indices(A{rank=2, dim=3}, [2, 1])", syms_a);
+  symbol_table syms_b;
+  auto from_trans = parse_tensor("trans(A{rank=2, dim=3})", syms_b);
+  EXPECT_EQ(from_permute.get().hash_value(), from_trans.get().hash_value());
+  EXPECT_EQ(from_permute.get().rank(), 2u);
+  EXPECT_EQ(from_permute.get().dim(), 3u);
 }
 
 TEST(ParserGrammar, PermuteIndicesRankMismatchThrows) {
@@ -1051,6 +1102,45 @@ TEST(ParserGrammar, PermuteIndicesRankMismatchThrows) {
             parse("permute_indices(A{rank=2, dim=3}, [2, 1, 3])", syms);
       },
       invalid_expression_error);
+}
+
+TEST(ParserGrammar, PermuteIndicesDuplicateIndexThrows) {
+  // Pass-1 review QA-3: [1, 1] (duplicate, not a valid permutation)
+  // previously slipped through and produced a malformed AST node.
+  // The new permutation-property gate in permute_indices() rejects.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse("permute_indices(A{rank=2, dim=3}, [1, 1])", syms);
+      },
+      invalid_expression_error);
+}
+
+TEST(ParserGrammar, PermuteIndicesOutOfRangeThrows) {
+  // Pass-1 review QA-3: [1, 99] (out-of-range index for a rank-2
+  // tensor) previously dereferenced an invalid position downstream.
+  // The new range gate in permute_indices() rejects at construction.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse("permute_indices(A{rank=2, dim=3}, [1, 99])", syms);
+      },
+      invalid_expression_error);
+}
+
+TEST(ParserGrammar, PermuteIndicesZeroIndexCaughtAtParseTime) {
+  // Index list literal is 1-based at the grammar level; a 0 index
+  // is rejected by the index_list_literal action before reaching
+  // permute_indices(). lexical_error is the parse-side exception.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse("permute_indices(A{rank=2, dim=3}, [0, 1])", syms);
+      },
+      parse_error);
 }
 
 TEST(ParserGrammar, PermuteIndicesOfScalarThrowsTypeMismatch) {
