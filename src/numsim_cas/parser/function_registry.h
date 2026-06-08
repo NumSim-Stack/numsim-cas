@@ -9,14 +9,56 @@
 // Phase 2d: tensor→tensor (trans, inv) and tensor→t2s (trace, det,
 // norm, dot) added to the same table. Entries now return
 // `parsed_expression` and type-check their args against `arg_kinds`.
+// 1.0-β: piecewise / clamp helpers (max, min, if_then_else),
+// constitutive primitives (macauley_plus, macauley_minus, heaviside,
+// smoothed_macauley), rank-2 projectors (dev, sym, vol, skew), and
+// the 2-arg outer product (`otimes`, aliased as `outer_product`).
 //
-// Not yet registered (still on unmerged PRs): max, min, if_then_else,
-// macauley_plus, macauley_minus, heaviside, smoothed_macauley
-// (#207/#208/#209). dev/sym/vol/skew projectors and inner_product /
-// outer_product / dot_product also still missing — the latter need
-// bracket-list index notation in the grammar, which is the next
-// integration after #207-#209 land. Calls to any of those names
-// fire `unknown_function_error`.
+// Overload resolution note: the registry keys on name only, so each
+// name binds to ONE dispatch entry. `if_then_else` registers the
+// 3-scalar form; the (scalar, tensor, tensor) and (scalar, t2s, t2s)
+// overloads — whose C++ nodes (`tensor_if_then_else`,
+// `tensor_to_scalar_if_then_else`) already exist on main — need
+// either dispatch-on-arg-kinds (multi-entry per name) or separately
+// named entries. The 4-arg index-list form of `outer_product`
+// likewise needs bracket-list grammar support and is deferred.
+//
+// Aliasing policy (#229): this PR introduces the first *synonym
+// pair* in the registry — `outer_product` and `otimes` mapping to
+// the same dispatch lambda. (Other long-form-only names like
+// `macauley_plus`, `heaviside`, `if_then_else` are registered once
+// under their long form; `dot` and `dot_product` share an English
+// root but have different arities — they are not synonyms.) Policy
+// chosen here, applied going forward:
+// aliases are added only when the C++ name is a domain-specific
+// abbreviation that non-domain users wouldn't recognize (`otimes`
+// → tensor-product notation from differential geometry). Names like
+// `asin`, `acos`, `log` etc. that come from std::math do NOT get
+// long-form aliases — those are already universal. Functions whose
+// C++ name is itself the long form (`macauley_plus`,
+// `smoothed_macauley`, `heaviside`, `if_then_else`) are registered
+// once under that name — the policy speaks to alias *creation*,
+// not to renaming. A future name-vs-alias question should be
+// decided against this rule before adding to the registry.
+//
+// Note: `dot` and `dot_product` are both registered but are NOT
+// aliases of each other — `dot` is the 1-arg tensor→t2s norm
+// (`dot(A) = A:A`), `dot_product` is the 4-arg index-list
+// contraction (`dot_product(A, [i…], B, [j…])`). They share an
+// English root, not a dispatch.
+//
+// Round-trip (β-2d) caveat: several registered names construct
+// compound expressions out of existing AST nodes rather than
+// producing a dedicated node of their own. Those are:
+//   sinh, cosh, tanh, asinh, acosh, atanh, log10 (pre-existing),
+//   macauley_plus, macauley_minus, heaviside, smoothed_macauley.
+// Their printed form is the LOWERED expression (e.g. macauley_plus(x)
+// prints as `max(x, 0)`), so parse→print→parse is SEMANTICALLY
+// round-trip (hash-equal — locked in by the *LowersTo* tests in
+// ParserTest.h) but NOT SYNTACTICALLY round-trip (the source name is
+// irrecoverable from the printed form). β-2d should pick a stance
+// (semantic-only vs. add dedicated AST nodes for these names) — this
+// PR locks in the current state so the choice is visible.
 
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/parser/parser.h>
@@ -89,6 +131,23 @@ inline function_entry scalar_binary(auto fn) {
             return fn(std::move(l), std::move(r));
           }};
 }
+inline function_entry scalar_ternary(auto fn) {
+  return {{arg_kind::scalar, arg_kind::scalar, arg_kind::scalar},
+          [fn = std::move(fn)](arg_vec a) -> parsed_expression {
+            auto &x = std::get<scalar_expr>(a[0]);
+            auto &y = std::get<scalar_expr>(a[1]);
+            auto &z = std::get<scalar_expr>(a[2]);
+            return fn(std::move(x), std::move(y), std::move(z));
+          }};
+}
+inline function_entry tensor_binary(auto fn) {
+  return {{arg_kind::tensor, arg_kind::tensor},
+          [fn = std::move(fn)](arg_vec a) -> parsed_expression {
+            auto &l = std::get<tensor_expr>(a[0]);
+            auto &r = std::get<tensor_expr>(a[1]);
+            return fn(std::move(l), std::move(r));
+          }};
+}
 inline function_entry tensor_unary(auto fn) {
   return {{arg_kind::tensor},
           [fn = std::move(fn)](arg_vec a) -> parsed_expression {
@@ -155,7 +214,9 @@ function_registry() {
   static auto const r = [] {
     std::unordered_map<std::string, function_entry> m;
     using detail::scalar_binary;
+    using detail::scalar_ternary;
     using detail::scalar_unary;
+    using detail::tensor_binary;
     using detail::tensor_to_scalar_unary;
     using detail::tensor_unary;
 
@@ -187,10 +248,54 @@ function_registry() {
     m.emplace("ge", scalar_binary([](auto a, auto b) { return ge(a, b); }));
     m.emplace("eq", scalar_binary([](auto a, auto b) { return eq(a, b); }));
     m.emplace("ne", scalar_binary([](auto a, auto b) { return ne(a, b); }));
+    m.emplace("max", scalar_binary([](auto a, auto b) { return max(a, b); }));
+    m.emplace("min", scalar_binary([](auto a, auto b) { return min(a, b); }));
+    m.emplace("smoothed_macauley", scalar_binary([](auto e, auto eps) {
+                return smoothed_macauley(e, eps);
+              }));
+
+    // ─── Scalar unary (piecewise / constitutive) ───────────────
+    m.emplace("macauley_plus",
+              scalar_unary([](auto x) { return macauley_plus(x); }));
+    m.emplace("macauley_minus",
+              scalar_unary([](auto x) { return macauley_minus(x); }));
+    m.emplace("heaviside", scalar_unary([](auto x) { return heaviside(x); }));
+
+    // ─── Scalar ternary (piecewise) ────────────────────────────
+    // Registers the (scalar, scalar, scalar) form only. The
+    // (scalar cond, tensor then, tensor else) overload from
+    // tensor_std.h needs a separately-named entry — the registry
+    // is keyed on name alone.
+    // (IfThenElseTensorBranchesRaiseTypeMismatch in ParserTest.h
+    //  pins the rejection so a future fix that broadens the entry
+    //  without updating this comment fails the test.)
+    m.emplace("if_then_else", scalar_ternary([](auto c, auto t, auto e) {
+                return if_then_else(c, t, e);
+              }));
 
     // ─── Tensor → tensor ───────────────────────────────────────
     m.emplace("trans", tensor_unary([](auto t) { return trans(t); }));
     m.emplace("inv", tensor_unary([](auto t) { return inv(t); }));
+    m.emplace("sym", tensor_unary([](auto t) { return sym(t); }));
+    m.emplace("dev", tensor_unary([](auto t) { return dev(t); }));
+    m.emplace("vol", tensor_unary([](auto t) { return vol(t); }));
+    m.emplace("skew", tensor_unary([](auto t) { return skew(t); }));
+
+    // 2-arg outer product. The 4-arg index-list variant
+    // (otimes(A, [i...], B, [j...])) is deferred until the grammar
+    // grows bracket-list literals.
+    //
+    // Two registered names: `otimes` matches the C++ API name (used
+    // throughout the library) and `outer_product` is the long-form
+    // alias for users following the longer-name convention from
+    // SymPy / NumPy. The aliases are separate registry entries with
+    // their own dispatch lambdas; `OuterProductAliasProducesIdentical
+    // Expression` in ParserTest.h locks the equivalence via hash so a
+    // future divergence is caught.
+    m.emplace("otimes",
+              tensor_binary([](auto a, auto b) { return otimes(a, b); }));
+    m.emplace("outer_product",
+              tensor_binary([](auto a, auto b) { return otimes(a, b); }));
 
     // ─── Tensor → t2s ──────────────────────────────────────────
     m.emplace("trace", tensor_to_scalar_unary([](auto t) { return trace(t); }));

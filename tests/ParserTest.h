@@ -535,6 +535,201 @@ TEST(ParserGrammar, BinaryFunctionLt) {
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 5}, {"y", 2}}), 0.0);
 }
 
+// ─── β-2a additions: piecewise + constitutive primitives ──────────
+
+TEST(ParserGrammar, BinaryFunctionMax) {
+  symbol_table syms;
+  auto e = parse_scalar("max(x, y)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 2}, {"y", 5}}), 5.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 7}, {"y", 5}}), 7.0);
+}
+
+TEST(ParserGrammar, BinaryFunctionMin) {
+  symbol_table syms;
+  auto e = parse_scalar("min(x, y)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 2}, {"y", 5}}), 2.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 7}, {"y", 5}}), 5.0);
+}
+
+TEST(ParserGrammar, TernaryFunctionIfThenElse) {
+  // Condition non-zero → 'then' branch. Uses symbolic args so the
+  // construction-time folds in scalar_std.h (cond==scalar_zero,
+  // cond==scalar_one, numeric-constant cond) cannot fire; the
+  // dispatch genuinely flows through the registered entry and the
+  // make_expression<scalar_if_then_else> call.
+  symbol_table syms;
+  auto e = parse_scalar("if_then_else(c, a, b)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"c", 1}, {"a", 10}, {"b", 20}}),
+                   10.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"c", 0}, {"a", 10}, {"b", 20}}),
+                   20.0);
+  // Structural lock-in (qa review H1): parse must produce the same
+  // node as a hand-built if_then_else with identical sub-expressions.
+  // If the registration were removed, the parser would throw
+  // unknown_function_error; if it were rewired to a different factory,
+  // the hash would diverge.
+  auto c = syms.get_or_declare_scalar("c");
+  auto a = syms.get_or_declare_scalar("a");
+  auto b = syms.get_or_declare_scalar("b");
+  auto expected = if_then_else(c, a, b);
+  EXPECT_EQ(e.get().hash_value(), expected.get().hash_value());
+}
+
+TEST(ParserGrammar, TernaryFunctionIfThenElseArityErrors) {
+  // qa review H3: the first 3-arg registry entry — confirm the
+  // dispatch enforces arity. Out-of-bounds access in scalar_ternary
+  // (reading a[2] from a length-2 arg_vec) would be UB and only an
+  // explicit arity check catches it cleanly.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("if_then_else(x, y)", syms); },
+      arity_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("if_then_else(x)", syms); },
+      arity_error);
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse_scalar("if_then_else(x, y, z, w)", syms);
+      },
+      arity_error);
+}
+
+TEST(ParserGrammar, IfThenElseTensorBranchesRaiseTypeMismatch) {
+  // Code-reviewer MED-2 (pass-1): documents the partial-coverage
+  // decision in function_registry.h — the (scalar cond, tensor then,
+  // tensor else) overload from tensor_std.h is unreachable from the
+  // parser today, and any future change that "fixes" this without
+  // updating the comment should fail here.
+  //
+  // TRIPWIRE (pass-8 M-1): this is a deferred-resolution lock-in,
+  // not a permanent contract. When the remaining 2 of 7 #229
+  // checkboxes (t2s / tensor `if_then_else` registry bindings) land,
+  // DELETE OR FLIP THIS TEST — at that point parsing tensor branches
+  // should succeed, not throw.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse("if_then_else(x, A{rank=2, dim=3}, B{rank=2, dim=3})", syms);
+      },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, UnaryFunctionMacauleyPlus) {
+  // <e>+ = max(e, 0): clips negatives to 0.
+  symbol_table syms;
+  auto e = parse_scalar("macauley_plus(x)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3.5}}), 3.5);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", -2.0}}), 0.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 0.0}}), 0.0);
+}
+
+TEST(ParserGrammar, UnaryFunctionMacauleyMinus) {
+  // <e>- = -min(e, 0): magnitude of the negative part, 0 on
+  // non-negatives. qa review M2: include the x=0 boundary (parallel
+  // to macauley_plus above).
+  symbol_table syms;
+  auto e = parse_scalar("macauley_minus(x)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3.5}}), 0.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", -2.0}}), 2.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 0.0}}), 0.0);
+}
+
+TEST(ParserGrammar, UnaryFunctionHeaviside) {
+  // H(e) = ge(e, 0): right-continuous step, H(0) = 1. The argument is
+  // a symbol (not a literal) so the runtime evaluator path is tested;
+  // a literal 0 would constant-fold in ge() before the evaluator runs.
+  symbol_table syms;
+  auto e = parse_scalar("heaviside(x)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 1.0}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 0.0}}), 1.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", -1.0}}), 0.0);
+}
+
+TEST(ParserGrammar, BinaryFunctionSmoothedMacauley) {
+  // (e + sqrt(e² + ε²)) / 2 — for ε > 0, smooths max(e, 0).
+  symbol_table syms;
+  auto e = parse_scalar("smoothed_macauley(x, eps)", syms);
+  // At ε = 0.1, x = 1: (1 + sqrt(1 + 0.01)) / 2.
+  const double expected = (1.0 + std::sqrt(1.0 + 0.01)) / 2.0;
+  EXPECT_NEAR(eval_scalar(e, syms, {{"x", 1.0}, {"eps", 0.1}}), expected,
+              1e-12);
+}
+
+TEST(ParserGrammar, MacauleyPlusLowersToMax) {
+  // Pass-3 review (architect F4 + qa F1): macauley_plus has no
+  // dedicated AST node — it constructs `max(x, 0)` at parse time.
+  // Lock the lowering with a hash check so β-2d's round-trip story
+  // has a documented baseline: SEMANTIC round-trip (hash) holds;
+  // SYNTACTIC round-trip (string) does not (printer emits
+  // `max(x, 0)`, not `macauley_plus(x)`).
+  // Pass-4 hardening (qa): also assert the node type so a
+  // hypothetical hash-coincidental rewrite to a different node would
+  // be caught (paranoid but cheap — the assertion documents intent).
+  symbol_table syms_named;
+  auto from_name = parse_scalar("macauley_plus(x)", syms_named);
+  symbol_table syms_lowered;
+  auto from_lowered = parse_scalar("max(x, 0)", syms_lowered);
+  EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+  EXPECT_TRUE(is_same<scalar_max>(from_name));
+}
+
+TEST(ParserGrammar, MacauleyMinusLowersToNegMin) {
+  // macauley_minus(x) constructs `-min(x, 0)`.
+  symbol_table syms_named;
+  auto from_name = parse_scalar("macauley_minus(x)", syms_named);
+  symbol_table syms_lowered;
+  auto from_lowered = parse_scalar("-min(x, 0)", syms_lowered);
+  EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+  EXPECT_TRUE(is_same<scalar_negative>(from_name));
+}
+
+TEST(ParserGrammar, HeavisideLowersToGe) {
+  // heaviside(x) constructs `ge(x, 0)` (right-continuous step).
+  symbol_table syms_named;
+  auto from_name = parse_scalar("heaviside(x)", syms_named);
+  symbol_table syms_lowered;
+  auto from_lowered = parse_scalar("ge(x, 0)", syms_lowered);
+  EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+  EXPECT_TRUE(is_same<scalar_ge>(from_name));
+}
+
+TEST(ParserGrammar, SmoothedMacauleyLowersToArithmetic) {
+  // smoothed_macauley(x, eps) constructs `(x + sqrt(x² + eps²)) / 2`.
+  // Division composes as `a/b → a * pow(b, -1)` per the project's
+  // div-via-mul-pow contract, so the top-level node is scalar_mul.
+  // Pass-5 hardening: symmetric with the other *LowersTo* tests
+  // (pin the expected top-level type alongside the hash equality).
+  symbol_table syms_named;
+  auto from_name = parse_scalar("smoothed_macauley(x, eps)", syms_named);
+  symbol_table syms_lowered;
+  auto from_lowered =
+      parse_scalar("(x + sqrt(pow(x, 2) + pow(eps, 2))) / 2", syms_lowered);
+  EXPECT_EQ(from_name.get().hash_value(), from_lowered.get().hash_value());
+  EXPECT_TRUE(is_same<scalar_mul>(from_name));
+}
+
+TEST(ParserGrammar, BinaryFunctionSmoothedMacauleyZeroEpsCollapses) {
+  // qa review M1: ε → 0 limit recovers the non-smooth Macauley
+  // bracket (scalar_std.h:756). Pass-6 verified the literal `0`
+  // routes through `make_scalar_constant(int64_t{0})` and returns
+  // the `scalar_zero` singleton — so the construction-time fold
+  // `if (is_same<scalar_zero>(eps)) return macauley_plus(e)` always
+  // fires here and the expression IS `macauley_plus(x)` = `max(x, 0)`.
+  // Pass-7 hardening: also assert the node type. If the fold
+  // silently regresses to the numerical (e + sqrt(e²+0))/2 path,
+  // evaluation would still produce the same numbers but the test
+  // would no longer pin the fold. Symmetric with the *LowersTo*
+  // tests' node-type pins.
+  symbol_table syms;
+  auto e = parse_scalar("smoothed_macauley(x, 0)", syms);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3.0}}), 3.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", -3.0}}), 0.0);
+  EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 0.0}}), 0.0);
+  EXPECT_TRUE(is_same<scalar_max>(e));
+}
+
 TEST(ParserGrammar, FunctionCallNestedInArithmetic) {
   // sin(x)^2 + cos(x)^2 == 1 for any x — the classic identity.
   symbol_table syms;
@@ -668,6 +863,97 @@ TEST(ParserGrammar, InvOfTensorReturnsTensor) {
   symbol_table syms;
   auto result = parse_tensor("inv(A{rank=2, dim=3})", syms);
   EXPECT_TRUE(result.is_valid());
+}
+
+// ─── β-2a additions: rank-2 projectors + outer product ────────────
+
+TEST(ParserGrammar, SymReturnsTensor) {
+  symbol_table syms;
+  auto result = parse_tensor("sym(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(result.is_valid());
+}
+
+TEST(ParserGrammar, SkewReturnsTensor) {
+  symbol_table syms;
+  auto result = parse_tensor("skew(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(result.is_valid());
+}
+
+TEST(ParserGrammar, DevReturnsTensor) {
+  symbol_table syms;
+  auto result = parse_tensor("dev(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(result.is_valid());
+}
+
+TEST(ParserGrammar, VolReturnsTensor) {
+  symbol_table syms;
+  auto result = parse_tensor("vol(A{rank=2, dim=3})", syms);
+  EXPECT_TRUE(result.is_valid());
+}
+
+TEST(ParserGrammar, SymOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("sym(x)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, DevOfScalarThrowsTypeMismatch) {
+  // qa review M4: arg-kind checks are per-entry; mistyping one of the
+  // projection helpers would only be caught by its own test.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("dev(x)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, VolOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("vol(x)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, SkewOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("skew(x)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, OuterProductReturnsTensor) {
+  // otimes(A_ij, B_kl) is a rank-4 tensor; parser names it `otimes`
+  // or `outer_product` (alias). Both bind to the 2-arg form.
+  symbol_table syms;
+  auto e1 = parse_tensor("otimes(A{rank=2, dim=3}, B{rank=2, dim=3})", syms);
+  EXPECT_TRUE(e1.is_valid());
+  EXPECT_EQ(e1.get().rank(), 4u);
+  symbol_table syms2;
+  auto e2 =
+      parse_tensor("outer_product(A{rank=2, dim=3}, B{rank=2, dim=3})", syms2);
+  EXPECT_TRUE(e2.is_valid());
+  EXPECT_EQ(e2.get().rank(), 4u);
+}
+
+TEST(ParserGrammar, OuterProductAliasProducesIdenticalExpression) {
+  // qa review H2: `otimes` and `outer_product` are two registry
+  // entries each holding their own dispatch lambda. Lock the alias
+  // contract: identical source expression → identical hash. A future
+  // editor that "optimizes" one path without touching the other
+  // would fail here.
+  symbol_table syms1;
+  auto e1 = parse_tensor("otimes(A{rank=2, dim=3}, B{rank=2, dim=3})", syms1);
+  symbol_table syms2;
+  auto e2 =
+      parse_tensor("outer_product(A{rank=2, dim=3}, B{rank=2, dim=3})", syms2);
+  EXPECT_EQ(e1.get().hash_value(), e2.get().hash_value());
+}
+
+TEST(ParserGrammar, OuterProductOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("otimes(x, y)", syms); },
+      type_mismatch_error);
 }
 
 TEST(ParserGrammar, TraceOfScalarThrowsTypeMismatch) {
