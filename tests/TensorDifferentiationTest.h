@@ -584,6 +584,153 @@ TEST(TensorDiffRank4InvNotImplemented, ThrowsWithClearMessage) {
   }
 }
 
+// ─── diff(tensor, scalar) — issue #275 ────────────────────────────
+//
+// Companion to the tensor-arg differentiation above. Differentiating
+// a tensor expression w.r.t. a scalar variable returns a same-rank
+// tensor; the central piece is reinstating the product-rule term in
+// `tensor_scalar_mul` that the tensor-arg visitor drops as "scalar is
+// constant w.r.t. tensor arg".
+
+class TensorDiffWrtScalarTest : public ::testing::Test {
+protected:
+  static constexpr std::size_t dim = 3;
+
+  using tensor_t = expression_holder<tensor_expression>;
+  using scalar_t = expression_holder<scalar_expression>;
+
+  TensorDiffWrtScalarTest() {
+    std::tie(A, B, n) =
+        make_tensor_variable(std::tuple{"A", dim, std::size_t{2}},
+                             std::tuple{"B", dim, std::size_t{2}},
+                             std::tuple{"n", dim, std::size_t{2}});
+    std::tie(s, t) = make_scalar_variable("s", "t");
+    std::tie(mu, dgamma) = make_scalar_variable("mu", "dgamma");
+    I = make_expression<identity_tensor>(dim, std::size_t{2});
+    Zero = make_expression<tensor_zero>(dim, std::size_t{2});
+  }
+
+  tensor_t A, B, n;
+  scalar_t s, t;
+  scalar_t mu, dgamma;
+  tensor_t I;
+  tensor_t Zero;
+};
+
+// Acceptance #1: diff(T, s) compiles and returns a same-rank tensor.
+TEST_F(TensorDiffWrtScalarTest, CompilesAndReturnsSameRankTensor) {
+  auto d = diff(A, s);
+  EXPECT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), A.get().rank());
+  EXPECT_EQ(d.get().dim(), A.get().dim());
+}
+
+// Acceptance #4: tensor variable independent of s → zero.
+TEST_F(TensorDiffWrtScalarTest, IndependentTensorVariableYieldsZero) {
+  auto d = diff(A, s);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+// Acceptance #2: diff(s * I, s) == I (product rule reinstated).
+// The central piece of #275 — the tensor-arg visitor drops the
+// scalar factor's derivative; we now reinstate it.
+TEST_F(TensorDiffWrtScalarTest, ScalarTimesIdentityDerivativeIsIdentity) {
+  auto d = diff(s * I, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().hash_value(), I.get().hash_value())
+      << "Expected I, got: " << to_string(d);
+}
+
+// Acceptance #3: diff(f(s) * A, s) == f'(s) * A for a tensor variable
+// A independent of s. Uses f(s) = s^2 so f'(s) = 2*s.
+TEST_F(TensorDiffWrtScalarTest, ScalarFunctionTimesConstantTensor) {
+  auto f = pow(s, 2); // f(s) = s^2 → f'(s) = 2*s
+  auto d = diff(f * A, s);
+  ASSERT_TRUE(d.is_valid());
+  // Build the expected expression: (2*s) * A
+  auto expected =
+      (scalar_t{make_expression<scalar_constant>(scalar_number{2})} * s) * A;
+  EXPECT_EQ(d.get().hash_value(), expected.get().hash_value())
+      << "Expected (2*s)*A, got: " << to_string(d);
+}
+
+// Acceptance #5: full product rule on (u·A)·(v·B) with u=u(s), v=v(s).
+// d/ds = (du·A) · (v·B) + (u·A) · (dv·B)
+//
+// Compare printed forms rather than hash values. The visitor's
+// step-by-step build may yield a different STRUCTURAL representation
+// than the hand-expanded expression (different canonicalization
+// paths through tensor_mul flattening) even when the math is
+// equivalent. The printer normalises both to the same canonical
+// string, which is the contract we actually care about for #275.
+TEST_F(TensorDiffWrtScalarTest, FullProductRuleTwoScalarFactors) {
+  auto u = pow(s, 2); // u(s) = s^2 → u'(s) = 2*s
+  auto v = pow(s, 3); // v(s) = s^3 → v'(s) = 3*s^2
+  auto uA = u * A;
+  auto vB = v * B;
+  auto expr = uA * vB;
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+
+  // Validate against the hand-expanded result:
+  //   d/ds[(u·A)·(v·B)] = (u'·A)·(v·B) + (u·A)·(v'·B)
+  auto du = diff(u, s); // 2*s
+  auto dv = diff(v, s); // 3*s^2
+  auto expected = (du * A) * (v * B) + (u * A) * (dv * B);
+  EXPECT_EQ(to_string(d), to_string(expected))
+      << "Got:      " << to_string(d) << "\nExpected: " << to_string(expected);
+}
+
+// Acceptance #6 — the radial-return case from the issue body:
+// d/d(dgamma) [sigma_trial - 2*mu*dgamma*n] == -2*mu*n
+// with mu, n independent of dgamma.
+TEST_F(TensorDiffWrtScalarTest, RadialReturnShape) {
+  auto sigma_trial = A; // doesn't depend on dgamma
+  auto two = scalar_t{make_expression<scalar_constant>(scalar_number{2})};
+  auto expr = sigma_trial - two * mu * dgamma * n;
+  auto d = diff(expr, dgamma);
+  ASSERT_TRUE(d.is_valid());
+  // Expected: -2*mu*n  (sigma_trial and n are dgamma-independent;
+  // mu is dgamma-independent; only the dgamma factor contributes).
+  auto expected = -(two * mu * n);
+  EXPECT_EQ(d.get().hash_value(), expected.get().hash_value())
+      << "Got:      " << to_string(d) << "\nExpected: " << to_string(expected);
+}
+
+// Sanity: zero-derivative leaf nodes (identity_tensor, levi_civita)
+// w.r.t. a scalar are zero.
+TEST_F(TensorDiffWrtScalarTest, IdentityIsConstant) {
+  auto d = diff(I, s);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+TEST_F(TensorDiffWrtScalarTest, ZeroDerivative) {
+  auto d = diff(Zero, s);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+// Linearity: diff(A + s*B, s) == B
+TEST_F(TensorDiffWrtScalarTest, AdditiveLinearity) {
+  auto expr = A + s * B;
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().hash_value(), B.get().hash_value())
+      << "Expected B, got: " << to_string(d);
+}
+
+// Negation: diff(-(s*A), s) == -A
+TEST_F(TensorDiffWrtScalarTest, NegationCommutesWithDiff) {
+  auto expr = -(s * A);
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  auto expected = -A;
+  EXPECT_EQ(d.get().hash_value(), expected.get().hash_value())
+      << "Got:      " << to_string(d) << "\nExpected: " << to_string(expected);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORDIFFERENTIATIONTEST_H

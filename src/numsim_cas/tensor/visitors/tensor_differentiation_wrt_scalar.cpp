@@ -1,0 +1,337 @@
+#include <numsim_cas/tensor/visitors/tensor_differentiation_wrt_scalar.h>
+
+#include <numeric>
+#include <numsim_cas/core/diff.h>
+#include <numsim_cas/scalar/scalar_operators.h>
+#include <numsim_cas/tensor/tensor_diff.h>
+#include <numsim_cas/tensor/tensor_functions.h>
+#include <numsim_cas/tensor/tensor_operators.h>
+#include <numsim_cas/tensor/tensor_std.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
+
+namespace numsim::cas {
+
+// tensor_pow(A, n) where A is a tensor (assumed rank-2 matrix-product
+// semantics; the tensor_pow node expands an integer exponent into
+// repeated matrix multiplication). Scalar-arg derivative is the
+// standard product rule:
+//
+//   d/ds(A^n) = sum_{r=0}^{n-1} A^r * dA/ds * A^{n-1-r}
+//
+// where * is the rank-2 matrix product (inner_product over the middle
+// index). Result rank == A's rank, no rank expansion.
+void tensor_differentiation_wrt_scalar::operator()(
+    tensor_pow const &visitable) {
+  auto const &A = visitable.expr_lhs();
+  auto const &n_expr = visitable.expr_rhs();
+
+  auto dA = diff(A, m_arg);
+  if (!dA.is_valid()) {
+    return;
+  }
+
+  // Extract integer exponent. Matches the tensor-arg visitor's
+  // not-implemented bound for non-constant exponents; the wider
+  // singleton-trap audit is tracked in #284.
+  if (!is_same<scalar_constant>(n_expr)) {
+    throw not_implemented_error(
+        "tensor_differentiation_wrt_scalar: pow with non-constant exponent");
+  }
+  auto const &val = n_expr.template get<scalar_constant>().value();
+  auto n = std::get<std::int64_t>(val.raw());
+
+  // Build sum: sum_{r=0}^{n-1} (A^r) * (dA/ds) * (A^{n-1-r})
+  // For rank-2 A, matrix multiplication is inner_product on the
+  // contraction index. A^r and A^{n-1-r} are also rank-2.
+  tensor_holder_t sum;
+  for (std::int64_t r = 0; r < n; ++r) {
+    auto Ar = pow(A, static_cast<int>(r));
+    auto An1r = pow(A, static_cast<int>(n - 1 - r));
+    // term = Ar * dA * An1r  via two contractions
+    auto term = inner_product(std::move(Ar), sequence{2}, dA, sequence{1});
+    term =
+        inner_product(std::move(term), sequence{2}, std::move(An1r), sequence{1});
+    if (sum.is_valid()) {
+      sum += term;
+    } else {
+      sum = std::move(term);
+    }
+  }
+  m_result = std::move(sum);
+}
+
+// tensor_mul: product rule over the data() vector
+// d/ds(A_1 * A_2 * ... * A_n) = sum_j A_1 * ... * A_{j-1} * (dA_j/ds) *
+// A_{j+1} * ... * A_n
+//
+// The j-th factor's scalar derivative dA_j/ds has the SAME rank as
+// A_j (scalar arg adds no indices), so the resulting product is
+// shape-equivalent to the original tensor_mul. No reorder permutation
+// needed.
+void tensor_differentiation_wrt_scalar::operator()(
+    tensor_mul const &visitable) {
+  auto const &factors = visitable.data();
+  tensor_holder_t sum;
+
+  for (std::size_t j = 0; j < factors.size(); ++j) {
+    auto dAj = diff(factors[j], m_arg);
+    if (!dAj.is_valid()) {
+      continue;
+    }
+
+    // Build lhs chain: factors[0] * ... * factors[j-1]
+    tensor_holder_t lhs;
+    for (std::size_t i = 0; i < j; ++i) {
+      if (!lhs.is_valid()) {
+        lhs = factors[i];
+      } else {
+        auto rank_lhs = lhs.get().rank();
+        lhs = inner_product(std::move(lhs), sequence{rank_lhs}, factors[i],
+                            sequence{1});
+      }
+    }
+
+    // Build rhs chain: factors[j+1] * ... * factors[n-1]
+    tensor_holder_t rhs;
+    for (std::size_t i = j + 1; i < factors.size(); ++i) {
+      if (!rhs.is_valid()) {
+        rhs = factors[i];
+      } else {
+        auto rank_rhs = rhs.get().rank();
+        rhs = inner_product(std::move(rhs), sequence{rank_rhs}, factors[i],
+                            sequence{1});
+      }
+    }
+
+    // Build term = lhs * dAj * rhs
+    tensor_holder_t term;
+    if (lhs.is_valid()) {
+      auto rank_lhs = lhs.get().rank();
+      term =
+          inner_product(std::move(lhs), sequence{rank_lhs}, dAj, sequence{1});
+    } else {
+      term = dAj;
+    }
+
+    if (rhs.is_valid()) {
+      auto rank_term = term.get().rank();
+      term = inner_product(std::move(term), sequence{rank_term}, std::move(rhs),
+                           sequence{1});
+    }
+
+    if (term.is_valid()) {
+      sum += term;
+    }
+  }
+
+  // Apply coefficient if present
+  if (visitable.coeff().is_valid()) {
+    m_result = std::move(sum) * visitable.coeff();
+  } else {
+    m_result = std::move(sum);
+  }
+}
+
+// simple_outer_product: d/ds(A_1 ⊗ ... ⊗ A_n) = sum_j A_1 ⊗ ... ⊗
+// (dA_j/ds) ⊗ ... ⊗ A_n. dA_j/ds has the same rank as A_j so the
+// resulting outer product has the same total rank as the original
+// (no permutation reorder needed).
+void tensor_differentiation_wrt_scalar::operator()(
+    simple_outer_product const &visitable) {
+  auto const &factors = visitable.data();
+  tensor_holder_t sum;
+
+  for (std::size_t j = 0; j < factors.size(); ++j) {
+    auto dAj = diff(factors[j], m_arg);
+    if (!dAj.is_valid()) {
+      continue;
+    }
+
+    // Build lhs chain: factors[0] ⊗ ... ⊗ factors[j-1]
+    tensor_holder_t lhs;
+    std::size_t rank_lhs = 0;
+    for (std::size_t i = 0; i < j; ++i) {
+      if (!lhs.is_valid()) {
+        lhs = factors[i];
+        rank_lhs = factors[i].get().rank();
+      } else {
+        auto fi_rank = factors[i].get().rank();
+        sequence lhs_idx(rank_lhs), rhs_idx(fi_rank);
+        std::iota(lhs_idx.begin(), lhs_idx.end(), std::size_t{0});
+        std::iota(rhs_idx.begin(), rhs_idx.end(), rank_lhs);
+        lhs = otimes(std::move(lhs), std::move(lhs_idx), factors[i],
+                     std::move(rhs_idx));
+        rank_lhs += fi_rank;
+      }
+    }
+
+    // Build rhs chain: factors[j+1] ⊗ ... ⊗ factors[n-1]
+    tensor_holder_t rhs;
+    std::size_t rank_rhs = 0;
+    for (std::size_t i = j + 1; i < factors.size(); ++i) {
+      if (!rhs.is_valid()) {
+        rhs = factors[i];
+        rank_rhs = factors[i].get().rank();
+      } else {
+        auto fi_rank = factors[i].get().rank();
+        sequence lhs_idx(rank_rhs), rhs_idx(fi_rank);
+        std::iota(lhs_idx.begin(), lhs_idx.end(), std::size_t{0});
+        std::iota(rhs_idx.begin(), rhs_idx.end(), rank_rhs);
+        rhs = otimes(std::move(rhs), std::move(lhs_idx), factors[i],
+                     std::move(rhs_idx));
+        rank_rhs += fi_rank;
+      }
+    }
+
+    // term = lhs ⊗ dAj ⊗ rhs
+    tensor_holder_t term;
+    std::size_t current_rank = 0;
+    if (lhs.is_valid()) {
+      auto dAj_rank = dAj.get().rank();
+      sequence l_idx(rank_lhs), r_idx(dAj_rank);
+      std::iota(l_idx.begin(), l_idx.end(), std::size_t{0});
+      std::iota(r_idx.begin(), r_idx.end(), rank_lhs);
+      term = otimes(std::move(lhs), std::move(l_idx), dAj, std::move(r_idx));
+      current_rank = rank_lhs + dAj_rank;
+    } else {
+      term = dAj;
+      current_rank = dAj.get().rank();
+    }
+
+    if (rhs.is_valid()) {
+      sequence l_idx(current_rank), r_idx(rank_rhs);
+      std::iota(l_idx.begin(), l_idx.end(), std::size_t{0});
+      std::iota(r_idx.begin(), r_idx.end(), current_rank);
+      term = otimes(std::move(term), std::move(l_idx), std::move(rhs),
+                    std::move(r_idx));
+    }
+
+    if (term.is_valid()) {
+      sum += term;
+    }
+  }
+
+  m_result = std::move(sum);
+}
+
+// tensor_inv: d/ds(A^{-1}) = -A^{-1} * dA/ds * A^{-1}
+// (rank-2 standard scalar-parameter inverse derivative). No
+// Magnus/minor-sym variants needed since the rank doesn't expand by
+// the scalar arg's rank.
+void tensor_differentiation_wrt_scalar::operator()(
+    tensor_inv const &visitable) {
+  auto const &A = visitable.expr();
+  auto dA = diff(A, m_arg);
+  if (!dA.is_valid()) {
+    return;
+  }
+  if (A.get().rank() != 2) {
+    // Rank-4 inv is its own can of worms; parallel to the tensor-arg
+    // visitor's rank-4 throw at tensor_differentiation.cpp:380.
+    throw not_implemented_error(
+        "tensor_differentiation_wrt_scalar: tensor_inv only supports rank 2 "
+        "(got rank " +
+        std::to_string(A.get().rank()) + ")");
+  }
+  auto invA = inv(A);
+  // term = invA * dA * invA via two rank-2 contractions
+  auto term = inner_product(invA, sequence{2}, std::move(dA), sequence{1});
+  term = inner_product(std::move(term), sequence{2}, invA, sequence{1});
+  m_result = -std::move(term);
+}
+
+// inner_product_wrapper(A, idxA, B, idxB) — scalar arg product rule:
+// d/ds = inner_product(dA, idxA, B, idxB) + inner_product(A, idxA, dB, idxB)
+// The contraction indices are unchanged (scalar arg adds no rank).
+void tensor_differentiation_wrt_scalar::operator()(
+    inner_product_wrapper const &visitable) {
+  auto const &expr_lhs = visitable.expr_lhs();
+  auto const &expr_rhs = visitable.expr_rhs();
+  auto const &seq_lhs = visitable.indices_lhs();
+  auto const &seq_rhs = visitable.indices_rhs();
+
+  auto dA = diff(expr_lhs, m_arg);
+  auto dB = diff(expr_rhs, m_arg);
+
+  tensor_holder_t sum;
+  if (dA.is_valid() && !is_same<tensor_zero>(dA)) {
+    auto s_lhs = seq_lhs;
+    auto s_rhs = seq_rhs;
+    sum = inner_product(std::move(dA), std::move(s_lhs), expr_rhs,
+                        std::move(s_rhs));
+  }
+  if (dB.is_valid() && !is_same<tensor_zero>(dB)) {
+    auto s_lhs = seq_lhs;
+    auto s_rhs = seq_rhs;
+    auto term = inner_product(expr_lhs, std::move(s_lhs), std::move(dB),
+                              std::move(s_rhs));
+    if (sum.is_valid()) {
+      sum += term;
+    } else {
+      sum = std::move(term);
+    }
+  }
+  m_result = std::move(sum);
+}
+
+// outer_product_wrapper(A, idxA, B, idxB) — scalar arg product rule:
+// d/ds = otimes(dA, idxA, B, idxB) + otimes(A, idxA, dB, idxB)
+// Indices unchanged.
+void tensor_differentiation_wrt_scalar::operator()(
+    outer_product_wrapper const &visitable) {
+  auto const &expr_lhs = visitable.expr_lhs();
+  auto const &expr_rhs = visitable.expr_rhs();
+  auto const &seq_lhs = visitable.indices_lhs();
+  auto const &seq_rhs = visitable.indices_rhs();
+
+  auto dA = diff(expr_lhs, m_arg);
+  auto dB = diff(expr_rhs, m_arg);
+
+  tensor_holder_t sum;
+  if (dA.is_valid() && !is_same<tensor_zero>(dA)) {
+    auto s_lhs = seq_lhs;
+    auto s_rhs = seq_rhs;
+    sum = otimes(std::move(dA), std::move(s_lhs), expr_rhs, std::move(s_rhs));
+  }
+  if (dB.is_valid() && !is_same<tensor_zero>(dB)) {
+    auto s_lhs = seq_lhs;
+    auto s_rhs = seq_rhs;
+    auto term = otimes(expr_lhs, std::move(s_lhs), std::move(dB),
+                       std::move(s_rhs));
+    if (sum.is_valid()) {
+      sum += term;
+    } else {
+      sum = std::move(term);
+    }
+  }
+  m_result = std::move(sum);
+}
+
+// tensor_to_scalar_with_tensor_mul(T, t2s) — product T * t2s where T
+// is tensor and t2s is tensor_to_scalar. The product rule's t2s side
+// needs diff(tensor_to_scalar, scalar) which doesn't exist yet.
+// Scoped out of #275; throw not_implemented as a tripwire so a future
+// diff(t2s, scalar) overload doesn't silently leave this stale.
+void tensor_differentiation_wrt_scalar::operator()(
+    tensor_to_scalar_with_tensor_mul const &visitable) {
+  auto const &T = visitable.expr_lhs();
+  auto const &s_t2s = visitable.expr_rhs();
+  (void)T;
+  (void)s_t2s;
+  throw not_implemented_error(
+      "tensor_differentiation_wrt_scalar: tensor_to_scalar_with_tensor_mul "
+      "needs diff(tensor_to_scalar, scalar), not yet implemented (#275 "
+      "scope-deferred; tracked separately)");
+}
+
+// Top-level CPO definition (declared in the header).
+expression_holder<tensor_expression>
+tag_invoke(detail::diff_fn, std::type_identity<tensor_expression>,
+           std::type_identity<scalar_expression>,
+           expression_holder<tensor_expression> const &expr,
+           expression_holder<scalar_expression> const &arg) {
+  tensor_differentiation_wrt_scalar d(arg);
+  return d.apply(expr);
+}
+
+} // namespace numsim::cas
