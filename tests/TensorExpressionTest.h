@@ -909,6 +909,41 @@ TYPED_TEST(TensorExpressionTest, PermuteIndicesSizeMismatchThrows) {
   }
 }
 
+// PR #281 pass-3 review: lock the new permutation-property gates at
+// the C++ API level, parallel to the parser-side tests in
+// ParserTest.h. The validation lives in tensor_functions.h; both
+// paths share it, so a refactor that moves the guards to the parser
+// dispatch would still break direct C++ callers — these tests catch
+// that.
+TYPED_TEST(TensorExpressionTest, PermuteIndicesDuplicateIndexThrows) {
+  auto &X = this->X; // rank-2
+  // sequence{1, 1} is 1-based input; internally {0, 0} — duplicates.
+  try {
+    [[maybe_unused]] auto r =
+        numsim::cas::permute_indices(X, numsim::cas::sequence{1, 1});
+    FAIL() << "Expected permute_indices duplicate-index to throw";
+  } catch (numsim::cas::invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("appears more than once"),
+              std::string::npos)
+        << "what() should identify the duplicate; was:\n"
+        << e.what();
+  }
+}
+
+TYPED_TEST(TensorExpressionTest, PermuteIndicesOutOfRangeThrows) {
+  auto &X = this->X; // rank-2
+  // sequence{1, 99} → {0, 98} — second index out of range for rank 2.
+  try {
+    [[maybe_unused]] auto r =
+        numsim::cas::permute_indices(X, numsim::cas::sequence{1, 99});
+    FAIL() << "Expected permute_indices out-of-range index to throw";
+  } catch (numsim::cas::invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("out of range"), std::string::npos)
+        << "what() should identify the range failure; was:\n"
+        << e.what();
+  }
+}
+
 // Sanity: the rank-2 path still works for all five projections.
 TYPED_TEST(TensorExpressionTest, ProjectionsRank2StillWork) {
   auto &X = this->X;

@@ -64,6 +64,8 @@
 #include <numsim_cas/parser/parse_error.h>
 #include <numsim_cas/parser/parser.h>
 #include <numsim_cas/scalar/scalar_constant.h>
+#include <numsim_cas/scalar/scalar_one.h>
+#include <numsim_cas/scalar/scalar_zero.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
@@ -170,8 +172,9 @@ inline function_entry tensor_to_scalar_unary(auto fn) {
 }
 
 // Extract a positive size_t from a scalar literal argument. Used by
-// the tensor-constant factories (zero_tensor / identity_tensor / eps)
-// where `dim` and `rank` must be compile-time-known positive integers.
+// the tensor-constant factories (zero_tensor / identity_tensor /
+// levi_civita) where `dim` and `rank` must be compile-time-known
+// positive integers.
 //
 // The dispatch contract: callers reach here AFTER the arg-kind check
 // has confirmed the arg is in the scalar variant alternative. The
@@ -181,32 +184,49 @@ inline function_entry tensor_to_scalar_unary(auto fn) {
 // Both raise type_mismatch_error pointing at the call (the parser's
 // function_call action sets the error position before invoking the
 // dispatch).
+//
+// Important: the parser represents the literals `0` and `1` as the
+// scalar_zero and scalar_one singletons, NOT as scalar_constant{0/1}
+// (see scalar_make_constant.h). Recognize both special cases
+// up-front so a user calling e.g. `levi_civita(1)` or
+// `zero_tensor(0, …)` gets the correct domain error from the
+// constructor (or a clear "must be positive" message for 0) rather
+// than the misleading "non-constant expression" message.
 inline std::size_t to_positive_size_t(scalar_expr const &e,
                                       std::string_view fn_name,
                                       std::string_view arg_name) {
+  // Errors raised inside dispatch can't see the source/offset that
+  // the function_call action knows; pass empty source / 0 offset
+  // per parse_error's documented idiom for outside-the-parser
+  // origins.
+  constexpr std::size_t no_pos = 0;
+  if (is_same<scalar_one>(e))
+    return 1;
+  if (is_same<scalar_zero>(e)) {
+    throw type_mismatch_error(std::string{fn_name} + ": " +
+                                  std::string{arg_name} +
+                                  " must be positive (got 0)",
+                              no_pos, /*source=*/"");
+  }
   if (!is_same<scalar_constant>(e)) {
-    // Errors raised inside dispatch can't see the source/offset that
-    // the function_call action knows; pass empty source / 0 offset
-    // per parse_error's documented idiom for outside-the-parser
-    // origins.
     throw type_mismatch_error(
         std::string{fn_name} + ": " + std::string{arg_name} +
             " must be a positive integer literal (got non-constant expression)",
-        /*byte_offset=*/0, /*source=*/"");
+        no_pos, /*source=*/"");
   }
   auto const &raw = e.get<scalar_constant>().value().raw();
   if (!std::holds_alternative<std::int64_t>(raw)) {
     throw type_mismatch_error(
         std::string{fn_name} + ": " + std::string{arg_name} +
             " must be a positive integer literal (got non-integer literal)",
-        /*byte_offset=*/0, /*source=*/"");
+        no_pos, /*source=*/"");
   }
   auto v = std::get<std::int64_t>(raw);
   if (v <= 0) {
     throw type_mismatch_error(
         std::string{fn_name} + ": " + std::string{arg_name} +
             " must be positive (got " + std::to_string(v) + ")",
-        /*byte_offset=*/0, /*source=*/"");
+        no_pos, /*source=*/"");
   }
   return static_cast<std::size_t>(v);
 }

@@ -1055,6 +1055,18 @@ TEST(ParserGrammar, IdentityTensorRejectsNonIntegerLiteral) {
       type_mismatch_error);
 }
 
+TEST(ParserGrammar, IdentityTensorRejectsNonConstantExpression) {
+  // Pass-3 review: zero_tensor has a non-constant-expression test
+  // but identity_tensor didn't. The to_positive_size_t helper has a
+  // separate `is_same<scalar_constant>` guard with its own error
+  // message — covering it on identity_tensor too pins the message
+  // path against a future copy-paste typo in identity_tensor_entry.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("identity_tensor(n, 2)", syms); },
+      type_mismatch_error);
+}
+
 TEST(ParserGrammar, LeviCivitaRejectsNonPositiveDim) {
   symbol_table syms;
   EXPECT_THROW(
@@ -1074,6 +1086,31 @@ TEST(ParserGrammar, LeviCivitaRejectsNonConstantExpression) {
   EXPECT_THROW(
       { [[maybe_unused]] auto e = parse("levi_civita(n)", syms); },
       type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaRejectsRationalFold) {
+  // Pass-3 review (asymmetric counterpart to AcceptsIntegerDivisionFold):
+  // `3/6` folds at parse time to `rational_t{1, 2}` — NOT collapsed
+  // to int64_t since denominator > 1. The to_positive_size_t helper
+  // sees holds_alternative<int64_t> == false and rejects as
+  // non-integer literal. Distinct from LeviCivitaRejectsNonInteger
+  // Literal which exercises the `double` variant via decimal parsing
+  // — this one tests the `rational_t` variant.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(3 / 6)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaDim1Throws) {
+  // Pass-3 review: levi_civita_tensor's constructor enforces
+  // 2 <= dim <= 4 (see levi_civita_tensor.h:81-82). Pin the
+  // dim=1 lower-bound rejection so a future change to the
+  // valid-dim range stays visible at the parser surface.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(1)", syms); },
+      invalid_expression_error);
 }
 
 TEST(ParserGrammar, LeviCivitaAcceptsIntegerDivisionFold) {
@@ -1125,13 +1162,20 @@ TEST(ParserGrammar, PermuteIndicesDuplicateIndexThrows) {
   // Pass-1 review QA-3: [1, 1] (duplicate, not a valid permutation)
   // previously slipped through and produced a malformed AST node.
   // The new permutation-property gate in permute_indices() rejects.
+  // Pass-3 review: assert on the message content so a copy-paste of
+  // the wrong error string (e.g. "out of range" on the duplicate
+  // branch) is caught.
   symbol_table syms;
-  EXPECT_THROW(
-      {
-        [[maybe_unused]] auto e =
-            parse("permute_indices(A{rank=2, dim=3}, [1, 1])", syms);
-      },
-      invalid_expression_error);
+  try {
+    [[maybe_unused]] auto e =
+        parse("permute_indices(A{rank=2, dim=3}, [1, 1])", syms);
+    FAIL() << "Expected duplicate-index to throw";
+  } catch (invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("appears more than once"),
+              std::string::npos)
+        << "what() should identify the duplicate; was:\n"
+        << e.what();
+  }
 }
 
 TEST(ParserGrammar, PermuteIndicesOutOfRangeThrows) {
@@ -1139,12 +1183,30 @@ TEST(ParserGrammar, PermuteIndicesOutOfRangeThrows) {
   // tensor) previously dereferenced an invalid position downstream.
   // The new range gate in permute_indices() rejects at construction.
   symbol_table syms;
-  EXPECT_THROW(
-      {
-        [[maybe_unused]] auto e =
-            parse("permute_indices(A{rank=2, dim=3}, [1, 99])", syms);
-      },
-      invalid_expression_error);
+  try {
+    [[maybe_unused]] auto e =
+        parse("permute_indices(A{rank=2, dim=3}, [1, 99])", syms);
+    FAIL() << "Expected out-of-range index to throw";
+  } catch (invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("out of range"), std::string::npos)
+        << "what() should identify the range failure; was:\n"
+        << e.what();
+  }
+}
+
+TEST(ParserGrammar, PermuteIndicesRank3HappyPath) {
+  // Pass-3 review: the existing happy-path test uses rank-2 only
+  // (transpose-equivalence via [2, 1]). The general permute_indices
+  // code path includes rank>=3 composition logic in
+  // tensor_functions.h that is unreachable from the parser without
+  // a rank-3+ test. permute_indices(A{rank=3,dim=3}, [2,3,1]) is a
+  // proper non-trivial 3-cycle.
+  symbol_table syms;
+  auto result =
+      parse_tensor("permute_indices(A{rank=3, dim=3}, [2, 3, 1])", syms);
+  EXPECT_TRUE(result.is_valid());
+  EXPECT_EQ(result.get().rank(), 3u);
+  EXPECT_EQ(result.get().dim(), 3u);
 }
 
 TEST(ParserGrammar, PermuteIndicesZeroIndexCaughtAtParseTime) {
