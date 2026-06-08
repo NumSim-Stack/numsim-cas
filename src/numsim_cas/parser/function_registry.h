@@ -64,8 +64,8 @@
 #include <numsim_cas/parser/parse_error.h>
 #include <numsim_cas/parser/parser.h>
 #include <numsim_cas/scalar/scalar_constant.h>
-#include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_expression.h>
+#include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
 #include <numsim_cas/tensor/identity_tensor.h>
@@ -206,10 +206,10 @@ inline std::size_t to_positive_size_t(scalar_expr const &e,
   constexpr std::size_t no_pos = 0;
   auto val = try_int_constant(e);
   if (!val) {
-    throw type_mismatch_error(
-        std::string{fn_name} + ": " + std::string{arg_name} +
-            " must be a positive integer literal",
-        no_pos, /*source=*/"");
+    throw type_mismatch_error(std::string{fn_name} + ": " +
+                                  std::string{arg_name} +
+                                  " must be a positive integer literal",
+                              no_pos, /*source=*/"");
   }
   if (*val <= 0) {
     throw type_mismatch_error(
