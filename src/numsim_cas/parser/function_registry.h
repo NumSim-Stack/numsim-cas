@@ -69,10 +69,10 @@
 #include <numsim_cas/scalar/scalar_std.h>
 #include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/levi_civita_tensor.h>
-#include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_functions.h>
+#include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
@@ -203,11 +203,10 @@ inline std::size_t to_positive_size_t(scalar_expr const &e,
   }
   auto v = std::get<std::int64_t>(raw);
   if (v <= 0) {
-    throw type_mismatch_error(std::string{fn_name} + ": " +
-                                  std::string{arg_name} +
-                                  " must be positive (got " +
-                                  std::to_string(v) + ")",
-                              /*byte_offset=*/0, /*source=*/"");
+    throw type_mismatch_error(
+        std::string{fn_name} + ": " + std::string{arg_name} +
+            " must be positive (got " + std::to_string(v) + ")",
+        /*byte_offset=*/0, /*source=*/"");
   }
   return static_cast<std::size_t>(v);
 }
@@ -273,8 +272,7 @@ inline function_entry identity_tensor_entry() {
           }};
 }
 inline function_entry eps_entry() {
-  return {{arg_kind::scalar},
-          [](arg_vec a) -> parsed_expression {
+  return {{arg_kind::scalar}, [](arg_vec a) -> parsed_expression {
             auto const &dim_arg = std::get<scalar_expr>(a[0]);
             auto dim = to_positive_size_t(dim_arg, "eps", "dim");
             // Qualified call: dim is std::size_t which provides no ADL
