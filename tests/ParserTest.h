@@ -956,6 +956,110 @@ TEST(ParserGrammar, OuterProductOfScalarThrowsTypeMismatch) {
       type_mismatch_error);
 }
 
+// ─── β-2c: tensor constants (function-form) + permute_indices ─────
+
+TEST(ParserGrammar, ZeroTensorFactoryBuildsTensorZero) {
+  // zero_tensor(dim=3, rank=2) → tensor_zero(dim=3, rank=2).
+  // Locks the dispatch with hash equality against a hand-built
+  // tensor_zero, mirroring the *LowersTo* pattern. Hash includes
+  // dim+rank in tensor_zero, so a wrong arg order would fail.
+  symbol_table syms;
+  auto from_name = parse_tensor("zero_tensor(3, 2)", syms);
+  auto expected = expression_holder<tensor_expression>{
+      std::make_shared<tensor_zero>(std::size_t{3}, std::size_t{2})};
+  EXPECT_EQ(from_name.get().hash_value(), expected.get().hash_value());
+  EXPECT_EQ(from_name.get().rank(), 2u);
+  EXPECT_EQ(from_name.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, IdentityTensorFactoryBuildsIdentity) {
+  symbol_table syms;
+  auto from_name = parse_tensor("identity_tensor(3, 2)", syms);
+  auto expected = expression_holder<tensor_expression>{
+      std::make_shared<identity_tensor>(std::size_t{3}, std::size_t{2})};
+  EXPECT_EQ(from_name.get().hash_value(), expected.get().hash_value());
+  EXPECT_EQ(from_name.get().rank(), 2u);
+  EXPECT_EQ(from_name.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, EpsFactoryBuildsLeviCivita) {
+  // eps(3) → levi_civita_tensor(dim=3). Rank == dim for LC.
+  symbol_table syms;
+  auto from_name = parse_tensor("eps(3)", syms);
+  auto expected = numsim::cas::levi_civita(std::size_t{3});
+  EXPECT_EQ(from_name.get().hash_value(), expected.get().hash_value());
+  EXPECT_EQ(from_name.get().rank(), 3u);
+  EXPECT_EQ(from_name.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, ZeroTensorRejectsNonPositiveDim) {
+  // The to_positive_size_t helper rejects 0 and negatives; the parser
+  // surfaces this as type_mismatch_error (the same error class used
+  // for arg-kind mismatches).
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("zero_tensor(0, 2)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, ZeroTensorRejectsNonIntegerLiteral) {
+  // Decimal literal — scalar_number variant alternative is double,
+  // not int64_t; the helper rejects it.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("zero_tensor(3.5, 2)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, ZeroTensorRejectsNonConstantExpression) {
+  // Symbol — not a scalar_constant at all. Worth pinning because
+  // a future user might write `zero_tensor(n, m)` and the helper
+  // must reject it cleanly rather than crash.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("zero_tensor(n, 2)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, EpsRejectsNonPositiveDim) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("eps(0)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, PermuteIndicesFactoryBuildsPermutation) {
+  // permute_indices(A{rank=2, dim=3}, [2, 1]) is the trans form.
+  // Validates the dispatch fires and the index_list grammar (added
+  // in β-2a's contraction work) accepts a 2-arg shape just as it
+  // already accepted the 4-arg inner_product / dot_product shapes.
+  symbol_table syms;
+  auto result = parse_tensor("permute_indices(A{rank=2, dim=3}, [2, 1])", syms);
+  EXPECT_TRUE(result.is_valid());
+  EXPECT_EQ(result.get().rank(), 2u);
+  EXPECT_EQ(result.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, PermuteIndicesRankMismatchThrows) {
+  // 3-element index list against a rank-2 tensor — caught by
+  // permute_indices() itself (tensor_functions.h:309-312) as
+  // invalid_expression_error.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse("permute_indices(A{rank=2, dim=3}, [2, 1, 3])", syms);
+      },
+      invalid_expression_error);
+}
+
+TEST(ParserGrammar, PermuteIndicesOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("permute_indices(x, [1])", syms); },
+      type_mismatch_error);
+}
+
 TEST(ParserGrammar, TraceOfScalarThrowsTypeMismatch) {
   symbol_table syms;
   EXPECT_THROW(
