@@ -180,7 +180,7 @@ Indices inside `[…]` are **1-based** in the source language and
 converted to 0-based `sequence` internally. Out-of-range index
 validation is deferred to the underlying library at evaluation time.
 
-**Round-trip caveat (β-2d).** Eleven of the scalar functions —
+**Round-trip caveat (deferred to β-2d).** Eleven of the scalar functions —
 `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `log10`,
 `macauley_plus`, `macauley_minus`, `heaviside`, `smoothed_macauley`
 — have no dedicated AST node. The factory lowers them to compound

@@ -711,12 +711,17 @@ TEST(ParserGrammar, BinaryFunctionSmoothedMacauleyZeroEpsCollapses) {
   // the `scalar_zero` singleton — so the construction-time fold
   // `if (is_same<scalar_zero>(eps)) return macauley_plus(e)` always
   // fires here and the expression IS `macauley_plus(x)` = `max(x, 0)`.
-  // The contract this test pins is the evaluated result: max(x, 0).
+  // Pass-7 hardening: also assert the node type. If the fold
+  // silently regresses to the numerical (e + sqrt(e²+0))/2 path,
+  // evaluation would still produce the same numbers but the test
+  // would no longer pin the fold. Symmetric with the *LowersTo*
+  // tests' node-type pins.
   symbol_table syms;
   auto e = parse_scalar("smoothed_macauley(x, 0)", syms);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3.0}}), 3.0);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", -3.0}}), 0.0);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 0.0}}), 0.0);
+  EXPECT_TRUE(is_same<scalar_max>(e));
 }
 
 TEST(ParserGrammar, FunctionCallNestedInArithmetic) {

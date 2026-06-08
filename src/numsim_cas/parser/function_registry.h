@@ -21,19 +21,25 @@
 // 4-arg index-list form of `outer_product` likewise needs bracket-
 // list grammar support and is deferred.
 //
-// Aliasing policy (#229): `outer_product` follows the same shape as
-// the pre-existing `dot_product` alias of `dot`. Policy chosen here,
-// applied going forward: aliases are added only when the C++ name
-// is a domain-specific abbreviation that non-domain users wouldn't
-// recognize (`otimes` → tensor-product notation from differential
-// geometry; `dot` → physics/ML terse usage). Names like `asin`,
-// `acos`, `log` etc. that come from std::math do NOT get long-form
-// aliases — those are already universal. Functions whose C++ name
-// is itself the long form (`macauley_plus`, `smoothed_macauley`,
-// `heaviside`, `if_then_else`) are registered once under that name
-// — the policy speaks to alias *creation*, not to renaming. A
-// future name-vs-alias question should be decided against this rule
-// before adding to the registry.
+// Aliasing policy (#229): this PR introduces the first long-form
+// alias in the registry — `outer_product` mapping to the same
+// dispatch as `otimes`. Policy chosen here, applied going forward:
+// aliases are added only when the C++ name is a domain-specific
+// abbreviation that non-domain users wouldn't recognize (`otimes`
+// → tensor-product notation from differential geometry). Names like
+// `asin`, `acos`, `log` etc. that come from std::math do NOT get
+// long-form aliases — those are already universal. Functions whose
+// C++ name is itself the long form (`macauley_plus`,
+// `smoothed_macauley`, `heaviside`, `if_then_else`) are registered
+// once under that name — the policy speaks to alias *creation*,
+// not to renaming. A future name-vs-alias question should be
+// decided against this rule before adding to the registry.
+//
+// Note: `dot` and `dot_product` are both registered but are NOT
+// aliases of each other — `dot` is the 1-arg tensor→t2s norm
+// (`dot(A) = A:A`), `dot_product` is the 4-arg index-list
+// contraction (`dot_product(A, [i…], B, [j…])`). They share an
+// English root, not a dispatch.
 //
 // Round-trip (β-2d) caveat: several registered names construct
 // compound expressions out of existing AST nodes rather than
