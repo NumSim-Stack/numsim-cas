@@ -706,11 +706,12 @@ TEST(ParserGrammar, SmoothedMacauleyLowersToArithmetic) {
 
 TEST(ParserGrammar, BinaryFunctionSmoothedMacauleyZeroEpsCollapses) {
   // qa review M1: ε → 0 limit recovers the non-smooth Macauley
-  // bracket (scalar_std.h:756). Whether the literal "0" parses to
-  // scalar_zero (and triggers the construction-time fold) or to a
-  // scalar_constant{0} (and goes through the (e + sqrt(e² + 0))/2
-  // numerical path), the *evaluated* result is max(x, 0) — that is
-  // the contract this test pins, independent of which path fires.
+  // bracket (scalar_std.h:756). Pass-6 verified the literal `0`
+  // routes through `make_scalar_constant(int64_t{0})` and returns
+  // the `scalar_zero` singleton — so the construction-time fold
+  // `if (is_same<scalar_zero>(eps)) return macauley_plus(e)` always
+  // fires here and the expression IS `macauley_plus(x)` = `max(x, 0)`.
+  // The contract this test pins is the evaluated result: max(x, 0).
   symbol_table syms;
   auto e = parse_scalar("smoothed_macauley(x, 0)", syms);
   EXPECT_DOUBLE_EQ(eval_scalar(e, syms, {{"x", 3.0}}), 3.0);

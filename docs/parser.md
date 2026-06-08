@@ -167,9 +167,11 @@ Functions are dispatched through a static table in
 
 | Group | Functions | Signature |
 |-------|-----------|-----------|
-| Scalar unary | `sin` `cos` `tan` `asin` `acos` `atan` `sinh` `cosh` `tanh` `asinh` `acosh` `atanh` `exp` `log` `log10` `sqrt` `abs` `sign` | scalar → scalar |
-| Scalar binary | `pow` `lt` `le` `gt` `ge` `eq` `ne` | (scalar, scalar) → scalar |
-| Tensor → tensor | `trans` `inv` | tensor → tensor |
+| Scalar unary | `sin` `cos` `tan` `asin` `acos` `atan` `sinh` `cosh` `tanh` `asinh` `acosh` `atanh` `exp` `log` `log10` `sqrt` `abs` `sign` `macauley_plus` `macauley_minus` `heaviside` | scalar → scalar |
+| Scalar binary | `pow` `lt` `le` `gt` `ge` `eq` `ne` `max` `min` `smoothed_macauley` | (scalar, scalar) → scalar |
+| Scalar ternary | `if_then_else` | (scalar, scalar, scalar) → scalar |
+| Tensor → tensor | `trans` `inv` `sym` `dev` `vol` `skew` | tensor → tensor |
+| Tensor → tensor (binary) | `otimes` (alias: `outer_product`) | (tensor, tensor) → tensor |
 | Tensor → t2s | `trace` `det` `norm` `dot` | tensor → t2s |
 | Contraction → tensor | `inner_product` | (tensor, `[i…]`, tensor, `[i…]`) → tensor |
 | Contraction → t2s | `dot_product` | (tensor, `[i…]`, tensor, `[i…]`) → t2s |
@@ -178,11 +180,25 @@ Indices inside `[…]` are **1-based** in the source language and
 converted to 0-based `sequence` internally. Out-of-range index
 validation is deferred to the underlying library at evaluation time.
 
-Still to land (currently throws `unknown_function_error`):
-`max`, `min`, `if_then_else`, `macauley_plus`, `macauley_minus`,
-`heaviside`, `smoothed_macauley`, `dev`, `sym`, `vol`, `skew`,
-`outer_product`. These depend on PRs not yet merged to `main`
-(#207, #208, #209, plus the projector stack).
+**Round-trip caveat (β-2d).** Eleven of the scalar functions —
+`sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `log10`,
+`macauley_plus`, `macauley_minus`, `heaviside`, `smoothed_macauley`
+— have no dedicated AST node. The factory lowers them to compound
+expressions at parse time (`macauley_plus(x)` → `max(x, 0)`,
+`heaviside(x)` → `ge(x, 0)`, etc.). Re-parse of the printed form
+gives a semantically identical (hash-equal) expression but loses
+the source name. The `*LowersTo*` tests in `tests/ParserTest.h`
+lock these lowerings.
+
+Still to land (currently throws `unknown_function_error` or
+`type_mismatch_error`):
+
+- 4-arg index-list form of `outer_product`
+  (`otimes(A, [i…], B, [j…])`) — needs bracket-list grammar
+- Tensor branches of `if_then_else` (scalar cond, tensor then,
+  tensor else) — the registry binds the 3-scalar overload only;
+  tensor-piecewise is tracked in
+  [#210](https://github.com/NumSim-Stack/numsim-cas/issues/210)
 
 ## Ten Example Expressions
 
@@ -203,17 +219,13 @@ All ten parse against the current registry:
 
 ### Eventually-supported
 
-These will parse once the upstream dependencies land — currently they
-raise `unknown_function_error`:
+These still raise `unknown_function_error` or `type_mismatch_error`:
 
-- `if_then_else(gt(x, 0), x, -x)` — would be `abs(x)`; blocked on
-  [#207](https://github.com/NumSim-Stack/numsim-cas/issues/207)
-- `max(0, sin(x))` / `macauley_plus(sin(x))` — blocked on
-  [#208](https://github.com/NumSim-Stack/numsim-cas/issues/208) and
-  [#209](https://github.com/NumSim-Stack/numsim-cas/issues/209)
-- `trans(A{rank=2, dim=3}) + sym(A)` — `sym`/`dev`/`vol`/`skew` blocked on
-  the projector stack (`projection_tensor.h` is unmerged)
-- `outer_product(...)` — no top-level free function on this branch yet
+- `outer_product(A, [3, 4], B, [1, 2])` — 4-arg index-list form
+  needs bracket-list grammar; the 2-arg form parses
+- `if_then_else(gt(x, 0), A, B)` where `A`/`B` are tensors — the
+  scalar overload is registered; tensor-branch piecewise is
+  [#210](https://github.com/NumSim-Stack/numsim-cas/issues/210)
 
 ## Error Catalogue
 
