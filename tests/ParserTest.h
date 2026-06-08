@@ -1088,6 +1088,19 @@ TEST(ParserGrammar, LeviCivitaRejectsNonConstantExpression) {
       type_mismatch_error);
 }
 
+TEST(ParserGrammar, LeviCivitaRejectsNegativeLiteral) {
+  // Pass-3/4 review: a literal `-3` parses as scalar_negative
+  // wrapping scalar_constant{3} — a bare is_same<scalar_constant>
+  // check would mis-reject this as "non-constant expression". The
+  // refactor to use try_int_constant() handles the negation
+  // correctly, surfacing the actual domain error ("must be
+  // positive (got -3)") instead.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(-3)", syms); },
+      type_mismatch_error);
+}
+
 TEST(ParserGrammar, LeviCivitaRejectsRationalFold) {
   // Pass-3 review (asymmetric counterpart to AcceptsIntegerDivisionFold):
   // `3/6` folds at parse time to `rational_t{1, 2}` — NOT collapsed
