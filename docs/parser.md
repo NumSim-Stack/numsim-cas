@@ -223,9 +223,14 @@ These still raise `unknown_function_error` or `type_mismatch_error`:
 
 - `outer_product(A, [3, 4], B, [1, 2])` — 4-arg index-list form
   needs bracket-list grammar; the 2-arg form parses
-- `if_then_else(gt(x, 0), A, B)` where `A`/`B` are tensors — the
-  scalar overload is registered; tensor-branch piecewise is
-  [#210](https://github.com/NumSim-Stack/numsim-cas/issues/210)
+- `if_then_else(gt(x, 0), A, B)` where `A`/`B` are tensors — only the
+  scalar overload is registered. The `tensor_if_then_else` and
+  `tensor_to_scalar_if_then_else` C++ nodes exist on `main`; the gap
+  is registry-side. The current registry binds one entry per name,
+  so adding the tensor overload requires extending dispatch to key on
+  `(name, arg_kinds)` or registering separate names. Tracked under
+  [#229](https://github.com/NumSim-Stack/numsim-cas/issues/229)'s
+  remaining checkboxes.
 
 ## Error Catalogue
 

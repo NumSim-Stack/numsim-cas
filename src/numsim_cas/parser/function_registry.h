@@ -16,14 +16,20 @@
 //
 // Overload resolution note: the registry keys on name only, so each
 // name binds to ONE dispatch entry. `if_then_else` registers the
-// 3-scalar form; the (scalar, tensor, tensor) overload would need a
-// dispatch-on-actual-types path or a separately named entry. The
-// 4-arg index-list form of `outer_product` likewise needs bracket-
-// list grammar support and is deferred.
+// 3-scalar form; the (scalar, tensor, tensor) and (scalar, t2s, t2s)
+// overloads — whose C++ nodes (`tensor_if_then_else`,
+// `tensor_to_scalar_if_then_else`) already exist on main — need
+// either dispatch-on-arg-kinds (multi-entry per name) or separately
+// named entries. The 4-arg index-list form of `outer_product`
+// likewise needs bracket-list grammar support and is deferred.
 //
-// Aliasing policy (#229): this PR introduces the first long-form
-// alias in the registry — `outer_product` mapping to the same
-// dispatch as `otimes`. Policy chosen here, applied going forward:
+// Aliasing policy (#229): this PR introduces the first *synonym
+// pair* in the registry — `outer_product` and `otimes` mapping to
+// the same dispatch lambda. (Other long-form-only names like
+// `macauley_plus`, `heaviside`, `if_then_else` are registered once
+// under their long form; `dot` and `dot_product` share an English
+// root but have different arities — they are not synonyms.) Policy
+// chosen here, applied going forward:
 // aliases are added only when the C++ name is a domain-specific
 // abbreviation that non-domain users wouldn't recognize (`otimes`
 // → tensor-product notation from differential geometry). Names like

@@ -596,11 +596,17 @@ TEST(ParserGrammar, TernaryFunctionIfThenElseArityErrors) {
 }
 
 TEST(ParserGrammar, IfThenElseTensorBranchesRaiseTypeMismatch) {
-  // Code-reviewer MED-2: documents the partial-coverage decision in
-  // function_registry.h — the (scalar cond, tensor then, tensor else)
-  // overload from tensor_std.h is unreachable from the parser, and
-  // any future change that "fixes" this without updating the comment
-  // should fail here.
+  // Code-reviewer MED-2 (pass-1): documents the partial-coverage
+  // decision in function_registry.h — the (scalar cond, tensor then,
+  // tensor else) overload from tensor_std.h is unreachable from the
+  // parser today, and any future change that "fixes" this without
+  // updating the comment should fail here.
+  //
+  // TRIPWIRE (pass-8 M-1): this is a deferred-resolution lock-in,
+  // not a permanent contract. When the remaining 2 of 7 #229
+  // checkboxes (t2s / tensor `if_then_else` registry bindings) land,
+  // DELETE OR FLIP THIS TEST — at that point parsing tensor branches
+  // should succeed, not throw.
   symbol_table syms;
   EXPECT_THROW(
       {
