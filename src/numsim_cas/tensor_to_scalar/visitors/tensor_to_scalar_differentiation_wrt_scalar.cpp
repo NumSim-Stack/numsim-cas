@@ -223,9 +223,11 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
     return;
   }
   auto rank = visitable.expr().get().rank();
-  // dot_product takes sequence&&; build two copies for the two args.
-  // sequence's initializer-list ctor is 1-based; here the indices
-  // start at 1 to match the project's 1-based external convention.
+  // 0-based iota: sequence::begin() exposes the 0-based internal
+  // storage directly (the 1-based subtraction is only applied by
+  // the initializer-list ctor, not the size_t one). Matches the
+  // existing tensor-arg t2s sibling at
+  // tensor_to_scalar_differentiation.cpp:217-218.
   sequence idx_a(rank), idx_b(rank);
   std::iota(idx_a.begin(), idx_a.end(), std::size_t{0});
   std::iota(idx_b.begin(), idx_b.end(), std::size_t{0});

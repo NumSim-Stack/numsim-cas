@@ -297,6 +297,30 @@ TEST_F(T2SDiffWrtScalarTest, ConstantT2sYieldsZero) {
   EXPECT_NEAR(ev.apply(J), 0.0, 1e-12);
 }
 
+// Pass-2 review architect §7: the t2s pow rule has a non-constant-h
+// branch that no other test exercises. d/d(sv) [(trace(eps))^sv]
+// follows the general formula g^(h-1) * (h*dg + dh*log(g)*g) with
+// dg=0 (trace(eps) is sv-independent), so the rule degenerates to
+// dh*log(g)*g * g^(h-1) = log(trace(eps)) * (trace(eps))^sv. At
+// trace=2, sv=3:
+//   expected = log(2) * 8 ≈ 5.5451774
+TEST_F(T2SDiffWrtScalarTest, T2SPowNonConstantExponent) {
+  auto R = pow(trace(eps), sv);
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+  // Build eps with trace = 2 in 3D (diagonal 1, 1, 0).
+  tmech::tensor<double, 3, 2> eps_t = tmech::zeros<double, 3, 2>();
+  eps_t(0, 0) = 1.0;
+  eps_t(1, 1) = 1.0;
+  using tdata = tensor_data<double, 3, 2>;
+  auto eps_ptr = std::make_shared<tdata>(eps_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, eps_ptr);
+  ev.set_scalar(sv, 3.0);
+  const double expected = 8.0 * std::log(2.0);
+  EXPECT_NEAR(ev.apply(J), expected, 1e-10);
+}
+
 // Product rule on scalar coefficient: diff(sv * trace(eps), sv) ==
 // trace(eps).
 TEST_F(T2SDiffWrtScalarTest, ScalarCoefficientProductRule) {

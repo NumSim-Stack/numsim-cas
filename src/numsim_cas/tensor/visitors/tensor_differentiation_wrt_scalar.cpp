@@ -41,7 +41,8 @@ void tensor_differentiation_wrt_scalar::operator()(
   auto int_n = try_int_constant(n_expr);
   if (!int_n) {
     throw not_implemented_error(
-        "tensor_differentiation_wrt_scalar: pow with non-constant exponent");
+        "tensor_differentiation_wrt_scalar: pow with non-constant exponent "
+        "(tracked in #287)");
   }
   auto n = static_cast<std::int64_t>(*int_n);
 
@@ -239,10 +240,11 @@ void tensor_differentiation_wrt_scalar::operator()(
   if (A.get().rank() != 2) {
     // Rank-4 inv is its own can of worms; parallel to the tensor-arg
     // visitor's rank-4 throw at tensor_differentiation.cpp:380.
+    // Tracked in #287 (with #250 covering the tensor-arg analogue).
     throw not_implemented_error(
         "tensor_differentiation_wrt_scalar: tensor_inv only supports rank 2 "
         "(got rank " +
-        std::to_string(A.get().rank()) + ")");
+        std::to_string(A.get().rank()) + "); tracked in #287");
   }
   auto invA = inv(A);
   // term = invA * dA * invA via two rank-2 contractions

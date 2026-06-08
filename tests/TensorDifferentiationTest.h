@@ -743,12 +743,24 @@ TEST_F(TensorDiffWrtScalarTest, PowRule) {
   EXPECT_EQ(d.get().rank(), 2u);
 }
 
-// Pass-1 review: also lock that pow(A, 1) succeeds — the
-// try_int_constant refactor handles the scalar_one singleton (#284
-// trap). A bare is_same<scalar_constant> check would throw
-// not_implemented here.
-TEST_F(TensorDiffWrtScalarTest, PowOneHandledViaSingleton) {
-  auto expr = pow(s * A, 1);
+// Pass-1 review / pass-2 fix: lock that the tensor_pow rule handles
+// the scalar_one singleton (#284 trap). The public `pow(x, 1)` factory
+// folds to `x` at construction (tensor_std.h), so we bypass the fold
+// by constructing a tensor_pow node directly via make_expression.
+// A bare is_same<scalar_constant>(scalar_one) check would return
+// false and throw not_implemented; try_int_constant correctly returns
+// 1 and the rule produces a valid result.
+TEST_F(TensorDiffWrtScalarTest, PowOneSingletonHandledByVisitor) {
+  auto one_singleton = get_scalar_one();
+  // make_expression bypasses the pow() factory fold that would
+  // collapse pow(s*A, 1) → s*A; we need a real tensor_pow node with
+  // scalar_one as the exponent so the visitor's tensor_pow rule
+  // runs.
+  auto expr = make_expression<tensor_pow>(s * A, one_singleton);
+  ASSERT_TRUE(is_same<tensor_pow>(expr))
+      << "Setup precondition: expression must be a tensor_pow node "
+         "to exercise the rule under test; got: "
+      << to_string(expr);
   EXPECT_NO_THROW({ [[maybe_unused]] auto d = diff(expr, s); });
 }
 
@@ -762,24 +774,39 @@ TEST_F(TensorDiffWrtScalarTest, NegationCommutesWithDiff) {
       << "Got:      " << to_string(d) << "\nExpected: " << to_string(expected);
 }
 
-// Pass-1 review (architect M6): tensor_to_scalar_with_tensor_mul rule
-// exercises BOTH diff(tensor, scalar) AND diff(t2s, scalar) through
-// the same node. Without #285, the t2s side would throw
-// not_implemented. This test exercises a node shaped as
-// `A * trace(s*B)` — a tensor multiplied by a t2s that depends on s
-// — so both CPOs must run.
+// Pass-1 review (architect M6) + pass-2 M3 (numerical lock-in):
+// tensor_to_scalar_with_tensor_mul rule exercises BOTH
+// diff(tensor, scalar) AND diff(t2s, scalar). Without #285 the t2s
+// side would throw not_implemented. Verified numerically:
+//   d/ds(A * trace(s*B)) = (dA/ds)*trace(s*B) + A*d/ds(trace(s*B))
+//                       = 0*trace(s*B) + A*trace(B)  (A is s-indep)
+//                       = A * trace(B)
+// At any s value the derivative's components are A_t * trace(B_t).
 TEST_F(TensorDiffWrtScalarTest, CrossCPOTensorTimesT2s) {
   auto expr =
       make_expression<tensor_to_scalar_with_tensor_mul>(A, trace(s * B));
   auto d = diff(expr, s);
   ASSERT_TRUE(d.is_valid());
-  // d/ds(A * trace(s*B)) = 0 * trace(s*B) + A * d/ds(trace(s*B))
-  //                      = A * trace(B)
-  // The hash check would be sensitive to canonicalisation; instead
-  // verify the result is non-zero and has the expected rank.
   EXPECT_EQ(d.get().rank(), A.get().rank());
   EXPECT_FALSE(is_same<tensor_zero>(d))
       << "Expected non-zero derivative; got: " << to_string(d);
+
+  // Numerical lock-in.
+  tmech::tensor<double, 3, 2> A_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 2> B_t = tmech::randn<double, 3, 2>();
+  auto A_ptr = std::make_shared<tensor_data<double, 3, 2>>(A_t);
+  auto B_ptr = std::make_shared<tensor_data<double, 3, 2>>(B_t);
+  tensor_evaluator<double> ev;
+  ev.set(A, A_ptr);
+  ev.set(B, B_ptr);
+  ev.set_scalar(s, 2.0);
+  auto d_val = ev.apply(d);
+  ASSERT_NE(d_val, nullptr);
+  double tr_B = tmech::trace(B_t);
+  auto expected_t = A_t * tr_B;
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech_diff<3, 2>(*d_val), expected_t, 1e-12))
+      << "diff(A * trace(s*B), s) should evaluate to A * trace(B)";
 }
 
 } // namespace numsim::cas
