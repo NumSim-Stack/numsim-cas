@@ -39,7 +39,12 @@ tensor_to_scalar_differentiation_wrt_scalar::apply(t2s_holder_t const &expr) {
     expr.get<tensor_to_scalar_visitable_t>().accept(*this);
   }
   if (!m_result.is_valid()) {
-    return wrap_scalar(get_scalar_zero());
+    // Pass-3 review: return the canonical tensor_to_scalar_zero
+    // singleton (not a wrap_scalar(scalar_zero)) so that downstream
+    // rules' `is_same<tensor_to_scalar_zero>` zero-detection works.
+    // The wrapped form would silently bypass those checks and inflate
+    // sums with redundant zero terms.
+    return make_expression<tensor_to_scalar_zero>();
   }
   return m_result;
 }

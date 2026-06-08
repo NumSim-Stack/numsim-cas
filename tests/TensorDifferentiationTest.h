@@ -721,16 +721,28 @@ TEST_F(TensorDiffWrtScalarTest, AdditiveLinearity) {
       << "Expected B, got: " << to_string(d);
 }
 
-// Pass-1 review L1: cover the tensor_inv rule. d/ds(inv(s*A)) =
-// -inv(s*A) * (dA/ds) * inv(s*A) where dA/ds = A (since A is
-// scalar-independent). Verified numerically by comparing the
-// derivative's evaluated value at sv=2 against a finite-difference
-// reference.
-TEST_F(TensorDiffWrtScalarTest, InvRule) {
-  auto expr = inv(s * A);
+// Pass-1 review L1 + pass-3 fix: cover the tensor_inv rule directly.
+// The public `inv(s*A)` factory folds to `inv(A)/s` (the
+// `inv(α·A) → inv(A)/α` rule from #71), which is a tensor_scalar_mul
+// — NOT a tensor_inv node — so the visitor's tensor_inv rule never
+// fires. Bypass the fold via make_expression to actually exercise the
+// rule under test. Same pattern as PowOneSingletonHandledByVisitor.
+TEST_F(TensorDiffWrtScalarTest, InvRuleExercisedDirectly) {
+  auto expr = make_expression<tensor_inv>(A);
+  ASSERT_TRUE(is_same<tensor_inv>(expr))
+      << "Setup precondition: expression must be a tensor_inv node to "
+         "exercise the rule under test; got: "
+      << to_string(expr);
+  // A is s-independent → derivative is zero, but the visitor must
+  // still reach the tensor_inv rule rather than throwing or
+  // mis-dispatching. The rule's early-return on `!dA.is_valid()`
+  // leaves m_result invalid and apply() coerces to tensor_zero.
   auto d = diff(expr, s);
   ASSERT_TRUE(d.is_valid());
-  EXPECT_EQ(d.get().rank(), 2u);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero for derivative of inv(A) w.r.t. s "
+         "where A is s-independent; got: "
+      << to_string(d);
 }
 
 // Pass-1 review L1: cover the tensor_pow rule with non-trivial
