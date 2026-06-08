@@ -61,13 +61,20 @@
 // PR locks in the current state so the choice is visible.
 
 #include <numsim_cas/core/expression_holder.h>
+#include <numsim_cas/parser/parse_error.h>
 #include <numsim_cas/parser/parser.h>
+#include <numsim_cas/scalar/scalar_constant.h>
 #include <numsim_cas/scalar/scalar_expression.h>
+#include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
+#include <numsim_cas/tensor/identity_tensor.h>
+#include <numsim_cas/tensor/levi_civita_tensor.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_functions.h>
+#include <numsim_cas/tensor/tensor_std.h>
+#include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
 
@@ -163,6 +170,56 @@ inline function_entry tensor_to_scalar_unary(auto fn) {
           }};
 }
 
+// Extract a positive size_t from a scalar literal argument. Used by
+// the tensor-constant factories (zero_tensor / identity_tensor /
+// levi_civita) where `dim` and `rank` must be compile-time-known
+// positive integers.
+//
+// Delegates to the existing `try_int_constant` predicate, which
+// already handles the four-case singleton trap: literal `0` and `1`
+// are scalar_zero and scalar_one singletons, NOT scalar_constant{0/1}
+// (see scalar_make_constant.h), and a literal negation produces a
+// scalar_negative wrapping a scalar_constant. A bare
+// `is_same<scalar_constant>(e)` check would mishandle all three.
+// Pass-3 of #281 surfaced this trap via a `levi_civita(1)` test
+// that was rejected with "non-constant expression"; pass-4
+// (architect review) noted this is a recurring bug class — see
+// scalar_functions.cpp:try_int_constant for the canonical
+// singleton-aware integer-literal predicate that THIS function now
+// uses, and #284 for the audit of other bare-is_same<scalar_constant>
+// callers.
+//
+// On failure, raises type_mismatch_error with an empty source/zero
+// offset per parse_error's documented idiom for "errors outside the
+// parser"; position-threading is tracked in #282.
+inline std::size_t to_positive_size_t(scalar_expr const &e,
+                                      std::string_view fn_name,
+                                      std::string_view arg_name) {
+  // Defense against 32-bit size_t: try_int_constant returns long long
+  // (64-bit on all current targets). On 64-bit platforms size_t is
+  // also 64-bit and the cast at the end is exact. Pass-5 review:
+  // pin this contract so a hypothetical 32-bit build doesn't silently
+  // truncate huge literals.
+  static_assert(sizeof(std::size_t) >= sizeof(long long),
+                "to_positive_size_t assumes size_t fits long long; add a "
+                "range check at the cast site if this no longer holds");
+  constexpr std::size_t no_pos = 0;
+  auto val = try_int_constant(e);
+  if (!val) {
+    throw type_mismatch_error(std::string{fn_name} + ": " +
+                                  std::string{arg_name} +
+                                  " must be a positive integer literal",
+                              no_pos, /*source=*/"");
+  }
+  if (*val <= 0) {
+    throw type_mismatch_error(
+        std::string{fn_name} + ": " + std::string{arg_name} +
+            " must be positive (got " + std::to_string(*val) + ")",
+        no_pos, /*source=*/"");
+  }
+  return static_cast<std::size_t>(*val);
+}
+
 // Convert a parsed index_list_value (1-based) to numsim_cas's
 // `sequence` (0-based internally; sequence accepts a count then
 // per-element writes via `operator[]`).
@@ -191,6 +248,68 @@ inline function_entry inner_product_entry() {
             auto rhs_seq = to_sequence(std::get<index_list_value>(a[3]));
             return inner_product(std::move(lhs), std::move(lhs_seq),
                                  std::move(rhs), std::move(rhs_seq));
+          }};
+}
+
+// Tensor-constant factories. Function-form: `zero_tensor(dim, rank)`,
+// `identity_tensor(dim, rank)`, `levi_civita(dim)`. The plan
+// originally considered literal-form (`0{rank=R, dim=D}`,
+// `I{rank=R, dim=D}`, `eps{dim=D}`) matching the existing
+// tensor_decl syntax, but those shapes either need new grammar rules
+// (number-literal followed by `{`) or shadow user variable names
+// (`I`, `eps` are common scalar identifiers). Function-form is
+// unambiguous, reuses existing dispatch, and is consistent with
+// `permute_indices`. The literal form is a separate design decision
+// deferred to a follow-up.
+//
+// Naming: `levi_civita` matches the C++ free function in
+// tensor_std.h rather than the printer's short `eps{N}` form
+// (#281 review M1). `eps` is a common scalar variable name (machine
+// epsilon, Newton tolerance) so registering it as a function would
+// shadow user programs that bind it — long-form registration only
+// per the aliasing policy at the top of this file.
+inline function_entry zero_tensor_entry() {
+  return {{arg_kind::scalar, arg_kind::scalar},
+          [](arg_vec a) -> parsed_expression {
+            auto const &dim_arg = std::get<scalar_expr>(a[0]);
+            auto const &rank_arg = std::get<scalar_expr>(a[1]);
+            auto dim = to_positive_size_t(dim_arg, "zero_tensor", "dim");
+            auto rank = to_positive_size_t(rank_arg, "zero_tensor", "rank");
+            return make_expression<tensor_zero>(dim, rank);
+          }};
+}
+inline function_entry identity_tensor_entry() {
+  return {{arg_kind::scalar, arg_kind::scalar},
+          [](arg_vec a) -> parsed_expression {
+            auto const &dim_arg = std::get<scalar_expr>(a[0]);
+            auto const &rank_arg = std::get<scalar_expr>(a[1]);
+            auto dim = to_positive_size_t(dim_arg, "identity_tensor", "dim");
+            auto rank = to_positive_size_t(rank_arg, "identity_tensor", "rank");
+            return make_expression<identity_tensor>(dim, rank);
+          }};
+}
+inline function_entry levi_civita_entry() {
+  return {{arg_kind::scalar}, [](arg_vec a) -> parsed_expression {
+            auto const &dim_arg = std::get<scalar_expr>(a[0]);
+            auto dim = to_positive_size_t(dim_arg, "levi_civita", "dim");
+            // Qualified call: dim is std::size_t which provides no ADL
+            // hook into numsim::cas.
+            return ::numsim::cas::levi_civita(dim);
+          }};
+}
+
+// permute_indices(tensor, [i1, i2, …]) → tensor. The grammar's
+// arg_item already accepts index_list_literal anywhere in a function
+// call arg list (from the contraction work in β-2a), so no grammar
+// change is needed. Rank-vs-indices-size validation happens in
+// `permute_indices()` itself (rank-size, range, and uniqueness
+// gates) and raises invalid_expression_error.
+inline function_entry permute_indices_entry() {
+  return {{arg_kind::tensor, arg_kind::index_list},
+          [](arg_vec a) -> parsed_expression {
+            auto &t = std::get<tensor_expr>(a[0]);
+            auto idx = to_sequence(std::get<index_list_value>(a[1]));
+            return permute_indices(std::move(t), std::move(idx));
           }};
 }
 
@@ -306,6 +425,14 @@ function_registry() {
     // ─── Contraction (tensor, [idx], tensor, [idx]) ────────────
     m.emplace("inner_product", detail::inner_product_entry());
     m.emplace("dot_product", detail::dot_product_entry());
+
+    // ─── Tensor constants (function-form; β-2c) ────────────────
+    m.emplace("zero_tensor", detail::zero_tensor_entry());
+    m.emplace("identity_tensor", detail::identity_tensor_entry());
+    m.emplace("levi_civita", detail::levi_civita_entry());
+
+    // ─── Index permutation (tensor, [idx]) ─────────────────────
+    m.emplace("permute_indices", detail::permute_indices_entry());
 
     return m;
   }();

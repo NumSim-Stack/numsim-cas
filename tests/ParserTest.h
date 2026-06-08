@@ -956,6 +956,309 @@ TEST(ParserGrammar, OuterProductOfScalarThrowsTypeMismatch) {
       type_mismatch_error);
 }
 
+// ─── β-2c: tensor constants (function-form) + permute_indices ─────
+
+TEST(ParserGrammar, ZeroTensorFactoryBuildsTensorZero) {
+  // zero_tensor(dim=3, rank=2) → tensor_zero(dim=3, rank=2).
+  // Locks the dispatch with hash equality against a hand-built
+  // tensor_zero, mirroring the *LowersTo* pattern. Hash includes
+  // dim+rank in tensor_zero, so a wrong arg order would fail.
+  symbol_table syms;
+  auto from_name = parse_tensor("zero_tensor(3, 2)", syms);
+  auto expected = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+  EXPECT_EQ(from_name.get().hash_value(), expected.get().hash_value());
+  EXPECT_EQ(from_name.get().rank(), 2u);
+  EXPECT_EQ(from_name.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, IdentityTensorFactoryBuildsIdentity) {
+  symbol_table syms;
+  auto from_name = parse_tensor("identity_tensor(3, 2)", syms);
+  auto expected =
+      make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_EQ(from_name.get().hash_value(), expected.get().hash_value());
+  EXPECT_EQ(from_name.get().rank(), 2u);
+  EXPECT_EQ(from_name.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, LeviCivitaFactoryBuildsTensor) {
+  // levi_civita(3) → levi_civita_tensor(dim=3). Rank == dim for LC.
+  // Renamed from `eps` (#281 review M1) because `eps` is a standard
+  // scalar identifier for machine epsilon / Newton tolerance.
+  symbol_table syms;
+  auto from_name = parse_tensor("levi_civita(3)", syms);
+  auto expected = numsim::cas::levi_civita(std::size_t{3});
+  EXPECT_EQ(from_name.get().hash_value(), expected.get().hash_value());
+  EXPECT_EQ(from_name.get().rank(), 3u);
+  EXPECT_EQ(from_name.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, LeviCivitaCoversMultipleDims) {
+  // Dim 2 / 4 stress separate code paths in the LC factory. The
+  // happy-path test above only covers dim=3 (the eval ceiling per
+  // #270, also the most-used). Without these the dim=4 register path
+  // could regress silently.
+  symbol_table syms2;
+  auto lc2 = parse_tensor("levi_civita(2)", syms2);
+  EXPECT_EQ(lc2.get().rank(), 2u);
+  EXPECT_EQ(lc2.get().dim(), 2u);
+  symbol_table syms4;
+  auto lc4 = parse_tensor("levi_civita(4)", syms4);
+  EXPECT_EQ(lc4.get().rank(), 4u);
+  EXPECT_EQ(lc4.get().dim(), 4u);
+}
+
+TEST(ParserGrammar, ZeroTensorRejectsNonPositiveDim) {
+  // The to_positive_size_t helper rejects 0 and negatives; the parser
+  // surfaces this as type_mismatch_error (the same error class used
+  // for arg-kind mismatches).
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("zero_tensor(0, 2)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, ZeroTensorRejectsNonIntegerLiteral) {
+  // Decimal literal — scalar_number variant alternative is double,
+  // not int64_t; the helper rejects it.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("zero_tensor(3.5, 2)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, ZeroTensorRejectsNonConstantExpression) {
+  // Symbol — not a scalar_constant at all. Worth pinning because
+  // a future user might write `zero_tensor(n, m)` and the helper
+  // must reject it cleanly rather than crash.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("zero_tensor(n, 2)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, IdentityTensorRejectsNonPositiveDim) {
+  // Pass-1 review M3: each factory's `m.emplace` is a separate site;
+  // a typo in identity_tensor_entry's call to to_positive_size_t
+  // (wrong arg name, wrong index) wouldn't be caught by zero_tensor's
+  // error tests. Cover each registered factory's error path.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("identity_tensor(0, 2)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, IdentityTensorRejectsNonIntegerLiteral) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("identity_tensor(3, 2.5)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, IdentityTensorRejectsNonConstantExpression) {
+  // Pass-3 review: zero_tensor has a non-constant-expression test
+  // but identity_tensor didn't. The to_positive_size_t helper has a
+  // separate `is_same<scalar_constant>` guard with its own error
+  // message — covering it on identity_tensor too pins the message
+  // path against a future copy-paste typo in identity_tensor_entry.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("identity_tensor(n, 2)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaRejectsNonPositiveDim) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(0)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaRejectsNonIntegerLiteral) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(3.5)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaRejectsNonConstantExpression) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(n)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaAcceptsDoubleNegationLiteral) {
+  // Pass-5 review: try_int_constant recurses through scalar_negative
+  // unconditionally, so `--3` (parsed as two unary minuses, since the
+  // parser doesn't treat `--` as a pre-decrement operator) strips
+  // both negations to `+3` and SUCCEEDS as levi_civita(3). Lock the
+  // surprise — a future refactor that changed try_int_constant to
+  // single-strip semantics would flip this to a reject and the test
+  // would fail visibly.
+  symbol_table syms;
+  auto from_dn = parse_tensor("levi_civita(--3)", syms);
+  EXPECT_TRUE(from_dn.is_valid());
+  EXPECT_EQ(from_dn.get().rank(), 3u);
+  EXPECT_EQ(from_dn.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, LeviCivitaRejectsNegativeLiteral) {
+  // Pass-3/4 review: a literal `-3` parses as scalar_negative
+  // wrapping scalar_constant{3} — a bare is_same<scalar_constant>
+  // check would mis-reject this as "non-constant expression". The
+  // refactor to use try_int_constant() handles the negation
+  // correctly, surfacing the actual domain error ("must be
+  // positive (got -3)") instead.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(-3)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaRejectsRationalFold) {
+  // Pass-3 review (asymmetric counterpart to AcceptsIntegerDivisionFold):
+  // `3/6` folds at parse time to `rational_t{1, 2}` — NOT collapsed
+  // to int64_t since denominator > 1. The to_positive_size_t helper
+  // sees holds_alternative<int64_t> == false and rejects as
+  // non-integer literal. Distinct from LeviCivitaRejectsNonInteger
+  // Literal which exercises the `double` variant via decimal parsing
+  // — this one tests the `rational_t` variant.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(3 / 6)", syms); },
+      type_mismatch_error);
+}
+
+TEST(ParserGrammar, LeviCivitaDim1Throws) {
+  // Pass-3 review: levi_civita_tensor's constructor enforces
+  // 2 <= dim <= 4 (see levi_civita_tensor.h:81-82). Pin the
+  // dim=1 lower-bound rejection so a future change to the
+  // valid-dim range stays visible at the parser surface.
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("levi_civita(1)", syms); },
+      invalid_expression_error);
+}
+
+TEST(ParserGrammar, LeviCivitaAcceptsIntegerDivisionFold) {
+  // Pass-1 review L1 (corrected during pass-2 fixes): empirically the
+  // parser DOES constant-fold `6/3` to a single scalar_constant{2} at
+  // parse time (the construction-time folds in pow/mul collapse
+  // `6 * pow(3, -1)` to a rational 6/3 → normalized to int64_t{2}
+  // via scalar_number::normalize_rational). So `levi_civita(6/3)`
+  // succeeds and is equivalent to `levi_civita(2)`. Locked here so a
+  // future change that disables the fold (e.g. for symbolic
+  // preservation) makes this test fail visibly.
+  symbol_table syms_div;
+  auto from_div = parse_tensor("levi_civita(6 / 3)", syms_div);
+  symbol_table syms_lit;
+  auto from_lit = parse_tensor("levi_civita(2)", syms_lit);
+  EXPECT_EQ(from_div.get().hash_value(), from_lit.get().hash_value());
+  EXPECT_EQ(from_div.get().rank(), 2u);
+}
+
+TEST(ParserGrammar, PermuteIndicesFactoryBuildsPermutation) {
+  // permute_indices(A{rank=2, dim=3}, [2, 1]) is the trans form.
+  // Pass-1 review QA-4: hash-compare against trans(A) so the test
+  // catches a registry bug that silently returns the original
+  // tensor (which would have the right rank/dim but wrong content).
+  symbol_table syms_a;
+  auto from_permute =
+      parse_tensor("permute_indices(A{rank=2, dim=3}, [2, 1])", syms_a);
+  symbol_table syms_b;
+  auto from_trans = parse_tensor("trans(A{rank=2, dim=3})", syms_b);
+  EXPECT_EQ(from_permute.get().hash_value(), from_trans.get().hash_value());
+  EXPECT_EQ(from_permute.get().rank(), 2u);
+  EXPECT_EQ(from_permute.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, PermuteIndicesRankMismatchThrows) {
+  // 3-element index list against a rank-2 tensor — caught by
+  // permute_indices() itself (the rank-size gate) as
+  // invalid_expression_error.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse("permute_indices(A{rank=2, dim=3}, [2, 1, 3])", syms);
+      },
+      invalid_expression_error);
+}
+
+TEST(ParserGrammar, PermuteIndicesDuplicateIndexThrows) {
+  // Pass-1 review QA-3: [1, 1] (duplicate, not a valid permutation)
+  // previously slipped through and produced a malformed AST node.
+  // The new permutation-property gate in permute_indices() rejects.
+  // Pass-3 review: assert on the message content so a copy-paste of
+  // the wrong error string (e.g. "out of range" on the duplicate
+  // branch) is caught.
+  symbol_table syms;
+  try {
+    [[maybe_unused]] auto e =
+        parse("permute_indices(A{rank=2, dim=3}, [1, 1])", syms);
+    FAIL() << "Expected duplicate-index to throw";
+  } catch (invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("appears more than once"),
+              std::string::npos)
+        << "what() should identify the duplicate; was:\n"
+        << e.what();
+  }
+}
+
+TEST(ParserGrammar, PermuteIndicesOutOfRangeThrows) {
+  // Pass-1 review QA-3: [1, 99] (out-of-range index for a rank-2
+  // tensor) previously dereferenced an invalid position downstream.
+  // The new range gate in permute_indices() rejects at construction.
+  symbol_table syms;
+  try {
+    [[maybe_unused]] auto e =
+        parse("permute_indices(A{rank=2, dim=3}, [1, 99])", syms);
+    FAIL() << "Expected out-of-range index to throw";
+  } catch (invalid_expression_error const &e) {
+    EXPECT_NE(std::string(e.what()).find("out of range"), std::string::npos)
+        << "what() should identify the range failure; was:\n"
+        << e.what();
+  }
+}
+
+TEST(ParserGrammar, PermuteIndicesRank3HappyPath) {
+  // Pass-3 review: the existing happy-path test uses rank-2 only
+  // (transpose-equivalence via [2, 1]). The general permute_indices
+  // code path includes rank>=3 composition logic in
+  // tensor_functions.h that is unreachable from the parser without
+  // a rank-3+ test. permute_indices(A{rank=3,dim=3}, [2,3,1]) is a
+  // proper non-trivial 3-cycle.
+  symbol_table syms;
+  auto result =
+      parse_tensor("permute_indices(A{rank=3, dim=3}, [2, 3, 1])", syms);
+  EXPECT_TRUE(result.is_valid());
+  EXPECT_EQ(result.get().rank(), 3u);
+  EXPECT_EQ(result.get().dim(), 3u);
+}
+
+TEST(ParserGrammar, PermuteIndicesZeroIndexCaughtAtParseTime) {
+  // Index list literal is 1-based at the grammar level; a 0 index
+  // is rejected by the index_list_literal action before reaching
+  // permute_indices(). Pass-2 review LOW-2: tightened to
+  // lexical_error so a regression that changes the throw to
+  // syntax_error (another parse_error subclass) is caught.
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e =
+            parse("permute_indices(A{rank=2, dim=3}, [0, 1])", syms);
+      },
+      lexical_error);
+}
+
+TEST(ParserGrammar, PermuteIndicesOfScalarThrowsTypeMismatch) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("permute_indices(x, [1])", syms); },
+      type_mismatch_error);
+}
+
 TEST(ParserGrammar, TraceOfScalarThrowsTypeMismatch) {
   symbol_table syms;
   EXPECT_THROW(

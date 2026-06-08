@@ -173,12 +173,24 @@ Functions are dispatched through a static table in
 | Tensor → tensor | `trans` `inv` `sym` `dev` `vol` `skew` | tensor → tensor |
 | Tensor → tensor (binary) | `otimes` (alias: `outer_product`) | (tensor, tensor) → tensor |
 | Tensor → t2s | `trace` `det` `norm` `dot` | tensor → t2s |
+| Tensor constants | `zero_tensor(dim, rank)` `identity_tensor(dim, rank)` | (scalar, scalar) → tensor |
+| Tensor constants | `levi_civita(dim)` | (scalar) → tensor (rank == dim) |
+| Index permutation | `permute_indices(A, [i…])` | (tensor, `[i…]`) → tensor |
 | Contraction → tensor | `inner_product` | (tensor, `[i…]`, tensor, `[i…]`) → tensor |
 | Contraction → t2s | `dot_product` | (tensor, `[i…]`, tensor, `[i…]`) → t2s |
 
 Indices inside `[…]` are **1-based** in the source language and
-converted to 0-based `sequence` internally. Out-of-range index
-validation is deferred to the underlying library at evaluation time.
+converted to 0-based `sequence` internally. For `permute_indices`,
+the index list must form a valid permutation (no duplicates, each
+index in `[1, rank]`); violations raise `invalid_expression_error`
+at construction. For `inner_product` / `dot_product`, out-of-range
+index validation is deferred to the underlying library at evaluation
+time.
+
+`zero_tensor`, `identity_tensor`, and `levi_civita` require positive
+integer literals as their `dim` / `rank` arguments. A non-integer
+literal, non-constant expression, or non-positive value raises
+`type_mismatch_error` from the dispatch.
 
 **Round-trip caveat (deferred to β-2d).** Eleven of the scalar functions —
 `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `log10`,

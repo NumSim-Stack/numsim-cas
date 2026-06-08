@@ -310,6 +310,27 @@ template <tensor_expr_holder Expr>
     throw invalid_expression_error(
         "permute_indices: indices size (" + std::to_string(indices.size()) +
         ") must equal tensor rank (" + std::to_string(expr.get().rank()) + ")");
+  // Permutation-property gate (#281 review): every index must be a
+  // valid 0-based position AND the set must be a true permutation
+  // (no duplicates). Without this `[1, 1]` (duplicate) and `[1, 99]`
+  // (out-of-range) silently produce malformed AST nodes; the
+  // downstream evaluator dereferences positions that don't exist.
+  // O(n²) over n=rank is fine — rank rarely exceeds 4 in practice.
+  const auto rank = expr.get().rank();
+  for (std::size_t i = 0; i < indices.size(); ++i) {
+    if (indices[i] >= rank)
+      throw invalid_expression_error("permute_indices: index " +
+                                     std::to_string(indices[i] + 1) +
+                                     " (1-based) is out of range for rank-" +
+                                     std::to_string(rank) + " tensor");
+    for (std::size_t j = i + 1; j < indices.size(); ++j) {
+      if (indices[i] == indices[j])
+        throw invalid_expression_error(
+            "permute_indices: index " + std::to_string(indices[i] + 1) +
+            " (1-based) appears more than once; indices must form a "
+            "permutation");
+    }
+  }
   // For symmetric rank-2 tensors, any permutation of two indices is identity
   if (expr.get().rank() == 2) {
     if (auto const &sp = expr.get().space()) {
