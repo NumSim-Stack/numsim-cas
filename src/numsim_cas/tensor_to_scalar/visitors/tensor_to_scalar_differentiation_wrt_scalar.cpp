@@ -227,8 +227,8 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
   // sequence's initializer-list ctor is 1-based; here the indices
   // start at 1 to match the project's 1-based external convention.
   sequence idx_a(rank), idx_b(rank);
-  std::iota(idx_a.begin(), idx_a.end(), std::size_t{1});
-  std::iota(idx_b.begin(), idx_b.end(), std::size_t{1});
+  std::iota(idx_a.begin(), idx_a.end(), std::size_t{0});
+  std::iota(idx_b.begin(), idx_b.end(), std::size_t{0});
   auto contraction = dot_product(visitable.expr(), std::move(idx_a),
                                  std::move(dA), std::move(idx_b));
   m_result =
@@ -244,8 +244,8 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
   }
   auto rank = visitable.expr().get().rank();
   sequence idx_a(rank), idx_b(rank);
-  std::iota(idx_a.begin(), idx_a.end(), std::size_t{1});
-  std::iota(idx_b.begin(), idx_b.end(), std::size_t{1});
+  std::iota(idx_a.begin(), idx_a.end(), std::size_t{0});
+  std::iota(idx_b.begin(), idx_b.end(), std::size_t{0});
   auto contraction = dot_product(visitable.expr(), std::move(idx_a),
                                  std::move(dA), std::move(idx_b));
   auto inv_norm = pow(m_expr, -wrap_scalar(get_scalar_one()));

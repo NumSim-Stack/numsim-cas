@@ -2,6 +2,7 @@
 
 #include <numeric>
 #include <numsim_cas/core/diff.h>
+#include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor/tensor_functions.h>
@@ -31,15 +32,18 @@ void tensor_differentiation_wrt_scalar::operator()(
     return;
   }
 
-  // Extract integer exponent. Matches the tensor-arg visitor's
-  // not-implemented bound for non-constant exponents; the wider
-  // singleton-trap audit is tracked in #284.
-  if (!is_same<scalar_constant>(n_expr)) {
+  // Extract integer exponent via try_int_constant (#284 architectural
+  // rule). This recognises scalar_constant, scalar_zero, scalar_one,
+  // and scalar_negative(int) singletons — the bare
+  // `is_same<scalar_constant>` check that the tensor-arg sibling uses
+  // would mis-reject pow(A, 1) (literal-1 → scalar_one singleton) as
+  // "non-constant".
+  auto int_n = try_int_constant(n_expr);
+  if (!int_n) {
     throw not_implemented_error(
         "tensor_differentiation_wrt_scalar: pow with non-constant exponent");
   }
-  auto const &val = n_expr.template get<scalar_constant>().value();
-  auto n = std::get<std::int64_t>(val.raw());
+  auto n = static_cast<std::int64_t>(*int_n);
 
   // Build sum: sum_{r=0}^{n-1} (A^r) * (dA/ds) * (A^{n-1-r})
   // For rank-2 A, matrix multiplication is inner_product on the
@@ -76,7 +80,11 @@ void tensor_differentiation_wrt_scalar::operator()(
 
   for (std::size_t j = 0; j < factors.size(); ++j) {
     auto dAj = diff(factors[j], m_arg);
-    if (!dAj.is_valid()) {
+    // Zero-suppress: skip terms whose derivative is invalid OR the
+    // canonical tensor_zero singleton. Without the singleton check,
+    // each zero summand would inflate the printed result and confuse
+    // hash lock-ins. Matches the tensor_scalar_mul rule's pattern.
+    if (!dAj.is_valid() || is_same<tensor_zero>(dAj)) {
       continue;
     }
 
@@ -125,8 +133,10 @@ void tensor_differentiation_wrt_scalar::operator()(
     }
   }
 
-  // Apply coefficient if present
-  if (visitable.coeff().is_valid()) {
+  // Apply coefficient if present AND sum is valid. Guarding on
+  // sum.is_valid() avoids constructing a tensor_scalar_mul with an
+  // invalid LHS when every factor's derivative was zero.
+  if (visitable.coeff().is_valid() && sum.is_valid()) {
     m_result = std::move(sum) * visitable.coeff();
   } else {
     m_result = std::move(sum);

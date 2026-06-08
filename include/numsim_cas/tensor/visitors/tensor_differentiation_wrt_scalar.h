@@ -58,7 +58,6 @@ public:
   [[nodiscard]] tensor_holder_t apply(tensor_holder_t const &expr) {
     m_result = tensor_holder_t{};
     if (expr.is_valid()) {
-      m_expr = expr;
       m_dim = expr.get().dim();
       m_rank_result = expr.get().rank();
       expr.get<tensor_visitable_t>().accept(*this);
@@ -84,7 +83,10 @@ public:
     tensor_holder_t sum;
     for (auto &child : visitable.symbol_map() | std::views::values) {
       auto d = diff(child, m_arg);
-      if (d.is_valid()) {
+      // Pass-1 review: suppress canonical tensor_zero so trivial
+      // children don't inflate the printed sum. Mirrors the pattern
+      // in tensor_scalar_mul / tensor_mul.
+      if (d.is_valid() && !is_same<tensor_zero>(d)) {
         sum += d;
       }
     }
@@ -93,7 +95,7 @@ public:
 
   void operator()(tensor_negative const &visitable) override {
     auto d = diff(visitable.expr(), m_arg);
-    if (d.is_valid()) {
+    if (d.is_valid() && !is_same<tensor_zero>(d)) {
       m_result = -d;
     }
   }
@@ -157,7 +159,6 @@ private:
   std::size_t m_dim{0};
   std::size_t m_rank_result{0};
   tensor_holder_t m_result;
-  tensor_holder_t m_expr;
 };
 
 } // namespace numsim::cas
