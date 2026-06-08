@@ -1076,6 +1076,23 @@ TEST(ParserGrammar, LeviCivitaRejectsNonConstantExpression) {
       type_mismatch_error);
 }
 
+TEST(ParserGrammar, LeviCivitaAcceptsIntegerDivisionFold) {
+  // Pass-1 review L1 (corrected during pass-2 fixes): empirically the
+  // parser DOES constant-fold `6/3` to a single scalar_constant{2} at
+  // parse time (the construction-time folds in pow/mul collapse
+  // `6 * pow(3, -1)` to a rational 6/3 → normalized to int64_t{2}
+  // via scalar_number::normalize_rational). So `levi_civita(6/3)`
+  // succeeds and is equivalent to `levi_civita(2)`. Locked here so a
+  // future change that disables the fold (e.g. for symbolic
+  // preservation) makes this test fail visibly.
+  symbol_table syms_div;
+  auto from_div = parse_tensor("levi_civita(6 / 3)", syms_div);
+  symbol_table syms_lit;
+  auto from_lit = parse_tensor("levi_civita(2)", syms_lit);
+  EXPECT_EQ(from_div.get().hash_value(), from_lit.get().hash_value());
+  EXPECT_EQ(from_div.get().rank(), 2u);
+}
+
 TEST(ParserGrammar, PermuteIndicesFactoryBuildsPermutation) {
   // permute_indices(A{rank=2, dim=3}, [2, 1]) is the trans form.
   // Pass-1 review QA-4: hash-compare against trans(A) so the test
@@ -1093,7 +1110,7 @@ TEST(ParserGrammar, PermuteIndicesFactoryBuildsPermutation) {
 
 TEST(ParserGrammar, PermuteIndicesRankMismatchThrows) {
   // 3-element index list against a rank-2 tensor — caught by
-  // permute_indices() itself (tensor_functions.h:309-312) as
+  // permute_indices() itself (the rank-size gate) as
   // invalid_expression_error.
   symbol_table syms;
   EXPECT_THROW(
@@ -1133,14 +1150,16 @@ TEST(ParserGrammar, PermuteIndicesOutOfRangeThrows) {
 TEST(ParserGrammar, PermuteIndicesZeroIndexCaughtAtParseTime) {
   // Index list literal is 1-based at the grammar level; a 0 index
   // is rejected by the index_list_literal action before reaching
-  // permute_indices(). lexical_error is the parse-side exception.
+  // permute_indices(). Pass-2 review LOW-2: tightened to
+  // lexical_error so a regression that changes the throw to
+  // syntax_error (another parse_error subclass) is caught.
   symbol_table syms;
   EXPECT_THROW(
       {
         [[maybe_unused]] auto e =
             parse("permute_indices(A{rank=2, dim=3}, [0, 1])", syms);
       },
-      parse_error);
+      lexical_error);
 }
 
 TEST(ParserGrammar, PermuteIndicesOfScalarThrowsTypeMismatch) {

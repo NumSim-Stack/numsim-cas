@@ -293,8 +293,8 @@ inline function_entry levi_civita_entry() {
 // arg_item already accepts index_list_literal anywhere in a function
 // call arg list (from the contraction work in β-2a), so no grammar
 // change is needed. Rank-vs-indices-size validation happens in
-// `permute_indices()` itself (tensor_functions.h:309-312) and raises
-// invalid_expression_error.
+// `permute_indices()` itself (rank-size, range, and uniqueness
+// gates) and raises invalid_expression_error.
 inline function_entry permute_indices_entry() {
   return {{arg_kind::tensor, arg_kind::index_list},
           [](arg_vec a) -> parsed_expression {
