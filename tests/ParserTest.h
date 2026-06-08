@@ -1088,6 +1088,21 @@ TEST(ParserGrammar, LeviCivitaRejectsNonConstantExpression) {
       type_mismatch_error);
 }
 
+TEST(ParserGrammar, LeviCivitaAcceptsDoubleNegationLiteral) {
+  // Pass-5 review: try_int_constant recurses through scalar_negative
+  // unconditionally, so `--3` (parsed as two unary minuses, since the
+  // parser doesn't treat `--` as a pre-decrement operator) strips
+  // both negations to `+3` and SUCCEEDS as levi_civita(3). Lock the
+  // surprise — a future refactor that changed try_int_constant to
+  // single-strip semantics would flip this to a reject and the test
+  // would fail visibly.
+  symbol_table syms;
+  auto from_dn = parse_tensor("levi_civita(--3)", syms);
+  EXPECT_TRUE(from_dn.is_valid());
+  EXPECT_EQ(from_dn.get().rank(), 3u);
+  EXPECT_EQ(from_dn.get().dim(), 3u);
+}
+
 TEST(ParserGrammar, LeviCivitaRejectsNegativeLiteral) {
   // Pass-3/4 review: a literal `-3` parses as scalar_negative
   // wrapping scalar_constant{3} — a bare is_same<scalar_constant>

@@ -195,6 +195,14 @@ inline function_entry tensor_to_scalar_unary(auto fn) {
 inline std::size_t to_positive_size_t(scalar_expr const &e,
                                       std::string_view fn_name,
                                       std::string_view arg_name) {
+  // Defense against 32-bit size_t: try_int_constant returns long long
+  // (64-bit on all current targets). On 64-bit platforms size_t is
+  // also 64-bit and the cast at the end is exact. Pass-5 review:
+  // pin this contract so a hypothetical 32-bit build doesn't silently
+  // truncate huge literals.
+  static_assert(sizeof(std::size_t) >= sizeof(long long),
+                "to_positive_size_t assumes size_t fits long long; add a "
+                "range check at the cast site if this no longer holds");
   constexpr std::size_t no_pos = 0;
   auto val = try_int_constant(e);
   if (!val) {
