@@ -197,6 +197,121 @@ TEST_F(TensorToScalarDifferentiationTest, AuditNode_InnerProductToScalar) {
   EXPECT_EQ(d.get().rank(), rank);
 }
 
+// ─── diff(tensor_to_scalar, scalar) — issue #285 ─────────────────
+//
+// Companion to #275's tensor-arg diff w.r.t. scalar. Result type is
+// tensor_to_scalar (a scalar-valued AST that may contain tensor
+// invariants).
+
+class T2SDiffWrtScalarTest : public ::testing::Test {
+protected:
+  static constexpr std::size_t dim = 3;
+
+  using tensor_t = expression_holder<tensor_expression>;
+  using t2s_t = expression_holder<tensor_to_scalar_expression>;
+  using scalar_t = expression_holder<scalar_expression>;
+
+  T2SDiffWrtScalarTest() {
+    std::tie(eps, n, s_trial) =
+        make_tensor_variable(std::tuple{"eps", dim, std::size_t{2}},
+                             std::tuple{"n", dim, std::size_t{2}},
+                             std::tuple{"s_trial", dim, std::size_t{2}});
+    std::tie(sv, mu) = make_scalar_variable("sv", "mu");
+  }
+
+  tensor_t eps, n, s_trial;
+  scalar_t sv, mu;
+};
+
+// Acceptance #1: diff(norm(eps) - sv, sv) == -1 numerically.
+TEST_F(T2SDiffWrtScalarTest, NormMinusScalarWrtScalar) {
+  auto R = norm(eps) - sv;
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+  using tdata = tensor_data<double, 3, 2>;
+  tmech::tensor<double, 3, 2> eps_t = tmech::randn<double, 3, 2>();
+  auto eps_ptr = std::make_shared<tdata>(eps_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, eps_ptr);
+  ev.set_scalar(sv, 1.5);
+  EXPECT_NEAR(ev.apply(J), -1.0, 1e-12);
+}
+
+// Acceptance #2: diff(f(sv) * trace(eps), sv) == f'(sv) * trace(eps).
+TEST_F(T2SDiffWrtScalarTest, ScalarFunctionTimesTrace) {
+  auto f = pow(sv, 2); // f(sv) = sv^2 → f'(sv) = 2*sv
+  auto R = f * trace(eps);
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+  using tdata = tensor_data<double, 3, 2>;
+  tmech::tensor<double, 3, 2> eps_t = tmech::randn<double, 3, 2>();
+  auto eps_ptr = std::make_shared<tdata>(eps_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, eps_ptr);
+  ev.set_scalar(sv, 2.0);
+  double trace_eps = ev.apply(trace(eps));
+  double expected = 2.0 * 2.0 * trace_eps; // 2*sv at sv=2
+  EXPECT_NEAR(ev.apply(J), expected, 1e-12);
+}
+
+// Acceptance #3: radial-return shape
+// d/d(sv) [norm(s_trial - 2*mu*sv*n)] at sv=0 with mu, n independent.
+// Hand value: -2*mu*(n : s_trial)/norm(s_trial).
+TEST_F(T2SDiffWrtScalarTest, RadialReturnNormDerivative) {
+  auto two = make_expression<scalar_constant>(scalar_number{2});
+  auto inside = s_trial - two * mu * sv * n;
+  auto R = norm(inside);
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+
+  using tdata = tensor_data<double, 3, 2>;
+  tmech::tensor<double, 3, 2> s_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 2> n_t = tmech::randn<double, 3, 2>();
+  double nn = std::sqrt(tmech::dcontract(n_t, n_t));
+  n_t = n_t / nn;
+
+  auto s_ptr = std::make_shared<tdata>(s_t);
+  auto n_ptr = std::make_shared<tdata>(n_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(s_trial, s_ptr);
+  ev.set(n, n_ptr);
+  ev.set_scalar(mu, 1.5);
+  ev.set_scalar(sv, 0.0);
+
+  double ns = tmech::dcontract(n_t, s_t);
+  double norm_s = std::sqrt(tmech::dcontract(s_t, s_t));
+  double expected = -2.0 * 1.5 * ns / norm_s;
+  EXPECT_NEAR(ev.apply(J), expected, 1e-10);
+}
+
+// Constant t2s w.r.t. sv → 0.
+TEST_F(T2SDiffWrtScalarTest, ConstantT2sYieldsZero) {
+  auto J = diff(trace(eps), sv);
+  ASSERT_TRUE(J.is_valid());
+  using tdata = tensor_data<double, 3, 2>;
+  tmech::tensor<double, 3, 2> eps_t = tmech::randn<double, 3, 2>();
+  auto eps_ptr = std::make_shared<tdata>(eps_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, eps_ptr);
+  ev.set_scalar(sv, 0.7);
+  EXPECT_NEAR(ev.apply(J), 0.0, 1e-12);
+}
+
+// Product rule on scalar coefficient: diff(sv * trace(eps), sv) ==
+// trace(eps).
+TEST_F(T2SDiffWrtScalarTest, ScalarCoefficientProductRule) {
+  auto R = sv * trace(eps);
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+  using tdata = tensor_data<double, 3, 2>;
+  tmech::tensor<double, 3, 2> eps_t = tmech::randn<double, 3, 2>();
+  auto eps_ptr = std::make_shared<tdata>(eps_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, eps_ptr);
+  ev.set_scalar(sv, 1.0);
+  EXPECT_NEAR(ev.apply(J), ev.apply(trace(eps)), 1e-12);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALARDIFFERENTIATIONTEST_H

@@ -7,6 +7,7 @@
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
 
 namespace numsim::cas {
@@ -49,8 +50,8 @@ void tensor_differentiation_wrt_scalar::operator()(
     auto An1r = pow(A, static_cast<int>(n - 1 - r));
     // term = Ar * dA * An1r  via two contractions
     auto term = inner_product(std::move(Ar), sequence{2}, dA, sequence{1});
-    term =
-        inner_product(std::move(term), sequence{2}, std::move(An1r), sequence{1});
+    term = inner_product(std::move(term), sequence{2}, std::move(An1r),
+                         sequence{1});
     if (sum.is_valid()) {
       sum += term;
     } else {
@@ -296,8 +297,8 @@ void tensor_differentiation_wrt_scalar::operator()(
   if (dB.is_valid() && !is_same<tensor_zero>(dB)) {
     auto s_lhs = seq_lhs;
     auto s_rhs = seq_rhs;
-    auto term = otimes(expr_lhs, std::move(s_lhs), std::move(dB),
-                       std::move(s_rhs));
+    auto term =
+        otimes(expr_lhs, std::move(s_lhs), std::move(dB), std::move(s_rhs));
     if (sum.is_valid()) {
       sum += term;
     } else {
@@ -308,20 +309,29 @@ void tensor_differentiation_wrt_scalar::operator()(
 }
 
 // tensor_to_scalar_with_tensor_mul(T, t2s) — product T * t2s where T
-// is tensor and t2s is tensor_to_scalar. The product rule's t2s side
-// needs diff(tensor_to_scalar, scalar) which doesn't exist yet.
-// Scoped out of #275; throw not_implemented as a tripwire so a future
-// diff(t2s, scalar) overload doesn't silently leave this stale.
+// is tensor and t2s is tensor_to_scalar (result is tensor-valued).
+// Full product rule: d/ds(T * t2s) = (dT/ds) * t2s + T * (dt2s/ds).
+// Uses #285's diff(t2s, scalar) for the t2s side and the recursive
+// diff(tensor, scalar) for the tensor side.
 void tensor_differentiation_wrt_scalar::operator()(
     tensor_to_scalar_with_tensor_mul const &visitable) {
   auto const &T = visitable.expr_lhs();
   auto const &s_t2s = visitable.expr_rhs();
-  (void)T;
-  (void)s_t2s;
-  throw not_implemented_error(
-      "tensor_differentiation_wrt_scalar: tensor_to_scalar_with_tensor_mul "
-      "needs diff(tensor_to_scalar, scalar), not yet implemented (#275 "
-      "scope-deferred; tracked separately)");
+  auto dT = diff(T, m_arg);     // tensor (this visitor)
+  auto ds = diff(s_t2s, m_arg); // t2s (the #285 visitor)
+  tensor_holder_t sum;
+  if (dT.is_valid() && !is_same<tensor_zero>(dT)) {
+    sum = std::move(dT) * s_t2s;
+  }
+  if (ds.is_valid() && !is_same<tensor_to_scalar_zero>(ds)) {
+    auto term = T * std::move(ds);
+    if (sum.is_valid()) {
+      sum += term;
+    } else {
+      sum = std::move(term);
+    }
+  }
+  m_result = std::move(sum);
 }
 
 // Top-level CPO definition (declared in the header).
