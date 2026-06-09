@@ -1,6 +1,7 @@
 #include <numsim_cas/scalar/visitors/scalar_assumption_propagator.h>
 
 #include <numsim_cas/scalar/scalar_assume.h>
+#include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
 #include <ranges>
@@ -215,14 +216,17 @@ void scalar_assumption_propagator::operator()(scalar_pow const &v) {
 
   m_result = {};
 
-  // Check if exponent is an even integer constant
+  // Check if exponent is an even integer constant. Uses
+  // try_int_constant (#284 architectural rule) so the
+  // scalar_one / scalar_zero / scalar_negative singletons —
+  // produced by the parser and the pow factory for the
+  // literal-0 / literal-1 / literal-negation cases — are
+  // recognised. The bare `is_same<scalar_constant>` check this
+  // replaced missed pow(x, 0) (scalar_zero, even) and would have
+  // mis-classified pow(x, -2) (scalar_negative(scalar_constant{2})).
   bool exp_even = false;
-  if (is_same<scalar_constant>(v.expr_rhs())) {
-    auto const &cv = v.expr_rhs().template get<scalar_constant>().value();
-    if (std::holds_alternative<std::int64_t>(cv.raw())) {
-      auto iv = std::get<std::int64_t>(cv.raw());
-      exp_even = (iv % 2 == 0);
-    }
+  if (auto iv = try_int_constant(v.expr_rhs())) {
+    exp_even = (*iv % 2 == 0);
   }
   // Also check if exponent has even assumption
   if (exp_a.contains(even{}))
@@ -681,10 +685,10 @@ public:
     auto const &exp_a = ensure_assumptions(v.expr_rhs());
     m_result = {};
     bool exp_even = false;
-    if (is_same<scalar_constant>(v.expr_rhs())) {
-      auto const &cv = v.expr_rhs().template get<scalar_constant>().value();
-      if (std::holds_alternative<std::int64_t>(cv.raw()))
-        exp_even = (std::get<std::int64_t>(cv.raw()) % 2 == 0);
+    // try_int_constant (#284 architectural rule); see the equivalent
+    // call in the earlier pow handler above for the singleton context.
+    if (auto iv = try_int_constant(v.expr_rhs())) {
+      exp_even = (*iv % 2 == 0);
     }
     if (exp_a.contains(even{}))
       exp_even = true;

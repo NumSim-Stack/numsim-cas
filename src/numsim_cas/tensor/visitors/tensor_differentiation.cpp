@@ -2,6 +2,7 @@
 
 #include <numeric>
 #include <numsim_cas/core/diff.h>
+#include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_diff.h>
@@ -25,13 +26,30 @@ void tensor_differentiation::operator()(tensor_pow const &visitable) {
     return;
   }
 
-  // Extract integer exponent
-  if (!is_same<scalar_constant>(n_expr)) {
+  // Extract integer exponent via try_int_constant (#284 architectural
+  // rule). The bare `is_same<scalar_constant>(n_expr)` check this
+  // replaced mishandled pow(A, 1) and pow(A, 0) because the parser /
+  // factory uses scalar_one / scalar_zero singletons for those values
+  // — not scalar_constant{1/0}. Result: `diff(pow(A, 1), X)` threw
+  // not_implemented_error even though the math is trivial (it's just
+  // diff(A, X)). try_int_constant correctly recognises the singletons
+  // and the scalar_negative(scalar_constant) form (#284 audit).
+  auto int_n = try_int_constant(n_expr);
+  if (!int_n) {
     throw not_implemented_error(
         "tensor_differentiation: pow with non-constant exponent");
   }
-  auto const &val = n_expr.template get<scalar_constant>().value();
-  auto n = std::get<std::int64_t>(val.raw());
+  auto n = static_cast<std::int64_t>(*int_n);
+
+  // n == 0: pow(A, 0) = I (constant), derivative is zero. The loop
+  // below would correctly leave sum invalid and apply()'s fallback
+  // would coerce to tensor_zero, but an explicit guard documents the
+  // intent and avoids confusing future readers about what an invalid
+  // sum means here. Per #284a / PR #288 review feedback.
+  if (n == 0) {
+    m_result = make_expression<tensor_zero>(m_dim, m_rank_result);
+    return;
+  }
 
   // Build sum: sum_{r=0}^{n-1} inner_product(T_r, {3,4}, dA/dX, {1,2})
   // T_r = otimes(A^r, {1,3}, A^{n-1-r}, {4,2})
