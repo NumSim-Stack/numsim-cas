@@ -28,7 +28,13 @@ void tensor_differentiation_wrt_scalar::operator()(
   auto const &n_expr = visitable.expr_rhs();
 
   auto dA = diff(A, m_arg);
-  if (!dA.is_valid()) {
+  // Pass-5 review: !is_valid() is dead since pass-3's t2s apply() fix
+  // (and the tensor visitor's pre-existing apply() behaviour) always
+  // returns a valid holder — canonical tensor_zero on the
+  // "no-dependency" path. Check the singleton form explicitly so the
+  // rule self-canonicalizes instead of relying on the inner_product
+  // simplifier to fold the resulting A^r·0·A^{n-1-r} summands.
+  if (!dA.is_valid() || is_same<tensor_zero>(dA)) {
     return;
   }
 
@@ -155,7 +161,9 @@ void tensor_differentiation_wrt_scalar::operator()(
 
   for (std::size_t j = 0; j < factors.size(); ++j) {
     auto dAj = diff(factors[j], m_arg);
-    if (!dAj.is_valid()) {
+    // Pass-5 review: same as tensor_pow/inv — !is_valid() is dead
+    // post-apply()-fix. Self-canonicalize on zero summands.
+    if (!dAj.is_valid() || is_same<tensor_zero>(dAj)) {
       continue;
     }
 
@@ -234,7 +242,10 @@ void tensor_differentiation_wrt_scalar::operator()(
     tensor_inv const &visitable) {
   auto const &A = visitable.expr();
   auto dA = diff(A, m_arg);
-  if (!dA.is_valid()) {
+  // Pass-5 review: see the tensor_pow rule above. Self-canonicalize
+  // on the zero-derivative path rather than relying on the
+  // inner_product simplifier to fold -(invA · 0 · invA).
+  if (!dA.is_valid() || is_same<tensor_zero>(dA)) {
     return;
   }
   if (A.get().rank() != 2) {

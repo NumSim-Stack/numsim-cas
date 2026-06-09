@@ -733,10 +733,13 @@ TEST_F(TensorDiffWrtScalarTest, InvRuleExercisedDirectly) {
       << "Setup precondition: expression must be a tensor_inv node to "
          "exercise the rule under test; got: "
       << to_string(expr);
-  // A is s-independent → derivative is zero, but the visitor must
-  // still reach the tensor_inv rule rather than throwing or
-  // mis-dispatching. The rule's early-return on `!dA.is_valid()`
-  // leaves m_result invalid and apply() coerces to tensor_zero.
+  // A is s-independent → recursive diff(A, s) returns a valid
+  // tensor_zero singleton (per apply()'s shape-aware fallback). The
+  // pass-5 singleton-aware guard in the tensor_inv rule then fires
+  // and early-returns, leaving m_result invalid; apply() coerces to
+  // tensor_zero. Without the singleton guard, the rule would build
+  // `-(invA · 0 · invA)` and depend on the inner_product simplifier
+  // to fold the zeros — fragile coupling.
   auto d = diff(expr, s);
   ASSERT_TRUE(d.is_valid());
   EXPECT_TRUE(is_same<tensor_zero>(d))
