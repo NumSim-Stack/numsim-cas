@@ -42,13 +42,41 @@ set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 #   1. Try find_package(tmech) — supports downstream consumers who have
 #      already installed tmech, and is required for the installable-
 #      package smoke test (#84).
-#   2. If not found, FetchContent a PINNED tag (#248: stale-system tmech
-#      silently produces NaN through the rank-4 Voigt inv path; pinning
-#      to a known-good commit avoids that footgun). Bump GIT_TAG as a
-#      separate maintenance PR.
+#   2. If found, verify the install contains the post-Sep-2025
+#      `inverse_wrapper_base` rewrite (#283/#248): without it, rank-4
+#      `tmech::inv` silently returns NaN through the Voigt path. A stale
+#      system install would otherwise shadow our pinned FetchContent and
+#      poison results.
+#   3. If not found (or rejected by the marker check), FetchContent a
+#      PINNED tag from petlenz/tmech. Bump GIT_TAG as a separate
+#      maintenance PR.
 set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE OFF)
 find_package(tmech QUIET)
 if(tmech_FOUND)
+  # Marker check: the rewrite introduced `inverse_wrapper_base<T>` as a
+  # public struct in inverse_wrapper_bones.h. Old tmech does not have it.
+  get_target_property(_tmech_check_inc tmech::tmech INTERFACE_INCLUDE_DIRECTORIES)
+  try_compile(NUMSIM_CAS_TMECH_HAS_INVERSE_REWRITE
+    "${CMAKE_CURRENT_BINARY_DIR}/_tmech_marker_check"
+    SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmech_marker_check.cpp"
+    CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${_tmech_check_inc}"
+    CXX_STANDARD 23
+  )
+  if(NOT NUMSIM_CAS_TMECH_HAS_INVERSE_REWRITE)
+    message(FATAL_ERROR
+      "find_package(tmech) found an installation at\n"
+      "  ${_tmech_check_inc}\n"
+      "that lacks the post-Sep-2025 `inverse_wrapper_base` rewrite.\n"
+      "Using it silently produces NaN through the rank-4 `tmech::inv` "
+      "Voigt path (see #283).\n"
+      "\n"
+      "Resolutions:\n"
+      "  (a) Reconfigure with -DCMAKE_DISABLE_FIND_PACKAGE_tmech=TRUE\n"
+      "      to use the pinned FetchContent copy instead.\n"
+      "  (b) Update the system install from https://github.com/petlenz/tmech\n"
+      "      to a commit containing inverse_wrapper_base."
+    )
+  endif()
   set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE ON)
 else()
   # Disable tmech's own tests and examples (it uses BUILD_TESTS/BUILD_EXAMPLES).

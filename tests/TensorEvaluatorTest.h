@@ -444,18 +444,12 @@ TEST(TensorEval, EvalInverse3x3) {
 // otherwise. Verify both branches numerically against tmech directly.
 
 TEST(TensorEval, EvalInverseRank4MinorMajor) {
-  // #283 / pre-existing failure: tmech::inv at rank-4 returns NaN when
-  // invoked from within the numsim_cas TU (works correctly in
-  // isolation). Diagnosis: the standalone tmech build inverts the
-  // standard isotropic stiffness `μ(otimesu+otimesl)+λ·otimes` to the
-  // expected 0.375-on-diagonal result, but the SAME source code
-  // compiled with `#include <numsim_cas/numsim_cas.h>` produces NaN.
-  // Likely an ADL or expression-template specialization conflict
-  // between tmech's operators and the numsim_cas ones — root cause
-  // beyond the scope of this PR. Skip with reference to #283; the
-  // skip count makes the deferred work visible in CI summaries.
-  GTEST_SKIP() << "tmech::inv rank-4 returns NaN inside numsim_cas TU; "
-                  "tracked in #283";
+  // #283: rank-4 `tmech::inv` requires the post-Sep-2025
+  // `inverse_wrapper_base` rewrite; older tmech installs silently return
+  // NaN through the Voigt path. CMake's marker check (see
+  // cmake/tmech_marker_check.cpp) rejects stale installs at configure
+  // time, so by the time we reach this test, the linked tmech is known
+  // good.
   tensor_evaluator<double> ev;
   auto C = make_expression<tensor>("C", 3, 4);
   assume_minor_major(C);
@@ -513,11 +507,6 @@ TEST(TensorEval, EvalInverseRank4UnannotatedRoutesToInvf) {
 }
 
 TEST(TensorEval, Rank4InvDispatchDiffersByAnnotation) {
-  // #283 / pre-existing failure: tmech::inv rank-4 returns NaN inside
-  // the numsim_cas TU. Same root cause as
-  // EvalInverseRank4MinorMajor above. Skip with #283 reference.
-  GTEST_SKIP() << "tmech::inv rank-4 returns NaN inside numsim_cas TU; "
-                  "tracked in #283";
   // Cross-check: for the SAME numerical input, the annotated and
   // unannotated paths give different results (different conventions).
   // This is the strongest evidence that the dispatch is wired correctly
