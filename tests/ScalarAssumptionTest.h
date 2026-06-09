@@ -138,6 +138,24 @@ TEST_F(AssumptionFixture, PropagatePowEvenExp) {
   EXPECT_TRUE(a.contains(numsim::cas::nonnegative{}));
 }
 
+// #284a fix lock-in: scalar_zero singleton (literal `0`) is an even
+// exponent. The bare `is_same<scalar_constant>(exp)` check this
+// replaced returned false for scalar_zero, so x^0 = 1 was NOT being
+// classified as nonnegative. The factory's `pow(x, 0) → 1` fold makes
+// the public API normally short-circuit before reaching the
+// propagator, but a directly-constructed scalar_pow node bypasses the
+// fold. After the try_int_constant refactor (#284 architectural rule)
+// the singleton is recognised and the propagation fires.
+TEST_F(AssumptionFixture, PropagatePowZeroSingletonAsEvenExp) {
+  auto zero_singleton = numsim::cas::get_scalar_zero();
+  auto e =
+      numsim::cas::make_expression<numsim::cas::scalar_pow>(x, zero_singleton);
+  ASSERT_TRUE(numsim::cas::is_same<numsim::cas::scalar_pow>(e));
+  auto a = numsim::cas::propagate_assumptions(e);
+  EXPECT_TRUE(a.contains(numsim::cas::nonnegative{}))
+      << "Expected nonnegative for x^0 (even exponent zero singleton)";
+}
+
 TEST_F(AssumptionFixture, PropagateSqrt) {
   auto e = sqrt(x);
   auto a = numsim::cas::propagate_assumptions(e);

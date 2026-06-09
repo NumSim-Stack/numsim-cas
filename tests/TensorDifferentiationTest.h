@@ -109,6 +109,24 @@ TEST_F(TensorDifferentiationTest, PowRule) {
       << "Expected tensor_add, got: " << to_string(d);
 }
 
+// #284a fix lock-in: tensor_pow with exponent = scalar_one singleton
+// (the literal `1`). The factory's `pow(X, 1) → X` fold makes the
+// public API never reach this case, but a tensor_pow node built
+// directly via make_expression bypasses the fold. Before the
+// try_int_constant refactor (PR #286's audit pattern), the bare
+// `is_same<scalar_constant>(n_expr)` check returned false for
+// scalar_one and the rule threw not_implemented_error. After the fix
+// the integer `1` is extracted correctly and the rule succeeds.
+TEST_F(TensorDifferentiationTest, PowOneSingletonHandledByVisitor) {
+  auto one_singleton = get_scalar_one();
+  auto expr = make_expression<tensor_pow>(X, one_singleton);
+  ASSERT_TRUE(is_same<tensor_pow>(expr))
+      << "Setup precondition: expression must be a tensor_pow node "
+         "to exercise the rule under test; got: "
+      << to_string(expr);
+  EXPECT_NO_THROW({ [[maybe_unused]] auto d = diff(expr, X); });
+}
+
 // --- Numerical differentiation tests for tensor_mul and simple_outer_product
 // ---
 
