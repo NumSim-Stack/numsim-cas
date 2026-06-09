@@ -18,9 +18,8 @@ template <typename Type, typename Expr>
 template <typename Type, typename Expr>
 [[nodiscard]] inline std::optional<std::reference_wrapper<const Type>>
 is_same_r(Expr const &expr) noexcept {
-  if (!expr.is_valid())
-    return {};
-  if (Type::get_id() == (*expr).id()) {
+  assert(expr.is_valid());
+  if (Type::get_id() == expr.get().id()) {
     return std::cref(expr.template get<Type>());
   } else {
     return {};
