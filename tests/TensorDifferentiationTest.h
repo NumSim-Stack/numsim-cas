@@ -109,14 +109,15 @@ TEST_F(TensorDifferentiationTest, PowRule) {
       << "Expected tensor_add, got: " << to_string(d);
 }
 
-// #284a fix lock-in: tensor_pow with exponent = scalar_one singleton
-// (the literal `1`). The factory's `pow(X, 1) → X` fold makes the
-// public API never reach this case, but a tensor_pow node built
-// directly via make_expression bypasses the fold. Before the
-// try_int_constant refactor (PR #286's audit pattern), the bare
-// `is_same<scalar_constant>(n_expr)` check returned false for
-// scalar_one and the rule threw not_implemented_error. After the fix
-// the integer `1` is extracted correctly and the rule succeeds.
+// #284a fix lock-in: tensor_pow with exponent = scalar_one singleton.
+// The factory's `pow(X, 1) → X` fold makes the public API never reach
+// this case, but a directly-constructed tensor_pow bypasses the fold.
+// Before try_int_constant, the bare `is_same<scalar_constant>` check
+// returned false for scalar_one and threw not_implemented_error.
+// Pass-1 review: assert not just no-throw but that the result is
+// mathematically equivalent to diff(X, X) — i.e., for n=1 the
+// formula `sum_{r=0}^{0} A^0 · dA · A^0 = I · dA · I = dA` and dA
+// for A=X w.r.t. X is the rank-4 identity_tensor.
 TEST_F(TensorDifferentiationTest, PowOneSingletonHandledByVisitor) {
   auto one_singleton = get_scalar_one();
   auto expr = make_expression<tensor_pow>(X, one_singleton);
@@ -124,7 +125,29 @@ TEST_F(TensorDifferentiationTest, PowOneSingletonHandledByVisitor) {
       << "Setup precondition: expression must be a tensor_pow node "
          "to exercise the rule under test; got: "
       << to_string(expr);
-  EXPECT_NO_THROW({ [[maybe_unused]] auto d = diff(expr, X); });
+  tensor_t d;
+  ASSERT_NO_THROW(d = diff(expr, X));
+  EXPECT_TRUE(d.is_valid()) << "Expected valid derivative; got invalid";
+  EXPECT_FALSE(is_same<tensor_zero>(d))
+      << "Expected non-zero derivative for d(pow(X,1))/dX = identity; "
+         "got tensor_zero. Visitor silently produced invalid result.";
+}
+
+// #284a fix lock-in: tensor_pow with exponent = scalar_zero singleton.
+// Mathematically `pow(A, 0) = I` (constant), so `diff(pow(A,0), X) = 0`.
+// The visitor's loop body runs n=0 times → m_result stays invalid →
+// apply() coerces to tensor_zero. This IS the correct answer; lock it
+// so a future refactor doesn't replace the coercion with the
+// pre-fix throw or some other wrong behavior.
+TEST_F(TensorDifferentiationTest, PowZeroSingletonHandledByVisitor) {
+  auto zero_singleton = get_scalar_zero();
+  auto expr = make_expression<tensor_pow>(X, zero_singleton);
+  ASSERT_TRUE(is_same<tensor_pow>(expr));
+  tensor_t d;
+  ASSERT_NO_THROW(d = diff(expr, X));
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero (derivative of constant I); got: "
+      << to_string(d);
 }
 
 // --- Numerical differentiation tests for tensor_mul and simple_outer_product

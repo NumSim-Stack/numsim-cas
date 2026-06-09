@@ -41,6 +41,16 @@ void tensor_differentiation::operator()(tensor_pow const &visitable) {
   }
   auto n = static_cast<std::int64_t>(*int_n);
 
+  // n == 0: pow(A, 0) = I (constant), derivative is zero. The loop
+  // below would correctly leave sum invalid and apply()'s fallback
+  // would coerce to tensor_zero, but an explicit guard documents the
+  // intent and avoids confusing future readers about what an invalid
+  // sum means here. Per #284a / PR #288 review feedback.
+  if (n == 0) {
+    m_result = make_expression<tensor_zero>(m_dim, m_rank_result);
+    return;
+  }
+
   // Build sum: sum_{r=0}^{n-1} inner_product(T_r, {3,4}, dA/dX, {1,2})
   // T_r = otimes(A^r, {1,3}, A^{n-1-r}, {4,2})
   //   so T_r[i,j,p,q] = (A^r)_{ip} * (A^{n-1-r})_{qj}

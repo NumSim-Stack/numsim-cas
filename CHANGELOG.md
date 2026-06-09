@@ -54,6 +54,7 @@ and from v0.1.0 onward the project adheres to [Semantic Versioning](https://semv
 
 ### Fixed
 
+- Singleton-trap bugs in three "wrong-result" sites from the #284 audit triage: `tensor_differentiation.cpp:29` (`diff(pow(A, 1), X)` threw `not_implemented_error` instead of returning the trivial derivative), `scalar_assumption_propagator.cpp:220` and `:684` (`x^0` was NOT classified as nonnegative because the bare `is_same<scalar_constant>` check missed the `scalar_zero` singleton). All three switched to the singleton-aware `try_int_constant` predicate per the architectural rule established in PR #281 pass-4. Construction-time factory folds (`pow(A, 1) → A`, `pow(x, 0) → 1`) normally hide these bugs from the public API; the lock-in tests bypass the folds via `make_expression` directly to exercise the visitor / propagator rules. The 18 missed-optimization candidates from the same audit (construction-time fold guards where the singleton silently skips the fold) remain in #284 for a separate sweep. Closes part of #284.
 - Rational comparison overflow in `numeric_less` / `operator<` for numerators near 2^63. Closes #142.
 - Replaced the regression test for #142 with one that actually exercises int64 overflow (the original test's numerators were divisible by 3 and normalized away from the overflow path). Closes #170.
 - `inv()` now rejects the zero tensor at construction (`inv(tensor_zero)` and the composite `inv(0 · A)` form) with a clear "singular" error instead of silently building a symbolic `inv(0)` node that would NaN/Inf during evaluation. Closes #187.
