@@ -584,6 +584,328 @@ TEST(TensorDiffRank4InvNotImplemented, ThrowsWithClearMessage) {
   }
 }
 
+// ─── diff(tensor, scalar) — issue #275 ────────────────────────────
+//
+// Companion to the tensor-arg differentiation above. Differentiating
+// a tensor expression w.r.t. a scalar variable returns a same-rank
+// tensor; the central piece is reinstating the product-rule term in
+// `tensor_scalar_mul` that the tensor-arg visitor drops as "scalar is
+// constant w.r.t. tensor arg".
+
+class TensorDiffWrtScalarTest : public ::testing::Test {
+protected:
+  static constexpr std::size_t dim = 3;
+
+  using tensor_t = expression_holder<tensor_expression>;
+  using scalar_t = expression_holder<scalar_expression>;
+
+  TensorDiffWrtScalarTest() {
+    std::tie(A, B, n) =
+        make_tensor_variable(std::tuple{"A", dim, std::size_t{2}},
+                             std::tuple{"B", dim, std::size_t{2}},
+                             std::tuple{"n", dim, std::size_t{2}});
+    std::tie(s, t) = make_scalar_variable("s", "t");
+    std::tie(mu, dgamma) = make_scalar_variable("mu", "dgamma");
+    I = make_expression<identity_tensor>(dim, std::size_t{2});
+    Zero = make_expression<tensor_zero>(dim, std::size_t{2});
+  }
+
+  tensor_t A, B, n;
+  scalar_t s, t;
+  scalar_t mu, dgamma;
+  tensor_t I;
+  tensor_t Zero;
+};
+
+// Acceptance #1: diff(T, s) compiles and returns a same-rank tensor.
+TEST_F(TensorDiffWrtScalarTest, CompilesAndReturnsSameRankTensor) {
+  auto d = diff(A, s);
+  EXPECT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), A.get().rank());
+  EXPECT_EQ(d.get().dim(), A.get().dim());
+}
+
+// Acceptance #4: tensor variable independent of s → zero.
+TEST_F(TensorDiffWrtScalarTest, IndependentTensorVariableYieldsZero) {
+  auto d = diff(A, s);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+// Acceptance #2: diff(s * I, s) == I (product rule reinstated).
+// The central piece of #275 — the tensor-arg visitor drops the
+// scalar factor's derivative; we now reinstate it.
+TEST_F(TensorDiffWrtScalarTest, ScalarTimesIdentityDerivativeIsIdentity) {
+  auto d = diff(s * I, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().hash_value(), I.get().hash_value())
+      << "Expected I, got: " << to_string(d);
+}
+
+// Acceptance #3: diff(f(s) * A, s) == f'(s) * A for a tensor variable
+// A independent of s. Uses f(s) = s^2 so f'(s) = 2*s.
+TEST_F(TensorDiffWrtScalarTest, ScalarFunctionTimesConstantTensor) {
+  auto f = pow(s, 2); // f(s) = s^2 → f'(s) = 2*s
+  auto d = diff(f * A, s);
+  ASSERT_TRUE(d.is_valid());
+  // Build the expected expression: (2*s) * A
+  auto expected =
+      (scalar_t{make_expression<scalar_constant>(scalar_number{2})} * s) * A;
+  EXPECT_EQ(d.get().hash_value(), expected.get().hash_value())
+      << "Expected (2*s)*A, got: " << to_string(d);
+}
+
+// Acceptance #5: full product rule on (u·A)·(v·B) with u=u(s), v=v(s).
+// d/ds = (du·A) · (v·B) + (u·A) · (dv·B)
+//
+// Compare printed forms rather than hash values. The visitor's
+// step-by-step build may yield a different STRUCTURAL representation
+// than the hand-expanded expression (different canonicalization
+// paths through tensor_mul flattening) even when the math is
+// equivalent. The printer normalises both to the same canonical
+// string, which is the contract we actually care about for #275.
+TEST_F(TensorDiffWrtScalarTest, FullProductRuleTwoScalarFactors) {
+  auto u = pow(s, 2); // u(s) = s^2 → u'(s) = 2*s
+  auto v = pow(s, 3); // v(s) = s^3 → v'(s) = 3*s^2
+  auto uA = u * A;
+  auto vB = v * B;
+  auto expr = uA * vB;
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+
+  // Validate against the hand-expanded result:
+  //   d/ds[(u·A)·(v·B)] = (u'·A)·(v·B) + (u·A)·(v'·B)
+  auto du = diff(u, s); // 2*s
+  auto dv = diff(v, s); // 3*s^2
+  auto expected = (du * A) * (v * B) + (u * A) * (dv * B);
+  EXPECT_EQ(to_string(d), to_string(expected))
+      << "Got:      " << to_string(d) << "\nExpected: " << to_string(expected);
+}
+
+// Acceptance #6 — the radial-return case from the issue body:
+// d/d(dgamma) [sigma_trial - 2*mu*dgamma*n] == -2*mu*n
+// with mu, n independent of dgamma.
+TEST_F(TensorDiffWrtScalarTest, RadialReturnShape) {
+  auto sigma_trial = A; // doesn't depend on dgamma
+  auto two = scalar_t{make_expression<scalar_constant>(scalar_number{2})};
+  auto expr = sigma_trial - two * mu * dgamma * n;
+  auto d = diff(expr, dgamma);
+  ASSERT_TRUE(d.is_valid());
+  // Expected: -2*mu*n  (sigma_trial and n are dgamma-independent;
+  // mu is dgamma-independent; only the dgamma factor contributes).
+  auto expected = -(two * mu * n);
+  EXPECT_EQ(d.get().hash_value(), expected.get().hash_value())
+      << "Got:      " << to_string(d) << "\nExpected: " << to_string(expected);
+}
+
+// Sanity: zero-derivative leaf nodes (identity_tensor, levi_civita)
+// w.r.t. a scalar are zero.
+TEST_F(TensorDiffWrtScalarTest, IdentityIsConstant) {
+  auto d = diff(I, s);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+TEST_F(TensorDiffWrtScalarTest, ZeroDerivative) {
+  auto d = diff(Zero, s);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero, got: " << to_string(d);
+}
+
+// Linearity: diff(A + s*B, s) == B
+TEST_F(TensorDiffWrtScalarTest, AdditiveLinearity) {
+  auto expr = A + s * B;
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().hash_value(), B.get().hash_value())
+      << "Expected B, got: " << to_string(d);
+}
+
+// Pass-1 review L1 + pass-3 fix: cover the tensor_inv rule directly.
+// The public `inv(s*A)` factory folds to `inv(A)/s` (the
+// `inv(α·A) → inv(A)/α` rule from #71), which is a tensor_scalar_mul
+// — NOT a tensor_inv node — so the visitor's tensor_inv rule never
+// fires. Bypass the fold via make_expression to actually exercise the
+// rule under test. Same pattern as PowOneSingletonHandledByVisitor.
+TEST_F(TensorDiffWrtScalarTest, InvRuleExercisedDirectly) {
+  auto expr = make_expression<tensor_inv>(A);
+  ASSERT_TRUE(is_same<tensor_inv>(expr))
+      << "Setup precondition: expression must be a tensor_inv node to "
+         "exercise the rule under test; got: "
+      << to_string(expr);
+  // A is s-independent → recursive diff(A, s) returns a valid
+  // tensor_zero singleton (per apply()'s shape-aware fallback). The
+  // pass-5 singleton-aware guard in the tensor_inv rule then fires
+  // and early-returns, leaving m_result invalid; apply() coerces to
+  // tensor_zero. Without the singleton guard, the rule would build
+  // `-(invA · 0 · invA)` and depend on the inner_product simplifier
+  // to fold the zeros — fragile coupling.
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero for derivative of inv(A) w.r.t. s "
+         "where A is s-independent; got: "
+      << to_string(d);
+}
+
+// Pass-1 review L1: cover the tensor_pow rule with non-trivial
+// scalar coefficient. d/ds(pow(s*A, 2)) = 2*s*A*A (rank-2 matrix
+// product semantics).
+TEST_F(TensorDiffWrtScalarTest, PowRule) {
+  auto expr = pow(s * A, 2);
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), 2u);
+}
+
+// Pass-1 review / pass-2 fix: lock that the tensor_pow rule handles
+// the scalar_one singleton (#284 trap). The public `pow(x, 1)` factory
+// folds to `x` at construction (tensor_std.h), so we bypass the fold
+// by constructing a tensor_pow node directly via make_expression.
+// A bare is_same<scalar_constant>(scalar_one) check would return
+// false and throw not_implemented; try_int_constant correctly returns
+// 1 and the rule produces a valid result.
+TEST_F(TensorDiffWrtScalarTest, PowOneSingletonHandledByVisitor) {
+  auto one_singleton = get_scalar_one();
+  // make_expression bypasses the pow() factory fold that would
+  // collapse pow(s*A, 1) → s*A; we need a real tensor_pow node with
+  // scalar_one as the exponent so the visitor's tensor_pow rule
+  // runs.
+  auto expr = make_expression<tensor_pow>(s * A, one_singleton);
+  ASSERT_TRUE(is_same<tensor_pow>(expr))
+      << "Setup precondition: expression must be a tensor_pow node "
+         "to exercise the rule under test; got: "
+      << to_string(expr);
+  EXPECT_NO_THROW({ [[maybe_unused]] auto d = diff(expr, s); });
+}
+
+// Negation: diff(-(s*A), s) == -A
+TEST_F(TensorDiffWrtScalarTest, NegationCommutesWithDiff) {
+  auto expr = -(s * A);
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  auto expected = -A;
+  EXPECT_EQ(d.get().hash_value(), expected.get().hash_value())
+      << "Got:      " << to_string(d) << "\nExpected: " << to_string(expected);
+}
+
+// Pass-1 review (architect M6) + pass-2 M3 (numerical lock-in):
+// tensor_to_scalar_with_tensor_mul rule exercises BOTH
+// diff(tensor, scalar) AND diff(t2s, scalar). Without #285 the t2s
+// side would throw not_implemented. Verified numerically:
+//   d/ds(A * trace(s*B)) = (dA/ds)*trace(s*B) + A*d/ds(trace(s*B))
+//                       = 0*trace(s*B) + A*trace(B)  (A is s-indep)
+//                       = A * trace(B)
+// At any s value the derivative's components are A_t * trace(B_t).
+TEST_F(TensorDiffWrtScalarTest, CrossCPOTensorTimesT2s) {
+  auto expr =
+      make_expression<tensor_to_scalar_with_tensor_mul>(A, trace(s * B));
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), A.get().rank());
+  EXPECT_FALSE(is_same<tensor_zero>(d))
+      << "Expected non-zero derivative; got: " << to_string(d);
+
+  // Numerical lock-in.
+  tmech::tensor<double, 3, 2> A_t = tmech::randn<double, 3, 2>();
+  tmech::tensor<double, 3, 2> B_t = tmech::randn<double, 3, 2>();
+  auto A_ptr = std::make_shared<tensor_data<double, 3, 2>>(A_t);
+  auto B_ptr = std::make_shared<tensor_data<double, 3, 2>>(B_t);
+  tensor_evaluator<double> ev;
+  ev.set(A, A_ptr);
+  ev.set(B, B_ptr);
+  ev.set_scalar(s, 2.0);
+  auto d_val = ev.apply(d);
+  ASSERT_NE(d_val, nullptr);
+  double tr_B = tmech::trace(B_t);
+  auto expected_t = A_t * tr_B;
+  EXPECT_TRUE(
+      tmech::almost_equal(as_tmech_diff<3, 2>(*d_val), expected_t, 1e-12))
+      << "diff(A * trace(s*B), s) should evaluate to A * trace(B)";
+}
+
+// ─── Direct rule lock-ins for nodes the acceptance tests don't reach ──
+// Without these, each rule is only exercised transitively through
+// composition; a future refactor breaking a specific rule wouldn't be
+// caught. Coverage debt found in the pass-5+ audit.
+
+// levi_civita_tensor leaf: constant w.r.t. any scalar → derivative is
+// the canonical tensor_zero of matching rank/dim.
+TEST_F(TensorDiffWrtScalarTest, LeviCivitaTensorRuleIsConstant) {
+  auto eps3 = numsim::cas::levi_civita(std::size_t{3});
+  auto d = diff(eps3, s);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero; got: " << to_string(d);
+}
+
+// tensor_projector leaf: same — constant w.r.t. any scalar.
+TEST_F(TensorDiffWrtScalarTest, TensorProjectorRuleIsConstant) {
+  auto P = P_sym(std::size_t{3});
+  auto d = diff(P, s);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero; got: " << to_string(d);
+}
+
+// tensor_if_then_else rule: derivative passes through both branches.
+// d/ds if_then_else(cond, s*A, B) where cond is sv-independent →
+// if_then_else(cond, A, 0).
+TEST_F(TensorDiffWrtScalarTest, TensorIfThenElseRuleAppliesToBothBranches) {
+  auto cond = t; // scalar variable, sv-independent
+  auto then_branch = s * A;
+  auto else_branch = B;
+  auto expr =
+      make_expression<tensor_if_then_else>(cond, then_branch, else_branch);
+  ASSERT_TRUE(is_same<tensor_if_then_else>(expr));
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_TRUE(is_same<tensor_if_then_else>(d))
+      << "Expected tensor_if_then_else; got: " << to_string(d);
+}
+
+// permute_indices_wrapper rule: chain rule applies to the child.
+// d/ds permute_indices(s*A, [2,1]) = permute_indices(A, [2,1])
+TEST_F(TensorDiffWrtScalarTest, PermuteIndicesRuleAppliesToChild) {
+  auto sA = s * A;
+  auto expr = permute_indices(sA, sequence{2, 1});
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  auto expected = permute_indices(A, sequence{2, 1});
+  EXPECT_EQ(d.get().hash_value(), expected.get().hash_value())
+      << "Got:      " << to_string(d) << "\nExpected: " << to_string(expected);
+}
+
+// simple_outer_product rule: product rule across factors.
+TEST_F(TensorDiffWrtScalarTest, SimpleOuterProductRuleAppliesProductRule) {
+  auto sop = make_expression<simple_outer_product>(dim, std::size_t{4});
+  sop.template get<simple_outer_product>().push_back(s * A);
+  sop.template get<simple_outer_product>().push_back(B);
+  auto d = diff(sop, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_FALSE(is_same<tensor_zero>(d))
+      << "Expected non-zero derivative; got: " << to_string(d);
+}
+
+// inner_product_wrapper rule: product rule, tensor-typed result.
+TEST_F(TensorDiffWrtScalarTest, InnerProductWrapperRuleAppliesProductRule) {
+  // Contract on a single index pair → rank-2 tensor result.
+  auto expr = inner_product(s * A, sequence{2}, B, sequence{1});
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), 2u);
+  EXPECT_FALSE(is_same<tensor_zero>(d))
+      << "Expected non-zero derivative; got: " << to_string(d);
+}
+
+// outer_product_wrapper rule: product rule.
+TEST_F(TensorDiffWrtScalarTest, OuterProductWrapperRuleAppliesProductRule) {
+  auto expr = otimes(s * A, B);
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), 4u);
+  EXPECT_FALSE(is_same<tensor_zero>(d))
+      << "Expected non-zero derivative; got: " << to_string(d);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORDIFFERENTIATIONTEST_H
