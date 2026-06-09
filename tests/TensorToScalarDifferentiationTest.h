@@ -336,6 +336,157 @@ TEST_F(T2SDiffWrtScalarTest, ScalarCoefficientProductRule) {
   EXPECT_NEAR(ev.apply(J), ev.apply(trace(eps)), 1e-12);
 }
 
+// ─── Direct rule lock-ins for nodes the acceptance tests don't reach ──
+// Coverage debt found in the pass-5+ audit.
+
+// tensor_to_scalar_zero leaf: derivative is zero.
+TEST_F(T2SDiffWrtScalarTest, T2SZeroLeafIsConstant) {
+  auto zero = make_expression<tensor_to_scalar_zero>();
+  auto J = diff(zero, sv);
+  ASSERT_TRUE(J.is_valid());
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(J))
+      << "Expected canonical tensor_to_scalar_zero; got: " << to_string(J);
+}
+
+// tensor_to_scalar_one leaf: derivative is zero.
+TEST_F(T2SDiffWrtScalarTest, T2SOneLeafIsConstant) {
+  auto one = make_expression<tensor_to_scalar_one>();
+  auto J = diff(one, sv);
+  ASSERT_TRUE(J.is_valid());
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(J))
+      << "Expected tensor_to_scalar_zero; got: " << to_string(J);
+}
+
+// tensor_to_scalar_log rule: d/d(sv) log(g(sv)) = dg/g.
+// At sv=2, g = sv * trace(eps) with trace(eps)=2:
+//   g = 4, dg = trace(eps) = 2, expected = 2/4 = 0.5.
+TEST_F(T2SDiffWrtScalarTest, T2SLogRule) {
+  auto R = log(sv * trace(eps));
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+  tmech::tensor<double, 3, 2> eps_t = tmech::zeros<double, 3, 2>();
+  eps_t(0, 0) = 1.0;
+  eps_t(1, 1) = 1.0;
+  using tdata = tensor_data<double, 3, 2>;
+  auto eps_ptr = std::make_shared<tdata>(eps_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, eps_ptr);
+  ev.set_scalar(sv, 2.0);
+  EXPECT_NEAR(ev.apply(J), 0.5, 1e-12);
+}
+
+// tensor_to_scalar_exp rule: d/d(sv) exp(g(sv)) = exp(g) * dg.
+// At sv=ln(2), g = sv, dg = 1, exp(g) = 2, expected = 2.
+// Bypass any factory fold by constructing via make_expression so the
+// rule under test definitely runs.
+TEST_F(T2SDiffWrtScalarTest, T2SExpRule) {
+  auto sv_as_t2s = make_expression<tensor_to_scalar_scalar_wrapper>(sv);
+  auto R = make_expression<tensor_to_scalar_exp>(sv_as_t2s);
+  ASSERT_TRUE(is_same<tensor_to_scalar_exp>(R));
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set_scalar(sv, std::log(2.0));
+  EXPECT_NEAR(ev.apply(J), 2.0, 1e-12);
+}
+
+// tensor_to_scalar_sqrt rule: d/d(sv) sqrt(g(sv)) = dg / (2*sqrt(g)).
+// At sv=2, g = sv*trace(eps) with trace=2: g = 4, sqrt = 2,
+// dg = trace(eps) = 2, expected = 2/(2*2) = 0.5.
+TEST_F(T2SDiffWrtScalarTest, T2SSqrtRule) {
+  auto R = sqrt(sv * trace(eps));
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+  tmech::tensor<double, 3, 2> eps_t = tmech::zeros<double, 3, 2>();
+  eps_t(0, 0) = 1.0;
+  eps_t(1, 1) = 1.0;
+  using tdata = tensor_data<double, 3, 2>;
+  auto eps_ptr = std::make_shared<tdata>(eps_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, eps_ptr);
+  ev.set_scalar(sv, 2.0);
+  EXPECT_NEAR(ev.apply(J), 0.5, 1e-12);
+}
+
+// tensor_dot rule: d/d(sv) (A:A) where A = sv*eps.
+//   A:A = sv^2 * (eps:eps); d/d(sv) = 2*sv*(eps:eps).
+// At sv=3, eps diag(1,1,0), eps:eps = 2: expected = 12.
+TEST_F(T2SDiffWrtScalarTest, T2SDotRule) {
+  auto R = dot(sv * eps);
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+  tmech::tensor<double, 3, 2> eps_t = tmech::zeros<double, 3, 2>();
+  eps_t(0, 0) = 1.0;
+  eps_t(1, 1) = 1.0;
+  using tdata = tensor_data<double, 3, 2>;
+  auto eps_ptr = std::make_shared<tdata>(eps_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, eps_ptr);
+  ev.set_scalar(sv, 3.0);
+  EXPECT_NEAR(ev.apply(J), 12.0, 1e-12);
+}
+
+// tensor_det rule: d/d(sv) det(A) where A = sv * eps (eps fixed
+// diagonal). det(sv*eps) = sv^dim * det(eps) — but here eps has
+// determinant 0 (third diagonal is zero), so the value is zero and
+// the derivative is zero. Use a non-singular A: eps_t = sv * I3,
+// det = sv^3 * 1 = sv^3, d/d(sv) = 3*sv^2.  At sv=2, expected = 12.
+TEST_F(T2SDiffWrtScalarTest, T2SDetRule) {
+  auto R = det(sv * eps);
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+  tmech::tensor<double, 3, 2> eps_t = tmech::zeros<double, 3, 2>();
+  eps_t(0, 0) = 1.0;
+  eps_t(1, 1) = 1.0;
+  eps_t(2, 2) = 1.0; // non-singular
+  using tdata = tensor_data<double, 3, 2>;
+  auto eps_ptr = std::make_shared<tdata>(eps_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, eps_ptr);
+  ev.set_scalar(sv, 2.0);
+  EXPECT_NEAR(ev.apply(J), 12.0, 1e-12);
+}
+
+// tensor_inner_product_to_scalar rule: d/d(sv) dot_product(sv*A, B).
+//   dot_product = sv * (A:B); d/d(sv) = A:B.
+// At eps=diag(1,1,0) used as A and n=diag(1,1,1)/sqrt(3) (normalized
+// identity-like), A:B = (1+1+0)/sqrt(3) = 2/sqrt(3).
+TEST_F(T2SDiffWrtScalarTest, T2SInnerProductToScalarRule) {
+  auto R = dot_product(sv * eps, sequence{1, 2}, n, sequence{1, 2});
+  auto J = diff(R, sv);
+  ASSERT_TRUE(J.is_valid());
+  tmech::tensor<double, 3, 2> eps_t = tmech::zeros<double, 3, 2>();
+  eps_t(0, 0) = 1.0;
+  eps_t(1, 1) = 1.0;
+  tmech::tensor<double, 3, 2> n_t = tmech::zeros<double, 3, 2>();
+  const double inv_sqrt3 = 1.0 / std::sqrt(3.0);
+  n_t(0, 0) = inv_sqrt3;
+  n_t(1, 1) = inv_sqrt3;
+  n_t(2, 2) = inv_sqrt3;
+  using tdata = tensor_data<double, 3, 2>;
+  auto eps_ptr = std::make_shared<tdata>(eps_t);
+  auto n_ptr = std::make_shared<tdata>(n_t);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, eps_ptr);
+  ev.set(n, n_ptr);
+  ev.set_scalar(sv, 1.0); // sv value doesn't matter for d/d(sv)
+  const double expected = 2.0 * inv_sqrt3;
+  EXPECT_NEAR(ev.apply(J), expected, 1e-12);
+}
+
+// tensor_to_scalar_if_then_else: rule throws not_implemented_error
+// (parallel to the existing tensor-arg t2s visitor; #241). Lock-in
+// so a future implementation must delete or flip this test.
+TEST_F(T2SDiffWrtScalarTest, T2SIfThenElseRuleThrowsNotImplemented) {
+  auto cond = make_expression<tensor_to_scalar_scalar_wrapper>(sv);
+  auto then_branch = make_expression<tensor_to_scalar_scalar_wrapper>(sv);
+  auto else_branch = make_expression<tensor_to_scalar_one>();
+  auto expr = make_expression<tensor_to_scalar_if_then_else>(cond, then_branch,
+                                                             else_branch);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto J = diff(expr, sv); }, not_implemented_error);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALARDIFFERENTIATIONTEST_H

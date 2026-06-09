@@ -824,6 +824,88 @@ TEST_F(TensorDiffWrtScalarTest, CrossCPOTensorTimesT2s) {
       << "diff(A * trace(s*B), s) should evaluate to A * trace(B)";
 }
 
+// ─── Direct rule lock-ins for nodes the acceptance tests don't reach ──
+// Without these, each rule is only exercised transitively through
+// composition; a future refactor breaking a specific rule wouldn't be
+// caught. Coverage debt found in the pass-5+ audit.
+
+// levi_civita_tensor leaf: constant w.r.t. any scalar → derivative is
+// the canonical tensor_zero of matching rank/dim.
+TEST_F(TensorDiffWrtScalarTest, LeviCivitaTensorRuleIsConstant) {
+  auto eps3 = numsim::cas::levi_civita(std::size_t{3});
+  auto d = diff(eps3, s);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero; got: " << to_string(d);
+}
+
+// tensor_projector leaf: same — constant w.r.t. any scalar.
+TEST_F(TensorDiffWrtScalarTest, TensorProjectorRuleIsConstant) {
+  auto P = P_sym(std::size_t{3});
+  auto d = diff(P, s);
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero; got: " << to_string(d);
+}
+
+// tensor_if_then_else rule: derivative passes through both branches.
+// d/ds if_then_else(cond, s*A, B) where cond is sv-independent →
+// if_then_else(cond, A, 0).
+TEST_F(TensorDiffWrtScalarTest, TensorIfThenElseRuleAppliesToBothBranches) {
+  auto cond = t; // scalar variable, sv-independent
+  auto then_branch = s * A;
+  auto else_branch = B;
+  auto expr =
+      make_expression<tensor_if_then_else>(cond, then_branch, else_branch);
+  ASSERT_TRUE(is_same<tensor_if_then_else>(expr));
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_TRUE(is_same<tensor_if_then_else>(d))
+      << "Expected tensor_if_then_else; got: " << to_string(d);
+}
+
+// permute_indices_wrapper rule: chain rule applies to the child.
+// d/ds permute_indices(s*A, [2,1]) = permute_indices(A, [2,1])
+TEST_F(TensorDiffWrtScalarTest, PermuteIndicesRuleAppliesToChild) {
+  auto sA = s * A;
+  auto expr = permute_indices(sA, sequence{2, 1});
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  auto expected = permute_indices(A, sequence{2, 1});
+  EXPECT_EQ(d.get().hash_value(), expected.get().hash_value())
+      << "Got:      " << to_string(d) << "\nExpected: " << to_string(expected);
+}
+
+// simple_outer_product rule: product rule across factors.
+TEST_F(TensorDiffWrtScalarTest, SimpleOuterProductRuleAppliesProductRule) {
+  auto sop = make_expression<simple_outer_product>(dim, std::size_t{4});
+  sop.template get<simple_outer_product>().push_back(s * A);
+  sop.template get<simple_outer_product>().push_back(B);
+  auto d = diff(sop, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_FALSE(is_same<tensor_zero>(d))
+      << "Expected non-zero derivative; got: " << to_string(d);
+}
+
+// inner_product_wrapper rule: product rule, tensor-typed result.
+TEST_F(TensorDiffWrtScalarTest, InnerProductWrapperRuleAppliesProductRule) {
+  // Contract on a single index pair → rank-2 tensor result.
+  auto expr = inner_product(s * A, sequence{2}, B, sequence{1});
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), 2u);
+  EXPECT_FALSE(is_same<tensor_zero>(d))
+      << "Expected non-zero derivative; got: " << to_string(d);
+}
+
+// outer_product_wrapper rule: product rule.
+TEST_F(TensorDiffWrtScalarTest, OuterProductWrapperRuleAppliesProductRule) {
+  auto expr = otimes(s * A, B);
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), 4u);
+  EXPECT_FALSE(is_same<tensor_zero>(d))
+      << "Expected non-zero derivative; got: " << to_string(d);
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORDIFFERENTIATIONTEST_H
