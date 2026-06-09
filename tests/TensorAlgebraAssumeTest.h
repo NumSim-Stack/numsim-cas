@@ -951,20 +951,61 @@ TEST(TensorAlgebraIdentityAssumptions, Rank6IsUnclassified_OpenDecision) {
   EXPECT_FALSE(is_minor_major(I));
 }
 
-TEST(TensorAlgebraIdentityAssumptions, Rank2IsNotOtherAlgebraicProperties) {
+TEST(TensorAlgebraIdentityAssumptions, Rank2NegativeAlgebraicProperties) {
   // Negative-test matrix for rank-2 identity. I is symmetric, NOT skew,
   // NOT volumetric (vol(I) = (1/d)·tr(I)·I = I, so I has nonzero
   // volumetric part but is not ITSELF in the volumetric subspace as a
   // strict subspace classification — the codebase keeps the Symmetric
-  // tag, not the VolumetricTag), NOT a rank-4 classification, NOT
-  // orthogonal (orthogonal := R·Rᵀ = I, true for I but not annotated as
-  // such today — locked in as the deliberate omission), NOT marked PD.
+  // tag, not the VolumetricTag), NOT a rank-4 classification.
+  // Orthogonal / PD / PSD now lock in to true at construction (#258),
+  // exercised in the positive tests below.
   auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
   EXPECT_FALSE(is_volumetric(I));
   EXPECT_FALSE(is_deviatoric(I));
   EXPECT_FALSE(is_minor(I));
   EXPECT_FALSE(is_major(I));
   EXPECT_FALSE(is_minor_major(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank2IsOrthogonal) {
+  // #258: identity_tensor self-classifies as orthogonal at rank 2.
+  // Mathematical justification: I^T · I = I (the trivial rotation).
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_TRUE(is_orthogonal(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank2IsPositiveDefinite) {
+  // #258: rank-2 identity self-classifies as positive-definite.
+  // Justification: x_i δ_ij x_j = ||x||² > 0 for any nonzero x.
+  // PD implies PSD by definition; mirror assume_positive_definite()'s
+  // double insert.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_TRUE(is_positive_definite(I));
+  EXPECT_TRUE(is_positive_semidefinite(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank4IsPositiveDefinite) {
+  // #258: rank-4 minor identity δ_ik·δ_jl is positive-definite at the
+  // standard rank-4 quadratic form C_ijkl x_ij x_kl = x_kl x_kl = ||x||²
+  // for any nonzero rank-2 x.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{4});
+  EXPECT_TRUE(is_positive_definite(I));
+  EXPECT_TRUE(is_positive_semidefinite(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank4IsNotOrthogonal) {
+  // Negative lock-in: orthogonality is a rank-2 concept (R^T·R = I).
+  // The rank-4 minor identity is NOT annotated orthogonal — the rank-4
+  // generalization isn't well-defined here. If a future rank-4 algebra
+  // convention adds it, flip this test.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{4});
+  EXPECT_FALSE(is_orthogonal(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank6IsNotAlgebraicallyClassified) {
+  // Parallel to Rank6IsUnclassified_OpenDecision: higher ranks get
+  // no algebra annotations either. Lock-in for the deliberate omission.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{6});
   EXPECT_FALSE(is_orthogonal(I));
   EXPECT_FALSE(is_positive_definite(I));
   EXPECT_FALSE(is_positive_semidefinite(I));
@@ -1494,10 +1535,11 @@ TEST(TensorAlgebraStep6, ClosedFormConstantQueryConsistency) {
   EXPECT_TRUE(is_symmetric(I)) << "identity via ctor pre-annotation";
   EXPECT_TRUE(is_symmetric(P)) << "projector via ctor pre-annotation";
 
-  // Negative consistency: all three reject orthogonal/PD without explicit
-  // assertion (they're closed-form constants, not annotated as such).
+  // is_orthogonal: tensor_zero is NOT orthogonal (Z·Z^T = 0 ≠ I); the
+  // rank-2 identity IS orthogonal (#258, I·I^T = I); P_vol is a singular
+  // projector and not orthogonal in the rank-2 R·R^T = I sense.
   EXPECT_FALSE(is_orthogonal(Z));
-  EXPECT_FALSE(is_orthogonal(I));
+  EXPECT_TRUE(is_orthogonal(I));
   EXPECT_FALSE(is_orthogonal(P));
 }
 

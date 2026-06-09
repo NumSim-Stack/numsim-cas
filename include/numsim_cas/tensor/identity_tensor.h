@@ -85,9 +85,26 @@ public:
     // tensor_to_scalar_zero / tensor_to_scalar_one. The annotation is
     // preserved by the defaulted copy/move ctors below, which route through
     // tensor_expression's 1-arg copy/move ctor (the form that copies
-    // m_tensor_space — see tensor_expression.h:30).
+    // m_tensor_space and m_tensor_algebra_assumptions — see
+    // tensor_expression.h:30).
     if (auto sp = space_for_rank(rank))
       this->set_space(*sp);
+    // Algebra-property classification by rank (#258):
+    //   - rank 2 (δ_ij): orthogonal (I^T·I = I) AND positive-definite
+    //     (x_i δ_ij x_j = ||x||² > 0 for nonzero x).
+    //   - rank 4 minor identity (δ_ik·δ_jl): positive-definite at the
+    //     standard rank-4 quadratic form (C_ijkl x_ij x_kl = x_kl·x_kl);
+    //     orthogonal is *not* set — orthogonality of a rank-4 tensor is
+    //     not well-defined in the rank-2 R^T·R = I sense.
+    auto &a = this->tensor_algebra_assumptions();
+    if (rank == 2) {
+      a.insert(orthogonal{});
+    }
+    if (rank == 2 || rank == 4) {
+      a.insert(positive_definite{});
+      a.insert(positive_semidefinite{}); // PD ⇒ PSD, mirrors
+                                         // assume_positive_definite()
+    }
   }
   // Defaulted copy/move: the implicit base copy/move uses
   // tensor_expression's 1-arg ctor which preserves m_tensor_space, so the
