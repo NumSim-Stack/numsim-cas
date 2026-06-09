@@ -235,9 +235,25 @@ void tensor_differentiation_wrt_scalar::operator()(
 }
 
 // tensor_inv: d/ds(A^{-1}) = -A^{-1} * dA/ds * A^{-1}
-// (rank-2 standard scalar-parameter inverse derivative). No
-// Magnus/minor-sym variants needed since the rank doesn't expand by
-// the scalar arg's rank.
+// Symbolic Magnus formula. Unlike the tensor-arg visitor (which has
+// sym/skew kernel variants because differentiating w.r.t. a rank-2
+// tensor X expands the rank), the scalar-arg derivative dA/ds has the
+// SAME rank as A and the result is again rank(A): the formula is the
+// same at any rank, only the contraction layout changes.
+//
+//   rank 2:  -A^{-1}_{im} · (dA/ds)_{mn} · A^{-1}_{nj}
+//            two single-index contractions on (2)↔(1).
+//   rank 4:  -A^{-1}_{ijmn} · (dA/ds)_{mnpq} · A^{-1}_{pqkl}
+//            two two-index contractions on (3,4)↔(1,2).
+//
+// Rank-4 is the same Magnus formula in symbolic form regardless of the
+// algebraic class (general/minor-sym/skew); the evaluator dispatches
+// on annotation at evaluation time via tensor_inv's space tag. So no
+// extra branching needed here. Other ranks (3, 5, 6...) keep the
+// rank-not-supported throw — `inv()` itself only admits rank 2 and 4,
+// so a non-2/4 input here would have been rejected by the factory; the
+// throw is a belt-and-braces guard for direct
+// `make_expression<tensor_inv>` constructions.
 void tensor_differentiation_wrt_scalar::operator()(
     tensor_inv const &visitable) {
   auto const &A = visitable.expr();
@@ -248,20 +264,30 @@ void tensor_differentiation_wrt_scalar::operator()(
   if (!dA.is_valid() || is_same<tensor_zero>(dA)) {
     return;
   }
-  if (A.get().rank() != 2) {
-    // Rank-4 inv is its own can of worms; parallel to the tensor-arg
-    // visitor's rank-4 throw at tensor_differentiation.cpp:380.
-    // Tracked in #287 (with #250 covering the tensor-arg analogue).
+  auto const r = A.get().rank();
+  if (r != 2 && r != 4) {
     throw not_implemented_error(
-        "tensor_differentiation_wrt_scalar: tensor_inv only supports rank 2 "
-        "(got rank " +
-        std::to_string(A.get().rank()) + "); tracked in #287");
+        "tensor_differentiation_wrt_scalar: tensor_inv supports rank 2 "
+        "and rank 4 (got rank " +
+        std::to_string(r) + ")");
   }
   auto invA = inv(A);
-  // term = invA * dA * invA via two rank-2 contractions
-  auto term = inner_product(invA, sequence{2}, std::move(dA), sequence{1});
-  term = inner_product(std::move(term), sequence{2}, invA, sequence{1});
-  m_result = -std::move(term);
+  if (r == 2) {
+    // term = invA * dA * invA via two rank-2 contractions
+    auto term = inner_product(invA, sequence{2}, std::move(dA), sequence{1});
+    term = inner_product(std::move(term), sequence{2}, invA, sequence{1});
+    m_result = -std::move(term);
+  } else {
+    // rank 4: -invA : dA : invA via two rank-4 double-contractions
+    // (#287). The double-contraction `:` is the standard rank-4
+    // composition (sequence{3,4} on the LHS pairs with sequence{1,2}
+    // on the RHS).
+    auto term =
+        inner_product(invA, sequence{3, 4}, std::move(dA), sequence{1, 2});
+    term =
+        inner_product(std::move(term), sequence{3, 4}, invA, sequence{1, 2});
+    m_result = -std::move(term);
+  }
 }
 
 // inner_product_wrapper(A, idxA, B, idxB) — scalar arg product rule:
