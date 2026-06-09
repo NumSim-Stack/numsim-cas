@@ -54,18 +54,30 @@ set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE OFF)
 find_package(tmech QUIET)
 if(tmech_FOUND)
   # Marker check: the rewrite introduced `inverse_wrapper_base<T>` as a
-  # public struct in inverse_wrapper_bones.h. Old tmech does not have it.
-  get_target_property(_tmech_check_inc tmech::tmech INTERFACE_INCLUDE_DIRECTORIES)
+  # struct in inverse_wrapper_bones.h. Old tmech does not have it.
+  # We use `LINK_LIBRARIES tmech::tmech` (rather than extracting
+  # INTERFACE_INCLUDE_DIRECTORIES manually) so generator expressions in
+  # the imported target — e.g. `$<BUILD_INTERFACE:…>$<INSTALL_INTERFACE:…>`
+  # from a `cmake --install`ed tmech — resolve naturally, and ALIAS
+  # targets work without manual ALIASED_TARGET resolution.
   try_compile(NUMSIM_CAS_TMECH_HAS_INVERSE_REWRITE
     "${CMAKE_CURRENT_BINARY_DIR}/_tmech_marker_check"
     SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmech_marker_check.cpp"
-    CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${_tmech_check_inc}"
+    LINK_LIBRARIES tmech::tmech
     CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
   )
   if(NOT NUMSIM_CAS_TMECH_HAS_INVERSE_REWRITE)
+    # Get the include path purely for the diagnostic; not used for compilation.
+    get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
+    if(NOT _tmech_real)
+      set(_tmech_real tmech::tmech)
+    endif()
+    get_target_property(_tmech_diag_inc ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
     message(FATAL_ERROR
       "find_package(tmech) found an installation at\n"
-      "  ${_tmech_check_inc}\n"
+      "  ${_tmech_diag_inc}\n"
       "that lacks the post-Sep-2025 `inverse_wrapper_base` rewrite.\n"
       "Using it silently produces NaN through the rank-4 `tmech::inv` "
       "Voigt path (see #283).\n"

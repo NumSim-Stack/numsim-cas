@@ -9,13 +9,21 @@
 // A compile failure here means the found tmech is too old; CMake emits a
 // `FATAL_ERROR` pointing the user at `-DCMAKE_DISABLE_FIND_PACKAGE_tmech=TRUE`
 // or a system-install upgrade.
+//
+// Marker stability note: `inverse_wrapper_base` lives in `tmech::detail`
+// today. The probe pins this exact symbol because we control the upstream
+// (petlenz/tmech is our fork). If a future upstream refactor renames or
+// re-namespaces the class, update this probe in the same commit that
+// bumps the GIT_TAG pin in the top-level CMakeLists.txt.
 
 #include <tmech/tmech.h>
-#include <type_traits>
+#include <cstddef>
 
 int main() {
+  // sizeof forces a complete type — stricter than `is_class_v`, which
+  // can succeed on a forward declaration.
   static_assert(
-      std::is_class_v<tmech::detail::inverse_wrapper_base<double>>,
+      sizeof(tmech::detail::inverse_wrapper_base<double>) > 0,
       "tmech::detail::inverse_wrapper_base missing — install predates the "
       "rank-4 inverse rewrite");
   return 0;
