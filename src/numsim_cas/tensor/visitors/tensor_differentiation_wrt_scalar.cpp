@@ -2,6 +2,7 @@
 
 #include <numeric>
 #include <numsim_cas/core/diff.h>
+#include <utility>
 #include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/tensor_diff.h>
@@ -266,6 +267,10 @@ void tensor_differentiation_wrt_scalar::operator()(
   }
   // tensor_inv wrapper ctor enforces rank ∈ {2, 4} (#292), so any
   // tensor_inv visited here is guaranteed to be one of those two ranks.
+  // Branch explicitly on each — `else` would silently apply the rank-4
+  // contraction layout if a future relaxation of the wrapper gate
+  // admitted, say, rank-6. std::unreachable() catches that drift in
+  // Debug (UB in Release) — same pattern as projector_algebra.h:48.
   auto const r = A.get().rank();
   auto invA = inv(A);
   if (r == 2) {
@@ -273,7 +278,7 @@ void tensor_differentiation_wrt_scalar::operator()(
     auto term = inner_product(invA, sequence{2}, std::move(dA), sequence{1});
     term = inner_product(std::move(term), sequence{2}, invA, sequence{1});
     m_result = -std::move(term);
-  } else {
+  } else if (r == 4) {
     // rank 4: -invA : dA : invA via two rank-4 double-contractions
     // (#287). The double-contraction `:` is the standard rank-4
     // composition (sequence{3,4} on the LHS pairs with sequence{1,2}
@@ -282,6 +287,8 @@ void tensor_differentiation_wrt_scalar::operator()(
         inner_product(invA, sequence{3, 4}, std::move(dA), sequence{1, 2});
     term = inner_product(std::move(term), sequence{3, 4}, invA, sequence{1, 2});
     m_result = -std::move(term);
+  } else {
+    std::unreachable();
   }
 }
 
