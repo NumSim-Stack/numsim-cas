@@ -789,6 +789,90 @@ TEST_F(TensorDiffWrtScalarTest, InvRuleExercisedDirectly) {
       << to_string(d);
 }
 
+// #287: rank-4 inv-diff scalar-arg case. Constructed directly via
+// make_expression<tensor_inv> because the inv() factory's `inv(α·A) → inv(A)/α`
+// fold (#71) would route a `s*C` argument through tensor_scalar_mul instead
+// of tensor_inv. We need a real rank-4 tensor_inv node so the visitor's
+// rank-4 branch runs.
+TEST_F(TensorDiffWrtScalarTest, InvRank4ZeroDerivativeWhenSIndependent) {
+  // diff(inv(C), s) where C is s-independent → tensor_zero through the
+  // visitor's pass-5 singleton-aware guard (same as rank 2).
+  auto C = std::get<0>(
+      make_tensor_variable(std::tuple{"C", std::size_t{3}, std::size_t{4}}));
+  auto expr = make_expression<tensor_inv>(C);
+  ASSERT_TRUE(is_same<tensor_inv>(expr));
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_TRUE(is_same<tensor_zero>(d))
+      << "Expected tensor_zero; got: " << to_string(d);
+}
+
+TEST_F(TensorDiffWrtScalarTest, InvRank4ExercisedDirectly) {
+  // diff(inv(C(s)), s) where the inner tensor depends on s through a
+  // tensor_scalar_mul (`s · D`). Bypass the factory fold via
+  // make_expression so we get a real tensor_inv node wrapping the
+  // s-dependent inner; the visitor's rank-4 Magnus formula then fires.
+  auto D = std::get<0>(
+      make_tensor_variable(std::tuple{"D", std::size_t{3}, std::size_t{4}}));
+  auto expr = make_expression<tensor_inv>(s * D);
+  ASSERT_TRUE(is_same<tensor_inv>(expr));
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), 4u);
+  EXPECT_EQ(d.get().dim(), 3u);
+  EXPECT_FALSE(is_same<tensor_zero>(d))
+      << "Expected non-zero derivative; got: " << to_string(d);
+}
+
+// #287 pass-2 (review): structural hash-equality lock-in for the rank-4
+// Magnus formula. Rebuilds the expected AST by hand and asserts hash
+// equality. Protects against silent reordering of the contraction
+// layout (e.g. swapping `{3,4}↔{1,2}` to `{1,2}↔{3,4}` — both valid
+// inner-product calls for unsymmetric inputs but producing a
+// structurally different AST). Numerical eval is intentionally not
+// added here: rank-4 `tmech::inv` requires the post-`db5d8aa` rewrite,
+// enforced by parallel work in #289.
+TEST_F(TensorDiffWrtScalarTest, InvRank4StructuralLockIn) {
+  auto D = std::get<0>(
+      make_tensor_variable(std::tuple{"D", std::size_t{3}, std::size_t{4}}));
+  auto sD = s * D;
+  auto expr = make_expression<tensor_inv>(sD);
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+
+  // Hand-build: -invA : dA : invA  with
+  //   invA = inv(sD)       (rank 4)
+  //   dA   = diff(sD, s) = D
+  // The contraction layout is sequence{3,4} on the LHS paired with
+  // sequence{1,2} on the RHS; the visitor uses identical conventions
+  // (tensor_differentiation_wrt_scalar.cpp:284-288).
+  auto invA = inv(sD);
+  auto dA = diff(sD, s);
+  auto step1 = inner_product(invA, sequence{3, 4}, dA, sequence{1, 2});
+  auto expected = -inner_product(step1, sequence{3, 4}, invA, sequence{1, 2});
+  EXPECT_EQ(d.get().hash_value(), expected.get().hash_value())
+      << "Rank-4 inv-diff AST drifted from expected Magnus form.\n"
+      << "Got:      " << to_string(d) << "\n"
+      << "Expected: " << to_string(expected);
+}
+
+TEST_F(TensorDiffWrtScalarTest, InvRank3ThrowsNotImplemented) {
+  // Rank 3 is rejected by the inv() factory at construction; constructing
+  // a rank-3 tensor_inv directly via make_expression bypasses that gate,
+  // so the visitor's belt-and-braces rank check catches it.
+  // The inner is constructed via make_expression<tensor> directly to
+  // avoid the rank gate in factory helpers.
+  auto T = std::get<0>(
+      make_tensor_variable(std::tuple{"T", std::size_t{3}, std::size_t{3}}));
+  auto expr = make_expression<tensor_inv>(T);
+  // Force a non-zero derivative path by adding s-dependence through a
+  // scalar mul; otherwise the singleton-zero guard early-returns before
+  // the rank check.
+  auto expr_s = make_expression<tensor_inv>(s * T);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto d = diff(expr_s, s); }, not_implemented_error);
+}
+
 // Pass-1 review L1: cover the tensor_pow rule with non-trivial
 // scalar coefficient. d/ds(pow(s*A, 2)) = 2*s*A*A (rank-2 matrix
 // product semantics).
