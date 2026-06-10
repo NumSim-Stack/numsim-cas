@@ -824,6 +824,38 @@ TEST_F(TensorDiffWrtScalarTest, InvRank4ExercisedDirectly) {
       << "Expected non-zero derivative; got: " << to_string(d);
 }
 
+// #287 pass-2 (review): structural hash-equality lock-in for the rank-4
+// Magnus formula. Rebuilds the expected AST by hand and asserts hash
+// equality. Protects against silent reordering of the contraction
+// layout (e.g. swapping `{3,4}↔{1,2}` to `{1,2}↔{3,4}` — both valid
+// inner-product calls for unsymmetric inputs but producing a
+// structurally different AST). Numerical eval is intentionally not
+// added here: rank-4 `tmech::inv` requires the post-`db5d8aa` rewrite,
+// enforced by parallel work in #289.
+TEST_F(TensorDiffWrtScalarTest, InvRank4StructuralLockIn) {
+  auto D = std::get<0>(
+      make_tensor_variable(std::tuple{"D", std::size_t{3}, std::size_t{4}}));
+  auto sD = s * D;
+  auto expr = make_expression<tensor_inv>(sD);
+  auto d = diff(expr, s);
+  ASSERT_TRUE(d.is_valid());
+
+  // Hand-build: -invA : dA : invA  with
+  //   invA = inv(sD)       (rank 4)
+  //   dA   = diff(sD, s) = D
+  // The contraction layout is sequence{3,4} on the LHS paired with
+  // sequence{1,2} on the RHS; the visitor uses identical conventions
+  // (tensor_differentiation_wrt_scalar.cpp:284-288).
+  auto invA = inv(sD);
+  auto dA = diff(sD, s);
+  auto step1 = inner_product(invA, sequence{3, 4}, dA, sequence{1, 2});
+  auto expected = -inner_product(step1, sequence{3, 4}, invA, sequence{1, 2});
+  EXPECT_EQ(d.get().hash_value(), expected.get().hash_value())
+      << "Rank-4 inv-diff AST drifted from expected Magnus form.\n"
+      << "Got:      " << to_string(d) << "\n"
+      << "Expected: " << to_string(expected);
+}
+
 TEST_F(TensorDiffWrtScalarTest, InvRank3ThrowsNotImplemented) {
   // Rank 3 is rejected by the inv() factory at construction; constructing
   // a rank-3 tensor_inv directly via make_expression bypasses that gate,
