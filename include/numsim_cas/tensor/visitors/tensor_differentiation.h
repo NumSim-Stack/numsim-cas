@@ -137,7 +137,20 @@ public:
   // asymmetry as the scalar/t2s variants: the diff visitor MUST build
   // both arms' derivatives because the cond value isn't fixed at
   // differentiation time.
-  void operator()(tensor_if_then_else const &visitable) override {
+  void operator()(tensor_if_then_else_scalar const &visitable) override {
+    auto dt = diff(visitable.expr_then(), m_arg);
+    auto de = diff(visitable.expr_else(), m_arg);
+    if (dt.is_valid() && de.is_valid()) {
+      m_result =
+          if_then_else(visitable.expr_cond(), std::move(dt), std::move(de));
+    }
+  }
+
+  // ─── if_then_else_t2s (#241) ────────────────────────────────────
+  // Sibling of the scalar-cond rule. Same chain-rule shape: branches
+  // contribute their derivatives, cond is passed through (we ignore
+  // its dependence on m_arg under the same measure-zero convention).
+  void operator()(tensor_if_then_else_t2s const &visitable) override {
     auto dt = diff(visitable.expr_then(), m_arg);
     auto de = diff(visitable.expr_else(), m_arg);
     if (dt.is_valid() && de.is_valid()) {

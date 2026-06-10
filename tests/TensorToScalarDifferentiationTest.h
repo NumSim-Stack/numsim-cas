@@ -474,17 +474,61 @@ TEST_F(T2SDiffWrtScalarTest, T2SInnerProductToScalarRule) {
   EXPECT_NEAR(ev.apply(J), expected, 1e-12);
 }
 
-// tensor_to_scalar_if_then_else: rule throws not_implemented_error
-// (parallel to the existing tensor-arg t2s visitor; #241). Lock-in
-// so a future implementation must delete or flip this test.
-TEST_F(T2SDiffWrtScalarTest, T2SIfThenElseRuleThrowsNotImplemented) {
+// #241 close: scalar-arg diff of t2s_if_then_else now produces the
+// piecewise rule's t2s output rather than throwing not_implemented_error.
+// The pre-#241 throw was a defensive mitigation against the silent-wrong
+// behavior described in the issue body — see the visitor at
+// src/numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_differentiation_wrt_scalar.cpp:309
+// for the new contract.
+TEST_F(T2SDiffWrtScalarTest, T2SIfThenElsePiecewiseDerivative) {
   auto cond = make_expression<tensor_to_scalar_scalar_wrapper>(sv);
   auto then_branch = make_expression<tensor_to_scalar_scalar_wrapper>(sv);
   auto else_branch = make_expression<tensor_to_scalar_one>();
   auto expr = make_expression<tensor_to_scalar_if_then_else>(cond, then_branch,
                                                              else_branch);
-  EXPECT_THROW(
-      { [[maybe_unused]] auto J = diff(expr, sv); }, not_implemented_error);
+  expression_holder<tensor_to_scalar_expression> J;
+  ASSERT_NO_THROW(J = diff(expr, sv));
+  EXPECT_TRUE(J.is_valid());
+  // The piecewise rule produces a t2s_if_then_else with the same
+  // cond, da/ds in the then branch, db/ds = d(1)/ds = 0 in the else.
+  EXPECT_TRUE(is_same<tensor_to_scalar_if_then_else>(J))
+      << "Expected piecewise t2s result; got: " << to_string(J);
+}
+
+// #241 falsy-region correctness lock-in — THE central regression
+// guard for this issue. Pre-#241 the diff visitor silently returned
+// only the `then` branch's derivative, producing a numerically-
+// believable but mathematically incorrect gradient anywhere cond
+// evaluated falsy. This test exercises BOTH regions:
+//   expr = if_then_else(gt(sv, 0), a(sv) = sv^2, b(sv) = -sv)
+//   d/dsv expr = if_then_else(gt(sv, 0), 2*sv, -1)
+//   - Truthy (sv > 0): J == 2*sv. With sv=2.0 → J=4. Pre-fix gave the same.
+//   - Falsy  (sv ≤ 0): J == -1.   With sv=-1.5 → J=-1. Pre-fix gave 2*sv=-3.
+// A future regression that drops the else branch would pass the
+// truthy assertion and fail the falsy one — the exact silent-wrong
+// pattern this issue is about.
+TEST_F(T2SDiffWrtScalarTest, T2SIfThenElseFalsyRegionDerivativeIsCorrect) {
+  auto zero_const = make_expression<scalar_constant>(0.0);
+  auto cond =
+      make_expression<tensor_to_scalar_scalar_wrapper>(gt(sv, zero_const));
+  auto a = make_expression<tensor_to_scalar_scalar_wrapper>(pow(sv, 2));
+  auto b = make_expression<tensor_to_scalar_scalar_wrapper>(-sv);
+  auto expr = make_expression<tensor_to_scalar_if_then_else>(cond, a, b);
+  auto J = diff(expr, sv);
+  ASSERT_TRUE(J.is_valid());
+
+  tensor_to_scalar_evaluator<double> ev;
+
+  // Truthy region: sv = 2.0, cond = 1, expr = sv^2, d/dsv = 2*sv = 4.
+  ev.set_scalar(sv, 2.0);
+  EXPECT_NEAR(ev.apply(J), 4.0, 1e-12) << "truthy region: deriv must be 2*sv";
+
+  // Falsy region: sv = -1.5, cond = 0, expr = -sv, d/dsv = -1.
+  // Pre-#241 this would have evaluated to 2*sv = -3 (silent-wrong).
+  ev.set_scalar(sv, -1.5);
+  EXPECT_NEAR(ev.apply(J), -1.0, 1e-12)
+      << "falsy region: deriv must be -1; PRE-#241 gave 2*sv = -3 "
+         "(silent-wrong)";
 }
 
 } // namespace numsim::cas

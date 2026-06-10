@@ -181,9 +181,23 @@ public:
   }
 
   // ─── if_then_else (#135 / #210) ─────────────────────────────────
-  void operator()(tensor_if_then_else const &v) override {
+  void operator()(tensor_if_then_else_scalar const &v) override {
     m_out << "if_then_else(";
     apply(v.expr_cond(), Precedence::None);
+    m_out << ",";
+    apply(v.expr_then(), Precedence::None);
+    m_out << ",";
+    apply(v.expr_else(), Precedence::None);
+    m_out << ")";
+  }
+
+  // ─── if_then_else_t2s (#241) ────────────────────────────────────
+  // Sibling of the scalar-cond version. The cond is a t2s expression
+  // holder; route through its operator<< (same pattern as
+  // tensor_to_scalar_with_tensor_mul above).
+  void operator()(tensor_if_then_else_t2s const &v) override {
+    m_out << "if_then_else(";
+    m_out << v.expr_cond();
     m_out << ",";
     apply(v.expr_then(), Precedence::None);
     m_out << ",";

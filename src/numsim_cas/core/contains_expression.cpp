@@ -195,7 +195,16 @@ public:
   // ─── if_then_else (#135 / #210) ─────────────────────────────────
   // Cond is scalar (skip — we're matching a tensor needle); then/else
   // are tensors, so check both.
-  void operator()(tensor_if_then_else const &v) override {
+  void operator()(tensor_if_then_else_scalar const &v) override {
+    check(v.expr_then());
+    if (!m_found)
+      check(v.expr_else());
+  }
+
+  // ─── if_then_else_t2s (#241) ────────────────────────────────────
+  // Cond is t2s (skip for the same reason as the scalar sibling —
+  // we're matching a tensor needle); then/else are tensors.
+  void operator()(tensor_if_then_else_t2s const &v) override {
     check(v.expr_then());
     if (!m_found)
       check(v.expr_else());
