@@ -102,7 +102,8 @@ public:
 
   // d/ds if_then_else(cond, X(s), Y(s)) = if_then_else(cond, dX/ds, dY/ds)
   // when cond doesn't depend on s. Same lazy-eval-vs-eager-diff
-  // asymmetry as the tensor-arg and scalar-arg variants.
+  // asymmetry as the tensor-arg variant of this rule and the t2s-cond
+  // sibling immediately below.
   void operator()(tensor_if_then_else_scalar const &visitable) override {
     auto dt = diff(visitable.expr_then(), m_arg);
     auto de = diff(visitable.expr_else(), m_arg);

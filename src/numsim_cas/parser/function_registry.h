@@ -16,8 +16,9 @@
 //
 // Overload resolution note: the registry keys on name only, so each
 // name binds to ONE dispatch entry. `if_then_else` registers the
-// 3-scalar form; the (scalar, tensor, tensor) and (scalar, t2s, t2s)
-// overloads — whose C++ nodes (`tensor_if_then_else_scalar`,
+// 3-scalar form; the (scalar, tensor, tensor), (t2s, tensor, tensor),
+// and (scalar, t2s, t2s) overloads — whose C++ nodes
+// (`tensor_if_then_else_scalar`, `tensor_if_then_else_t2s` (#241),
 // `tensor_to_scalar_if_then_else`) already exist on main — need
 // either dispatch-on-arg-kinds (multi-entry per name) or separately
 // named entries. The 4-arg index-list form of `outer_product`
