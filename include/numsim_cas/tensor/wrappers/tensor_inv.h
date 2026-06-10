@@ -31,9 +31,11 @@ public:
           std::to_string(this->rank()) + ")");
     }
     // ── Space propagation (projector-space tag) ────────────────────
+    // The rank gate above guarantees rank ∈ {2, 4}, so this is an
+    // exhaustive `if/else` rather than the older `if/else if` shape
+    // with a "shouldn't be reached" trailing comment.
     if (auto const &sp = this->expr().get().space()) {
-      const auto r = this->rank();
-      if (r == 2) {
+      if (this->rank() == 2) {
         // Rank-2: tmech::inv preserves Symmetric, Volumetric, and Skew
         // perms. Deviatoric / Harmonic trace tags are NOT preserved
         // (tr(A^{-1}) != 0 in general) — downgrade to AnyTraceTag while
@@ -43,7 +45,7 @@ public:
           this->set_space({Symmetric{}, AnyTraceTag{}});
         else
           this->set_space(*sp);
-      } else if (r == 4) {
+      } else {
         // Rank-4 (#248): only Minor / MinorMajor perms survive. Those
         // route to tmech::inv (Voigt-symmetric path), which DOES
         // preserve the Voigt symmetry — so the inverse is also
@@ -58,8 +60,6 @@ public:
           this->set_space(*sp);
         // else: space left unset on the result (general anisotropic).
       }
-      // Other ranks: inv() factory rejects them; this branch
-      // shouldn't be reached.
     }
 
     // ── Algebra-assumption propagation (#246 α-2b) ─────────────────
