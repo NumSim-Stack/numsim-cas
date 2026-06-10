@@ -284,8 +284,7 @@ void tensor_differentiation_wrt_scalar::operator()(
     // on the RHS).
     auto term =
         inner_product(invA, sequence{3, 4}, std::move(dA), sequence{1, 2});
-    term =
-        inner_product(std::move(term), sequence{3, 4}, invA, sequence{1, 2});
+    term = inner_product(std::move(term), sequence{3, 4}, invA, sequence{1, 2});
     m_result = -std::move(term);
   }
 }
