@@ -264,17 +264,9 @@ void tensor_differentiation_wrt_scalar::operator()(
   if (!dA.is_valid() || is_same<tensor_zero>(dA)) {
     return;
   }
+  // tensor_inv wrapper ctor enforces rank ∈ {2, 4} (#292), so any
+  // tensor_inv visited here is guaranteed to be one of those two ranks.
   auto const r = A.get().rank();
-  // Defense in depth: as of #292 the tensor_inv wrapper ctor itself
-  // rejects rank != 2 and != 4, so this branch is unreachable in
-  // practice. Kept as a guard against a future relaxation of the
-  // wrapper's rank gate.
-  if (r != 2 && r != 4) {
-    throw not_implemented_error(
-        "tensor_differentiation_wrt_scalar: tensor_inv supports rank 2 "
-        "and rank 4 (got rank " +
-        std::to_string(r) + ")");
-  }
   auto invA = inv(A);
   if (r == 2) {
     // term = invA * dA * invA via two rank-2 contractions
