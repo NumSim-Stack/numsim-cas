@@ -1,6 +1,7 @@
 #ifndef IDENTITY_TENSOR_H
 #define IDENTITY_TENSOR_H
 
+#include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
@@ -85,9 +86,35 @@ public:
     // tensor_to_scalar_zero / tensor_to_scalar_one. The annotation is
     // preserved by the defaulted copy/move ctors below, which route through
     // tensor_expression's 1-arg copy/move ctor (the form that copies
-    // m_tensor_space — see tensor_expression.h:30).
+    // m_tensor_space and m_tensor_algebra_assumptions — see
+    // tensor_expression.h:30).
     if (auto sp = space_for_rank(rank))
       this->set_space(*sp);
+    // Algebra-property classification by rank (#258):
+    //   - rank 2 (δ_ij): orthogonal (I^T·I = I) AND positive-definite
+    //     (x_i δ_ij x_j = ||x||² > 0 for nonzero x).
+    //   - rank 4 minor identity (δ_ik·δ_jl): positive-definite at the
+    //     standard rank-4 quadratic form (C_ijkl x_ij x_kl = x_kl·x_kl);
+    //     orthogonal is *not* set — orthogonality of a rank-4 tensor is
+    //     not well-defined in the rank-2 R^T·R = I sense.
+    auto &a = this->tensor_algebra_assumptions();
+    if (rank == 2) {
+      a.insert(orthogonal{});
+    }
+    if (rank == 2 || rank == 4) {
+      a.insert(positive_definite{});
+      a.insert(positive_semidefinite{}); // PD ⇒ PSD, mirrors
+                                         // assume_positive_definite()
+      // PD ⇒ symmetric, via the same helper assume_positive_definite()
+      // uses. Mechanically a no-op today because space_for_rank above
+      // already wrote a qualifying space tag at both supported ranks
+      // (rank-2 Symmetric ⇒ ProjKind::Sym early-return; rank-4
+      // MinorMajor ⇒ holds_alternative early-return). The call exists
+      // so that any future drift in detail::set_symmetric_unless_more_specific
+      // (e.g. it grows a sibling-field write that we'd otherwise miss)
+      // tracks automatically. Pairs with the helper in tensor_assume.h.
+      detail::set_symmetric_unless_more_specific(this);
+    }
   }
   // Defaulted copy/move: the implicit base copy/move uses
   // tensor_expression's 1-arg ctor which preserves m_tensor_space, so the

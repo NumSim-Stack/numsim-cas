@@ -951,20 +951,61 @@ TEST(TensorAlgebraIdentityAssumptions, Rank6IsUnclassified_OpenDecision) {
   EXPECT_FALSE(is_minor_major(I));
 }
 
-TEST(TensorAlgebraIdentityAssumptions, Rank2IsNotOtherAlgebraicProperties) {
+TEST(TensorAlgebraIdentityAssumptions, Rank2NegativeAlgebraicProperties) {
   // Negative-test matrix for rank-2 identity. I is symmetric, NOT skew,
   // NOT volumetric (vol(I) = (1/d)·tr(I)·I = I, so I has nonzero
   // volumetric part but is not ITSELF in the volumetric subspace as a
   // strict subspace classification — the codebase keeps the Symmetric
-  // tag, not the VolumetricTag), NOT a rank-4 classification, NOT
-  // orthogonal (orthogonal := R·Rᵀ = I, true for I but not annotated as
-  // such today — locked in as the deliberate omission), NOT marked PD.
+  // tag, not the VolumetricTag), NOT a rank-4 classification.
+  // Orthogonal / PD / PSD now lock in to true at construction (#258),
+  // exercised in the positive tests below.
   auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
   EXPECT_FALSE(is_volumetric(I));
   EXPECT_FALSE(is_deviatoric(I));
   EXPECT_FALSE(is_minor(I));
   EXPECT_FALSE(is_major(I));
   EXPECT_FALSE(is_minor_major(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank2IsOrthogonal) {
+  // #258: identity_tensor self-classifies as orthogonal at rank 2.
+  // Mathematical justification: I^T · I = I (the trivial rotation).
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_TRUE(is_orthogonal(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank2IsPositiveDefinite) {
+  // #258: rank-2 identity self-classifies as positive-definite.
+  // Justification: x_i δ_ij x_j = ||x||² > 0 for any nonzero x.
+  // PD implies PSD by definition; mirror assume_positive_definite()'s
+  // double insert.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{2});
+  EXPECT_TRUE(is_positive_definite(I));
+  EXPECT_TRUE(is_positive_semidefinite(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank4IsPositiveDefinite) {
+  // #258: rank-4 minor identity δ_ik·δ_jl is positive-definite at the
+  // standard rank-4 quadratic form C_ijkl x_ij x_kl = x_kl x_kl = ||x||²
+  // for any nonzero rank-2 x.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{4});
+  EXPECT_TRUE(is_positive_definite(I));
+  EXPECT_TRUE(is_positive_semidefinite(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank4IsNotOrthogonal) {
+  // Negative lock-in: orthogonality is a rank-2 concept (R^T·R = I).
+  // The rank-4 minor identity is NOT annotated orthogonal — the rank-4
+  // generalization isn't well-defined here. If a future rank-4 algebra
+  // convention adds it, flip this test.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{4});
+  EXPECT_FALSE(is_orthogonal(I));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, Rank6IsNotAlgebraicallyClassified) {
+  // Parallel to Rank6IsUnclassified_OpenDecision: higher ranks get
+  // no algebra annotations either. Lock-in for the deliberate omission.
+  auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{6});
   EXPECT_FALSE(is_orthogonal(I));
   EXPECT_FALSE(is_positive_definite(I));
   EXPECT_FALSE(is_positive_semidefinite(I));
@@ -972,13 +1013,20 @@ TEST(TensorAlgebraIdentityAssumptions, Rank2IsNotOtherAlgebraicProperties) {
 
 TEST(TensorAlgebraIdentityAssumptions, MovePreservesAnnotationRank2) {
   // Defaulted move ctor routes through tensor_expression's 1-arg move
-  // (preserves m_tensor_space). The previous explicit-ctor + re-apply
-  // pattern was a footgun; this test guards against a regression that
-  // reintroduces the 3-arg base ctor path.
+  // (preserves m_tensor_space AND m_tensor_algebra_assumptions). The
+  // previous explicit-ctor + re-apply pattern was a footgun; this test
+  // guards against a regression that reintroduces the 3-arg base ctor
+  // path. Pass-1 review on #258: extended to assert the algebra-set
+  // also survives, so the field isn't accidentally preserved by side
+  // effect of m_tensor_space preservation alone.
   identity_tensor src{std::size_t{3}, std::size_t{2}};
   identity_tensor moved{std::move(src)};
   ASSERT_TRUE(moved.space().has_value());
   EXPECT_TRUE(std::holds_alternative<Symmetric>(moved.space()->perm));
+  EXPECT_TRUE(moved.tensor_algebra_assumptions().contains(orthogonal{}));
+  EXPECT_TRUE(moved.tensor_algebra_assumptions().contains(positive_definite{}));
+  EXPECT_TRUE(
+      moved.tensor_algebra_assumptions().contains(positive_semidefinite{}));
 }
 
 TEST(TensorAlgebraIdentityAssumptions, CopyPreservesAnnotationRank2) {
@@ -986,16 +1034,25 @@ TEST(TensorAlgebraIdentityAssumptions, CopyPreservesAnnotationRank2) {
   identity_tensor copy{src};
   ASSERT_TRUE(copy.space().has_value());
   EXPECT_TRUE(std::holds_alternative<Symmetric>(copy.space()->perm));
+  EXPECT_TRUE(copy.tensor_algebra_assumptions().contains(orthogonal{}));
+  EXPECT_TRUE(copy.tensor_algebra_assumptions().contains(positive_definite{}));
+  EXPECT_TRUE(
+      copy.tensor_algebra_assumptions().contains(positive_semidefinite{}));
 }
 
 TEST(TensorAlgebraIdentityAssumptions, MovePreservesAnnotationRank4) {
   // Rank-4 move ctor coverage (cpp-pro F7 gap): the rank-4 branch
   // produces MinorMajor, distinct from rank-2 Symmetric. Both must
-  // survive move construction.
+  // survive move construction. Pass-1 review on #258: also assert PD
+  // survives (orthogonal is rank-2-only by design).
   identity_tensor src{std::size_t{3}, std::size_t{4}};
   identity_tensor moved{std::move(src)};
   ASSERT_TRUE(moved.space().has_value());
   EXPECT_TRUE(std::holds_alternative<MinorMajor>(moved.space()->perm));
+  EXPECT_TRUE(moved.tensor_algebra_assumptions().contains(positive_definite{}));
+  EXPECT_TRUE(
+      moved.tensor_algebra_assumptions().contains(positive_semidefinite{}));
+  EXPECT_FALSE(moved.tensor_algebra_assumptions().contains(orthogonal{}));
 }
 
 TEST(TensorAlgebraIdentityAssumptions, HashIsIndependentOfSpaceAnnotation) {
@@ -1030,6 +1087,28 @@ TEST(TensorAlgebraIdentityAssumptions, CopyPreservesAnnotationRank4) {
   identity_tensor copy{src};
   ASSERT_TRUE(copy.space().has_value());
   EXPECT_TRUE(std::holds_alternative<MinorMajor>(copy.space()->perm));
+  EXPECT_TRUE(copy.tensor_algebra_assumptions().contains(positive_definite{}));
+  EXPECT_TRUE(
+      copy.tensor_algebra_assumptions().contains(positive_semidefinite{}));
+  EXPECT_FALSE(copy.tensor_algebra_assumptions().contains(orthogonal{}));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, HashIsIndependentOfAlgebraAnnotation) {
+  // Pass-1 review on #258: parity with HashIsIndependentOfSpaceAnnotation.
+  // m_tensor_algebra_assumptions is NOT part of update_hash_value (only
+  // id + dim + rank are hashed), so two identity_tensor instances must
+  // hash equal regardless of their algebra-set state. Force a difference
+  // by erasing the closed-form orthogonal annotation from one — the
+  // erase succeeds because tensor_algebra_assumptions() returns a
+  // non-const ref (this is the "erase surface" the reviewer flagged as
+  // a residual mutator path; the test exercises it intentionally).
+  identity_tensor with_default_annotation{std::size_t{3}, std::size_t{2}};
+  identity_tensor with_erased_orthogonal{std::size_t{3}, std::size_t{2}};
+  with_erased_orthogonal.tensor_algebra_assumptions().erase(orthogonal{});
+  EXPECT_EQ(with_default_annotation.hash_value(),
+            with_erased_orthogonal.hash_value())
+      << "m_tensor_algebra_assumptions must not contribute to the "
+         "content-addressed hash";
 }
 
 TEST(TensorAlgebraIdentityAssumptions, ClearSpaceIsNoOp) {
@@ -1494,10 +1573,11 @@ TEST(TensorAlgebraStep6, ClosedFormConstantQueryConsistency) {
   EXPECT_TRUE(is_symmetric(I)) << "identity via ctor pre-annotation";
   EXPECT_TRUE(is_symmetric(P)) << "projector via ctor pre-annotation";
 
-  // Negative consistency: all three reject orthogonal/PD without explicit
-  // assertion (they're closed-form constants, not annotated as such).
+  // is_orthogonal: tensor_zero is NOT orthogonal (Z·Z^T = 0 ≠ I); the
+  // rank-2 identity IS orthogonal (#258, I·I^T = I); P_vol is a singular
+  // projector and not orthogonal in the rank-2 R·R^T = I sense.
   EXPECT_FALSE(is_orthogonal(Z));
-  EXPECT_FALSE(is_orthogonal(I));
+  EXPECT_TRUE(is_orthogonal(I));
   EXPECT_FALSE(is_orthogonal(P));
 }
 
