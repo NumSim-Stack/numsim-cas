@@ -38,78 +38,36 @@ set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 # -----------------------------
 # Dependencies: tmech
 # -----------------------------
-# tmech dependency. Strategy:
-#   1. Try find_package(tmech) — supports downstream consumers who have
-#      already installed tmech, and is required for the installable-
-#      package smoke test (#84).
-#   2. If found, verify the install contains the post-Sep-2025
-#      `inverse_wrapper_base` rewrite (#283/#248): without it, rank-4
-#      `tmech::inv` silently returns NaN through the Voigt path. A stale
-#      system install would otherwise shadow our pinned FetchContent and
-#      poison results.
-#   3. If not found (or rejected by the marker check), FetchContent a
-#      PINNED tag from petlenz/tmech. Bump GIT_TAG as a separate
-#      maintenance PR.
-set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE OFF)
-find_package(tmech QUIET)
-if(tmech_FOUND)
-  # Marker check: the rewrite introduced `inverse_wrapper_base<T>` as a
-  # struct in inverse_wrapper_bones.h. Old tmech does not have it.
-  # We use `LINK_LIBRARIES tmech::tmech` (rather than extracting
-  # INTERFACE_INCLUDE_DIRECTORIES manually) so generator expressions in
-  # the imported target — e.g. `$<BUILD_INTERFACE:…>$<INSTALL_INTERFACE:…>`
-  # from a `cmake --install`ed tmech — resolve naturally, and ALIAS
-  # targets work without manual ALIASED_TARGET resolution.
-  try_compile(NUMSIM_CAS_TMECH_HAS_INVERSE_REWRITE
-    "${CMAKE_CURRENT_BINARY_DIR}/_tmech_marker_check"
-    SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmech_marker_check.cpp"
-    LINK_LIBRARIES tmech::tmech
-    CXX_STANDARD 23
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
-  )
-  if(NOT NUMSIM_CAS_TMECH_HAS_INVERSE_REWRITE)
-    # Get the include path purely for the diagnostic; not used for compilation.
-    get_target_property(_tmech_real tmech::tmech ALIASED_TARGET)
-    if(NOT _tmech_real)
-      set(_tmech_real tmech::tmech)
-    endif()
-    get_target_property(_tmech_diag_inc ${_tmech_real} INTERFACE_INCLUDE_DIRECTORIES)
-    message(FATAL_ERROR
-      "find_package(tmech) found an installation at\n"
-      "  ${_tmech_diag_inc}\n"
-      "that lacks the `inverse_wrapper_base` rewrite (introduced in "
-      "petlenz/tmech commit db5d8aa, the version pinned by this project).\n"
-      "Using the found installation silently produces NaN through the "
-      "rank-4 `tmech::inv` Voigt path (see #283).\n"
-      "\n"
-      "Resolutions:\n"
-      "  (a) Reconfigure with -DCMAKE_DISABLE_FIND_PACKAGE_tmech=TRUE\n"
-      "      to use the pinned FetchContent copy instead.\n"
-      "  (b) Update the system install from https://github.com/petlenz/tmech\n"
-      "      to a commit containing inverse_wrapper_base (db5d8aa or newer).\n"
-      "\n"
-      "If you've already configured this build directory, delete its\n"
-      "CMakeCache.txt (or the build dir entirely) before re-running\n"
-      "cmake — `tmech_FOUND` survives from the failed configure and\n"
-      "would still mask the FetchContent fallback."
-    )
-  endif()
-  set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE ON)
-else()
-  # Disable tmech's own tests and examples (it uses BUILD_TESTS/BUILD_EXAMPLES).
-  set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
-  set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-  FetchContent_Declare(
-    tmech
-    GIT_REPOSITORY https://github.com/petlenz/tmech.git
-    GIT_TAG db5d8aa
-  )
-  FetchContent_MakeAvailable(tmech)
-  # Restore so our own tests/examples are not affected.
-  set(BUILD_TESTS ON CACHE BOOL "" FORCE)
-  set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
-endif()
+# Strategy: ALWAYS use the pinned FetchContent copy for our build,
+# regardless of whether a system tmech is installed. This eliminates the
+# stale-system-tmech bug class (#283/#248: pre-`db5d8aa` installs silently
+# produce NaN through the rank-4 `tmech::inv` Voigt path) by construction
+# — no marker check needed, no FATAL_ERROR path, no way for a system
+# install to leak into the build.
+#
+# Bump GIT_TAG as a separate maintenance PR.
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  tmech
+  GIT_REPOSITORY https://github.com/petlenz/tmech.git
+  GIT_TAG db5d8aa
+)
+FetchContent_MakeAvailable(tmech)
+# Restore so our own tests/examples are not affected.
+set(BUILD_TESTS ON CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
+
+# Installable-package smoke test (#84) opt-in: the test installs our
+# package and re-resolves it from the install tree, which means a
+# consumer-side `find_dependency(tmech)` must succeed. With
+# FetchContent-always for our build, we cannot auto-detect whether the
+# consumer environment has a findable tmech; the smoke test is now
+# opt-in via this cache option. Auto-detection is tracked as a
+# follow-up to this PR.
+option(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST
+       "Run the installable-package smoke test (#84). Requires a system tmech findable via find_package(tmech)."
+       OFF)
 
 # tmech::tmech is an ALIAS — resolve to the real target so set_target_properties
 # can mark its includes as SYSTEM (suppresses third-party header warnings).
@@ -315,9 +273,15 @@ endif()
 # -----------------------------
 # Install
 # -----------------------------
-set(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST OFF)
-if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE)
-  set(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST ON)
+# Install support requires a consumer-findable tmech (referenced by
+# NumSim_CASConfig.cmake.in via find_dependency(tmech)). The
+# FetchContent-always strategy above doesn't install tmech (FetchContent
+# doesn't install anything), so install is opt-in via
+# NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST — when ON, the user is responsible
+# for having tmech installed system-wide for the consumer's
+# find_dependency to succeed. Default OFF prevents the
+# `install(EXPORT)` from tripping on tmech not being in any export set.
+if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
   set(NUMSIM_CAS_INSTALL_CMAKEDIR
       "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS")
 

@@ -444,12 +444,12 @@ TEST(TensorEval, EvalInverse3x3) {
 // otherwise. Verify both branches numerically against tmech directly.
 
 TEST(TensorEval, EvalInverseRank4MinorMajor) {
-  // #283: rank-4 `tmech::inv` requires the post-Sep-2025
-  // `inverse_wrapper_base` rewrite; older tmech installs silently return
-  // NaN through the Voigt path. CMake's marker check (see
-  // cmake/tmech_marker_check.cpp) rejects stale installs at configure
-  // time, so by the time we reach this test, the linked tmech is known
-  // good.
+  // #283: rank-4 `tmech::inv` requires the `inverse_wrapper_base`
+  // rewrite (petlenz/tmech commit db5d8aa or newer); older installs
+  // silently return NaN through the Voigt path. The top-level
+  // CMakeLists.txt always uses the pinned FetchContent copy for our
+  // build regardless of what a system tmech provides, so the linked
+  // tmech is known good by construction.
   tensor_evaluator<double> ev;
   auto C = make_expression<tensor>("C", 3, 4);
   assume_minor_major(C);
