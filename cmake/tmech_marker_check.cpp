@@ -17,8 +17,8 @@
 // re-namespaces the class, update this probe in the same commit that
 // bumps the GIT_TAG pin in the top-level CMakeLists.txt.
 
-#include <tmech/tmech.h>
 #include <cstddef>
+#include <tmech/tmech.h>
 
 int main() {
   // sizeof forces a complete type — stricter than `is_class_v`, which
