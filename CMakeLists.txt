@@ -78,15 +78,21 @@ if(tmech_FOUND)
     message(FATAL_ERROR
       "find_package(tmech) found an installation at\n"
       "  ${_tmech_diag_inc}\n"
-      "that lacks the post-Sep-2025 `inverse_wrapper_base` rewrite.\n"
-      "Using it silently produces NaN through the rank-4 `tmech::inv` "
-      "Voigt path (see #283).\n"
+      "that lacks the `inverse_wrapper_base` rewrite (introduced in "
+      "petlenz/tmech commit db5d8aa, the version pinned by this project).\n"
+      "Using the found installation silently produces NaN through the "
+      "rank-4 `tmech::inv` Voigt path (see #283).\n"
       "\n"
       "Resolutions:\n"
       "  (a) Reconfigure with -DCMAKE_DISABLE_FIND_PACKAGE_tmech=TRUE\n"
       "      to use the pinned FetchContent copy instead.\n"
       "  (b) Update the system install from https://github.com/petlenz/tmech\n"
-      "      to a commit containing inverse_wrapper_base."
+      "      to a commit containing inverse_wrapper_base (db5d8aa or newer).\n"
+      "\n"
+      "If you've already configured this build directory, delete its\n"
+      "CMakeCache.txt (or the build dir entirely) before re-running\n"
+      "cmake — `tmech_FOUND` survives from the failed configure and\n"
+      "would still mask the FetchContent fallback."
     )
   endif()
   set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE ON)
