@@ -444,9 +444,12 @@ TEST(TensorEval, EvalInverse3x3) {
 // otherwise. Verify both branches numerically against tmech directly.
 
 TEST(TensorEval, EvalInverseRank4MinorMajor) {
-  // Annotated minor-major: routes to tmech::inv. Construct a positive-
-  // definite isotropic stiffness as 2μ·I_sym + λ·I⊗I — minor-symmetric
-  // by construction. Bind it via a fixture-sized random PD rank-4.
+  // #283: rank-4 `tmech::inv` requires the `inverse_wrapper_base`
+  // rewrite (petlenz/tmech commit db5d8aa or newer); older installs
+  // silently return NaN through the Voigt path. The top-level
+  // CMakeLists.txt always uses the pinned FetchContent copy for our
+  // build regardless of what a system tmech provides, so the linked
+  // tmech is known good by construction.
   tensor_evaluator<double> ev;
   auto C = make_expression<tensor>("C", 3, 4);
   assume_minor_major(C);

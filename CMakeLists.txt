@@ -38,32 +38,36 @@ set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 # -----------------------------
 # Dependencies: tmech
 # -----------------------------
-# tmech dependency. Strategy:
-#   1. Try find_package(tmech) — supports downstream consumers who have
-#      already installed tmech, and is required for the installable-
-#      package smoke test (#84).
-#   2. If not found, FetchContent a PINNED tag (#248: stale-system tmech
-#      silently produces NaN through the rank-4 Voigt inv path; pinning
-#      to a known-good commit avoids that footgun). Bump GIT_TAG as a
-#      separate maintenance PR.
-set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE OFF)
-find_package(tmech QUIET)
-if(tmech_FOUND)
-  set(NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE ON)
-else()
-  # Disable tmech's own tests and examples (it uses BUILD_TESTS/BUILD_EXAMPLES).
-  set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
-  set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-  FetchContent_Declare(
-    tmech
-    GIT_REPOSITORY https://github.com/petlenz/tmech.git
-    GIT_TAG db5d8aa
-  )
-  FetchContent_MakeAvailable(tmech)
-  # Restore so our own tests/examples are not affected.
-  set(BUILD_TESTS ON CACHE BOOL "" FORCE)
-  set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
-endif()
+# Strategy: ALWAYS use the pinned FetchContent copy for our build,
+# regardless of whether a system tmech is installed. This eliminates the
+# stale-system-tmech bug class (#283/#248: pre-`db5d8aa` installs silently
+# produce NaN through the rank-4 `tmech::inv` Voigt path) by construction
+# — no marker check needed, no FATAL_ERROR path, no way for a system
+# install to leak into the build.
+#
+# Bump GIT_TAG as a separate maintenance PR.
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  tmech
+  GIT_REPOSITORY https://github.com/petlenz/tmech.git
+  GIT_TAG db5d8aa
+)
+FetchContent_MakeAvailable(tmech)
+# Restore so our own tests/examples are not affected.
+set(BUILD_TESTS ON CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
+
+# Installable-package smoke test (#84) opt-in: the test installs our
+# package and re-resolves it from the install tree, which means a
+# consumer-side `find_dependency(tmech)` must succeed. With
+# FetchContent-always for our build, we cannot auto-detect whether the
+# consumer environment has a findable tmech; the smoke test is now
+# opt-in via this cache option. Auto-detection is tracked as a
+# follow-up to this PR.
+option(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST
+       "Run the installable-package smoke test (#84). Requires a system tmech findable via find_package(tmech)."
+       OFF)
 
 # tmech::tmech is an ALIAS — resolve to the real target so set_target_properties
 # can mark its includes as SYSTEM (suppresses third-party header warnings).
@@ -269,9 +273,15 @@ endif()
 # -----------------------------
 # Install
 # -----------------------------
-set(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST OFF)
-if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_TMECH_IS_EXTERNAL_PACKAGE)
-  set(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST ON)
+# Install support requires a consumer-findable tmech (referenced by
+# NumSim_CASConfig.cmake.in via find_dependency(tmech)). The
+# FetchContent-always strategy above doesn't install tmech (FetchContent
+# doesn't install anything), so install is opt-in via
+# NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST — when ON, the user is responsible
+# for having tmech installed system-wide for the consumer's
+# find_dependency to succeed. Default OFF prevents the
+# `install(EXPORT)` from tripping on tmech not being in any export set.
+if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
   set(NUMSIM_CAS_INSTALL_CMAKEDIR
       "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS")
 
