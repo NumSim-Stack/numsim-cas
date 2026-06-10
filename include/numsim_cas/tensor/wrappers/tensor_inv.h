@@ -1,6 +1,7 @@
 #ifndef TENSOR_INV_H
 #define TENSOR_INV_H
 
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/unary_op.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_expression.h>
@@ -14,6 +15,21 @@ public:
   explicit tensor_inv(
       Expr &&_expr) // NOLINT(bugprone-forwarding-reference-overload)
       : base(std::forward<Expr>(_expr), _expr.get().dim(), _expr.get().rank()) {
+    // ── Rank gate (#292) ──────────────────────────────────────────
+    // Mirror the inv() factory's rank gate (tensor_functions.h:467)
+    // here so direct `make_expression<tensor_inv>(...)` constructions
+    // that bypass the factory still get rejected at the same point.
+    // Without this, the space-propagation block below silently produces
+    // a tensor_inv with no annotation, and downstream consumers
+    // (evaluator, every visitor) misbehave in ways that vary by site —
+    // the diff visitors had to grow belt-and-braces rank checks to
+    // catch this. Throw matches the factory's convention.
+    if (this->rank() != 2 && this->rank() != 4) {
+      throw invalid_expression_error(
+          "tensor_inv: only rank-2 and rank-4 tensors are supported "
+          "(got rank " +
+          std::to_string(this->rank()) + ")");
+    }
     // ── Space propagation (projector-space tag) ────────────────────
     if (auto const &sp = this->expr().get().space()) {
       const auto r = this->rank();

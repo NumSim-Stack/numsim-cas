@@ -265,6 +265,10 @@ void tensor_differentiation_wrt_scalar::operator()(
     return;
   }
   auto const r = A.get().rank();
+  // Defense in depth: as of #292 the tensor_inv wrapper ctor itself
+  // rejects rank != 2 and != 4, so this branch is unreachable in
+  // practice. Kept as a guard against a future relaxation of the
+  // wrapper's rank gate.
   if (r != 2 && r != 4) {
     throw not_implemented_error(
         "tensor_differentiation_wrt_scalar: tensor_inv supports rank 2 "
