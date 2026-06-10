@@ -1013,13 +1013,20 @@ TEST(TensorAlgebraIdentityAssumptions, Rank6IsNotAlgebraicallyClassified) {
 
 TEST(TensorAlgebraIdentityAssumptions, MovePreservesAnnotationRank2) {
   // Defaulted move ctor routes through tensor_expression's 1-arg move
-  // (preserves m_tensor_space). The previous explicit-ctor + re-apply
-  // pattern was a footgun; this test guards against a regression that
-  // reintroduces the 3-arg base ctor path.
+  // (preserves m_tensor_space AND m_tensor_algebra_assumptions). The
+  // previous explicit-ctor + re-apply pattern was a footgun; this test
+  // guards against a regression that reintroduces the 3-arg base ctor
+  // path. Pass-1 review on #258: extended to assert the algebra-set
+  // also survives, so the field isn't accidentally preserved by side
+  // effect of m_tensor_space preservation alone.
   identity_tensor src{std::size_t{3}, std::size_t{2}};
   identity_tensor moved{std::move(src)};
   ASSERT_TRUE(moved.space().has_value());
   EXPECT_TRUE(std::holds_alternative<Symmetric>(moved.space()->perm));
+  EXPECT_TRUE(moved.tensor_algebra_assumptions().contains(orthogonal{}));
+  EXPECT_TRUE(moved.tensor_algebra_assumptions().contains(positive_definite{}));
+  EXPECT_TRUE(
+      moved.tensor_algebra_assumptions().contains(positive_semidefinite{}));
 }
 
 TEST(TensorAlgebraIdentityAssumptions, CopyPreservesAnnotationRank2) {
@@ -1027,16 +1034,25 @@ TEST(TensorAlgebraIdentityAssumptions, CopyPreservesAnnotationRank2) {
   identity_tensor copy{src};
   ASSERT_TRUE(copy.space().has_value());
   EXPECT_TRUE(std::holds_alternative<Symmetric>(copy.space()->perm));
+  EXPECT_TRUE(copy.tensor_algebra_assumptions().contains(orthogonal{}));
+  EXPECT_TRUE(copy.tensor_algebra_assumptions().contains(positive_definite{}));
+  EXPECT_TRUE(
+      copy.tensor_algebra_assumptions().contains(positive_semidefinite{}));
 }
 
 TEST(TensorAlgebraIdentityAssumptions, MovePreservesAnnotationRank4) {
   // Rank-4 move ctor coverage (cpp-pro F7 gap): the rank-4 branch
   // produces MinorMajor, distinct from rank-2 Symmetric. Both must
-  // survive move construction.
+  // survive move construction. Pass-1 review on #258: also assert PD
+  // survives (orthogonal is rank-2-only by design).
   identity_tensor src{std::size_t{3}, std::size_t{4}};
   identity_tensor moved{std::move(src)};
   ASSERT_TRUE(moved.space().has_value());
   EXPECT_TRUE(std::holds_alternative<MinorMajor>(moved.space()->perm));
+  EXPECT_TRUE(moved.tensor_algebra_assumptions().contains(positive_definite{}));
+  EXPECT_TRUE(
+      moved.tensor_algebra_assumptions().contains(positive_semidefinite{}));
+  EXPECT_FALSE(moved.tensor_algebra_assumptions().contains(orthogonal{}));
 }
 
 TEST(TensorAlgebraIdentityAssumptions, HashIsIndependentOfSpaceAnnotation) {
@@ -1071,6 +1087,28 @@ TEST(TensorAlgebraIdentityAssumptions, CopyPreservesAnnotationRank4) {
   identity_tensor copy{src};
   ASSERT_TRUE(copy.space().has_value());
   EXPECT_TRUE(std::holds_alternative<MinorMajor>(copy.space()->perm));
+  EXPECT_TRUE(copy.tensor_algebra_assumptions().contains(positive_definite{}));
+  EXPECT_TRUE(
+      copy.tensor_algebra_assumptions().contains(positive_semidefinite{}));
+  EXPECT_FALSE(copy.tensor_algebra_assumptions().contains(orthogonal{}));
+}
+
+TEST(TensorAlgebraIdentityAssumptions, HashIsIndependentOfAlgebraAnnotation) {
+  // Pass-1 review on #258: parity with HashIsIndependentOfSpaceAnnotation.
+  // m_tensor_algebra_assumptions is NOT part of update_hash_value (only
+  // id + dim + rank are hashed), so two identity_tensor instances must
+  // hash equal regardless of their algebra-set state. Force a difference
+  // by erasing the closed-form orthogonal annotation from one — the
+  // erase succeeds because tensor_algebra_assumptions() returns a
+  // non-const ref (this is the "erase surface" the reviewer flagged as
+  // a residual mutator path; the test exercises it intentionally).
+  identity_tensor with_default_annotation{std::size_t{3}, std::size_t{2}};
+  identity_tensor with_erased_orthogonal{std::size_t{3}, std::size_t{2}};
+  with_erased_orthogonal.tensor_algebra_assumptions().erase(orthogonal{});
+  EXPECT_EQ(with_default_annotation.hash_value(),
+            with_erased_orthogonal.hash_value())
+      << "m_tensor_algebra_assumptions must not contribute to the "
+         "content-addressed hash";
 }
 
 TEST(TensorAlgebraIdentityAssumptions, ClearSpaceIsNoOp) {
