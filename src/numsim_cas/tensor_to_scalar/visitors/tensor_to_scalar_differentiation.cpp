@@ -286,27 +286,28 @@ void tensor_to_scalar_differentiation::operator()(
   m_result = std::move(result);
 }
 
-// ─── if_then_else (#135 / #210) ────────────────────────────────────
-// d/dA t2s_if_then_else(cond, a(A), b(A)) should be the piecewise
-// rule on tensor outputs. But `tensor_if_then_else` requires a SCALAR
-// condition, while `tensor_to_scalar_if_then_else` carries a t2s
-// condition — so we can't directly wrap the branch diffs into a
-// tensor_if_then_else without a t2s-conditioned tensor selector node
-// or a "lift t2s indicator to scalar" mechanism that doesn't yet
-// exist. Tracked as #241.
+// ─── if_then_else (#135 / #210 / #241) ─────────────────────────────
+// d/dA t2s_if_then_else(cond, a(A), b(A)) is the piecewise rule on
+// tensor outputs: `if_then_else(cond, da/dA, db/dA)`. The cond is t2s,
+// so the result uses the t2s-conditioned `tensor_if_then_else_t2s`
+// sibling (#241) — added precisely for this dispatch. Before #241,
+// the visitor either threw `not_implemented_error` (the immediate
+// mitigation) or — pre-mitigation — silently returned only the
+// `then` branch's derivative, producing a numerically-believable but
+// mathematically incorrect gradient in the falsy region.
 //
-// Throw `not_implemented_error` rather than approximate. The
-// "approximate by then branch" path that lived here briefly was
-// mathematically wrong in the falsy region — silently producing a
-// numerically-believable but incorrect gradient. Same "force the
-// upgrade" pattern #207's max/min diff used pre-#209.
+// Same measure-zero convention as the other if_then_else diff rules:
+// the cond's own dependence on A produces Dirac contributions at the
+// switching boundary that are ignored — acceptable for piecewise
+// constitutive responses (yield-function / contact-gap) on a
+// measure-zero set.
 void tensor_to_scalar_differentiation::operator()(
-    [[maybe_unused]] tensor_to_scalar_if_then_else const &) {
-  throw not_implemented_error(
-      "tensor_to_scalar_differentiation: d/dA t2s_if_then_else requires a "
-      "t2s-conditioned tensor selector or t2s→scalar indicator lift "
-      "(see #241). Approximating the piecewise rule by selecting one "
-      "branch silently produces wrong derivatives in the other region.");
+    tensor_to_scalar_if_then_else const &v) {
+  auto da = diff(v.expr_then(), m_arg);
+  auto db = diff(v.expr_else(), m_arg);
+  if (!da.is_valid() || !db.is_valid())
+    return;
+  m_result = if_then_else(v.expr_cond(), std::move(da), std::move(db));
 }
 
 } // namespace numsim::cas

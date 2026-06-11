@@ -103,12 +103,20 @@ public:
   // lazy-eval contract as the scalar / t2s variants — the unselected
   // arm may contain expressions that would error at evaluation
   // (e.g. inv of a singular tensor).
-  void operator()(tensor_if_then_else const &v) override {
+  void operator()(tensor_if_then_else_scalar const &v) override {
     if (m_scalar_eval.apply(v.expr_cond()) != ValueType{0})
       m_result = apply(v.expr_then());
     else
       m_result = apply(v.expr_else());
   }
+
+  // ─── if_then_else_t2s (#241) ─────────────────────────────────────
+  // Sibling of the scalar-cond evaluator above; the cond is a t2s
+  // expression instead. Uses the same lazy-eval contract — only the
+  // selected arm is applied. Defined out-of-line at the bottom of this
+  // file (after tensor_to_scalar_evaluator is available, same pattern
+  // as tensor_to_scalar_with_tensor_mul).
+  void operator()(tensor_if_then_else_t2s const &v) override;
 
   void operator()(tensor_scalar_mul const &visitable) override {
     const auto scalar_val = m_scalar_eval.apply(visitable.expr_lhs());
@@ -403,6 +411,24 @@ void tensor_evaluator<ValueType>::operator()(
   m_result = make_tensor_data<ValueType>(dim, rank);
   tensor_data_scalar_mul<ValueType> op(*m_result, *src, scalar_val);
   op.evaluate(dim, rank);
+}
+
+// #241: t2s-conditioned tensor_if_then_else evaluator. Same lazy-eval
+// contract as the scalar-cond sibling (line 106): evaluate cond first,
+// then dispatch to only the selected arm. The cond is t2s, so we
+// instantiate a t2s evaluator and forward our tensor/scalar values to
+// it — same pattern as tensor_to_scalar_with_tensor_mul above.
+template <typename ValueType>
+void tensor_evaluator<ValueType>::operator()(tensor_if_then_else_t2s const &v) {
+  tensor_to_scalar_evaluator<ValueType> t2s_eval;
+  for (auto const &[key, val] : m_tensor_values) {
+    t2s_eval.set(key, val);
+  }
+  m_scalar_eval.forward_values_to(t2s_eval);
+  if (t2s_eval.apply(v.expr_cond()) != ValueType{0})
+    m_result = apply(v.expr_then());
+  else
+    m_result = apply(v.expr_else());
 }
 
 } // namespace numsim::cas

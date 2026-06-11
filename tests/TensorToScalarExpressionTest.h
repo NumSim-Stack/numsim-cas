@@ -869,12 +869,12 @@ TYPED_TEST(TensorToScalarExpressionTest,
 }
 
 TYPED_TEST(TensorToScalarExpressionTest,
-           TensorToScalar_IfThenElseDiffThrowsNotImplemented) {
-  // d/dA t2s_if_then_else(cond, a, b) requires a t2s-conditioned
-  // tensor selector that doesn't exist yet — see #241. The diff
-  // visitor throws not_implemented_error rather than silently
-  // approximating by one branch. Locks in the throw so a future
-  // "fix" that silently selects one branch can't sneak past review.
+           TensorToScalar_IfThenElseDiffProducesT2sConditionedTensor) {
+  // #241 close: d/dA t2s_if_then_else(cond, a(A), b(A)) now returns
+  // tensor_if_then_else_t2s(cond, da/dA, db/dA) — the t2s-conditioned
+  // tensor selector added in this PR. Pre-#241 this threw
+  // not_implemented_error (an immediate mitigation against the
+  // silent-wrong behavior described in the issue body).
   auto &X = this->X;
   using numsim::cas::if_then_else;
   auto trX = numsim::cas::trace(X);
@@ -882,9 +882,15 @@ TYPED_TEST(TensorToScalarExpressionTest,
   // Use a non-constant cond so the factory's const-cond folds don't
   // collapse the if_then_else before diff sees it.
   auto expr = if_then_else(trX, trX, detX);
-  EXPECT_THROW(
-      { [[maybe_unused]] auto d = numsim::cas::diff(expr, X); },
-      numsim::cas::not_implemented_error);
+  numsim::cas::expression_holder<numsim::cas::tensor_expression> d;
+  ASSERT_NO_THROW(d = numsim::cas::diff(expr, X));
+  ASSERT_TRUE(d.is_valid());
+  // The result is a tensor_if_then_else_t2s with the original cond
+  // and branches replaced by their derivatives.
+  EXPECT_TRUE(numsim::cas::is_same<numsim::cas::tensor_if_then_else_t2s>(d))
+      << "Expected tensor_if_then_else_t2s; got: " << numsim::cas::to_string(d);
+  EXPECT_EQ(d.get().rank(), X.get().rank());
+  EXPECT_EQ(d.get().dim(), X.get().dim());
 }
 
 #endif // TENSORTOSCALAREXPRESSIONTEST_H

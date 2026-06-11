@@ -15,7 +15,7 @@ namespace numsim::cas {
  * Mirrors `binary_op` but with three operands — used for the
  * `if_then_else(cond, then, else)` family of nodes (#135). The
  * condition operand may have a different base than the branches
- * (e.g. for `tensor_if_then_else` where `cond` is a scalar but
+ * (e.g. for `tensor_if_then_else_scalar` where `cond` is a scalar but
  * `then`/`else` are tensors).
  *
  * @tparam ThisBase Domain-specific node base (provides expr_t).

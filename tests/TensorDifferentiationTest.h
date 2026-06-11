@@ -968,20 +968,20 @@ TEST_F(TensorDiffWrtScalarTest, TensorProjectorRuleIsConstant) {
       << "Expected tensor_zero; got: " << to_string(d);
 }
 
-// tensor_if_then_else rule: derivative passes through both branches.
+// tensor_if_then_else_scalar rule: derivative passes through both branches.
 // d/ds if_then_else(cond, s*A, B) where cond is sv-independent →
 // if_then_else(cond, A, 0).
 TEST_F(TensorDiffWrtScalarTest, TensorIfThenElseRuleAppliesToBothBranches) {
   auto cond = t; // scalar variable, sv-independent
   auto then_branch = s * A;
   auto else_branch = B;
-  auto expr =
-      make_expression<tensor_if_then_else>(cond, then_branch, else_branch);
-  ASSERT_TRUE(is_same<tensor_if_then_else>(expr));
+  auto expr = make_expression<tensor_if_then_else_scalar>(cond, then_branch,
+                                                          else_branch);
+  ASSERT_TRUE(is_same<tensor_if_then_else_scalar>(expr));
   auto d = diff(expr, s);
   ASSERT_TRUE(d.is_valid());
-  EXPECT_TRUE(is_same<tensor_if_then_else>(d))
-      << "Expected tensor_if_then_else; got: " << to_string(d);
+  EXPECT_TRUE(is_same<tensor_if_then_else_scalar>(d))
+      << "Expected tensor_if_then_else_scalar; got: " << to_string(d);
 }
 
 // permute_indices_wrapper rule: chain rule applies to the child.

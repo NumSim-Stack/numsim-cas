@@ -137,9 +137,22 @@ public:
   }
 
   // ─── if_then_else (#135 / #210) ─────────────────────────────────
-  void operator()(tensor_if_then_else const &v) override {
+  void operator()(tensor_if_then_else_scalar const &v) override {
     this->m_out << "\\operatorname{if\\_then\\_else}\\!\\left(";
     apply(v.expr_cond());
+    this->m_out << ", ";
+    apply(v.expr_then());
+    this->m_out << ", ";
+    apply(v.expr_else());
+    this->m_out << "\\right)";
+  }
+
+  // ─── if_then_else_t2s (#241) ────────────────────────────────────
+  // Sibling of the scalar-cond version. The cond is t2s; emit via
+  // operator<<.
+  void operator()(tensor_if_then_else_t2s const &v) override {
+    this->m_out << "\\operatorname{if\\_then\\_else}\\!\\left(";
+    this->m_out << v.expr_cond();
     this->m_out << ", ";
     apply(v.expr_then());
     this->m_out << ", ";

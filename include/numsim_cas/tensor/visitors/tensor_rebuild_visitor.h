@@ -43,8 +43,16 @@ public:
   // ─── if_then_else (#135 / #210) ─────────────────────────────────
   // Cond is a scalar; routes through apply_scalar for substitution
   // visitor compatibility. Branches are tensors via apply.
-  void operator()(tensor_if_then_else const &v) override {
+  void operator()(tensor_if_then_else_scalar const &v) override {
     m_result = if_then_else(apply_scalar(v.expr_cond()), apply(v.expr_then()),
+                            apply(v.expr_else()));
+  }
+
+  // ─── if_then_else_t2s (#241) ────────────────────────────────────
+  // Sibling of the scalar-cond version. Cond is t2s; routes through
+  // apply_t2s.
+  void operator()(tensor_if_then_else_t2s const &v) override {
+    m_result = if_then_else(apply_t2s(v.expr_cond()), apply(v.expr_then()),
                             apply(v.expr_else()));
   }
 

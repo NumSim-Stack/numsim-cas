@@ -102,8 +102,19 @@ public:
 
   // d/ds if_then_else(cond, X(s), Y(s)) = if_then_else(cond, dX/ds, dY/ds)
   // when cond doesn't depend on s. Same lazy-eval-vs-eager-diff
-  // asymmetry as the tensor-arg and scalar-arg variants.
-  void operator()(tensor_if_then_else const &visitable) override {
+  // asymmetry as the tensor-arg variant of this rule and the t2s-cond
+  // sibling immediately below.
+  void operator()(tensor_if_then_else_scalar const &visitable) override {
+    auto dt = diff(visitable.expr_then(), m_arg);
+    auto de = diff(visitable.expr_else(), m_arg);
+    if (dt.is_valid() && de.is_valid()) {
+      m_result =
+          if_then_else(visitable.expr_cond(), std::move(dt), std::move(de));
+    }
+  }
+
+  // #241 sibling: same shape, t2s cond.
+  void operator()(tensor_if_then_else_t2s const &visitable) override {
     auto dt = diff(visitable.expr_then(), m_arg);
     auto de = diff(visitable.expr_else(), m_arg);
     if (dt.is_valid() && de.is_valid()) {

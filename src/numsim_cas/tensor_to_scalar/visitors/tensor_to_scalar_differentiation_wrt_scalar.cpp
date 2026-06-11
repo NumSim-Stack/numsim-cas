@@ -303,14 +303,21 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
   m_result = std::move(sum);
 }
 
-// if_then_else: piecewise. Parallel to the tensor-arg t2s visitor,
-// throw not_implemented_error rather than approximate; the t2s
-// condition / scalar-result wiring is the same wart as #241.
+// if_then_else: piecewise. d/ds t2s_if_then_else(cond(s), a(s), b(s))
+// = t2s_if_then_else(cond, da/ds, db/ds). Unlike the tensor-arg
+// sibling, the result type is also t2s — both branches and result are
+// t2s, no cross-domain wiring needed. This was throwing pre-#241
+// only because the tensor-arg sibling was; that's no longer relevant
+// here. Same measure-zero convention as the other if_then_else diff
+// rules — the cond's dependence on s is ignored at the switching
+// boundary.
 void tensor_to_scalar_differentiation_wrt_scalar::operator()(
-    [[maybe_unused]] tensor_to_scalar_if_then_else const &) {
-  throw not_implemented_error(
-      "tensor_to_scalar_differentiation_wrt_scalar: "
-      "tensor_to_scalar_if_then_else not yet implemented (#241)");
+    tensor_to_scalar_if_then_else const &v) {
+  auto da = diff(v.expr_then(), m_arg);
+  auto db = diff(v.expr_else(), m_arg);
+  if (!da.is_valid() || !db.is_valid())
+    return;
+  m_result = if_then_else(v.expr_cond(), std::move(da), std::move(db));
 }
 
 // Top-level CPO definition (declared in the header).

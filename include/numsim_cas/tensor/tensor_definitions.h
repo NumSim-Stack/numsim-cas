@@ -9,7 +9,8 @@
 #include <numsim_cas/tensor/operators/tensor_to_scalar/tensor_to_scalar_with_tensor_mul.h>
 #include <numsim_cas/tensor/projection_tensor.h>
 #include <numsim_cas/tensor/tensor.h>
-#include <numsim_cas/tensor/tensor_if_then_else.h>
+#include <numsim_cas/tensor/tensor_if_then_else_scalar.h>
+#include <numsim_cas/tensor/tensor_if_then_else_t2s.h>
 #include <numsim_cas/tensor/tensor_negative.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/wrappers/inner_product_wrapper.h>
