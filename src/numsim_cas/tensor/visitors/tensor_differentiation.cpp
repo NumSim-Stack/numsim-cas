@@ -344,14 +344,17 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
       //
       // PEER-SITE NOTE: scalar_constant(scalar_number{1, 2}) is also
       // inlined per-call at scalar_simplifier_pow.cpp:95, scalar_std.h:
-      // 208 and :233. Those sites are construction-time and not on a
-      // hot path; the diff visitor IS called per tensor_inv per
-      // derivative, hence the local static here. DO NOT unify the four
-      // sites into a `get_scalar_half()` in scalar_globals.h — the
-      // existing get_scalar_zero / get_scalar_one return dedicated
-      // SINGLETON NODE TYPES (scalar_zero / scalar_one), not constants;
-      // promoting a rational-constant to the same API is a category
-      // mismatch (intentionally rolled back in commit ad4d824).
+      // 208 and :233. Sibling 1/4 and 1/8 magic-statics live in the
+      // rank-4 branch below (for the Minor and MinorMajor symmetrizer
+      // prefactors). All these sites are construction-time and not on
+      // a hot path; the diff visitor IS called per tensor_inv per
+      // derivative, hence the local statics here. DO NOT unify the
+      // sites into a `get_scalar_half()` (or `_fourth` / `_eighth`) in
+      // scalar_globals.h — the existing get_scalar_zero /
+      // get_scalar_one return dedicated SINGLETON NODE TYPES
+      // (scalar_zero / scalar_one), not constants; promoting a
+      // rational-constant to the same API is a category mismatch
+      // (intentionally rolled back in commit ad4d824).
       static auto const half =
           make_expression<scalar_constant>(scalar_number{1, 2});
       T = (sign > 0 ? T + T_swap : T - T_swap) * half;
