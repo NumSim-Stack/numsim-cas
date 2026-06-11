@@ -856,21 +856,18 @@ TEST_F(TensorDiffWrtScalarTest, InvRank4StructuralLockIn) {
       << "Expected: " << to_string(expected);
 }
 
-TEST_F(TensorDiffWrtScalarTest, InvRank3ThrowsNotImplemented) {
-  // Rank 3 is rejected by the inv() factory at construction; constructing
-  // a rank-3 tensor_inv directly via make_expression bypasses that gate,
-  // so the visitor's belt-and-braces rank check catches it.
-  // The inner is constructed via make_expression<tensor> directly to
-  // avoid the rank gate in factory helpers.
+TEST_F(TensorDiffWrtScalarTest, InvRank3RejectedAtConstruction) {
+  // Both the inv() factory (tensor_functions.h:467) AND the tensor_inv
+  // wrapper ctor (#292) reject rank-3 inputs. This test pins the
+  // wrapper ctor's gate by attempting a direct make_expression<tensor_inv>
+  // construction that would otherwise bypass the factory's rank check.
+  // Before #292 the wrapper ctor silently accepted it; the diff visitor
+  // had a belt-and-braces throw further downstream as the only guard.
   auto T = std::get<0>(
       make_tensor_variable(std::tuple{"T", std::size_t{3}, std::size_t{3}}));
-  auto expr = make_expression<tensor_inv>(T);
-  // Force a non-zero derivative path by adding s-dependence through a
-  // scalar mul; otherwise the singleton-zero guard early-returns before
-  // the rank check.
-  auto expr_s = make_expression<tensor_inv>(s * T);
   EXPECT_THROW(
-      { [[maybe_unused]] auto d = diff(expr_s, s); }, not_implemented_error);
+      { [[maybe_unused]] auto expr = make_expression<tensor_inv>(T); },
+      invalid_expression_error);
 }
 
 // Pass-1 review L1: cover the tensor_pow rule with non-trivial

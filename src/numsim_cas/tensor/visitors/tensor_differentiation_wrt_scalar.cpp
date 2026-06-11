@@ -10,6 +10,7 @@
 #include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
+#include <utility>
 
 namespace numsim::cas {
 
@@ -249,11 +250,13 @@ void tensor_differentiation_wrt_scalar::operator()(
 // Rank-4 is the same Magnus formula in symbolic form regardless of the
 // algebraic class (general/minor-sym/skew); the evaluator dispatches
 // on annotation at evaluation time via tensor_inv's space tag. So no
-// extra branching needed here. Other ranks (3, 5, 6...) keep the
-// rank-not-supported throw — `inv()` itself only admits rank 2 and 4,
-// so a non-2/4 input here would have been rejected by the factory; the
-// throw is a belt-and-braces guard for direct
-// `make_expression<tensor_inv>` constructions.
+// extra branching needed here. Other ranks are unreachable: the
+// `tensor_inv` wrapper ctor (#292) rejects rank ∉ {2, 4} at
+// construction, so any node we visit here is guaranteed to be one of
+// those two ranks. The body's `if (r == 2) / else if (r == 4) / else
+// std::unreachable()` pins that contract — the trailing
+// `std::unreachable` catches drift if a future wrapper relaxation
+// admits a higher rank without updating this visitor.
 void tensor_differentiation_wrt_scalar::operator()(
     tensor_inv const &visitable) {
   auto const &A = visitable.expr();
@@ -264,20 +267,20 @@ void tensor_differentiation_wrt_scalar::operator()(
   if (!dA.is_valid() || is_same<tensor_zero>(dA)) {
     return;
   }
+  // tensor_inv wrapper ctor enforces rank ∈ {2, 4} (#292), so any
+  // tensor_inv visited here is guaranteed to be one of those two ranks.
+  // Branch explicitly on each — `else` would silently apply the rank-4
+  // contraction layout if a future relaxation of the wrapper gate
+  // admitted, say, rank-6. std::unreachable() catches that drift in
+  // Debug (UB in Release) — same pattern as projector_algebra.h:48.
   auto const r = A.get().rank();
-  if (r != 2 && r != 4) {
-    throw not_implemented_error(
-        "tensor_differentiation_wrt_scalar: tensor_inv supports rank 2 "
-        "and rank 4 (got rank " +
-        std::to_string(r) + ")");
-  }
   auto invA = inv(A);
   if (r == 2) {
     // term = invA * dA * invA via two rank-2 contractions
     auto term = inner_product(invA, sequence{2}, std::move(dA), sequence{1});
     term = inner_product(std::move(term), sequence{2}, invA, sequence{1});
     m_result = -std::move(term);
-  } else {
+  } else if (r == 4) {
     // rank 4: -invA : dA : invA via two rank-4 double-contractions
     // (#287). The double-contraction `:` is the standard rank-4
     // composition (sequence{3,4} on the LHS pairs with sequence{1,2}
@@ -286,6 +289,8 @@ void tensor_differentiation_wrt_scalar::operator()(
         inner_product(invA, sequence{3, 4}, std::move(dA), sequence{1, 2});
     term = inner_product(std::move(term), sequence{3, 4}, invA, sequence{1, 2});
     m_result = -std::move(term);
+  } else {
+    std::unreachable();
   }
 }
 

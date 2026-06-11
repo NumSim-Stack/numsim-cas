@@ -836,6 +836,68 @@ TYPED_TEST(TensorExpressionTest, InvRank3SymbolStillThrows) {
   }
 }
 
+TYPED_TEST(TensorExpressionTest, InvWrapperCtorRank3Rejected) {
+  // #292: the wrapper ctor itself enforces the rank gate, so direct
+  // `make_expression<tensor_inv>(rank3_T)` constructions that bypass the
+  // factory's inv() rank check still get rejected. Before #292 the
+  // wrapper silently produced a rank-3 tensor_inv that misbehaved
+  // downstream; visitors had to grow belt-and-braces rank checks to
+  // catch it.
+  auto A3 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A3rank", static_cast<std::size_t>(TestFixture::Dim), std::size_t{3});
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto r =
+            numsim::cas::make_expression<numsim::cas::tensor_inv>(A3);
+      },
+      numsim::cas::invalid_expression_error);
+}
+
+TYPED_TEST(TensorExpressionTest, InvWrapperCtorRank5Rejected) {
+  // Negative-case parity with the rank-3 lock-in. All odd and rank-5+
+  // even ranks are rejected.
+  auto A5 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A5rank", static_cast<std::size_t>(TestFixture::Dim), std::size_t{5});
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto r =
+            numsim::cas::make_expression<numsim::cas::tensor_inv>(A5);
+      },
+      numsim::cas::invalid_expression_error);
+}
+
+TYPED_TEST(TensorExpressionTest, InvWrapperCtorRank1Rejected) {
+  // tensor_expression has no rank >= 2 invariant on the type itself
+  // (verified at tensor_expression.h:18-19), so rank-1 is technically
+  // constructible via make_expression<tensor>. The wrapper gate must
+  // reject it — `inv()` on a rank-1 (vector) has no canonical meaning.
+  // Pass-2 review lock-in: previously rank-3 and rank-5 were covered
+  // but the low-end was not.
+  auto A1 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A1rank", static_cast<std::size_t>(TestFixture::Dim), std::size_t{1});
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto r =
+            numsim::cas::make_expression<numsim::cas::tensor_inv>(A1);
+      },
+      numsim::cas::invalid_expression_error);
+}
+
+TYPED_TEST(TensorExpressionTest, InvWrapperCtorRank0Rejected) {
+  // Pass-4 review lock-in: same low-end reasoning as Rank1Rejected, one
+  // step further. tensor_expression accepts any std::size_t rank
+  // including 0 (scalar-as-tensor degenerate form). Wrapper gate must
+  // reject — `inv()` on a rank-0 has no meaning.
+  auto A0 = numsim::cas::make_expression<numsim::cas::tensor>(
+      "A0rank", static_cast<std::size_t>(TestFixture::Dim), std::size_t{0});
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto r =
+            numsim::cas::make_expression<numsim::cas::tensor_inv>(A0);
+      },
+      numsim::cas::invalid_expression_error);
+}
+
 TYPED_TEST(TensorExpressionTest, InvIdentityTensorRank4SelfInverse) {
   // The rank-4 identity_tensor (minor identity δ_ik · δ_jl) is its own
   // inverse under the appropriate contraction. The rank guard must NOT

@@ -1,6 +1,7 @@
 #ifndef TENSOR_INV_H
 #define TENSOR_INV_H
 
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/unary_op.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_expression.h>
@@ -14,10 +15,27 @@ public:
   explicit tensor_inv(
       Expr &&_expr) // NOLINT(bugprone-forwarding-reference-overload)
       : base(std::forward<Expr>(_expr), _expr.get().dim(), _expr.get().rank()) {
+    // ── Rank gate (#292) ──────────────────────────────────────────
+    // Mirror the inv() factory's rank gate (tensor_functions.h:467)
+    // here so direct `make_expression<tensor_inv>(...)` constructions
+    // that bypass the factory still get rejected at the same point.
+    // Without this, the space-propagation block below silently produces
+    // a tensor_inv with no annotation, and downstream consumers
+    // (evaluator, every visitor) misbehave in ways that vary by site —
+    // the diff visitors had to grow belt-and-braces rank checks to
+    // catch this. Throw matches the factory's convention.
+    if (this->rank() != 2 && this->rank() != 4) {
+      throw invalid_expression_error(
+          "tensor_inv: only rank-2 and rank-4 tensors are supported "
+          "(got rank " +
+          std::to_string(this->rank()) + ")");
+    }
     // ── Space propagation (projector-space tag) ────────────────────
+    // The rank gate above guarantees rank ∈ {2, 4}, so this is an
+    // exhaustive `if/else` rather than the older `if/else if` shape
+    // with a "shouldn't be reached" trailing comment.
     if (auto const &sp = this->expr().get().space()) {
-      const auto r = this->rank();
-      if (r == 2) {
+      if (this->rank() == 2) {
         // Rank-2: tmech::inv preserves Symmetric, Volumetric, and Skew
         // perms. Deviatoric / Harmonic trace tags are NOT preserved
         // (tr(A^{-1}) != 0 in general) — downgrade to AnyTraceTag while
@@ -27,7 +45,7 @@ public:
           this->set_space({Symmetric{}, AnyTraceTag{}});
         else
           this->set_space(*sp);
-      } else if (r == 4) {
+      } else {
         // Rank-4 (#248): only Minor / MinorMajor perms survive. Those
         // route to tmech::inv (Voigt-symmetric path), which DOES
         // preserve the Voigt symmetry — so the inverse is also
@@ -42,8 +60,6 @@ public:
           this->set_space(*sp);
         // else: space left unset on the result (general anisotropic).
       }
-      // Other ranks: inv() factory rejects them; this branch
-      // shouldn't be reached.
     }
 
     // ── Algebra-assumption propagation (#246 α-2b) ─────────────────
