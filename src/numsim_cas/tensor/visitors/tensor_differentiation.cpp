@@ -403,7 +403,8 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
         // Major-swap variants: swap (m,n) ↔ (p,q) in the parameterization.
         // Pattern: first invA gets (p,q) at its trailing pair, second
         // invA gets (m,n) at its leading pair.
-        auto T_M = otimes(invA, sequence{1, 2, 7, 8}, invA, sequence{5, 6, 3, 4});
+        auto T_M =
+            otimes(invA, sequence{1, 2, 7, 8}, invA, sequence{5, 6, 3, 4});
         auto T_M_mn =
             otimes(invA, sequence{1, 2, 7, 8}, invA, sequence{6, 5, 3, 4});
         auto T_M_pq =
@@ -428,7 +429,8 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
     // rank is 4 + rank(m_arg). Concretely:
     //   X rank-2 → dA rank-6 → result rank-6
     //   X rank-4 → dA rank-8 → result rank-8
-    m_result = -inner_product(T, sequence{5, 6, 7, 8}, dA, sequence{1, 2, 3, 4});
+    m_result =
+        -inner_product(T, sequence{5, 6, 7, 8}, dA, sequence{1, 2, 3, 4});
   } else {
     // Wrapper ctor (#292) gates rank ∈ {2, 4}; this branch is
     // structurally unreachable for tensor_inv constructed via the
