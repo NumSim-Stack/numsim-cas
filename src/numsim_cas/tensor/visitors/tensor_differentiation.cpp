@@ -433,6 +433,13 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
     // Wrapper ctor (#292) gates rank ∈ {2, 4}; this branch is
     // structurally unreachable for tensor_inv constructed via the
     // factory or make_expression. Kept as a defensive guard.
+    //
+    // Policy split with the scalar-arg sibling (#287): that visitor at
+    // tensor_differentiation_wrt_scalar.cpp uses `std::unreachable()`
+    // for the same condition. Here we throw because the diagnostic
+    // value at the runtime boundary (clear Release error vs UB) is
+    // worth the redundancy; the scalar-arg path inherits the rank-2
+    // sym/skew structure and has a single explicit if/else if/else.
     throw not_implemented_error(
         "tensor_differentiation: inv derivative for rank != 2 and != 4 "
         "is impossible — tensor_inv wrapper rejects other ranks at "

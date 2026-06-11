@@ -273,6 +273,13 @@ void tensor_differentiation_wrt_scalar::operator()(
   // contraction layout if a future relaxation of the wrapper gate
   // admitted, say, rank-6. std::unreachable() catches that drift in
   // Debug (UB in Release) — same pattern as projector_algebra.h:48.
+  //
+  // Policy split with the tensor-arg sibling (#250): that visitor at
+  // tensor_differentiation.cpp throws not_implemented_error for the
+  // same condition (clearer Release diagnostic at the cost of the
+  // unreachable-branch redundancy). The scalar-arg side here favors
+  // std::unreachable because the rank-2 / rank-4 dispatch is the only
+  // structural difference, with no sym/skew sub-branches.
   auto const r = A.get().rank();
   auto invA = inv(A);
   if (r == 2) {

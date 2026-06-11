@@ -687,6 +687,21 @@ TEST(TensorDiffRank4Inv, AnnotationDispatchProducesDistinctResults) {
   ASSERT_FALSE(is_same<tensor_zero>(d_gen));
   ASSERT_FALSE(is_same<tensor_zero>(d_min));
   ASSERT_FALSE(is_same<tensor_zero>(d_mm));
+  // All three are rank-8 (4 inv-free + 4 diff-arg-free indices). If a
+  // future regression drops the symmetrization to a lower-rank kernel,
+  // this catches the structural shape change before the hash check.
+  EXPECT_EQ(d_gen.get().rank(), 8u);
+  EXPECT_EQ(d_min.get().rank(), 8u);
+  EXPECT_EQ(d_mm.get().rank(), 8u);
+  // Predicate tripwire (pass-2 review): the visitor's dispatch uses
+  // `is_minor(A) || is_minor_major(A)` because `is_minor()` checks the
+  // perm tag for `Minor` specifically — not `MinorMajor`. If a future
+  // refactor makes `is_minor` return true for `MinorMajor` inputs, the
+  // OR becomes redundant and this assertion forces a re-review of the
+  // dispatch logic.
+  EXPECT_FALSE(is_minor(C_mm))
+      << "is_minor() is expected to be perm-tag-specific (Minor only). "
+         "If this fires, revisit the OR at tensor_differentiation.cpp:393.";
 
   EXPECT_NE(d_gen.get().hash_value(), d_min.get().hash_value())
       << "General Magnus and Minor-symmetrized kernels must differ.\n"
