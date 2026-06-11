@@ -91,6 +91,24 @@ public:
             }
           }
         }
+      } else if (m_rank_arg == 4) {
+        // #299: for an annotated rank-4 variable C, diff(C, C) is the
+        // projected rank-8 identity on the (minor)-symmetric
+        // sub-manifold, NOT the unconstrained free identity. Without
+        // this branch, the rank-4 Minor/MinorMajor inv-diff kernels in
+        // tensor_differentiation.cpp would overcount by an orbit-
+        // stabilizer factor (errors at 3/4 / 7/8 in fuzz numerical FD
+        // comparison).
+        if (auto const &sp = m_arg.get().space()) {
+          if (std::holds_alternative<MinorMajor>(sp->perm)) {
+            m_result = P_minor_major4(m_arg.get().dim());
+            return;
+          }
+          if (std::holds_alternative<Minor>(sp->perm)) {
+            m_result = P_minor4(m_arg.get().dim());
+            return;
+          }
+        }
       }
       m_result = make_expression<identity_tensor>(m_dim, m_rank_result);
     }

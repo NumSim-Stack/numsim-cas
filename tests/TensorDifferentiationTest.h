@@ -55,6 +55,44 @@ TEST_F(TensorDifferentiationTest, VariableSelf) {
       << "Expected identity_tensor, got: " << to_string(d);
 }
 
+// #299 leaf-rule branch lock-ins. For annotated rank-4 variables, the
+// leaf rule must return the projected rank-8 identity (P_minor4 or
+// P_minor_major4) instead of the unconstrained identity_tensor. The
+// existing rank-2 sym/skew/vol/dev branches at tensor_differentiation.h
+// have the same structure for their respective subspaces.
+TEST(TensorDiffLeafRule, Rank4MinorReturnsProjector) {
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_minor(C);
+  auto d = diff(C, C);
+  EXPECT_TRUE(is_same<tensor_projector>(d))
+      << "Expected tensor_projector (P_minor4) for diff(M_min, M_min); "
+         "got: "
+      << to_string(d);
+  EXPECT_EQ(d.get().rank(), 8u);
+  EXPECT_EQ(d.get().dim(), 3u);
+}
+
+TEST(TensorDiffLeafRule, Rank4MinorMajorReturnsProjector) {
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_minor_major(C);
+  auto d = diff(C, C);
+  EXPECT_TRUE(is_same<tensor_projector>(d))
+      << "Expected tensor_projector (P_minor_major4); got: " << to_string(d);
+  EXPECT_EQ(d.get().rank(), 8u);
+  EXPECT_EQ(d.get().dim(), 3u);
+}
+
+TEST(TensorDiffLeafRule, Rank4UnannotatedReturnsIdentityTensor) {
+  // Negative lock-in: without annotation, the leaf rule returns the
+  // unconstrained rank-8 identity (existing behavior).
+  auto C = make_expression<tensor>("C", 3, 4);
+  auto d = diff(C, C);
+  EXPECT_TRUE(is_same<identity_tensor>(d))
+      << "Expected identity_tensor for diff(unannotated C, C); got: "
+      << to_string(d);
+  EXPECT_EQ(d.get().rank(), 8u);
+}
+
 // d(Y)/d(X) = zero
 TEST_F(TensorDifferentiationTest, VariableOther) {
   auto d = diff(Y, X);

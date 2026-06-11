@@ -18,11 +18,44 @@ struct TensorExprInfo {
   std::set<std::string> used_vars;
 };
 
+using TensorVarProjection = std::function<void(tensor_data_base<double> &)>;
+
 struct TensorVarEntry {
   std::string name;
   std::size_t rank;
   expression_holder<tensor_expression> expr;
+  TensorVarProjection project = nullptr;
 };
+
+inline TensorVarProjection make_minor4_projection() {
+  return [](tensor_data_base<double> &base) {
+    auto &t = static_cast<tensor_data<double, FDIM, 4> &>(base).data();
+    tmech::tensor<double, FDIM, 4> result;
+    for (std::size_t i = 0; i < FDIM; ++i)
+      for (std::size_t j = 0; j < FDIM; ++j)
+        for (std::size_t k = 0; k < FDIM; ++k)
+          for (std::size_t l = 0; l < FDIM; ++l)
+            result(i, j, k, l) = 0.25 * (t(i, j, k, l) + t(j, i, k, l) +
+                                         t(i, j, l, k) + t(j, i, l, k));
+    t = result;
+  };
+}
+
+inline TensorVarProjection make_minor_major4_projection() {
+  return [](tensor_data_base<double> &base) {
+    auto &t = static_cast<tensor_data<double, FDIM, 4> &>(base).data();
+    tmech::tensor<double, FDIM, 4> result;
+    for (std::size_t i = 0; i < FDIM; ++i)
+      for (std::size_t j = 0; j < FDIM; ++j)
+        for (std::size_t k = 0; k < FDIM; ++k)
+          for (std::size_t l = 0; l < FDIM; ++l)
+            result(i, j, k, l) =
+                0.125 *
+                (t(i, j, k, l) + t(j, i, k, l) + t(i, j, l, k) + t(j, i, l, k) +
+                 t(k, l, i, j) + t(l, k, i, j) + t(k, l, j, i) + t(l, k, j, i));
+    t = result;
+  };
+}
 
 // ===========================================================================
 // Tensor verification (free function template)
@@ -51,6 +84,8 @@ tensor_verify_impl(unsigned seed, std::vector<TensorVarEntry> const &vars,
           fill_random(t, data_rng);
           return std::make_shared<tensor_data<double, FDIM, r>>(t);
         });
+    if (v.project)
+      v.project(*ptr);
     ev.set(v.expr, ptr);
     var_data.push_back({v.name, v.rank, ptr});
   }
@@ -81,6 +116,8 @@ tensor_verify_impl(unsigned seed, std::vector<TensorVarEntry> const &vars,
   auto numdiff = fuzzy_num_diff<DiffRank>(
       [&](auto const &x) {
         var_tmech = x;
+        if (var.project)
+          var.project(*diff_var_ptr);
         return fuzzy_as_tmech<FDIM, ExprRank>(*ev.apply(info.expr));
       },
       var_original);
@@ -217,9 +254,21 @@ private:
   std::vector<TensorVarEntry> m_vars;
 
   void create_variable_pool() {
-    auto add_var = [&](std::string name, std::size_t rank) {
+    auto add_var = [&](std::string name, std::size_t rank,
+                       TensorVarProjection proj = nullptr) {
       auto expr = make_expression<tensor>(name, FDIM, rank);
-      m_vars.push_back({std::move(name), rank, expr});
+      m_vars.push_back({std::move(name), rank, expr, std::move(proj)});
+    };
+    auto add_var_minor4 = [&](std::string name) {
+      auto expr = make_expression<tensor>(name, FDIM, 4);
+      assume_minor(expr);
+      m_vars.push_back({std::move(name), 4, expr, make_minor4_projection()});
+    };
+    auto add_var_minor_major4 = [&](std::string name) {
+      auto expr = make_expression<tensor>(name, FDIM, 4);
+      assume_minor_major(expr);
+      m_vars.push_back(
+          {std::move(name), 4, expr, make_minor_major4_projection()});
     };
 
     add_var("a", 1);
@@ -229,14 +278,13 @@ private:
     add_var("E", 3);
     add_var("F", 4); // unannotated → general / Magnus rank-4 inv-diff (#250).
     add_var("G", 2);
-    // Minor / MinorMajor annotated rank-4 variables intentionally not
-    // added: their inv-diff kernels are the projections of Magnus onto
-    // the (minor)-symmetric sub-manifold. To numerically verify those
-    // paths, the FD closure at tensor_verify_impl would need to project
-    // perturbations to the same sub-manifold (cf. TensorInvDiffSymTest.h
-    // for the rank-2 sym pattern that does this). Without that
-    // projection, arbitrary FD perturbations break the symmetry and
-    // the comparison would spuriously fail. Tracked as a follow-up.
+    // Annotated rank-4 leaves — exercises Minor (#250) and MinorMajor
+    // (#250) kernels with symmetry-projecting FD. Pre-#299 these
+    // produced ~40 fuzz failures with 3/4 and 7/8 ratios; #299 fixed
+    // the leaf rule to return the projected rank-8 identity instead of
+    // the unconstrained one.
+    add_var_minor4("M_min");
+    add_var_minor_major4("M_mm");
   }
 
   void register_default_ops() {
@@ -392,27 +440,25 @@ private:
                     std::size_t depth) -> std::optional<TensorExprInfo> {
                    auto sub = m.generate(depth - 1);
                    // Rank-2 and rank-4 only (#192 / #248). Rank-4 exercises
-                   // the rank-4 Magnus path added in #250.
+                   // the rank-4 Magnus / Minor / MinorMajor paths added in
+                   // #250 + #299.
                    if (sub.rank != 2 && sub.rank != 4)
                      return std::nullopt;
                    // Rank-4 conditioning: the random fill in fill_random
                    // adds a diagonal boost specifically for rank-4 leaves
                    // so the minor-identity contraction is well-conditioned.
-                   // But composite rank-4 expressions (e.g.
-                   // `outer(D, C)` where D, C are rank-2) are
-                   // rank-deficient as 9×9 matrices regardless of the
-                   // leaves' conditioning — `outer(X, Y)` has matrix-rank
-                   // 1 — so `inv(outer(X, Y))` produces singular Magnus
-                   // kernels and FD blows up (max_err ~ 1e25). Restrict
-                   // rank-4 inv to leaf inputs so the diagonal boost is
+                   // Composite rank-4 expressions (e.g. `outer(D, C)`
+                   // where D, C are rank-2) are rank-deficient as 9×9
+                   // matrices regardless of the leaves' conditioning —
+                   // `outer(X, Y)` has matrix-rank 1 — so
+                   // `inv(outer(X, Y))` produces singular Magnus kernels
+                   // and FD blows up (max_err ~ 1e25). Restrict rank-4
+                   // inv to leaf inputs so the diagonal boost is
                    // load-bearing. Rank-2 stays unrestricted (the
                    // existing rank-2 path is robust against composite
                    // inputs).
                    if (sub.rank == 4 && !is_same<tensor>(sub.expr))
                      return std::nullopt;
-                   // inv() throws invalid_expression_error for skew-symmetric
-                   // operands in odd dimensions; let the library decide and
-                   // skip the seed when it rejects.
                    try {
                      auto expr = inv(sub.expr);
                      return TensorExprInfo{expr, sub.rank, sub.used_vars};
