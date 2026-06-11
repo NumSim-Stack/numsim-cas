@@ -392,9 +392,23 @@ private:
                     std::size_t depth) -> std::optional<TensorExprInfo> {
                    auto sub = m.generate(depth - 1);
                    // Rank-2 and rank-4 only (#192 / #248). Rank-4 exercises
-                   // the rank-4 Magnus / Minor / MinorMajor paths added in
-                   // #250.
+                   // the rank-4 Magnus path added in #250.
                    if (sub.rank != 2 && sub.rank != 4)
+                     return std::nullopt;
+                   // Rank-4 conditioning: the random fill in fill_random
+                   // adds a diagonal boost specifically for rank-4 leaves
+                   // so the minor-identity contraction is well-conditioned.
+                   // But composite rank-4 expressions (e.g.
+                   // `outer(D, C)` where D, C are rank-2) are
+                   // rank-deficient as 9×9 matrices regardless of the
+                   // leaves' conditioning — `outer(X, Y)` has matrix-rank
+                   // 1 — so `inv(outer(X, Y))` produces singular Magnus
+                   // kernels and FD blows up (max_err ~ 1e25). Restrict
+                   // rank-4 inv to leaf inputs so the diagonal boost is
+                   // load-bearing. Rank-2 stays unrestricted (the
+                   // existing rank-2 path is robust against composite
+                   // inputs).
+                   if (sub.rank == 4 && !is_same<tensor>(sub.expr))
                      return std::nullopt;
                    // inv() throws invalid_expression_error for skew-symmetric
                    // operands in odd dimensions; let the library decide and
