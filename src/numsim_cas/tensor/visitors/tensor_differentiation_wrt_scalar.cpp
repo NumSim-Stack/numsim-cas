@@ -2,7 +2,6 @@
 
 #include <numeric>
 #include <numsim_cas/core/diff.h>
-#include <utility>
 #include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/tensor_diff.h>
@@ -11,6 +10,7 @@
 #include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
+#include <utility>
 
 namespace numsim::cas {
 
