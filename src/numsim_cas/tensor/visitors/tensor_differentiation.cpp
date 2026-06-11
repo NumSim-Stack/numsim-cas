@@ -382,6 +382,12 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
     // See #250's "Compact form via the projector framework".
     auto T = otimes(invA, sequence{1, 2, 5, 6}, invA, sequence{7, 8, 3, 4});
 
+    // Dispatch on annotation. `is_minor_major` implies `is_minor`
+    // algebraically (MinorMajor ⊃ Minor), but `is_minor()` checks the
+    // perm tag for `Minor` specifically — not `MinorMajor`. Keep the
+    // explicit OR so dispatch survives a future predicate refactor
+    // (e.g. if `is_minor` becomes "exactly Minor"). Same defensive
+    // pattern as the rank-2 sign dispatch above.
     const bool minor = is_minor(A) || is_minor_major(A);
     const bool major = is_minor_major(A);
 
