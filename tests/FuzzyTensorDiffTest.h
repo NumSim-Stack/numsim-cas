@@ -18,11 +18,60 @@ struct TensorExprInfo {
   std::set<std::string> used_vars;
 };
 
+// Per-variable projection onto a symmetric sub-manifold. Called on
+// (a) the initial random fill, and (b) every FD perturbation, so the
+// closure stays on the manifold and the FD computes the symbolic
+// derivative's restriction to that manifold. Without this, an
+// annotated variable would produce mathematically inconsistent FD vs
+// symbolic results (cf. TensorInvDiffSymTest.h's rank-2 sym pattern
+// using tmech::sym in the closure). Default is null = identity.
+using TensorVarProjection = std::function<void(tensor_data_base<double> &)>;
+
 struct TensorVarEntry {
   std::string name;
   std::size_t rank;
   expression_holder<tensor_expression> expr;
+  TensorVarProjection project = nullptr;
 };
+
+// Rank-4 minor symmetrizer: projects t_{ijkl} → (1/4) (t_{ijkl} +
+// t_{jikl} + t_{ijlk} + t_{jilk}). This is the Reynolds projector for
+// the Z₂ × Z₂ minor group (swap (i,j), swap (k,l)). Matches the
+// kernel used by tensor_differentiation.cpp's rank-4 Minor inv-diff
+// branch (#250).
+inline TensorVarProjection make_minor4_projection() {
+  return [](tensor_data_base<double> &base) {
+    auto &t = static_cast<tensor_data<double, FDIM, 4> &>(base).data();
+    tmech::tensor<double, FDIM, 4> result;
+    for (std::size_t i = 0; i < FDIM; ++i)
+      for (std::size_t j = 0; j < FDIM; ++j)
+        for (std::size_t k = 0; k < FDIM; ++k)
+          for (std::size_t l = 0; l < FDIM; ++l)
+            result(i, j, k, l) = 0.25 * (t(i, j, k, l) + t(j, i, k, l) +
+                                         t(i, j, l, k) + t(j, i, l, k));
+    t = result;
+  };
+}
+
+// Rank-4 minor-major symmetrizer: projects t_{ijkl} → (1/8) Σ_g g·t
+// over the 8-element group (Minor's 4 elements composed with the
+// major-pair-swap (k,l) ↔ (i,j)). Matches the rank-4 MinorMajor
+// inv-diff branch (#250).
+inline TensorVarProjection make_minor_major4_projection() {
+  return [](tensor_data_base<double> &base) {
+    auto &t = static_cast<tensor_data<double, FDIM, 4> &>(base).data();
+    tmech::tensor<double, FDIM, 4> result;
+    for (std::size_t i = 0; i < FDIM; ++i)
+      for (std::size_t j = 0; j < FDIM; ++j)
+        for (std::size_t k = 0; k < FDIM; ++k)
+          for (std::size_t l = 0; l < FDIM; ++l)
+            result(i, j, k, l) =
+                0.125 *
+                (t(i, j, k, l) + t(j, i, k, l) + t(i, j, l, k) + t(j, i, l, k) +
+                 t(k, l, i, j) + t(l, k, i, j) + t(k, l, j, i) + t(l, k, j, i));
+    t = result;
+  };
+}
 
 // ===========================================================================
 // Tensor verification (free function template)
@@ -51,6 +100,13 @@ tensor_verify_impl(unsigned seed, std::vector<TensorVarEntry> const &vars,
           fill_random(t, data_rng);
           return std::make_shared<tensor_data<double, FDIM, r>>(t);
         });
+    // Project the random fill onto the variable's symmetric
+    // sub-manifold (if any). For annotated rank-4 variables, this
+    // ensures the initial data respects Minor / MinorMajor symmetry
+    // and the FD closure (also projected) computes the symbolic
+    // derivative's restriction to that manifold.
+    if (v.project)
+      v.project(*ptr);
     ev.set(v.expr, ptr);
     var_data.push_back({v.name, v.rank, ptr});
   }
@@ -81,6 +137,13 @@ tensor_verify_impl(unsigned seed, std::vector<TensorVarEntry> const &vars,
   auto numdiff = fuzzy_num_diff<DiffRank>(
       [&](auto const &x) {
         var_tmech = x;
+        // Project the FD perturbation onto var's symmetric
+        // sub-manifold (if any). This is the load-bearing piece for
+        // annotated variables: without it, arbitrary FD perturbations
+        // break the symmetry and the FD result disagrees with the
+        // symbolic kernel (which used the symmetrized formula).
+        if (var.project)
+          var.project(*diff_var_ptr);
         return fuzzy_as_tmech<FDIM, ExprRank>(*ev.apply(info.expr));
       },
       var_original);
@@ -217,9 +280,21 @@ private:
   std::vector<TensorVarEntry> m_vars;
 
   void create_variable_pool() {
-    auto add_var = [&](std::string name, std::size_t rank) {
+    auto add_var = [&](std::string name, std::size_t rank,
+                       TensorVarProjection proj = nullptr) {
       auto expr = make_expression<tensor>(name, FDIM, rank);
-      m_vars.push_back({std::move(name), rank, expr});
+      m_vars.push_back({std::move(name), rank, expr, std::move(proj)});
+    };
+    auto add_var_minor4 = [&](std::string name) {
+      auto expr = make_expression<tensor>(name, FDIM, 4);
+      assume_minor(expr);
+      m_vars.push_back({std::move(name), 4, expr, make_minor4_projection()});
+    };
+    auto add_var_minor_major4 = [&](std::string name) {
+      auto expr = make_expression<tensor>(name, FDIM, 4);
+      assume_minor_major(expr);
+      m_vars.push_back(
+          {std::move(name), 4, expr, make_minor_major4_projection()});
     };
 
     add_var("a", 1);
@@ -229,14 +304,19 @@ private:
     add_var("E", 3);
     add_var("F", 4); // unannotated → general / Magnus rank-4 inv-diff (#250).
     add_var("G", 2);
-    // Minor / MinorMajor annotated rank-4 variables intentionally not
-    // added: their inv-diff kernels are the projections of Magnus onto
-    // the (minor)-symmetric sub-manifold. To numerically verify those
-    // paths, the FD closure at tensor_verify_impl would need to project
-    // perturbations to the same sub-manifold (cf. TensorInvDiffSymTest.h
-    // for the rank-2 sym pattern that does this). Without that
-    // projection, arbitrary FD perturbations break the symmetry and
-    // the comparison would spuriously fail. Tracked as a follow-up.
+    // Annotated rank-4 leaves (M_min, M_mm) deferred to #299. The
+    // helpers and closure-projection infrastructure are in place but
+    // enabling the variables produces ~40 fuzz failures with errors
+    // at exactly 3/4 / 7/8 — an orbit-averaging factor mismatch
+    // between symbolic Minor/MinorMajor kernel and projected FD that
+    // the math says shouldn't happen. Most likely cause: the leaf
+    // rule at tensor_differentiation.h:95 returns the unconstrained
+    // rank-8 identity for diff(M_min, M_min), not the projected
+    // identity on the sub-manifold. Investigation tracked at #299.
+    // The general/Magnus path (F) verifies cleanly through this
+    // framework — that's the primary value of this PR.
+    (void)add_var_minor4;
+    (void)add_var_minor_major4;
   }
 
   void register_default_ops() {
