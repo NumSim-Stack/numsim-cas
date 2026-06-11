@@ -250,11 +250,13 @@ void tensor_differentiation_wrt_scalar::operator()(
 // Rank-4 is the same Magnus formula in symbolic form regardless of the
 // algebraic class (general/minor-sym/skew); the evaluator dispatches
 // on annotation at evaluation time via tensor_inv's space tag. So no
-// extra branching needed here. Other ranks (3, 5, 6...) keep the
-// rank-not-supported throw — `inv()` itself only admits rank 2 and 4,
-// so a non-2/4 input here would have been rejected by the factory; the
-// throw is a belt-and-braces guard for direct
-// `make_expression<tensor_inv>` constructions.
+// extra branching needed here. Other ranks are unreachable: the
+// `tensor_inv` wrapper ctor (#292) rejects rank ∉ {2, 4} at
+// construction, so any node we visit here is guaranteed to be one of
+// those two ranks. The body's `if (r == 2) / else if (r == 4) / else
+// std::unreachable()` pins that contract — the trailing
+// `std::unreachable` catches drift if a future wrapper relaxation
+// admits a higher rank without updating this visitor.
 void tensor_differentiation_wrt_scalar::operator()(
     tensor_inv const &visitable) {
   auto const &A = visitable.expr();
