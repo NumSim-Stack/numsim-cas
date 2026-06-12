@@ -132,6 +132,20 @@ inline auto P_harm(std::size_t d, std::size_t r = 2) {
   return make_projector(d, r, Symmetric{}, HarmonicTag{});
 }
 
+// Rank-4 presets (#299): projectors that act on rank-4 tensors,
+// producing rank-8 results. These are the analogs of P_sym / P_skew
+// for the rank-2-input case, and are returned by the diff-visitor's
+// leaf rule for `diff(annotated rank-4 tensor, itself)` so that the
+// rank-4 Magnus chain rule sees the correct projected identity rather
+// than the unconstrained rank-8 identity (which would over-count by an
+// orbit-stabilizer factor — see #299 for derivation).
+inline auto P_minor4(std::size_t d) {
+  return make_projector(d, 4, Minor{}, AnyTraceTag{});
+}
+inline auto P_minor_major4(std::size_t d) {
+  return make_projector(d, 4, MinorMajor{}, AnyTraceTag{});
+}
+
 class tensor_trace_print_visitor {
 public:
   tensor_trace_print_visitor(tensor_projector const &proj) : m_proj(proj) {}

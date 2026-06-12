@@ -112,12 +112,13 @@ void fill_random(tmech::tensor<double, Dim, Rank> &t, std::mt19937 &rng) {
     for (std::size_t i = 0; i < Dim; ++i)
       ptr[i * Dim + i] += 5.0;
   } else if constexpr (Rank == 4) {
-    // Diagonal boost for inv(rank-4) conditioning (#250 fuzz). The
-    // rank-4 "diagonal" here is the minor-identity contraction
-    // (δ_{ik}·δ_{jl}); we boost the trace-like sub-diagonal at
-    // flat-index i*Dim^3 + j*Dim^2 + i*Dim + j so a random rank-4
-    // tensor has a well-conditioned rank-4 inverse routed through
-    // tmech::invf (general anisotropic).
+    // Diagonal boost for inv(rank-4) conditioning (#250 fuzz, #299
+    // also re-uses this for M_min/M_mm). The rank-4 "diagonal" here is
+    // the minor-identity contraction (δ_{ik}·δ_{jl}); we boost the
+    // trace-like sub-diagonal at flat-index
+    // i*Dim^3 + j*Dim^2 + i*Dim + j so a random rank-4 tensor has a
+    // well-conditioned rank-4 inverse routed through tmech::invf
+    // (general anisotropic).
     for (std::size_t i = 0; i < Dim; ++i)
       for (std::size_t j = 0; j < Dim; ++j) {
         std::size_t flat = i * Dim * Dim * Dim + j * Dim * Dim + i * Dim + j;

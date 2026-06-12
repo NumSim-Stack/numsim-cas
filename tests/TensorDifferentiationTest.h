@@ -55,6 +55,57 @@ TEST_F(TensorDifferentiationTest, VariableSelf) {
       << "Expected identity_tensor, got: " << to_string(d);
 }
 
+// #299 leaf-rule branch lock-ins. For annotated rank-4 variables, the
+// leaf rule must return the projected rank-8 identity (P_minor4 or
+// P_minor_major4) instead of the unconstrained identity_tensor. The
+// existing rank-2 sym/skew/vol/dev branches at tensor_differentiation.h
+// have the same structure for their respective subspaces.
+TEST(TensorDiffLeafRule, Rank4MinorReturnsProjector) {
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_minor(C);
+  auto d = diff(C, C);
+  EXPECT_TRUE(is_same<tensor_projector>(d))
+      << "Expected tensor_projector (P_minor4) for diff(M_min, M_min); "
+         "got: "
+      << to_string(d);
+  EXPECT_EQ(d.get().rank(), 8u);
+  EXPECT_EQ(d.get().dim(), 3u);
+}
+
+TEST(TensorDiffLeafRule, Rank4MinorMajorReturnsProjector) {
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_minor_major(C);
+  auto d = diff(C, C);
+  EXPECT_TRUE(is_same<tensor_projector>(d))
+      << "Expected tensor_projector (P_minor_major4); got: " << to_string(d);
+  EXPECT_EQ(d.get().rank(), 8u);
+  EXPECT_EQ(d.get().dim(), 3u);
+}
+
+TEST(TensorDiffLeafRule, Rank4UnannotatedReturnsIdentityTensor) {
+  // Negative lock-in: without annotation, the leaf rule returns the
+  // unconstrained rank-8 identity (existing behavior).
+  auto C = make_expression<tensor>("C", 3, 4);
+  auto d = diff(C, C);
+  EXPECT_TRUE(is_same<identity_tensor>(d))
+      << "Expected identity_tensor for diff(unannotated C, C); got: "
+      << to_string(d);
+  EXPECT_EQ(d.get().rank(), 8u);
+}
+
+TEST(TensorDiffLeafRule, Rank4MajorOnlyThrows) {
+  // Pass-1 review HIGH: rank-4 Major-only annotation is the gap
+  // parity with #299. The tensor-arg inv-diff kernel doesn't have a
+  // Major branch either, so silently returning the unconstrained
+  // identity would re-introduce the orbit-stabilizer-factor mismatch
+  // for the Z_2 major group. Throw loudly until a P_major4 + kernel
+  // Major branch lands as a follow-up.
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_major(C);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto d = diff(C, C); }, not_implemented_error);
+}
+
 // d(Y)/d(X) = zero
 TEST_F(TensorDifferentiationTest, VariableOther) {
   auto d = diff(Y, X);

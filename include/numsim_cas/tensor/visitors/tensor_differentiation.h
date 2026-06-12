@@ -91,6 +91,44 @@ public:
             }
           }
         }
+      } else if (m_rank_arg == 4) {
+        // #299: for an annotated rank-4 variable C, diff(C, C) is the
+        // projected rank-8 identity on the (minor)-symmetric
+        // sub-manifold, NOT the unconstrained free identity. Without
+        // this branch, the rank-4 Minor/MinorMajor inv-diff kernels in
+        // tensor_differentiation.cpp would overcount by an orbit-
+        // stabilizer factor (errors at 3/4 / 7/8 in fuzz numerical FD
+        // comparison). tensor_space::perm is a variant holding exactly
+        // one alternative — check the stronger MinorMajor before the
+        // weaker Minor (order of these two doesn't matter for
+        // correctness given the variant invariant).
+        if (auto const &sp = m_arg.get().space()) {
+          if (std::holds_alternative<MinorMajor>(sp->perm)) {
+            m_result = P_minor_major4(m_arg.get().dim());
+            return;
+          }
+          if (std::holds_alternative<Minor>(sp->perm)) {
+            m_result = P_minor4(m_arg.get().dim());
+            return;
+          }
+          // Major-only rank-4 is the missing parity case. The
+          // tensor-arg rank-4 inv-diff kernel
+          // (tensor_differentiation.cpp:380-440) only branches on
+          // is_minor / is_minor_major; a Major-only input routes
+          // through the general Magnus path. If we silently fell
+          // through here to the unconstrained identity, the same
+          // orbit-stabilizer-factor mismatch #299 fixes would re-
+          // appear for the Z_2 major group. Throw loudly until either
+          // (a) a P_major4 + kernel Major branch lands, or (b) Major-
+          // only on rank-4 is rejected upstream at the wrapper.
+          if (std::holds_alternative<Major>(sp->perm)) {
+            throw not_implemented_error(
+                "tensor_differentiation: rank-4 Major-only inv-diff "
+                "not implemented (#299 follow-up). MinorMajor and "
+                "Minor are supported; Major-only would require a "
+                "P_major4 projector and matching kernel branch.");
+          }
+        }
       }
       m_result = make_expression<identity_tensor>(m_dim, m_rank_result);
     }

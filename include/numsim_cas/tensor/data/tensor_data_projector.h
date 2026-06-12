@@ -51,9 +51,73 @@ public:
         throw not_implemented_error(
             "tensor_data_projector: unsupported projector space");
       }
+    } else if constexpr (Rank == 8) {
+      // Rank-8 projectors (acting on rank-4 tensors) for #299. Used by
+      // the diff visitor's leaf rule for rank-4 annotated variables.
+      // Constructed component-wise as Reynolds projectors over the
+      // input-pair group (Z_2 × Z_2 for Minor, D_4 for MinorMajor) —
+      // see projection_tensor.h::P_minor4 / P_minor_major4 for the
+      // group definitions.
+      using Tensor = tensor_data<ValueType, Dim, Rank>;
+      auto &data = static_cast<Tensor &>(m_result).data();
+
+      if (std::holds_alternative<Minor>(m_space.perm) &&
+          std::holds_alternative<AnyTraceTag>(m_space.trace)) {
+        // P_minor_{ijkl,mnpq} = (1/4) Σ_σ δ_{i,σ(m)} δ_{j,σ(n)}
+        //                              δ_{k,σ(p)} δ_{l,σ(q)}
+        // where σ ∈ {id, swap(m,n), swap(p,q), swap both}.
+        for (std::size_t i = 0; i < Dim; ++i)
+          for (std::size_t j = 0; j < Dim; ++j)
+            for (std::size_t k = 0; k < Dim; ++k)
+              for (std::size_t l = 0; l < Dim; ++l)
+                for (std::size_t m = 0; m < Dim; ++m)
+                  for (std::size_t n = 0; n < Dim; ++n)
+                    for (std::size_t p = 0; p < Dim; ++p)
+                      for (std::size_t q = 0; q < Dim; ++q) {
+                        ValueType acc{};
+                        // id
+                        acc += (i == m) * (j == n) * (k == p) * (l == q);
+                        // swap (m,n)
+                        acc += (i == n) * (j == m) * (k == p) * (l == q);
+                        // swap (p,q)
+                        acc += (i == m) * (j == n) * (k == q) * (l == p);
+                        // swap both
+                        acc += (i == n) * (j == m) * (k == q) * (l == p);
+                        data(i, j, k, l, m, n, p, q) = ValueType{0.25} * acc;
+                      }
+      } else if (std::holds_alternative<MinorMajor>(m_space.perm) &&
+                 std::holds_alternative<AnyTraceTag>(m_space.trace)) {
+        // P_minor_major_{ijkl,mnpq} = (1/8) Σ_σ δ_{i,σ(m)} ... where σ
+        // ranges over the D_4 group (Minor's 4 + major-swap composed
+        // with each Minor element).
+        for (std::size_t i = 0; i < Dim; ++i)
+          for (std::size_t j = 0; j < Dim; ++j)
+            for (std::size_t k = 0; k < Dim; ++k)
+              for (std::size_t l = 0; l < Dim; ++l)
+                for (std::size_t m = 0; m < Dim; ++m)
+                  for (std::size_t n = 0; n < Dim; ++n)
+                    for (std::size_t p = 0; p < Dim; ++p)
+                      for (std::size_t q = 0; q < Dim; ++q) {
+                        ValueType acc{};
+                        // Minor's 4 elements
+                        acc += (i == m) * (j == n) * (k == p) * (l == q);
+                        acc += (i == n) * (j == m) * (k == p) * (l == q);
+                        acc += (i == m) * (j == n) * (k == q) * (l == p);
+                        acc += (i == n) * (j == m) * (k == q) * (l == p);
+                        // Major-swap composed with Minor's 4
+                        acc += (i == p) * (j == q) * (k == m) * (l == n);
+                        acc += (i == q) * (j == p) * (k == m) * (l == n);
+                        acc += (i == p) * (j == q) * (k == n) * (l == m);
+                        acc += (i == q) * (j == p) * (k == n) * (l == m);
+                        data(i, j, k, l, m, n, p, q) = ValueType{0.125} * acc;
+                      }
+      } else {
+        throw not_implemented_error(
+            "tensor_data_projector: unsupported rank-8 projector space");
+      }
     } else {
       throw not_implemented_error(
-          "tensor_data_projector: only rank-4 projectors supported");
+          "tensor_data_projector: only rank-4 and rank-8 projectors supported");
     }
   }
 
