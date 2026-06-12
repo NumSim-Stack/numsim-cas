@@ -287,16 +287,25 @@ public:
   }
 
   void operator()(tensor_inv const &v) override {
-    // Rank-2: tmech::inv. Rank-4 with Minor/MinorMajor annotation:
-    // tmech::inv (minor-symmetric default convention). Rank-4 with any
-    // other annotation (or no annotation): tmech::invf (fully
-    // anisotropic). See the factory in tensor_functions.h for the
-    // policy rationale (#248).
+    // Rank-2: tmech::inv. Rank-4: default to tmech::invf (fully
+    // anisotropic, 9D semantics) so the visitor's rank-4 inv-diff
+    // kernel — which builds the Magnus formula
+    // `-invM · dM · invM` via plain otimes / inner_product (9D
+    // semantics) — agrees with the evaluator. The previous policy
+    // routed Minor / MinorMajor through tmech::inv (Voigt-internal
+    // 6×6 inverse), and the resulting Voigt-vs-9D mismatch broke
+    // FD comparison on `permute_indices(inv(M_min), {3,1,2,4})`
+    // (seed-19): `(tmech::inv(M))_{ijmn} · M_{mnkl}` contracted as a
+    // plain 9D sum is NOT `sym_id_{ijkl} = (1/2)(δ_ik δ_jl
+    // + δ_il δ_jk)` (max_err ≈ 0.89 on a Minor-projected M).
+    //
+    // EXCEPTION: Major-only annotation still uses tmech::inv —
+    // documented carve-out per the upstream policy (the Major
+    // sub-group's kernel relies on this).
     if (v.rank() == 4) {
       auto const &sp = v.expr().get().space();
-      bool minor_sym = sp && (std::holds_alternative<Minor>(sp->perm) ||
-                              std::holds_alternative<MinorMajor>(sp->perm));
-      if (!minor_sym) {
+      bool major_only = sp && std::holds_alternative<Major>(sp->perm);
+      if (!major_only) {
         eval_unary_tmech<tmech_ops::invf>(v);
         return;
       }
