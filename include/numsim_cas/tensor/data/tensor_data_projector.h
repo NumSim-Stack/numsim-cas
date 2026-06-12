@@ -52,87 +52,72 @@ public:
             "tensor_data_projector: unsupported projector space");
       }
     } else if constexpr (Rank == 8) {
-      // Rank-8 projectors (acting on rank-4 tensors) for #299. Used by
-      // the diff visitor's leaf rule for rank-4 annotated variables.
-      // Constructed component-wise as Reynolds projectors over the
-      // input-pair group (Z_2 × Z_2 for Minor, D_4 for MinorMajor) —
-      // see projection_tensor.h::P_minor4 / P_minor_major4 for the
-      // group definitions.
+      // Rank-8 projectors (acting on rank-4 tensors) for #299 + Major
+      // follow-up. Used by the diff visitor's leaf rule for rank-4
+      // annotated variables.
+      //
+      // Constructed via tmech::otimes + basis_change rather than
+      // raw 8-nested loops. The building block is a rank-4 tensor
+      // (P_sym_r4 or I4_uu) that's outer-producted to rank-8 and
+      // then permuted so the four δ-pairs land at the desired
+      // positions. Conventions:
+      //   - Minor:      4-term Z_2×Z_2 symmetrizer over (m,n) and
+      //                 (p,q) input swaps, pair structure
+      //                 (1,5)(2,6)(3,7)(4,8).
+      //   - MinorMajor: P_minor plus its major-swap (input pair
+      //                 (m,n)↔(p,q), positions (5,6)↔(7,8)). 8-term
+      //                 D_4 symmetrizer.
+      //   - Major:      2-element D_2 group with the major-pair swap
+      //                 only — no minor symmetrization.
+      //
+      // tmech basis_change<seq<p_1,…,p_N>>(T)[k_1,…,k_N]
+      // = T[k_{p_1},…,k_{p_N}] (1-based) — see tmech_utility.h's
+      // tuple_call. The same kernel structure is exercised by
+      // TensorDiffRank4Inv lock-ins and the FuzzyTensorDiffTest
+      // symmetry-projecting FD path.
       using Tensor = tensor_data<ValueType, Dim, Rank>;
       auto &data = static_cast<Tensor &>(m_result).data();
+      auto I2 = tmech::eye<ValueType, Dim, 2>();
+      // P_sym_r4_{abcd} = (1/2)(δ_ac δ_bd + δ_ad δ_bc) — rank-4 minor-
+      // symmetric identity; building block for Minor / MinorMajor.
+      auto P_sym_r4 =
+          ValueType{0.5} * (tmech::otimesu(I2, I2) + tmech::otimesl(I2, I2));
+      // I4_uu_{abcd} = δ_ac δ_bd — rank-4 minor identity without
+      // second-pair symmetrization; building block for Major.
+      auto I4_uu = tmech::otimesu(I2, I2);
 
       if (std::holds_alternative<Minor>(m_space.perm) &&
           std::holds_alternative<AnyTraceTag>(m_space.trace)) {
-        // P_minor_{ijkl,mnpq} = (1/4) Σ_σ δ_{i,σ(m)} δ_{j,σ(n)}
-        //                              δ_{k,σ(p)} δ_{l,σ(q)}
-        // where σ ∈ {id, swap(m,n), swap(p,q), swap both}.
-        for (std::size_t i = 0; i < Dim; ++i)
-          for (std::size_t j = 0; j < Dim; ++j)
-            for (std::size_t k = 0; k < Dim; ++k)
-              for (std::size_t l = 0; l < Dim; ++l)
-                for (std::size_t m = 0; m < Dim; ++m)
-                  for (std::size_t n = 0; n < Dim; ++n)
-                    for (std::size_t p = 0; p < Dim; ++p)
-                      for (std::size_t q = 0; q < Dim; ++q) {
-                        ValueType acc{};
-                        // id
-                        acc += (i == m) * (j == n) * (k == p) * (l == q);
-                        // swap (m,n)
-                        acc += (i == n) * (j == m) * (k == p) * (l == q);
-                        // swap (p,q)
-                        acc += (i == m) * (j == n) * (k == q) * (l == p);
-                        // swap both
-                        acc += (i == n) * (j == m) * (k == q) * (l == p);
-                        data(i, j, k, l, m, n, p, q) = ValueType{0.25} * acc;
-                      }
+        // P_minor = basis_change(otimes(P_sym_r4, P_sym_r4)) ∈ R^{rank-8}.
+        // Natural pair structure (1,3)(2,4) and (5,7)(6,8); permute to
+        // (1,5)(2,6)(3,7)(4,8). Expands to
+        // (1/4)(δ_im δ_jn + δ_in δ_jm)(δ_kp δ_lq + δ_kq δ_lp).
+        data = tmech::basis_change<tmech::sequence<1, 2, 5, 6, 3, 4, 7, 8>>(
+            tmech::otimes(P_sym_r4, P_sym_r4));
       } else if (std::holds_alternative<MinorMajor>(m_space.perm) &&
                  std::holds_alternative<AnyTraceTag>(m_space.trace)) {
-        // P_minor_major_{ijkl,mnpq} = (1/8) Σ_σ δ_{i,σ(m)} ... where σ
-        // ranges over the D_4 group (Minor's 4 + major-swap composed
-        // with each Minor element).
-        for (std::size_t i = 0; i < Dim; ++i)
-          for (std::size_t j = 0; j < Dim; ++j)
-            for (std::size_t k = 0; k < Dim; ++k)
-              for (std::size_t l = 0; l < Dim; ++l)
-                for (std::size_t m = 0; m < Dim; ++m)
-                  for (std::size_t n = 0; n < Dim; ++n)
-                    for (std::size_t p = 0; p < Dim; ++p)
-                      for (std::size_t q = 0; q < Dim; ++q) {
-                        ValueType acc{};
-                        // Minor's 4 elements
-                        acc += (i == m) * (j == n) * (k == p) * (l == q);
-                        acc += (i == n) * (j == m) * (k == p) * (l == q);
-                        acc += (i == m) * (j == n) * (k == q) * (l == p);
-                        acc += (i == n) * (j == m) * (k == q) * (l == p);
-                        // Major-swap composed with Minor's 4
-                        acc += (i == p) * (j == q) * (k == m) * (l == n);
-                        acc += (i == q) * (j == p) * (k == m) * (l == n);
-                        acc += (i == p) * (j == q) * (k == n) * (l == m);
-                        acc += (i == q) * (j == p) * (k == n) * (l == m);
-                        data(i, j, k, l, m, n, p, q) = ValueType{0.125} * acc;
-                      }
+        // P_mm = (1/2)(P_minor + σ_major(P_minor)) where σ_major swaps
+        // input positions (5,6) ↔ (7,8) — i.e. the (m,n) ↔ (p,q)
+        // major-pair swap. The 4 Minor terms × 2 = 8-term D_4 sum.
+        auto P_minor =
+            tmech::basis_change<tmech::sequence<1, 2, 5, 6, 3, 4, 7, 8>>(
+                tmech::otimes(P_sym_r4, P_sym_r4));
+        data = ValueType{0.5} *
+               (P_minor +
+                tmech::basis_change<tmech::sequence<1, 2, 3, 4, 7, 8, 5, 6>>(
+                    P_minor));
       } else if (std::holds_alternative<Major>(m_space.perm) &&
                  std::holds_alternative<AnyTraceTag>(m_space.trace)) {
-        // P_major_{ijkl,mnpq} = (1/2)(δ_{im}δ_{jn}δ_{kp}δ_{lq}
-        //                            + δ_{ip}δ_{jq}δ_{km}δ_{ln})
-        // Z_2 Reynolds projector over the major-pair swap (i,j) ↔ (k,l).
-        // Used by the diff-visitor leaf rule for Major-annotated rank-4
-        // variables (#299 follow-up). Symmetric on its input-pair index
-        // structure but does NOT enforce minor-symmetry on the output
-        // pairs.
-        for (std::size_t i = 0; i < Dim; ++i)
-          for (std::size_t j = 0; j < Dim; ++j)
-            for (std::size_t k = 0; k < Dim; ++k)
-              for (std::size_t l = 0; l < Dim; ++l)
-                for (std::size_t m = 0; m < Dim; ++m)
-                  for (std::size_t n = 0; n < Dim; ++n)
-                    for (std::size_t p = 0; p < Dim; ++p)
-                      for (std::size_t q = 0; q < Dim; ++q) {
-                        ValueType acc{};
-                        acc += (i == m) * (j == n) * (k == p) * (l == q);
-                        acc += (i == p) * (j == q) * (k == m) * (l == n);
-                        data(i, j, k, l, m, n, p, q) = ValueType{0.5} * acc;
-                      }
+        // P_major = (1/2)(T_id + T_major_swap) where each Tᵢ is a
+        // basis_change of otimes(I4_uu, I4_uu) — no minor
+        // symmetrization. Equals
+        // (1/2)(δ_im δ_jn δ_kp δ_lq + δ_ip δ_jq δ_km δ_ln).
+        auto natural = tmech::otimes(I4_uu, I4_uu);
+        data = ValueType{0.5} *
+               (tmech::basis_change<tmech::sequence<1, 2, 5, 6, 3, 4, 7, 8>>(
+                    natural) +
+                tmech::basis_change<tmech::sequence<1, 2, 7, 8, 3, 4, 5, 6>>(
+                    natural));
       } else {
         throw not_implemented_error(
             "tensor_data_projector: unsupported rank-8 projector space");
