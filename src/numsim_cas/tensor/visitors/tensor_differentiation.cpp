@@ -407,8 +407,7 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
     const bool major_only = !minor && is_major(A);
 
     if (major_only) {
-      auto T_M =
-          otimes(invA, sequence{1, 2, 7, 8}, invA, sequence{5, 6, 3, 4});
+      auto T_M = otimes(invA, sequence{1, 2, 7, 8}, invA, sequence{5, 6, 3, 4});
       // Same magic-static rationale as the rank-2 `half` constant and
       // the rank-4 `fourth` / `eighth` constants below.
       static auto const half =
