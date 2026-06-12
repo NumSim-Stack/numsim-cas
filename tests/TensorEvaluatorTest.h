@@ -528,8 +528,14 @@ TEST(TensorEval, Rank4InvDispatchRoutesToInvfExceptMajor) {
   auto C_tmech =
       tmech::eval(2.0 * tmech::otimes(I2, I2) + 1.0 * tmech::otimesu(I2, I2));
 
-  auto inv_data = tmech::eval(tmech::inv(C_tmech));
-  auto invf_data = tmech::eval(tmech::invf(C_tmech));
+  // Materialize to concrete tensors so they share a common type and
+  // can be used in a ternary inside the parametric check lambda. Bare
+  // `tmech::eval(tmech::inv(...))` returns an expression-template
+  // wrapper whose template arguments differ from
+  // `tmech::eval(tmech::invf(...))`, which breaks the `?:` operand-
+  // type unification (CI: build failure across gcc / clang / msvc).
+  tmech::tensor<double, 3, 4> inv_data = tmech::inv(C_tmech);
+  tmech::tensor<double, 3, 4> invf_data = tmech::invf(C_tmech);
   // Sanity: tmech::inv and tmech::invf disagree on this input so the
   // assertions below are discriminating.
   EXPECT_FALSE(tmech::almost_equal(inv_data, invf_data, 1e-10))
@@ -546,8 +552,10 @@ TEST(TensorEval, Rank4InvDispatchRoutesToInvfExceptMajor) {
     ev.set(C, std::static_pointer_cast<tensor_data_base<double>>(C_data));
     auto result = ev.apply(inv(C));
     ASSERT_NE(result, nullptr);
-    auto const &expected = expect_invf ? invf_data : inv_data;
-    auto const &not_expected = expect_invf ? inv_data : invf_data;
+    tmech::tensor<double, 3, 4> const &expected =
+        expect_invf ? invf_data : inv_data;
+    tmech::tensor<double, 3, 4> const &not_expected =
+        expect_invf ? inv_data : invf_data;
     EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), expected, 1e-10))
         << annotation_name << "-annotated rank-4 routed to wrong inv";
     EXPECT_FALSE(

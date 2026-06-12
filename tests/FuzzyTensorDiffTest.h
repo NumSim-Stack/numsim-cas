@@ -296,10 +296,8 @@ private:
       m_vars.push_back(
           {std::move(name), 4, expr, make_minor_major4_projection()});
     };
-    // `add_var_major4` deferred — see the rationale comment after the
-    // `add_var_minor_major4("M_mm")` call below for why
-    // `make_major4_projection()` (defined above) is not yet wired up
-    // through a leaf entry.
+    // `add_var_major4` deferred — see the comment after
+    // `add_var_minor_major4("M_mm")` below.
 
     add_var("a", 1);
     add_var("b", 1);
@@ -315,21 +313,18 @@ private:
     // the unconstrained one.
     add_var_minor4("M_min");
     add_var_minor_major4("M_mm");
-    // Major-only (Z_2) rank-4 fuzz coverage intentionally NOT added
-    // yet. Adding `M_maj` to the pool shifts the random-leaf
-    // distribution and surfaces a pre-existing rank-2 inv FD
-    // conditioning issue (seeds that previously hit well-conditioned
-    // 3×3 matrices now hit near-singular ones, FD rel_err → 1). The
-    // kernel correctness is locked in at the unit-test level by
-    // `MajorOnlyPathProducesValidResult` and
-    // `AnnotationDispatchProducesDistinctResults` in
-    // TensorDifferentiationTest.h — those cover the structural shape
-    // and hash distinctness against the general / Minor / MinorMajor
-    // paths. Re-introduce `add_var_major4("M_maj")` once rank-2 inv
-    // gets the same diagonal-boost conditioning that rank-4 got in
-    // #298. See `make_major4_projection()` above — kept here, ready to
-    // wire up when conditioning lands. Tracked as part of the rank-2
-    // fuzz conditioning follow-up.
+    // Major-only (Z_2) rank-4 fuzz coverage deferred: the rank-4 inv
+    // evaluator routes Major-only inputs to `tmech::inv` (Voigt-
+    // internal 6×6) per the documented carve-out, but the visitor's
+    // Major-only kernel — built in 9D otimes / inner_product — has
+    // the same Voigt-vs-9D mismatch that Minor / MinorMajor used to
+    // have before the invf realignment (rel_err ≈ 0.21 on a depth-4
+    // composite). Re-enable `add_var_major4("M_maj")` (and
+    // `make_major4_projection` / `add_var_major4` lambdas above)
+    // once the Major dispatch / kernel disagreement is resolved.
+    // Kernel correctness for Major-only is locked in structurally by
+    // `MajorOnlyPathProducesValidResult` and the four-way hash-
+    // distinctness in `AnnotationDispatchProducesDistinctResults`.
   }
 
   void register_default_ops() {
