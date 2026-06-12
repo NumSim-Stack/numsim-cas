@@ -736,14 +736,41 @@ namespace {
 class FuzzyTensorDiffTest : public ::testing::TestWithParam<unsigned> {};
 
 inline bool is_flaky_tensor_seed(unsigned seed) {
-  // Seed 19 (Depth3): `permute_indices(inv(M_min), {3, 1, 2, 4})` —
-  // chain rule through permute_indices wrapping inv-of-Minor produces
-  // rel_err ≈ 1 between symbolic and FD. Confirmed not a conditioning
-  // issue (rel_err survives a 100× diagonal boost; max_err scales but
-  // rel_err stays ~1). Pre-existing on main, surfaced after #298
-  // strengthened the rank-4 fuzz path. Tracked as a separate
-  // chain-rule audit follow-up. Skipping here unblocks CI while
-  // keeping all other seed coverage live.
+  // Seed 19 (Depth3): `permute_indices(inv(M_min), {3, 1, 2, 4})`
+  // exposes a pre-existing Voigt/9D semantic mismatch between
+  // `tmech::inv` (used by the rank-4 inv evaluator,
+  // tensor_data_unary_wrapper.h:250) and the visitor's Minor inv-diff
+  // kernel (tensor_differentiation.cpp:413–426).
+  //
+  // Root cause confirmed numerically (see the diagnostic that
+  // generated this comment): for Minor-symmetric M,
+  // `(tmech::inv(M))_{ijmn} · M_{mnkl}` contracted as a plain 9D
+  // sum is NOT `sym_id_{ijkl} = (1/2)(δ_ik δ_jl + δ_il δ_jk)`
+  // (`max_err ≈ 0.89` on a 3D test case). tmech's Minor inverse is
+  // Voigt-internal (6×6 with sqrt(2) scaling on off-diagonal pairs),
+  // so the documented identity `A^{-1} · A = sym_id` holds only when
+  // the contraction is Voigt-aware. The visitor's kernel builds the
+  // 9D Magnus formula `-invM · dM · invM` using plain otimes /
+  // inner_product. For Minor M the symbolic kernel evaluates to the
+  // closed-form 9D Magnus value, while the FD measures tmech::inv's
+  // actual response — Voigt-scaled — and the two disagree by a
+  // pair-Voigt factor (~0.6 for double-off-diagonal entries; exact
+  // on diagonal-only entries, hence (0,0,0,0,0,0,0,0) matches).
+  //
+  // Fix surface is non-trivial:
+  //   - Switch rank-4 inv to `tmech::invf` (full anisotropic) so the
+  //     9D Magnus formula is valid — but this changes the meaning of
+  //     `inv(C)` for the canonical elasticity-tangent case and likely
+  //     breaks downstream evaluation.
+  //   - OR rewrite the Minor / MinorMajor inv-diff kernels to use
+  //     Voigt-aware contractions matching tmech::inv's internal
+  //     convention.
+  // Independent of the Major-only contribution in this PR (which
+  // builds its 2-term symmetrizer over the same kernel base and
+  // inherits the same caveat, but its Z_2 symmetrization is locked
+  // in by `MajorOnlyPathProducesValidResult` /
+  // `AnnotationDispatchProducesDistinctResults` at the AST level).
+  // Tracked as a separate inv-evaluator follow-up.
   return seed == 19u;
 }
 
