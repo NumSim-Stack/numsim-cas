@@ -258,9 +258,10 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
   m_result = std::move(sum);
 }
 
-// tensor_inv: d(A^{-1})/dX = -T : dA/dX, with rank-4 kernel T chosen by the
-// input's algebraic class:
+// tensor_inv: d(A^{-1})/dX = -T : dA/dX, with kernel T chosen by the
+// input's rank AND its algebraic class. Six dispatch paths (#250):
 //
+// === Rank 2 ===
 //   - General (no Sym/Skew annotation):
 //       T_{ijmn} = A^{-1}_{im} * A^{-1}_{nj}                  (Magnus)
 //   - Symmetric (A = A^T):
@@ -271,22 +272,35 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
 //       T_{ijmn} = (1/2)(A^{-1}_{im} A^{-1}_{nj}
 //                      - A^{-1}_{in} A^{-1}_{mj})             (minor-antisym)
 //
-// The Sym/Skew kernels are NOT a contraction trick over Magnus — they are
-// the unique correct derivatives on the symmetric / skew sub-manifold (the
-// Magnus formula's projection onto the (m,n)-minor-(anti)symmetric
-// subspace). For a symmetric A, the Magnus kernel and the sym kernel happen
-// to contract to the same value when dA is also symmetric (swap-index
-// proof), so callers who feed sym dA in won't observe a numerical
-// difference — but the AST is now structurally honest, and callers who
-// pass an un-symmetrized dA against a symmetric input get the
-// mathematically correct answer instead of silently-wrong.
+// === Rank 4 (#250 rank-4) ===
+//   - General (no Minor/MinorMajor annotation):
+//       T_{ijkl,mnpq} = A^{-1}_{ijmn} · A^{-1}_{pqkl}         (Magnus)
+//   - Minor symmetry on the rank-4 differentiation pair (C_{ijkl} =
+//     C_{jikl} = C_{ijlk}): symmetrize T over the 4-element group
+//     {id, swap(m,n), swap(p,q), swap both} → 1/4 prefactor.
+//   - MinorMajor symmetry (Minor + major-pair swap (mn ↔ pq)):
+//     symmetrize over the 8-element group → 1/8 prefactor. Canonical
+//     case in continuum-mechanics elasticity tangents.
 //
-// Dispatch goes through is_symmetric() / is_skew() (tensor_assume.h), not
-// raw holds_alternative on perm. This picks up the PD/PSD ⇒ symmetric
-// implication from the algebra-assumption manager, including the case
-// where space() is cleared but the algebra tag remains. Vol/Dev inputs
-// route through the sym branch too (their space()->perm is Symmetric{}).
-// Closes the rank-2 portion of #250 (#246 β-1).
+// The Sym/Skew kernels (rank 2) and Minor/MinorMajor kernels (rank 4)
+// are NOT contraction tricks over Magnus — they are the unique correct
+// derivatives on the symmetric / skew sub-manifold (the Magnus
+// formula's projection onto the constrained subspace). For a symmetric
+// A, the Magnus kernel and the sym kernel happen to contract to the
+// same value when dA is also symmetric (swap-index proof), so callers
+// who feed sym dA in won't observe a numerical difference — but the
+// AST is now structurally honest, and callers who pass an un-symmetrized
+// dA against a symmetric input get the mathematically correct answer
+// instead of silently-wrong. Same property holds for rank-4 minor /
+// minor-major dispatch.
+//
+// Dispatch goes through is_symmetric() / is_skew() / is_minor() /
+// is_minor_major() (tensor_assume.h), not raw holds_alternative on
+// perm. This picks up the PD/PSD ⇒ symmetric implication from the
+// algebra-assumption manager (rank-2), including the case where
+// space() is cleared but the algebra tag remains. Vol/Dev inputs route
+// through the sym branch too (their space()->perm is Symmetric{}).
+// Closes #250.
 void tensor_differentiation::operator()(tensor_inv const &visitable) {
   auto const &A = visitable.expr();
   auto dA = diff(A, m_arg);
@@ -330,23 +344,111 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
       //
       // PEER-SITE NOTE: scalar_constant(scalar_number{1, 2}) is also
       // inlined per-call at scalar_simplifier_pow.cpp:95, scalar_std.h:
-      // 208 and :233. Those sites are construction-time and not on a
-      // hot path; the diff visitor IS called per tensor_inv per
-      // derivative, hence the local static here. DO NOT unify the four
-      // sites into a `get_scalar_half()` in scalar_globals.h — the
-      // existing get_scalar_zero / get_scalar_one return dedicated
-      // SINGLETON NODE TYPES (scalar_zero / scalar_one), not constants;
-      // promoting a rational-constant to the same API is a category
-      // mismatch (intentionally rolled back in commit ad4d824).
+      // 208 and :233. Sibling 1/4 and 1/8 magic-statics live in the
+      // rank-4 branch below (for the Minor and MinorMajor symmetrizer
+      // prefactors). All these sites are construction-time and not on
+      // a hot path; the diff visitor IS called per tensor_inv per
+      // derivative, hence the local statics here. DO NOT unify the
+      // sites into a `get_scalar_half()` (or `_fourth` / `_eighth`) in
+      // scalar_globals.h — the existing get_scalar_zero /
+      // get_scalar_one return dedicated SINGLETON NODE TYPES
+      // (scalar_zero / scalar_one), not constants; promoting a
+      // rational-constant to the same API is a category mismatch
+      // (intentionally rolled back in commit ad4d824).
       static auto const half =
           make_expression<scalar_constant>(scalar_number{1, 2});
       T = (sign > 0 ? T + T_swap : T - T_swap) * half;
     }
     m_result = -inner_product(T, sequence{3, 4}, dA, sequence{1, 2});
+  } else if (A.get().rank() == 4) {
+    // Rank-4 inv-diff. Output index convention (positions 1..8) =
+    // (i, j, k, l, m, n, p, q) where (i,j,k,l) are the free indices of
+    // A^{-1} and (m,n,p,q) are the indices that pair with dA's
+    // A-indices for the chain-rule contraction.
+    //
+    // General (Magnus) kernel from #250:
+    //   T_{ijkl,mnpq} = invA_{ijmn} · invA_{pqkl}
+    // built via otimes with first invA at output positions (1,2,5,6)
+    // and second invA at output positions (7,8,3,4).
+    //
+    // Annotation-dependent symmetrizers (analogous to rank-2 sym/skew):
+    //   - is_minor(A):       symmetrize over the 4-element group
+    //                        {id, swap(m,n), swap(p,q), swap both} → 1/4
+    //   - is_minor_major(A): symmetrize over the 8-element group
+    //                        Minor ∪ (Minor ∘ major-swap(mn↔pq)) → 1/8
+    //   - else:              general Magnus, no symmetrization
+    //
+    // A^{-1}'s output free indices (i,j,k,l) inherit MinorMajor symmetry
+    // automatically from A's annotation (the tensor_inv wrapper
+    // propagates Minor/MinorMajor to the result), so S_out is implicit
+    // and we only need to explicitly apply S_in to the (m,n,p,q) side.
+    // See #250's "Compact form via the projector framework".
+    auto T = otimes(invA, sequence{1, 2, 5, 6}, invA, sequence{7, 8, 3, 4});
+
+    // Dispatch on annotation. `is_minor_major` implies `is_minor`
+    // algebraically (MinorMajor ⊃ Minor), but `is_minor()` checks the
+    // perm tag for `Minor` specifically — not `MinorMajor`. Keep the
+    // explicit OR so dispatch survives a future predicate refactor
+    // (e.g. if `is_minor` becomes "exactly Minor"). Same defensive
+    // pattern as the rank-2 sign dispatch above.
+    const bool minor = is_minor(A) || is_minor_major(A);
+    const bool major = is_minor_major(A);
+
+    if (minor) {
+      auto T_swap_mn =
+          otimes(invA, sequence{1, 2, 6, 5}, invA, sequence{7, 8, 3, 4});
+      auto T_swap_pq =
+          otimes(invA, sequence{1, 2, 5, 6}, invA, sequence{8, 7, 3, 4});
+      auto T_swap_both =
+          otimes(invA, sequence{1, 2, 6, 5}, invA, sequence{8, 7, 3, 4});
+
+      if (major) {
+        // Major-swap variants: swap (m,n) ↔ (p,q) in the parameterization.
+        // Pattern: first invA gets (p,q) at its trailing pair, second
+        // invA gets (m,n) at its leading pair.
+        auto T_M =
+            otimes(invA, sequence{1, 2, 7, 8}, invA, sequence{5, 6, 3, 4});
+        auto T_M_mn =
+            otimes(invA, sequence{1, 2, 7, 8}, invA, sequence{6, 5, 3, 4});
+        auto T_M_pq =
+            otimes(invA, sequence{1, 2, 8, 7}, invA, sequence{5, 6, 3, 4});
+        auto T_M_both =
+            otimes(invA, sequence{1, 2, 8, 7}, invA, sequence{6, 5, 3, 4});
+        // Same magic-static rationale as the rank-2 `half` constant above.
+        static auto const eighth =
+            make_expression<scalar_constant>(scalar_number{1, 8});
+        T = (T + T_swap_mn + T_swap_pq + T_swap_both + T_M + T_M_mn + T_M_pq +
+             T_M_both) *
+            eighth;
+      } else {
+        static auto const fourth =
+            make_expression<scalar_constant>(scalar_number{1, 4});
+        T = (T + T_swap_mn + T_swap_pq + T_swap_both) * fourth;
+      }
+    }
+
+    // Contract T's positions (5,6,7,8) = (m,n,p,q) with dA's A-indices
+    // (positions 1..4). dA has rank 4 + rank(m_arg); the result's free
+    // rank is 4 + rank(m_arg). Concretely:
+    //   X rank-2 → dA rank-6 → result rank-6
+    //   X rank-4 → dA rank-8 → result rank-8
+    m_result =
+        -inner_product(T, sequence{5, 6, 7, 8}, dA, sequence{1, 2, 3, 4});
   } else {
+    // Wrapper ctor (#292) gates rank ∈ {2, 4}; this branch is
+    // structurally unreachable for tensor_inv constructed via the
+    // factory or make_expression. Kept as a defensive guard.
+    //
+    // Policy split with the scalar-arg sibling (#287): that visitor at
+    // tensor_differentiation_wrt_scalar.cpp uses `std::unreachable()`
+    // for the same condition. Here we throw because the diagnostic
+    // value at the runtime boundary (clear Release error vs UB) is
+    // worth the redundancy; the scalar-arg path inherits the rank-2
+    // sym/skew structure and has a single explicit if/else if/else.
     throw not_implemented_error(
-        "tensor_differentiation: inv derivative for rank != 2 not "
-        "implemented (rank-4 minor-major case tracked under #251 β-2)");
+        "tensor_differentiation: inv derivative for rank != 2 and != 4 "
+        "is impossible — tensor_inv wrapper rejects other ranks at "
+        "construction (#292)");
   }
 }
 

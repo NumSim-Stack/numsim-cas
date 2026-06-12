@@ -227,8 +227,16 @@ private:
     add_var("C", 2);
     add_var("D", 2);
     add_var("E", 3);
-    add_var("F", 4);
+    add_var("F", 4); // unannotated → general / Magnus rank-4 inv-diff (#250).
     add_var("G", 2);
+    // Minor / MinorMajor annotated rank-4 variables intentionally not
+    // added: their inv-diff kernels are the projections of Magnus onto
+    // the (minor)-symmetric sub-manifold. To numerically verify those
+    // paths, the FD closure at tensor_verify_impl would need to project
+    // perturbations to the same sub-manifold (cf. TensorInvDiffSymTest.h
+    // for the rank-2 sym pattern that does this). Without that
+    // projection, arbitrary FD perturbations break the symmetry and
+    // the comparison would spuriously fail. Tracked as a follow-up.
   }
 
   void register_default_ops() {
@@ -383,14 +391,31 @@ private:
                  [](FuzzyTensorMachine &m,
                     std::size_t depth) -> std::optional<TensorExprInfo> {
                    auto sub = m.generate(depth - 1);
-                   if (sub.rank != 2)
+                   // Rank-2 and rank-4 only (#192 / #248). Rank-4 exercises
+                   // the rank-4 Magnus path added in #250.
+                   if (sub.rank != 2 && sub.rank != 4)
+                     return std::nullopt;
+                   // Rank-4 conditioning: the random fill in fill_random
+                   // adds a diagonal boost specifically for rank-4 leaves
+                   // so the minor-identity contraction is well-conditioned.
+                   // But composite rank-4 expressions (e.g.
+                   // `outer(D, C)` where D, C are rank-2) are
+                   // rank-deficient as 9×9 matrices regardless of the
+                   // leaves' conditioning — `outer(X, Y)` has matrix-rank
+                   // 1 — so `inv(outer(X, Y))` produces singular Magnus
+                   // kernels and FD blows up (max_err ~ 1e25). Restrict
+                   // rank-4 inv to leaf inputs so the diagonal boost is
+                   // load-bearing. Rank-2 stays unrestricted (the
+                   // existing rank-2 path is robust against composite
+                   // inputs).
+                   if (sub.rank == 4 && !is_same<tensor>(sub.expr))
                      return std::nullopt;
                    // inv() throws invalid_expression_error for skew-symmetric
                    // operands in odd dimensions; let the library decide and
                    // skip the seed when it rejects.
                    try {
                      auto expr = inv(sub.expr);
-                     return TensorExprInfo{expr, 2, sub.used_vars};
+                     return TensorExprInfo{expr, sub.rank, sub.used_vars};
                    } catch (invalid_expression_error const &) {
                      return std::nullopt;
                    }

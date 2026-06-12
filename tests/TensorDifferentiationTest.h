@@ -606,23 +606,115 @@ TEST_F(TensorDifferentiationTest, AuditTensorToScalarWithTensorMulCovered) {
       << "Second-order differentiation produced invalid result";
 }
 
-// #248: rank-4 inv() construction is now supported, but differentiation
-// of a rank-4 inv is NOT yet wired. The visitor throws
-// not_implemented_error with a clear message. Lock that contract in so
-// users hit a definite error rather than getting silent garbage if they
-// try to compose `diff(inv(rank4), ...)`.
-TEST(TensorDiffRank4InvNotImplemented, ThrowsWithClearMessage) {
+// #250 rank-4: diff(inv(rank-4), tensor) is now implemented for all
+// three annotation paths (general, Minor, MinorMajor). Lock in that the
+// previously-throwing case now produces a valid AST with the right
+// shape. The pre-#250 contract was a not_implemented_error throw; the
+// new contract is the Magnus / Minor-symmetrized / MinorMajor-symmetrized
+// kernel from #250. See TensorInvDiffSymTest.h for the rank-2 sym/skew
+// sibling tests and TensorInvDiffRank4Test.h for the rank-4 lock-ins.
+TEST(TensorDiffRank4Inv, MinorMajorPathProducesValidResult) {
   auto C = make_expression<tensor>("C", 3, 4);
   assume_minor_major(C);
   auto X = make_expression<tensor>("X", 3, 2);
   auto invC = inv(C);
-  try {
-    [[maybe_unused]] auto r = diff(invC, X);
-    FAIL() << "Expected diff(inv(rank-4), ...) to throw not_implemented_error";
-  } catch (not_implemented_error const &e) {
-    EXPECT_NE(std::string(e.what()).find("rank"), std::string::npos)
-        << "error message should mention rank; got: " << e.what();
-  }
+  expression_holder<tensor_expression> d;
+  ASSERT_NO_THROW(d = diff(invC, X));
+  EXPECT_TRUE(d.is_valid());
+  // dC^{-1}/dX has rank 4 (inv free indices) + 2 (X) = 6.
+  EXPECT_EQ(d.get().rank(), 6u);
+  EXPECT_EQ(d.get().dim(), 3u);
+}
+
+// #250 rank-4 general (Magnus, no annotation) path.
+// Same shape as the MinorMajor case but uses the unsymmetrized
+// Magnus kernel T_{ijkl,mnpq} = invA_{ijmn} · invA_{pqkl}.
+TEST(TensorDiffRank4Inv, GeneralPathProducesValidResult) {
+  auto C = make_expression<tensor>("C", 3, 4);
+  // No annotation — general anisotropic. Routes through Magnus.
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto invC = inv(C);
+  expression_holder<tensor_expression> d;
+  ASSERT_NO_THROW(d = diff(invC, X));
+  EXPECT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), 6u);
+  EXPECT_EQ(d.get().dim(), 3u);
+}
+
+// #250 rank-4 Minor (minor symmetry only, no major) path.
+// Symmetrizes T over the 4-element group {id, swap(m,n), swap(p,q),
+// swap both} → 1/4 prefactor.
+TEST(TensorDiffRank4Inv, MinorPathProducesValidResult) {
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_minor(C);
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto invC = inv(C);
+  expression_holder<tensor_expression> d;
+  ASSERT_NO_THROW(d = diff(invC, X));
+  EXPECT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), 6u);
+  EXPECT_EQ(d.get().dim(), 3u);
+}
+
+// #250 dispatch distinction lock-in: the three rank-4 paths
+// (general, Minor, MinorMajor) produce STRUCTURALLY DIFFERENT ASTs.
+// Each has a different number of kernel terms:
+//   - general:    1 outer-product term (Magnus).
+//   - Minor:      4 terms (minor symmetrizer × 1/4).
+//   - MinorMajor: 8 terms (Minor + major-pair-swap × 1/8).
+// If a future regression collapses two paths into one, hash equality
+// catches it. This is the strongest evidence that the annotation
+// dispatch is actually wired correctly and not silently no-op.
+//
+// Uses self-diff `diff(inv(C), C)` so dA = d(C)/d(C) is the rank-8
+// minor identity (non-zero), which exercises the visitor's kernel
+// construction rather than hitting the early-return on zero dA. The
+// result is rank-8 (4 inv-free + 4 diff-arg-free indices).
+TEST(TensorDiffRank4Inv, AnnotationDispatchProducesDistinctResults) {
+  auto C_gen = make_expression<tensor>("C", 3, 4);
+  auto C_min = make_expression<tensor>("C", 3, 4);
+  assume_minor(C_min);
+  auto C_mm = make_expression<tensor>("C", 3, 4);
+  assume_minor_major(C_mm);
+
+  auto d_gen = diff(inv(C_gen), C_gen);
+  auto d_min = diff(inv(C_min), C_min);
+  auto d_mm = diff(inv(C_mm), C_mm);
+
+  ASSERT_TRUE(d_gen.is_valid());
+  ASSERT_TRUE(d_min.is_valid());
+  ASSERT_TRUE(d_mm.is_valid());
+  ASSERT_FALSE(is_same<tensor_zero>(d_gen));
+  ASSERT_FALSE(is_same<tensor_zero>(d_min));
+  ASSERT_FALSE(is_same<tensor_zero>(d_mm));
+  // All three are rank-8 (4 inv-free + 4 diff-arg-free indices). If a
+  // future regression drops the symmetrization to a lower-rank kernel,
+  // this catches the structural shape change before the hash check.
+  EXPECT_EQ(d_gen.get().rank(), 8u);
+  EXPECT_EQ(d_min.get().rank(), 8u);
+  EXPECT_EQ(d_mm.get().rank(), 8u);
+  // Predicate tripwire (pass-2 review): the visitor's dispatch uses
+  // `is_minor(A) || is_minor_major(A)` because `is_minor()` checks the
+  // perm tag for `Minor` specifically — not `MinorMajor`. If a future
+  // refactor makes `is_minor` return true for `MinorMajor` inputs, the
+  // OR becomes redundant and this assertion forces a re-review of the
+  // dispatch logic.
+  EXPECT_FALSE(is_minor(C_mm))
+      << "is_minor() is expected to be perm-tag-specific (Minor only). "
+         "If this fires, revisit the OR at tensor_differentiation.cpp:393.";
+
+  EXPECT_NE(d_gen.get().hash_value(), d_min.get().hash_value())
+      << "General Magnus and Minor-symmetrized kernels must differ.\n"
+      << "  general: " << to_string(d_gen) << "\n"
+      << "  minor:   " << to_string(d_min);
+  EXPECT_NE(d_min.get().hash_value(), d_mm.get().hash_value())
+      << "Minor and MinorMajor kernels must differ (8 vs 4 terms).\n"
+      << "  minor:       " << to_string(d_min) << "\n"
+      << "  minor-major: " << to_string(d_mm);
+  EXPECT_NE(d_gen.get().hash_value(), d_mm.get().hash_value())
+      << "General Magnus and MinorMajor kernels must differ.\n"
+      << "  general:     " << to_string(d_gen) << "\n"
+      << "  minor-major: " << to_string(d_mm);
 }
 
 // ─── diff(tensor, scalar) — issue #275 ────────────────────────────
