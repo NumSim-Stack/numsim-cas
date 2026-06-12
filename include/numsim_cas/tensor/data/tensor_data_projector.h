@@ -111,6 +111,28 @@ public:
                         acc += (i == q) * (j == p) * (k == n) * (l == m);
                         data(i, j, k, l, m, n, p, q) = ValueType{0.125} * acc;
                       }
+      } else if (std::holds_alternative<Major>(m_space.perm) &&
+                 std::holds_alternative<AnyTraceTag>(m_space.trace)) {
+        // P_major_{ijkl,mnpq} = (1/2)(δ_{im}δ_{jn}δ_{kp}δ_{lq}
+        //                            + δ_{ip}δ_{jq}δ_{km}δ_{ln})
+        // Z_2 Reynolds projector over the major-pair swap (i,j) ↔ (k,l).
+        // Used by the diff-visitor leaf rule for Major-annotated rank-4
+        // variables (#299 follow-up). Symmetric on its input-pair index
+        // structure but does NOT enforce minor-symmetry on the output
+        // pairs.
+        for (std::size_t i = 0; i < Dim; ++i)
+          for (std::size_t j = 0; j < Dim; ++j)
+            for (std::size_t k = 0; k < Dim; ++k)
+              for (std::size_t l = 0; l < Dim; ++l)
+                for (std::size_t m = 0; m < Dim; ++m)
+                  for (std::size_t n = 0; n < Dim; ++n)
+                    for (std::size_t p = 0; p < Dim; ++p)
+                      for (std::size_t q = 0; q < Dim; ++q) {
+                        ValueType acc{};
+                        acc += (i == m) * (j == n) * (k == p) * (l == q);
+                        acc += (i == p) * (j == q) * (k == m) * (l == n);
+                        data(i, j, k, l, m, n, p, q) = ValueType{0.5} * acc;
+                      }
       } else {
         throw not_implemented_error(
             "tensor_data_projector: unsupported rank-8 projector space");

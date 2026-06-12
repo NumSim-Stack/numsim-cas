@@ -57,6 +57,23 @@ inline TensorVarProjection make_minor_major4_projection() {
   };
 }
 
+// Major-only rank-4 closure (#299 follow-up). Z_2 group with the
+// major-pair swap (i,j) ↔ (k,l) only — distinct from the D_4
+// MinorMajor projector: no minor swaps, so off-diagonal pairs are NOT
+// symmetrized.
+inline TensorVarProjection make_major4_projection() {
+  return [](tensor_data_base<double> &base) {
+    auto &t = static_cast<tensor_data<double, FDIM, 4> &>(base).data();
+    tmech::tensor<double, FDIM, 4> result;
+    for (std::size_t i = 0; i < FDIM; ++i)
+      for (std::size_t j = 0; j < FDIM; ++j)
+        for (std::size_t k = 0; k < FDIM; ++k)
+          for (std::size_t l = 0; l < FDIM; ++l)
+            result(i, j, k, l) = 0.5 * (t(i, j, k, l) + t(k, l, i, j));
+    t = result;
+  };
+}
+
 // ===========================================================================
 // Tensor verification (free function template)
 // ===========================================================================
@@ -270,6 +287,11 @@ private:
       m_vars.push_back(
           {std::move(name), 4, expr, make_minor_major4_projection()});
     };
+    auto add_var_major4 = [&](std::string name) {
+      auto expr = make_expression<tensor>(name, FDIM, 4);
+      assume_major(expr);
+      m_vars.push_back({std::move(name), 4, expr, make_major4_projection()});
+    };
 
     add_var("a", 1);
     add_var("b", 1);
@@ -285,6 +307,11 @@ private:
     // the unconstrained one.
     add_var_minor4("M_min");
     add_var_minor_major4("M_mm");
+    // Major-only (Z_2) rank-4 leaf, parity with Minor / MinorMajor
+    // above. Closes the gap left by #299/#301; before the leaf-rule
+    // Major branch landed, this annotation hit an explicit
+    // not_implemented_error throw in the diff visitor.
+    add_var_major4("M_maj");
   }
 
   void register_default_ops() {

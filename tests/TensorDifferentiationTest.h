@@ -93,17 +93,20 @@ TEST(TensorDiffLeafRule, Rank4UnannotatedReturnsIdentityTensor) {
   EXPECT_EQ(d.get().rank(), 8u);
 }
 
-TEST(TensorDiffLeafRule, Rank4MajorOnlyThrows) {
-  // Pass-1 review HIGH: rank-4 Major-only annotation is the gap
-  // parity with #299. The tensor-arg inv-diff kernel doesn't have a
-  // Major branch either, so silently returning the unconstrained
-  // identity would re-introduce the orbit-stabilizer-factor mismatch
-  // for the Z_2 major group. Throw loudly until a P_major4 + kernel
-  // Major branch lands as a follow-up.
+TEST(TensorDiffLeafRule, Rank4MajorOnlyReturnsProjector) {
+  // #299 follow-up: Major-only rank-4 (Z_2 group, identity + major-pair
+  // swap (i,j) ↔ (k,l)) now returns P_major4, parity with the Minor /
+  // MinorMajor cases. Previous behavior was an explicit throw (locked
+  // in until the projector + kernel Major branch landed).
   auto C = make_expression<tensor>("C", 3, 4);
   assume_major(C);
-  EXPECT_THROW(
-      { [[maybe_unused]] auto d = diff(C, C); }, not_implemented_error);
+  auto d = diff(C, C);
+  EXPECT_TRUE(is_same<tensor_projector>(d))
+      << "Expected tensor_projector (P_major4) for diff(M_major, M_major); "
+         "got: "
+      << to_string(d);
+  EXPECT_EQ(d.get().rank(), 8u);
+  EXPECT_EQ(d.get().dim(), 3u);
 }
 
 // d(Y)/d(X) = zero
@@ -707,11 +710,28 @@ TEST(TensorDiffRank4Inv, MinorPathProducesValidResult) {
   EXPECT_EQ(d.get().dim(), 3u);
 }
 
-// #250 dispatch distinction lock-in: the three rank-4 paths
-// (general, Minor, MinorMajor) produce STRUCTURALLY DIFFERENT ASTs.
-// Each has a different number of kernel terms:
+// #299 follow-up: rank-4 Major-only (Z_2 group, identity + major-pair
+// swap (i,j) ↔ (k,l)) — distinct from MinorMajor (D_4, includes minor
+// swaps too). Mutually exclusive with Minor (perm is a variant).
+// Kernel: T = (1/2)(T_general + T_major_swap) → 2-term symmetrizer.
+TEST(TensorDiffRank4Inv, MajorOnlyPathProducesValidResult) {
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_major(C);
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto invC = inv(C);
+  expression_holder<tensor_expression> d;
+  ASSERT_NO_THROW(d = diff(invC, X));
+  EXPECT_TRUE(d.is_valid());
+  EXPECT_EQ(d.get().rank(), 6u);
+  EXPECT_EQ(d.get().dim(), 3u);
+}
+
+// #250 dispatch distinction lock-in: the four rank-4 paths
+// (general, Minor, Major, MinorMajor) produce STRUCTURALLY DIFFERENT
+// ASTs. Each has a different number of kernel terms:
 //   - general:    1 outer-product term (Magnus).
 //   - Minor:      4 terms (minor symmetrizer × 1/4).
+//   - Major:      2 terms (major-only symmetrizer × 1/2). #299 follow-up.
 //   - MinorMajor: 8 terms (Minor + major-pair-swap × 1/8).
 // If a future regression collapses two paths into one, hash equality
 // catches it. This is the strongest evidence that the annotation
@@ -725,24 +745,30 @@ TEST(TensorDiffRank4Inv, AnnotationDispatchProducesDistinctResults) {
   auto C_gen = make_expression<tensor>("C", 3, 4);
   auto C_min = make_expression<tensor>("C", 3, 4);
   assume_minor(C_min);
+  auto C_maj = make_expression<tensor>("C", 3, 4);
+  assume_major(C_maj);
   auto C_mm = make_expression<tensor>("C", 3, 4);
   assume_minor_major(C_mm);
 
   auto d_gen = diff(inv(C_gen), C_gen);
   auto d_min = diff(inv(C_min), C_min);
+  auto d_maj = diff(inv(C_maj), C_maj);
   auto d_mm = diff(inv(C_mm), C_mm);
 
   ASSERT_TRUE(d_gen.is_valid());
   ASSERT_TRUE(d_min.is_valid());
+  ASSERT_TRUE(d_maj.is_valid());
   ASSERT_TRUE(d_mm.is_valid());
   ASSERT_FALSE(is_same<tensor_zero>(d_gen));
   ASSERT_FALSE(is_same<tensor_zero>(d_min));
+  ASSERT_FALSE(is_same<tensor_zero>(d_maj));
   ASSERT_FALSE(is_same<tensor_zero>(d_mm));
-  // All three are rank-8 (4 inv-free + 4 diff-arg-free indices). If a
+  // All four are rank-8 (4 inv-free + 4 diff-arg-free indices). If a
   // future regression drops the symmetrization to a lower-rank kernel,
   // this catches the structural shape change before the hash check.
   EXPECT_EQ(d_gen.get().rank(), 8u);
   EXPECT_EQ(d_min.get().rank(), 8u);
+  EXPECT_EQ(d_maj.get().rank(), 8u);
   EXPECT_EQ(d_mm.get().rank(), 8u);
   // Predicate tripwire (pass-2 review): the visitor's dispatch uses
   // `is_minor(A) || is_minor_major(A)` because `is_minor()` checks the
@@ -766,6 +792,21 @@ TEST(TensorDiffRank4Inv, AnnotationDispatchProducesDistinctResults) {
       << "General Magnus and MinorMajor kernels must differ.\n"
       << "  general:     " << to_string(d_gen) << "\n"
       << "  minor-major: " << to_string(d_mm);
+  // Major-only branch (#299 follow-up). Distinct AST from all three
+  // others: 2-term symmetrizer (general + major-swap) with 1/2
+  // prefactor — neither 1 (general) nor 4 (Minor) nor 8 (MinorMajor).
+  EXPECT_NE(d_gen.get().hash_value(), d_maj.get().hash_value())
+      << "General Magnus and Major-only kernels must differ.\n"
+      << "  general: " << to_string(d_gen) << "\n"
+      << "  major:   " << to_string(d_maj);
+  EXPECT_NE(d_min.get().hash_value(), d_maj.get().hash_value())
+      << "Minor and Major-only kernels must differ.\n"
+      << "  minor: " << to_string(d_min) << "\n"
+      << "  major: " << to_string(d_maj);
+  EXPECT_NE(d_mm.get().hash_value(), d_maj.get().hash_value())
+      << "MinorMajor and Major-only kernels must differ (8 vs 2 terms).\n"
+      << "  minor-major: " << to_string(d_mm) << "\n"
+      << "  major:       " << to_string(d_maj);
 }
 
 // ─── diff(tensor, scalar) — issue #275 ────────────────────────────

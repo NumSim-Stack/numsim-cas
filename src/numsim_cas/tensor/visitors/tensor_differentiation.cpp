@@ -281,6 +281,10 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
 //   - MinorMajor symmetry (Minor + major-pair swap (mn ↔ pq)):
 //     symmetrize over the 8-element group → 1/8 prefactor. Canonical
 //     case in continuum-mechanics elasticity tangents.
+//   - Major-only symmetry (just the major-pair swap, C_{ijkl} =
+//     C_{klij}): symmetrize over the 2-element group → 1/2 prefactor.
+//     Less common than MinorMajor but appears in symmetric quadratic
+//     forms without minor symmetry.
 //
 // The Sym/Skew kernels (rank 2) and Minor/MinorMajor kernels (rank 4)
 // are NOT contraction tricks over Magnus — they are the unique correct
@@ -295,7 +299,7 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
 // minor-major dispatch.
 //
 // Dispatch goes through is_symmetric() / is_skew() / is_minor() /
-// is_minor_major() (tensor_assume.h), not raw holds_alternative on
+// is_major() / is_minor_major() (tensor_assume.h), not raw holds_alternative on
 // perm. This picks up the PD/PSD ⇒ symmetric implication from the
 // algebra-assumption manager (rank-2), including the case where
 // space() is cleared but the algebra tag remains. Vol/Dev inputs route
@@ -392,9 +396,25 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
     // (e.g. if `is_minor` becomes "exactly Minor"). Same defensive
     // pattern as the rank-2 sign dispatch above.
     const bool minor = is_minor(A) || is_minor_major(A);
-    const bool major = is_minor_major(A);
+    const bool major_full = is_minor_major(A);
+    // Major-only (Z_2) — distinct from MinorMajor (D_4) above. A
+    // Major-annotated input without Minor goes through the 2-element
+    // (id + major-pair-swap) symmetrizer with 1/2 prefactor. Mutually
+    // exclusive with `minor` since perm is a variant; the explicit
+    // `!minor` guard makes that invariant local rather than relying on
+    // tensor_space's variant property a few files away. Closes the Z_2
+    // major parity gap left by #299/#301.
+    const bool major_only = !minor && is_major(A);
 
-    if (minor) {
+    if (major_only) {
+      auto T_M =
+          otimes(invA, sequence{1, 2, 7, 8}, invA, sequence{5, 6, 3, 4});
+      // Same magic-static rationale as the rank-2 `half` constant and
+      // the rank-4 `fourth` / `eighth` constants below.
+      static auto const half =
+          make_expression<scalar_constant>(scalar_number{1, 2});
+      T = (T + T_M) * half;
+    } else if (minor) {
       auto T_swap_mn =
           otimes(invA, sequence{1, 2, 6, 5}, invA, sequence{7, 8, 3, 4});
       auto T_swap_pq =
@@ -402,7 +422,7 @@ void tensor_differentiation::operator()(tensor_inv const &visitable) {
       auto T_swap_both =
           otimes(invA, sequence{1, 2, 6, 5}, invA, sequence{8, 7, 3, 4});
 
-      if (major) {
+      if (major_full) {
         // Major-swap variants: swap (m,n) ↔ (p,q) in the parameterization.
         // Pattern: first invA gets (p,q) at its trailing pair, second
         // invA gets (m,n) at its leading pair.
