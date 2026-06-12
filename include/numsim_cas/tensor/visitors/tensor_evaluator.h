@@ -287,25 +287,33 @@ public:
   }
 
   void operator()(tensor_inv const &v) override {
-    // Rank-2: tmech::inv. Rank-4: default to tmech::invf (fully
-    // anisotropic, 9D semantics) so the visitor's rank-4 inv-diff
-    // kernel — which builds the Magnus formula
-    // `-invM · dM · invM` via plain otimes / inner_product (9D
-    // semantics) — agrees with the evaluator. The previous policy
-    // routed Minor / MinorMajor through tmech::inv (Voigt-internal
-    // 6×6 inverse), and the resulting Voigt-vs-9D mismatch broke
-    // FD comparison on `permute_indices(inv(M_min), {3,1,2,4})`
-    // (seed-19): `(tmech::inv(M))_{ijmn} · M_{mnkl}` contracted as a
-    // plain 9D sum is NOT `sym_id_{ijkl} = (1/2)(δ_ik δ_jl
-    // + δ_il δ_jk)` (max_err ≈ 0.89 on a Minor-projected M).
-    //
-    // EXCEPTION: Major-only annotation still uses tmech::inv —
-    // documented carve-out per the upstream policy (the Major
-    // sub-group's kernel relies on this).
+    // Rank-2: tmech::inv. Rank-4 dispatch depends on the major-pair
+    // structure of the input:
+    //   - Major or MinorMajor annotation → tmech::inv (Voigt-
+    //     internal 6×6 inverse). The major-pair swap C_{ijkl} =
+    //     C_{klij} makes the 9×9 representation rank-deficient
+    //     (only ~21 of 81 independent components in 3D for
+    //     MinorMajor, ~45 for Major-only), so a plain 9×9 inversion
+    //     via tmech::invf is numerically unstable — verified by a
+    //     Windows-only fuzz blow-up (`max_err = 3e+43` on seed
+    //     10036's `inner(... , inv(M_mm), ...)`). The Voigt 6×6
+    //     inversion respects the symmetry.
+    //   - Minor (without major) or unannotated → tmech::invf (fully
+    //     anisotropic, 9D semantics). The Minor sym alone leaves
+    //     the 9×9 matrix full-rank, and invf's identity
+    //     `A^{-1}_{ijmn} · A_{mnkl} = δ_ij δ_kl` aligns with the
+    //     visitor's rank-4 inv-diff kernel
+    //     (tensor_differentiation.cpp:304+), which builds the
+    //     Magnus formula `-invM · dM · invM` via plain otimes /
+    //     inner_product. This alignment is what unblocked seed-19
+    //     (`permute_indices(inv(M_min), {3,1,2,4})` symbolic vs FD
+    //     was rel_err ≈ 1 under the prior tmech::inv routing).
     if (v.rank() == 4) {
       auto const &sp = v.expr().get().space();
-      bool major_only = sp && std::holds_alternative<Major>(sp->perm);
-      if (!major_only) {
+      bool has_major_pair =
+          sp && (std::holds_alternative<Major>(sp->perm) ||
+                 std::holds_alternative<MinorMajor>(sp->perm));
+      if (!has_major_pair) {
         eval_unary_tmech<tmech_ops::invf>(v);
         return;
       }
