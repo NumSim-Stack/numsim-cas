@@ -93,6 +93,19 @@ TEST(TensorDiffLeafRule, Rank4UnannotatedReturnsIdentityTensor) {
   EXPECT_EQ(d.get().rank(), 8u);
 }
 
+TEST(TensorDiffLeafRule, Rank4MajorOnlyThrows) {
+  // Pass-1 review HIGH: rank-4 Major-only annotation is the gap
+  // parity with #299. The tensor-arg inv-diff kernel doesn't have a
+  // Major branch either, so silently returning the unconstrained
+  // identity would re-introduce the orbit-stabilizer-factor mismatch
+  // for the Z_2 major group. Throw loudly until a P_major4 + kernel
+  // Major branch lands as a follow-up.
+  auto C = make_expression<tensor>("C", 3, 4);
+  assume_major(C);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto d = diff(C, C); }, not_implemented_error);
+}
+
 // d(Y)/d(X) = zero
 TEST_F(TensorDifferentiationTest, VariableOther) {
   auto d = diff(Y, X);
