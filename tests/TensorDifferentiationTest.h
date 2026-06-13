@@ -714,6 +714,15 @@ TEST(TensorDiffRank4Inv, MinorPathProducesValidResult) {
 // swap (i,j) ↔ (k,l)) — distinct from MinorMajor (D_4, includes minor
 // swaps too). Mutually exclusive with Minor (perm is a variant).
 // Kernel: T = (1/2)(T_general + T_major_swap) → 2-term symmetrizer.
+// Removed throwaway diagnostic that verified tmech::inv's 9D identity
+// behavior on Minor-only inputs. Findings: tmech::inv only satisfies
+// `dcontract(inv(M), M) == IIsym` when M has MinorMajor symmetry —
+// the error scales linearly with the Major-asymmetry magnitude.
+// Drives the dispatch in tensor_evaluator.h's tensor_inv operator:
+// MinorMajor → tmech::inv, everything else → tmech::invf. See the
+// `Rank4InvDispatchUsesInvUnlessMinorMajor` lock-in for the durable
+// record.
+
 TEST(TensorDiffRank4Inv, MajorOnlyPathProducesValidResult) {
   auto C = make_expression<tensor>("C", 3, 4);
   assume_major(C);
