@@ -509,17 +509,16 @@ TEST(TensorEval, EvalInverseRank4UnannotatedRoutesToInvf) {
       << "unannotated rank-4 inv must route to tmech::invf";
 }
 
-TEST(TensorEval, Rank4InvDispatchSplitsOnMajorPair) {
-  // Lock-in: rank-4 inv dispatches based on whether the input has the
-  // major-pair swap symmetry (C_{ijkl} = C_{klij}):
-  //   - Major or MinorMajor annotation → tmech::inv (Voigt 6×6); the
-  //     major-pair swap makes the 9×9 representation rank-deficient
-  //     so a plain 9×9 inversion (tmech::invf) is numerically
-  //     unstable (verified Windows fuzz blow-up at seed 10036's
-  //     `inner(..., inv(M_mm), ...)`).
-  //   - Minor (without major) or unannotated → tmech::invf (full
-  //     anisotropic 9×9); the kernel-vs-evaluator alignment that
-  //     unblocked seed-19 (`permute_indices(inv(M_min), {3,1,2,4})`).
+TEST(TensorEval, Rank4InvDispatchUsesInvUnlessMinorMajor) {
+  // Lock-in: rank-4 inv dispatches to tmech::invf unless the input
+  // collapses to the 6×6 Voigt symmetric form (MinorMajor):
+  //   - MinorMajor only → tmech::inv (Voigt 6×6 symmetric, 21
+  //     components). Plain 9×9 inversion is unstable here (Windows
+  //     fuzz blow-up at seed 10036's `inner(..., inv(M_mm), ...)`).
+  //   - Minor only (6×6 anisotropic, 36 components), Major only
+  //     (9×9 symmetric, 45 components), unannotated, Skew → all
+  //     tmech::invf. This is what unblocks seed-19 for Minor and
+  //     M_maj coverage for Major.
   tmech::tensor<double, 3, 2> I2;
   for (std::size_t i = 0; i < 3; ++i)
     for (std::size_t j = 0; j < 3; ++j)
@@ -567,11 +566,10 @@ TEST(TensorEval, Rank4InvDispatchSplitsOnMajorPair) {
   check([](auto const &) {}, "Unannotated", /*expect_invf=*/true);
   check([](auto const &C) { assume_minor(C); }, "Minor", true);
   check([](auto const &C) { assume_skew(C); }, "Skew", true);
-  // Major and MinorMajor both have the major-pair swap → use
-  // tmech::inv (Voigt) instead of tmech::invf.
+  check([](auto const &C) { assume_major(C); }, "Major", true);
+  // Only MinorMajor stays on tmech::inv (Voigt 6×6 symmetric).
   check([](auto const &C) { assume_minor_major(C); }, "MinorMajor",
         /*expect_invf=*/false);
-  check([](auto const &C) { assume_major(C); }, "Major", false);
 }
 
 // --- Compound expression tests ---

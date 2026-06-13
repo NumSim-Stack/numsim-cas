@@ -287,33 +287,45 @@ public:
   }
 
   void operator()(tensor_inv const &v) override {
-    // Rank-2: tmech::inv. Rank-4 dispatch depends on the major-pair
-    // structure of the input:
-    //   - Major or MinorMajor annotation → tmech::inv (Voigt-
-    //     internal 6×6 inverse). The major-pair swap C_{ijkl} =
-    //     C_{klij} makes the 9×9 representation rank-deficient
-    //     (only ~21 of 81 independent components in 3D for
-    //     MinorMajor, ~45 for Major-only), so a plain 9×9 inversion
-    //     via tmech::invf is numerically unstable — verified by a
-    //     Windows-only fuzz blow-up (`max_err = 3e+43` on seed
-    //     10036's `inner(... , inv(M_mm), ...)`). The Voigt 6×6
-    //     inversion respects the symmetry.
-    //   - Minor (without major) or unannotated → tmech::invf (fully
-    //     anisotropic, 9D semantics). The Minor sym alone leaves
-    //     the 9×9 matrix full-rank, and invf's identity
-    //     `A^{-1}_{ijmn} · A_{mnkl} = δ_ij δ_kl` aligns with the
-    //     visitor's rank-4 inv-diff kernel
-    //     (tensor_differentiation.cpp:304+), which builds the
-    //     Magnus formula `-invM · dM · invM` via plain otimes /
-    //     inner_product. This alignment is what unblocked seed-19
-    //     (`permute_indices(inv(M_min), {3,1,2,4})` symbolic vs FD
-    //     was rel_err ≈ 1 under the prior tmech::inv routing).
+    // Rank-2: tmech::inv. Rank-4 dispatch depends on whether the
+    // input collapses to the 6×6 Voigt symmetric form:
+    //   - MinorMajor (Minor + Major together) → tmech::inv. Only
+    //     this case is truly 6×6 symmetric Voigt (21 independent
+    //     components in 3D); a plain 9×9 inversion via tmech::invf
+    //     would be numerically unstable here. Verified by a
+    //     Windows-only fuzz blow-up (max_err = 3e+43) when this
+    //     branch was routed through invf.
+    //   - Everything else → tmech::invf so the evaluator aligns
+    //     with the visitor's 9D Magnus kernel
+    //     (tensor_differentiation.cpp:304+), which builds
+    //     `-invM · dM · invM` via plain otimes / inner_product:
+    //       * Minor only:  6×6 Voigt anisotropic (36 components);
+    //         as a 9×9 it has rank 6 (kernel = 3-dim skew
+    //         subspace). invf returns the generalized inverse,
+    //         consistent with Magnus on the symmetric image.
+    //         Alignment unblocked seed-19
+    //         (`permute_indices(inv(M_min), {3,1,2,4})`).
+    //       * Major only: 9×9 symmetric (45 components), full
+    //         rank — no Voigt collapse since the (i,j) pair lacks
+    //         minor symmetry. invf inverts directly.
+    //       * Unannotated / Skew: 9×9 general, full rank.
     if (v.rank() == 4) {
       auto const &sp = v.expr().get().space();
-      bool has_major_pair =
-          sp && (std::holds_alternative<Major>(sp->perm) ||
-                 std::holds_alternative<MinorMajor>(sp->perm));
-      if (!has_major_pair) {
+      // Only MinorMajor (Minor + Major together) collapses to a
+      // 6×6 symmetric Voigt form → tmech::inv. All other rank-4
+      // inputs go through tmech::invf so the evaluator aligns with
+      // the visitor's 9D Magnus kernel:
+      //   - Minor only: 6×6 Voigt anisotropic. As a 9×9 it has
+      //     rank 6 (kernel = skew subspace); invf returns the
+      //     generalized inverse consistent with Magnus on the
+      //     symmetric image.
+      //   - Major only: 9×9 SYMMETRIC, full rank (45 independent
+      //     components). invf inverts directly.
+      //   - Unannotated / Skew: 9×9 general, full rank. invf
+      //     inverts directly.
+      bool minor_major_voigt =
+          sp && std::holds_alternative<MinorMajor>(sp->perm);
+      if (!minor_major_voigt) {
         eval_unary_tmech<tmech_ops::invf>(v);
         return;
       }
