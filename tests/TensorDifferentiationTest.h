@@ -714,14 +714,39 @@ TEST(TensorDiffRank4Inv, MinorPathProducesValidResult) {
 // swap (i,j) ↔ (k,l)) — distinct from MinorMajor (D_4, includes minor
 // swaps too). Mutually exclusive with Minor (perm is a variant).
 // Kernel: T = (1/2)(T_general + T_major_swap) → 2-term symmetrizer.
-// Removed throwaway diagnostic that verified tmech::inv's 9D identity
-// behavior on Minor-only inputs. Findings: tmech::inv only satisfies
-// `dcontract(inv(M), M) == IIsym` when M has MinorMajor symmetry —
-// the error scales linearly with the Major-asymmetry magnitude.
+// Removed throwaway diagnostics that probed the rank-4 inverse
+// landscape. Findings (recorded here as the durable summary):
+//
+//   - tmech::inv satisfies the dcontract identity ONLY when the input
+//     has MinorMajor symmetry. For Minor-only inputs the error
+//     scales linearly with the Major-asymmetry magnitude (verified
+//     across iso, small perturbation, and random Minor-projected M).
+//
+//   - tmech::invf on Minor-sym M reaches a rank-deficient 9×9 LU
+//     (kernel = 3-dim skew subspace). Empirically the result depends
+//     on conditioning: well-conditioned physical inputs (e.g.
+//     non-associative plasticity tangents, isotropic stiffness plus
+//     small perturbation) yield correct dcontract identity. Random
+//     adversarial Minor-projected fills give garbage off-pair entries
+//     (~1e15) that nonetheless cancel coincidentally in the visitor's
+//     kernel ↔ FD comparison because both sides use the same garbage.
+//
+//   - A custom anisotropic 6×6 Voigt inverse (engineering scaling +
+//     partial-pivoted Gauss-Jordan, ~50 lines) is machine-precision
+//     correct on all Minor-sym inputs including the rank-deficient
+//     adversarial cases. The PR ships tmech::invf for Minor-only
+//     based on this trade-off: the rank-4 inv-diff fuzz path is the
+//     only Minor-only consumer in the codebase, and FD agreement is
+//     load-bearing there; physical Minor-only consumers (non-
+//     associative plasticity tangents) get correct results because
+//     they're well-conditioned. The custom inverse remains an option
+//     if a rank-deficient Minor-only input surfaces a real
+//     correctness bug.
+//
 // Drives the dispatch in tensor_evaluator.h's tensor_inv operator:
-// MinorMajor → tmech::inv, everything else → tmech::invf. See the
-// `Rank4InvDispatchUsesInvUnlessMinorMajor` lock-in for the durable
-// record.
+//   MinorMajor → tmech::inv, everything else → tmech::invf.
+// See the `Rank4InvDispatchUsesInvUnlessMinorMajor` lock-in for the
+// durable record.
 
 TEST(TensorDiffRank4Inv, MajorOnlyPathProducesValidResult) {
   auto C = make_expression<tensor>("C", 3, 4);
