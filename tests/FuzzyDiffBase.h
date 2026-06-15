@@ -163,8 +163,10 @@ tensor_expr_string(expression_holder<tensor_expression> const &e) {
     tensor_printer<std::stringstream> p(ss);
     p.apply(e);
     return ss.str();
+  } catch (std::exception const &ex) {
+    return std::string("<print error: ") + ex.what() + ">";
   } catch (...) {
-    return "<print error>";
+    return "<print error: unknown>";
   }
 }
 

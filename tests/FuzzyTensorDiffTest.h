@@ -481,20 +481,24 @@ private:
                    // #250 + #299.
                    if (sub.rank != 2 && sub.rank != 4)
                      return std::nullopt;
-                   // Rank-4 conditioning: the random fill in fill_random
-                   // adds a diagonal boost specifically for rank-4 leaves
-                   // so the minor-identity contraction is well-conditioned.
-                   // Composite rank-4 expressions (e.g. `outer(D, C)`
-                   // where D, C are rank-2) are rank-deficient as 9×9
-                   // matrices regardless of the leaves' conditioning —
-                   // `outer(X, Y)` has matrix-rank 1 — so
-                   // `inv(outer(X, Y))` produces singular Magnus kernels
-                   // and FD blows up (max_err ~ 1e25). Restrict rank-4
-                   // inv to leaf inputs so the diagonal boost is
-                   // load-bearing. Rank-2 stays unrestricted (the
-                   // existing rank-2 path is robust against composite
-                   // inputs).
-                   if (sub.rank == 4 && !is_same<tensor>(sub.expr))
+                   // Conditioning: the random fill in fill_random adds a
+                   // diagonal boost specifically for rank-2 / rank-4 leaf
+                   // inputs so the inversion is well-conditioned. Composite
+                   // inputs can collapse to rank-deficient matrices
+                   // regardless of leaf conditioning:
+                   //   rank-4: `outer(X, Y)` for rank-2 X, Y is a rank-1
+                   //     9×9 matrix → `inv(outer(X, Y))` blows up to
+                   //     ~1e25.
+                   //   rank-2: `outer(v, w)` for rank-1 v, w is a rank-1
+                   //     N×N matrix → singular. The same form can hide
+                   //     inside an `inner` contraction, e.g.
+                   //     `inner(rank1, outer(rank1, rank2), {n})` reduces
+                   //     to `outer(rank1, rank1)` and is also singular.
+                   //     Caught by seeds 10 / 10009 (Depth3 macOS, Depth4)
+                   //     before this restriction landed.
+                   // Restricting inv to leaf inputs at BOTH ranks keeps the
+                   // diagonal boost load-bearing.
+                   if (!is_same<tensor>(sub.expr))
                      return std::nullopt;
                    try {
                      auto expr = inv(sub.expr);
@@ -728,29 +732,26 @@ namespace {
 class FuzzyTensorDiffTest : public ::testing::TestWithParam<unsigned> {};
 
 inline bool is_flaky_tensor_seed(unsigned seed) {
-  // Rank-2 fuzz conditioning limitation — the inv operator accepts
-  // arbitrary rank-2 sub-expressions, and some depth-N compositions
-  // produce structurally near-singular matrices. Surfaced by the
-  // seed-shift from adding `M_maj` to the variable pool.
+  // Seed 10034 (Depth4, all platforms): max_err ≈ 3e-5,
+  // rel_err ≈ 1e-5. No inv() in the expression — pure-algebra
+  // rank-2 (pow + permute + outer + inner). The small absolute
+  // error trips compare_arrays's per-element check because the
+  // noise floor is scaled from the aggregate max_abs (O(1)) while
+  // some elements live at much smaller magnitudes. Likely FD
+  // step-size precision or a symbolic fold losing a few ulps.
+  // Tracked separately from the inv-conditioning issue.
   //
-  // All three failures share the signature
-  //   max_err ~ 1e+8 with rel_err = 1, expr_rank=2 var_rank=2
-  // — the symbolic vs numerical derivative blows up because the
-  // forward expression itself is near-singular and FP / symbolic
-  // paths land on different sides of the singularity.
-  //
-  // - 10 (Depth3, macOS only): macOS rank-2 inv path lands on the
-  //   composite singularity earlier than x86. Empirically the
-  //   upstream tmech rank-4 fix (partial pivoting + natural Voigt
-  //   pack) did NOT change this — confirmed by re-running with the
-  //   skip removed: same 1.3e+8 / rel_err=1 failure, so it is not
-  //   the Voigt LU bug.
-  // - 10009, 10034 (Depth4, Linux/Windows): max_err ≈ 6e+8 and
-  //   ≈ 0.009 with rel_err = 1. Confirmed not a leaf-conditioning
-  //   issue (a 3× diagonal boost reduces magnitude but not rel_err).
-  //
-  // Tracked as a separate rank-2 fuzz conditioning follow-up.
-  return seed == 10u || seed == 10009u || seed == 10034u;
+  // Previously also skipped seeds 10 (Depth3, macOS) and 10009
+  // (Depth4, Linux/Windows). Both were the same root cause:
+  // the fuzz inv operator generated `inv(composite)` forms that
+  // evaluate to outer-product matrices — rank-1 as a rank-2
+  // matrix → singular. E.g. seed 10009 produced
+  //   inv(inner(-a, outer(b, D), {3})) = inv(-b ⊗ (D·a))
+  // which is always singular regardless of leaf conditioning.
+  // Fixed at the fuzz generator by restricting inv to leaf inputs
+  // at rank 2 — the restriction already existed at rank 4 for
+  // the analogous `inv(outer(X, Y))` case.
+  return seed == 10034u;
 }
 
 #define FUZZY_TENSOR_DIFF_TEST_P(TestClass, TestName, SeedOffset, Depth)       \
