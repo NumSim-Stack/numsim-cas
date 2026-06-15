@@ -4,6 +4,7 @@
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_pow.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_if_then_else.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_positivity_propagation.h>
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_printer.h>
 #include <sstream>
 
@@ -57,11 +58,20 @@ template <tensor_to_scalar_expr_holder ExprLHS,
       return make_expression<tensor_to_scalar_one>();
   }
 
+  // #260 — capture sign tags on base and exponent BEFORE forwarding;
+  // the visitor may consume the holders as rvalues.
+  const auto base_view =
+      tensor_to_scalar_detail::positivity::read_with_real(expr_lhs);
+  const auto exp_view =
+      tensor_to_scalar_detail::positivity::read_with_real(expr_rhs);
   // Full simplification via visitor dispatch
   auto &_lhs{expr_lhs.template get<tensor_to_scalar_visitable_t>()};
   tensor_to_scalar_detail::simplifier::pow_base visitor(
       std::forward<ExprLHS>(expr_lhs), std::forward<ExprRHS>(expr_rhs));
-  return _lhs.accept(visitor);
+  auto result = _lhs.accept(visitor);
+  tensor_to_scalar_detail::positivity::propagate_pow_from_views(
+      base_view, exp_view, result);
+  return result;
 }
 
 template <tensor_to_scalar_expr_holder ExprLHS, typename ExprRHS>

@@ -511,29 +511,137 @@ TEST(TensorAlgebraDetPropagation, DetPdConstantFoldsBypassThePropagationPath) {
 //   - det(tensor_mul) — also gap-open via #260; not specifically
 //     tested here (covered by composition-test PR's broader matrix).
 
-TEST(TensorAlgebraDetPropagation, DetScalarMulPd_Issue260_Sentinel) {
-  // SENTINEL for #260 (t2s mul/div/pow positivity propagation).
-  //
-  // Mathematically: det(α·C) = α^d · det(C), and for PD C the inner
-  // det(C) gets `positive` via the terminal-tensor_det propagation
-  // (α-2d). But α^d · positive is currently NOT folded to positive —
-  // the t2s mul operator doesn't propagate `positive` through the
-  // composition. So the outer expression has no positivity tag today.
-  //
-  // The EXPECT_FALSE here is INVERTED-on-purpose: this test passes
-  // today because the gap is open, but a #260 implementation that
-  // lands correct `positive * positive → positive` propagation will
-  // make it fail. The failure is the desired signal — at that point
-  // flip the expectation to EXPECT_TRUE and rename to ...IsPositive.
-  // Sentinel framing reflected in the test name so a reader scanning
-  // the test list knows it's a tracked-future-change marker rather
-  // than a permanent contract.
+// ─── #260: t2s operator positivity propagation ──────────────────────
+// Each rule from the issue table gets a positive + a negative test.
+// Using det(PD) and det(PSD) as the positivity / nonneg sources since
+// those are the t2s leaves with stable annotation contracts from α-2d.
+
+TEST(TensorAlgebraOperatorPropagation, MulOfTwoPositivesIsPositive) {
+  // pos × pos → pos. det(PD) × det(PD) — both factors carry positive
+  // via α-2d, and the t2s mul should compose them.
+  auto C1 = std::get<0>(make_tensor_variable(std::tuple{"C1", 3, 2}));
+  auto C2 = std::get<0>(make_tensor_variable(std::tuple{"C2", 3, 2}));
+  assume_positive_definite(C1);
+  assume_positive_definite(C2);
+  auto p = det(C1) * det(C2);
+  auto const &a = p.data()->assumptions();
+  EXPECT_TRUE(a.contains(positive{}));
+  EXPECT_TRUE(a.contains(nonnegative{}));
+  EXPECT_TRUE(a.contains(nonzero{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation, MulOfTwoNonnegativesIsNonnegative) {
+  // nonneg × nonneg → nonneg. det(PSD) × det(PSD).
+  auto H1 = std::get<0>(make_tensor_variable(std::tuple{"H1", 3, 2}));
+  auto H2 = std::get<0>(make_tensor_variable(std::tuple{"H2", 3, 2}));
+  assume_positive_semidefinite(H1);
+  assume_positive_semidefinite(H2);
+  auto p = det(H1) * det(H2);
+  auto const &a = p.data()->assumptions();
+  EXPECT_TRUE(a.contains(nonnegative{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+  // PSD × PSD is nonneg but possibly zero — must NOT conclude
+  // positive / nonzero.
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(nonzero{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation, MulOfUnannotatedAndPositiveHasNoSign) {
+  // Negative: unknown × positive → unknown. Guards against the rule
+  // firing on one-operand annotation.
   auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
-  auto alpha = make_scalar_variable("alpha");
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
   assume_positive_definite(C);
-  auto d = det(std::get<0>(alpha) * C);
-  EXPECT_FALSE(d.data()->assumptions().contains(positive{}))
-      << "Sentinel: flip to EXPECT_TRUE when #260 lands t2s mul positivity";
+  auto p = det(C) * det(A);
+  auto const &a = p.data()->assumptions();
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(nonnegative{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation, NegOfPositiveIsNegative) {
+  // -pos → neg.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_positive_definite(C);
+  auto n = -det(C);
+  auto const &a = n.data()->assumptions();
+  EXPECT_TRUE(a.contains(negative{}));
+  EXPECT_TRUE(a.contains(nonpositive{}));
+  EXPECT_TRUE(a.contains(nonzero{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+  EXPECT_FALSE(a.contains(positive{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation, NegOfNonnegativeIsNonpositive) {
+  // -nonneg → nonpos (may include zero).
+  auto H = std::get<0>(make_tensor_variable(std::tuple{"H", 3, 2}));
+  assume_positive_semidefinite(H);
+  auto n = -det(H);
+  auto const &a = n.data()->assumptions();
+  EXPECT_TRUE(a.contains(nonpositive{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+  EXPECT_FALSE(a.contains(negative{}));
+  EXPECT_FALSE(a.contains(nonzero{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation, NegOfUnannotatedHasNoSign) {
+  // Negative: -(unknown) → unknown.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto n = -det(A);
+  auto const &a = n.data()->assumptions();
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(negative{}));
+  EXPECT_FALSE(a.contains(nonpositive{}));
+  EXPECT_FALSE(a.contains(nonnegative{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation,
+     PowOfPositiveBaseRealExponentIsPositive) {
+  // pow(pos, real-exponent) → pos. Use pow(det(PD), 2) — the integer
+  // exponent 2 is wrapped as a scalar_constant, which is real_tag by
+  // construction of any numeric constant in the codebase.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_positive_definite(C);
+  auto p = pow(det(C), 2);
+  auto const &a = p.data()->assumptions();
+  EXPECT_TRUE(a.contains(positive{}));
+  EXPECT_TRUE(a.contains(nonzero{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation, PowOfNonnegBaseNonnegExpIsNonneg) {
+  // pow(nonneg, nonneg-exp) → nonneg. Use pow(det(PSD), 2).
+  auto H = std::get<0>(make_tensor_variable(std::tuple{"H", 3, 2}));
+  assume_positive_semidefinite(H);
+  auto p = pow(det(H), 2);
+  auto const &a = p.data()->assumptions();
+  EXPECT_TRUE(a.contains(nonnegative{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(nonzero{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation, PowOfUnannotatedBaseHasNoSign) {
+  // Negative: pow(unknown, anything) is unknown.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto p = pow(det(A), 2);
+  auto const &a = p.data()->assumptions();
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(nonnegative{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation, DivOfTwoPositivesIsPositive) {
+  // div decomposes to lhs * pow(rhs, -1). Both mul and pow propagation
+  // need to fire for the composite to land positive.
+  auto C1 = std::get<0>(make_tensor_variable(std::tuple{"C1", 3, 2}));
+  auto C2 = std::get<0>(make_tensor_variable(std::tuple{"C2", 3, 2}));
+  assume_positive_definite(C1);
+  assume_positive_definite(C2);
+  auto q = det(C1) / det(C2);
+  auto const &a = q.data()->assumptions();
+  EXPECT_TRUE(a.contains(positive{}));
+  EXPECT_TRUE(a.contains(nonzero{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
 }
 
 TEST(TensorAlgebraDetPropagation, DetTransPdGetsPositiveViaSymmetricShortcut) {

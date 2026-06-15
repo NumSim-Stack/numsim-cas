@@ -15,6 +15,7 @@
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_mul.h>
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_pow.h>
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_sub.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_positivity_propagation.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h>
 
 namespace numsim::cas::detail {
@@ -98,10 +99,18 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_to_scalar_expression>>
 inline expression_holder<tensor_to_scalar_expression>
 tag_invoke(mul_fn, [[maybe_unused]] L &&lhs, [[maybe_unused]] R &&rhs) {
+  // #260 — read operand positivity BEFORE forwarding (the visitor may
+  // consume L/R as rvalues). Idempotent insertion afterwards lets a
+  // folded result that already carries the tag pass through unchanged.
+  const auto lhs_view = tensor_to_scalar_detail::positivity::read(lhs);
+  const auto rhs_view = tensor_to_scalar_detail::positivity::read(rhs);
   auto &_lhs{lhs.template get<tensor_to_scalar_visitable_t>()};
   tensor_to_scalar_detail::simplifier::mul_base visitor(std::forward<L>(lhs),
                                                         std::forward<R>(rhs));
-  return _lhs.accept(visitor);
+  auto result = _lhs.accept(visitor);
+  tensor_to_scalar_detail::positivity::propagate_mul_from_views(
+      lhs_view, rhs_view, result);
+  return result;
 }
 
 template <class L, class R>
