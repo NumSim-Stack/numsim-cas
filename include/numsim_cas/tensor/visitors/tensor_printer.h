@@ -245,17 +245,26 @@ public:
       }
     }
 
-    // single contraction
+    // single / double / fourth contraction notation. Each sugar
+    // form has a minimum rank requirement on the LHS — without the
+    // rank guards the `sequence{...}` initializer-list constructor
+    // throws when any computed 1-based index equals 0 (e.g.
+    // sequence{rank_lhs - 1, rank_lhs} with rank_lhs == 1 is
+    // sequence{0, 1} → out_of_range), masking the actual
+    // expression with a print error.
     const auto rank_lhs{call_tensor::rank(visitable.expr_lhs())};
-    if (indices_lhs == sequence{rank_lhs} && indices_rhs == sequence{1}) {
+
+    // single contraction (LHS · RHS): requires rank_lhs >= 1.
+    if (rank_lhs >= 1 && indices_lhs == sequence{rank_lhs} &&
+        indices_rhs == sequence{1}) {
       apply(visitable.expr_lhs(), precedence);
       m_out << "*";
       apply(visitable.expr_rhs(), precedence);
       return;
     }
 
-    // double contraction
-    if (indices_lhs == sequence{rank_lhs - 1, rank_lhs} &&
+    // double contraction (LHS : RHS): requires rank_lhs >= 2.
+    if (rank_lhs >= 2 && indices_lhs == sequence{rank_lhs - 1, rank_lhs} &&
         indices_rhs == sequence{1, 2}) {
       apply(visitable.expr_lhs(), precedence);
       m_out << ":";
@@ -263,8 +272,9 @@ public:
       return;
     }
 
-    // fourth contraction
-    if (indices_lhs ==
+    // fourth contraction (LHS :: RHS): requires rank_lhs >= 4.
+    if (rank_lhs >= 4 &&
+        indices_lhs ==
             sequence{rank_lhs - 3, rank_lhs - 2, rank_lhs - 1, rank_lhs} &&
         indices_rhs == sequence{1, 2, 3, 4}) {
       apply(visitable.expr_lhs(), precedence);

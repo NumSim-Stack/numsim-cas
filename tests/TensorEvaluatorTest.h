@@ -444,12 +444,15 @@ TEST(TensorEval, EvalInverse3x3) {
 // otherwise. Verify both branches numerically against tmech directly.
 
 TEST(TensorEval, EvalInverseRank4MinorMajor) {
+  // MinorMajor-annotated rank-4 routes to tmech::inv (Voigt 6×6) —
+  // the major-pair swap makes the 9×9 representation rank-deficient
+  // so tmech::invf is unstable for this input class. The split is
+  // locked in by `Rank4InvDispatchSplitsOnMajorPair`.
+  //
   // #283: rank-4 `tmech::inv` requires the `inverse_wrapper_base`
-  // rewrite (petlenz/tmech commit db5d8aa or newer); older installs
-  // silently return NaN through the Voigt path. The top-level
-  // CMakeLists.txt always uses the pinned FetchContent copy for our
-  // build regardless of what a system tmech provides, so the linked
-  // tmech is known good by construction.
+  // rewrite (petlenz/tmech commit db5d8aa or newer); the top-level
+  // CMakeLists.txt uses the pinned FetchContent copy so the linked
+  // tmech is known good.
   tensor_evaluator<double> ev;
   auto C = make_expression<tensor>("C", 3, 4);
   assume_minor_major(C);
@@ -506,63 +509,67 @@ TEST(TensorEval, EvalInverseRank4UnannotatedRoutesToInvf) {
       << "unannotated rank-4 inv must route to tmech::invf";
 }
 
-TEST(TensorEval, Rank4InvDispatchDiffersByAnnotation) {
-  // Cross-check: for the SAME numerical input, the annotated and
-  // unannotated paths give different results (different conventions).
-  // This is the strongest evidence that the dispatch is wired correctly
-  // and not silently collapsing to one routine.
+TEST(TensorEval, Rank4InvDispatchUsesInvUnlessMinorMajor) {
+  // Lock-in: rank-4 inv dispatches to tmech::invf unless the input
+  // collapses to the 6×6 Voigt symmetric form (MinorMajor):
+  //   - MinorMajor only → tmech::inv (Voigt 6×6 symmetric, 21
+  //     components). Plain 9×9 inversion is unstable here (Windows
+  //     fuzz blow-up at seed 10036's `inner(..., inv(M_mm), ...)`).
+  //   - Minor only (6×6 anisotropic, 36 components), Major only
+  //     (9×9 symmetric, 45 components), unannotated, Skew → all
+  //     tmech::invf. This is what unblocks seed-19 for Minor and
+  //     M_maj coverage for Major.
   tmech::tensor<double, 3, 2> I2;
   for (std::size_t i = 0; i < 3; ++i)
     for (std::size_t j = 0; j < 3; ++j)
       I2(i, j) = (i == j) ? 1.0 : 0.0;
-  // Pick a tensor that's NOT minor-symmetric so the two inverses
-  // genuinely disagree (a fully symmetric tensor would give the same
-  // result either way and the test wouldn't be discriminating).
-  // An outer product I2 ⊗ I2 is symmetric, so use a non-trivial mix.
   auto C_tmech =
       tmech::eval(2.0 * tmech::otimes(I2, I2) + 1.0 * tmech::otimesu(I2, I2));
 
-  auto inv_data = tmech::eval(tmech::inv(C_tmech));
-  auto invf_data = tmech::eval(tmech::invf(C_tmech));
-  // Sanity: confirm the test premise — the two tmech routines disagree
-  // on this input.
+  // Materialize to concrete tensors so they share a common type and
+  // can be used in a ternary inside the parametric check lambda. Bare
+  // `tmech::eval(tmech::inv(...))` returns an expression-template
+  // wrapper whose template arguments differ from
+  // `tmech::eval(tmech::invf(...))`, which breaks the `?:` operand-
+  // type unification (CI: build failure across gcc / clang / msvc).
+  tmech::tensor<double, 3, 4> inv_data = tmech::inv(C_tmech);
+  tmech::tensor<double, 3, 4> invf_data = tmech::invf(C_tmech);
+  // Sanity: tmech::inv and tmech::invf disagree on this input so the
+  // assertions below are discriminating.
   EXPECT_FALSE(tmech::almost_equal(inv_data, invf_data, 1e-10))
       << "Test setup assumes tmech::inv != tmech::invf on this input";
 
   auto C_data = std::make_shared<tensor_data<double, 3, 4>>();
   C_data->data() = C_tmech;
 
-  // Annotated path.
-  {
+  auto check = [&](auto annotate_fn, std::string const &annotation_name,
+                   bool expect_invf) {
     tensor_evaluator<double> ev;
     auto C = make_expression<tensor>("C", 3, 4);
-    assume_minor_major(C);
+    annotate_fn(C);
     ev.set(C, std::static_pointer_cast<tensor_data_base<double>>(C_data));
     auto result = ev.apply(inv(C));
     ASSERT_NE(result, nullptr);
-    EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), inv_data, 1e-10));
-  }
-  // Unannotated path.
-  {
-    tensor_evaluator<double> ev;
-    auto C = make_expression<tensor>("C", 3, 4);
-    ev.set(C, std::static_pointer_cast<tensor_data_base<double>>(C_data));
-    auto result = ev.apply(inv(C));
-    ASSERT_NE(result, nullptr);
-    EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), invf_data, 1e-10));
-  }
-  // Explicitly-non-Minor/MinorMajor annotation (Skew) also routes to
-  // invf — exercises the "any other annotation" branch of the dispatch.
-  {
-    tensor_evaluator<double> ev;
-    auto C = make_expression<tensor>("C", 3, 4);
-    assume_skew(C);
-    ev.set(C, std::static_pointer_cast<tensor_data_base<double>>(C_data));
-    auto result = ev.apply(inv(C));
-    ASSERT_NE(result, nullptr);
-    EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), invf_data, 1e-10))
-        << "Skew-annotated rank-4 should still route to invf";
-  }
+    tmech::tensor<double, 3, 4> const &expected =
+        expect_invf ? invf_data : inv_data;
+    tmech::tensor<double, 3, 4> const &not_expected =
+        expect_invf ? inv_data : invf_data;
+    EXPECT_TRUE(tmech::almost_equal(as_tmech<3, 4>(*result), expected, 1e-10))
+        << annotation_name << "-annotated rank-4 routed to wrong inv";
+    EXPECT_FALSE(
+        tmech::almost_equal(as_tmech<3, 4>(*result), not_expected, 1e-10))
+        << annotation_name
+        << "-annotated rank-4 also matched the other inv "
+           "(test premise violated)";
+  };
+
+  check([](auto const &) {}, "Unannotated", /*expect_invf=*/true);
+  check([](auto const &C) { assume_minor(C); }, "Minor", true);
+  check([](auto const &C) { assume_skew(C); }, "Skew", true);
+  check([](auto const &C) { assume_major(C); }, "Major", true);
+  // Only MinorMajor stays on tmech::inv (Voigt 6×6 symmetric).
+  check([](auto const &C) { assume_minor_major(C); }, "MinorMajor",
+        /*expect_invf=*/false);
 }
 
 // --- Compound expression tests ---

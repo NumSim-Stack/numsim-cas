@@ -145,6 +145,12 @@ inline auto P_minor4(std::size_t d) {
 inline auto P_minor_major4(std::size_t d) {
   return make_projector(d, 4, MinorMajor{}, AnyTraceTag{});
 }
+// Major-only rank-4 (Z_2 group: identity + major-pair swap
+// (i,j) ↔ (k,l)). Closes the Z_2-major parity gap left as the explicit
+// throw in tensor_differentiation.h's leaf rule (#299 follow-up).
+inline auto P_major4(std::size_t d) {
+  return make_projector(d, 4, Major{}, AnyTraceTag{});
+}
 
 class tensor_trace_print_visitor {
 public:

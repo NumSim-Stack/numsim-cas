@@ -287,16 +287,45 @@ public:
   }
 
   void operator()(tensor_inv const &v) override {
-    // Rank-2: tmech::inv. Rank-4 with Minor/MinorMajor annotation:
-    // tmech::inv (minor-symmetric default convention). Rank-4 with any
-    // other annotation (or no annotation): tmech::invf (fully
-    // anisotropic). See the factory in tensor_functions.h for the
-    // policy rationale (#248).
+    // Rank-2: tmech::inv. Rank-4 dispatch depends on whether the
+    // input collapses to the 6×6 Voigt symmetric form:
+    //   - MinorMajor (Minor + Major together) → tmech::inv. Only
+    //     this case is truly 6×6 symmetric Voigt (21 independent
+    //     components in 3D); a plain 9×9 inversion via tmech::invf
+    //     would be numerically unstable here. Verified by a
+    //     Windows-only fuzz blow-up (max_err = 3e+43) when this
+    //     branch was routed through invf.
+    //   - Everything else → tmech::invf so the evaluator aligns
+    //     with the visitor's 9D Magnus kernel
+    //     (tensor_differentiation.cpp:304+), which builds
+    //     `-invM · dM · invM` via plain otimes / inner_product:
+    //       * Minor only:  6×6 Voigt anisotropic (36 components);
+    //         as a 9×9 it has rank 6 (kernel = 3-dim skew
+    //         subspace). invf returns the generalized inverse,
+    //         consistent with Magnus on the symmetric image.
+    //         Alignment unblocked seed-19
+    //         (`permute_indices(inv(M_min), {3,1,2,4})`).
+    //       * Major only: 9×9 symmetric (45 components), full
+    //         rank — no Voigt collapse since the (i,j) pair lacks
+    //         minor symmetry. invf inverts directly.
+    //       * Unannotated / Skew: 9×9 general, full rank.
     if (v.rank() == 4) {
       auto const &sp = v.expr().get().space();
-      bool minor_sym = sp && (std::holds_alternative<Minor>(sp->perm) ||
-                              std::holds_alternative<MinorMajor>(sp->perm));
-      if (!minor_sym) {
+      // Only MinorMajor (Minor + Major together) collapses to a
+      // 6×6 symmetric Voigt form → tmech::inv. All other rank-4
+      // inputs go through tmech::invf so the evaluator aligns with
+      // the visitor's 9D Magnus kernel:
+      //   - Minor only: 6×6 Voigt anisotropic. As a 9×9 it has
+      //     rank 6 (kernel = skew subspace); invf returns the
+      //     generalized inverse consistent with Magnus on the
+      //     symmetric image.
+      //   - Major only: 9×9 SYMMETRIC, full rank (45 independent
+      //     components). invf inverts directly.
+      //   - Unannotated / Skew: 9×9 general, full rank. invf
+      //     inverts directly.
+      bool minor_major_voigt =
+          sp && std::holds_alternative<MinorMajor>(sp->perm);
+      if (!minor_major_voigt) {
         eval_unary_tmech<tmech_ops::invf>(v);
         return;
       }

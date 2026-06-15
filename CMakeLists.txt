@@ -51,7 +51,7 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
   tmech
   GIT_REPOSITORY https://github.com/petlenz/tmech.git
-  GIT_TAG db5d8aa
+  GIT_TAG d03f2c2
 )
 FetchContent_MakeAvailable(tmech)
 # Restore so our own tests/examples are not affected.

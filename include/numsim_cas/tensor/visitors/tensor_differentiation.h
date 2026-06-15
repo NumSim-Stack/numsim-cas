@@ -111,22 +111,14 @@ public:
             m_result = P_minor4(m_arg.get().dim());
             return;
           }
-          // Major-only rank-4 is the missing parity case. The
-          // tensor-arg rank-4 inv-diff kernel
-          // (tensor_differentiation.cpp:380-440) only branches on
-          // is_minor / is_minor_major; a Major-only input routes
-          // through the general Magnus path. If we silently fell
-          // through here to the unconstrained identity, the same
-          // orbit-stabilizer-factor mismatch #299 fixes would re-
-          // appear for the Z_2 major group. Throw loudly until either
-          // (a) a P_major4 + kernel Major branch lands, or (b) Major-
-          // only on rank-4 is rejected upstream at the wrapper.
+          // Major-only rank-4 (#299 follow-up): Z_2 group with just the
+          // major-pair swap (i,j) ↔ (k,l). MinorMajor is checked first
+          // above (it's the strictly larger group); a Major-only input
+          // gets the P_major4 projected identity and the kernel below
+          // applies the matching Major-only symmetrizer.
           if (std::holds_alternative<Major>(sp->perm)) {
-            throw not_implemented_error(
-                "tensor_differentiation: rank-4 Major-only inv-diff "
-                "not implemented (#299 follow-up). MinorMajor and "
-                "Minor are supported; Major-only would require a "
-                "P_major4 projector and matching kernel branch.");
+            m_result = P_major4(m_arg.get().dim());
+            return;
           }
         }
       }
