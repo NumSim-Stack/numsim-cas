@@ -736,12 +736,14 @@ inline bool is_flaky_tensor_seed(unsigned seed) {
   // - 10009, 10034 (Depth4, Linux/Windows): max_err ≈ 6e+8 and
   //   ≈ 0.009 with rel_err = 1. Confirmed not a leaf-conditioning
   //   issue (a 3× diagonal boost reduces magnitude but not rel_err).
-  // - 10 (Depth3, macOS only): max_err ≈ 1.3e+8 with rel_err = 1.
-  //   Same class of failure; macOS LU pivot choice differs slightly
-  //   from x86 and lands on a singular composite earlier.
   //
   // Tracked as a separate rank-2 fuzz conditioning follow-up.
-  return seed == 10u || seed == 10009u || seed == 10034u;
+  //
+  // Previously also skipped seed 10 on macOS — that failure was the
+  // platform-divergent rank-4 LU bug, now fixed upstream in tmech
+  // (partial pivoting + convert_tensor_to_voigt natural pack). The
+  // skip is removed; CI verifies the root-cause fix holds on macOS.
+  return seed == 10009u || seed == 10034u;
 }
 
 #define FUZZY_TENSOR_DIFF_TEST_P(TestClass, TestName, SeedOffset, Depth)       \
