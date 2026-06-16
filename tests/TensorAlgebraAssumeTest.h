@@ -681,6 +681,42 @@ TEST(TensorAlgebraOperatorPropagation, NegOfDoubleNegativeFoldsToOperand) {
   EXPECT_TRUE(a.contains(real_tag{}));
 }
 
+TEST(TensorAlgebraOperatorPropagation,
+     PosTagOnlyTimesNonnegTagOnlyExercisesHardening) {
+  // Direct-manager construction: insert `positive{}` alone (no joint
+  // `nonnegative{}`) into lhs, and `nonnegative{}` alone into rhs.
+  // This is the exact brittle shape the at_least_nonneg_tag()
+  // hardening was added for — joint-insertion paths (assume_positive_*)
+  // can't produce this state, so the public API never reaches it
+  // through the normal flow. This test pins the rule's behavior on
+  // a manually-malformed-but-individually-coherent manager.
+  //
+  // Without the hardening, the mul rule would test
+  // `lhs.nonnegative && rhs.nonnegative` and skip — lhs.nonnegative
+  // is false here (only positive was inserted). The hardening's
+  // `at_least_nonneg_tag()` reads "positive OR nonnegative", so the
+  // rule still fires correctly.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  auto H = std::get<0>(make_tensor_variable(std::tuple{"H", 3, 2}));
+  auto d1 = det(C);
+  auto d2 = det(H);
+  // Defeat any α-2d propagation by clearing, then insert single tags.
+  d1.data()->assumptions().clear();
+  d1.data()->assumptions().insert(positive{}); // no joint nonneg
+  d2.data()->assumptions().clear();
+  d2.data()->assumptions().insert(nonnegative{}); // no joint anything
+  auto p = d1 * d2;
+  auto const &a = p.data()->assumptions();
+  EXPECT_TRUE(a.contains(nonnegative{}))
+      << "Hardening should fire: at_least_nonneg_tag covers the "
+         "pos-only × nonneg-only case";
+  EXPECT_TRUE(a.contains(real_tag{}));
+  // Can't conclude positive (rhs is only nonneg, may be zero) nor
+  // nonzero.
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(nonzero{}));
+}
+
 TEST(TensorAlgebraOperatorPropagation, PosTimesMixedNonnegIsNonneg) {
   // Robustness: pos × nonneg → nonneg. The lock-in covers the joint-
   // insertion convention (positive ⇒ nonneg in the manager) but the

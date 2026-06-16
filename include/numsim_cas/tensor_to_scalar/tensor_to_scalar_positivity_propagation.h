@@ -1,6 +1,8 @@
 #ifndef TENSOR_TO_SCALAR_POSITIVITY_PROPAGATION_H
 #define TENSOR_TO_SCALAR_POSITIVITY_PROPAGATION_H
 
+#include <cassert>
+
 #include <numsim_cas/core/assumptions.h>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/scalar/scalar_expression.h>
@@ -123,9 +125,33 @@ inline view read(expression_holder<tensor_to_scalar_expression> const &e) {
   return v;
 }
 
+// Defense-in-depth assertion macro. Catches a rule that would insert
+// a tag contradicting the operand's existing state — e.g. a
+// hypothetical incorrect `(neg, neg) → pos` rule firing on a manager
+// that already contains `negative{}`. Aliasing makes this critical:
+// if the result holder shares its node with an operand (via a fold
+// returning the operand), the insertion mutates the operand, and a
+// wrong rule corrupts the operand's tags.
+//
+// The check is a debug-only `assert` (compiled out under NDEBUG) —
+// rules in this header are intended to be statically correct, so the
+// assertions are for future contributors who add rules.
+#ifndef NDEBUG
+#define NUMSIM_CAS_PROP_ASSERT_NO_CONTRADICTION(manager, banned_tag)           \
+  do {                                                                         \
+    assert(!(manager).contains(banned_tag) &&                                  \
+           "positivity_propagation: rule would set a tag contradicting "       \
+           "the operand's existing state");                                    \
+  } while (0)
+#else
+#define NUMSIM_CAS_PROP_ASSERT_NO_CONTRADICTION(manager, banned_tag) ((void)0)
+#endif
+
 inline void
 mark_positive(expression_holder<tensor_to_scalar_expression> const &e) {
   auto &a = e.data()->assumptions();
+  NUMSIM_CAS_PROP_ASSERT_NO_CONTRADICTION(a, numsim::cas::negative{});
+  NUMSIM_CAS_PROP_ASSERT_NO_CONTRADICTION(a, numsim::cas::nonpositive{});
   a.insert(numsim::cas::positive{});
   a.insert(numsim::cas::nonnegative{});
   a.insert(numsim::cas::nonzero{});
@@ -135,6 +161,8 @@ mark_positive(expression_holder<tensor_to_scalar_expression> const &e) {
 inline void
 mark_negative(expression_holder<tensor_to_scalar_expression> const &e) {
   auto &a = e.data()->assumptions();
+  NUMSIM_CAS_PROP_ASSERT_NO_CONTRADICTION(a, numsim::cas::positive{});
+  NUMSIM_CAS_PROP_ASSERT_NO_CONTRADICTION(a, numsim::cas::nonnegative{});
   a.insert(numsim::cas::negative{});
   a.insert(numsim::cas::nonpositive{});
   a.insert(numsim::cas::nonzero{});
@@ -144,6 +172,7 @@ mark_negative(expression_holder<tensor_to_scalar_expression> const &e) {
 inline void
 mark_nonnegative(expression_holder<tensor_to_scalar_expression> const &e) {
   auto &a = e.data()->assumptions();
+  NUMSIM_CAS_PROP_ASSERT_NO_CONTRADICTION(a, numsim::cas::negative{});
   a.insert(numsim::cas::nonnegative{});
   a.insert(numsim::cas::real_tag{});
   a.set_inferred();
@@ -151,6 +180,7 @@ mark_nonnegative(expression_holder<tensor_to_scalar_expression> const &e) {
 inline void
 mark_nonpositive(expression_holder<tensor_to_scalar_expression> const &e) {
   auto &a = e.data()->assumptions();
+  NUMSIM_CAS_PROP_ASSERT_NO_CONTRADICTION(a, numsim::cas::positive{});
   a.insert(numsim::cas::nonpositive{});
   a.insert(numsim::cas::real_tag{});
   a.set_inferred();
