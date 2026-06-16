@@ -60,10 +60,8 @@ template <tensor_to_scalar_expr_holder ExprLHS,
 
   // #260 — capture sign tags on base and exponent BEFORE forwarding;
   // the visitor may consume the holders as rvalues.
-  const auto base_view =
-      tensor_to_scalar_detail::positivity::read_with_real(expr_lhs);
-  const auto exp_view =
-      tensor_to_scalar_detail::positivity::read_with_real(expr_rhs);
+  const auto base_view = tensor_to_scalar_detail::positivity::read(expr_lhs);
+  const auto exp_view = tensor_to_scalar_detail::positivity::read(expr_rhs);
   // Full simplification via visitor dispatch
   auto &_lhs{expr_lhs.template get<tensor_to_scalar_visitable_t>()};
   tensor_to_scalar_detail::simplifier::pow_base visitor(

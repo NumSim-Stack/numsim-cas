@@ -644,6 +644,56 @@ TEST(TensorAlgebraOperatorPropagation, DivOfTwoPositivesIsPositive) {
   EXPECT_TRUE(a.contains(real_tag{}));
 }
 
+TEST(TensorAlgebraOperatorPropagation, DivOfTwoUnknownsHasNoSign) {
+  // Negative case for div: two unannotated operands → no propagation.
+  // Symmetric counterpart to MulOfUnannotatedAndPositiveHasNoSign,
+  // closes the coverage gap for div.
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  auto q = det(A) / det(B);
+  auto const &a = q.data()->assumptions();
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(nonnegative{}));
+  EXPECT_FALSE(a.contains(negative{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation, NegOfDoubleNegativeFoldsToOperand) {
+  // -(-x) → x at the construction-time fold (tensor_to_scalar_negative
+  // factory). The fold returns x directly so propagate_neg_from_view
+  // never runs — but x already carries its own positivity tags, so
+  // the round-trip preserves them. Locks in this preservation: a
+  // future change to the fold (e.g. wrapping for hash consistency)
+  // that drops the operand's assumptions would catch here.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  assume_positive_definite(C);
+  auto d = det(C);
+  EXPECT_TRUE(d.data()->assumptions().contains(positive{}));
+  auto neg_neg_d = -(-d);
+  auto const &a = neg_neg_d.data()->assumptions();
+  EXPECT_TRUE(a.contains(positive{}));
+  EXPECT_TRUE(a.contains(nonzero{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+}
+
+TEST(TensorAlgebraOperatorPropagation, PosTimesMixedNonnegIsNonneg) {
+  // Robustness: pos × nonneg → nonneg. The lock-in covers the joint-
+  // insertion convention (positive ⇒ nonneg in the manager) but the
+  // implementation also handles the brittle path where a direct
+  // manager caller writes positive{} alone.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  auto H = std::get<0>(make_tensor_variable(std::tuple{"H", 3, 2}));
+  assume_positive_definite(C);     // det(C) carries positive ⇒ nonneg
+  assume_positive_semidefinite(H); // det(H) carries nonneg only
+  auto p = det(C) * det(H);
+  auto const &a = p.data()->assumptions();
+  EXPECT_TRUE(a.contains(nonnegative{}));
+  EXPECT_TRUE(a.contains(real_tag{}));
+  // PD × PSD can be zero (PSD may be zero) so must NOT conclude
+  // positive / nonzero.
+  EXPECT_FALSE(a.contains(positive{}));
+  EXPECT_FALSE(a.contains(nonzero{}));
+}
+
 TEST(TensorAlgebraDetPropagation, DetTransPdGetsPositiveViaSymmetricShortcut) {
   // det(trans(PD C)) — actually DOES get the positive annotation,
   // for a non-obvious reason: PD ⇒ symmetric, and trans()'s symmetric
