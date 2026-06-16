@@ -88,6 +88,14 @@ struct view {
 // #261 (constants pre-annotation) for the common `pow(x, integer)`
 // case.
 inline view read(expression_holder<tensor_to_scalar_expression> const &e) {
+  // Guard against invalid holders. Differentiation paths can produce
+  // transient invalid intermediates (corner cases of the chain rule —
+  // see #287); a read() on those would null-deref through
+  // numeric_assumption_manager::contains. The scalar side surfaced
+  // this on FuzzyScalarDiff seed 35; same latent UB on the t2s side
+  // so we patch symmetrically.
+  if (!e.is_valid())
+    return {};
   auto const &a = e.data()->assumptions();
   view v{a.contains(numsim::cas::positive{}),
          a.contains(numsim::cas::nonnegative{}),

@@ -754,6 +754,103 @@ TEST(TensorAlgebraDetPropagation, DetTransPdGetsPositiveViaSymmetricShortcut) {
          "recursive det(C) fires the propagation";
 }
 
+// ─── #305: scalar operator positivity propagation ────────────────────
+// Mirror of TensorAlgebraOperatorPropagation but for scalar mul/pow/neg.
+// Uses scalar variables annotated via expression_holder::assumption()
+// rather than detn(PD)-style indirection.
+
+TEST(ScalarAlgebraOperatorPropagation, MulOfTwoPositivesIsPositive) {
+  auto a = std::get<0>(make_scalar_variable("a"));
+  auto b = std::get<0>(make_scalar_variable("b"));
+  a.assumption(positive{});
+  b.assumption(positive{});
+  auto p = a * b;
+  auto const &x = p.data()->assumptions();
+  EXPECT_TRUE(x.contains(positive{}));
+  EXPECT_TRUE(x.contains(nonzero{}));
+  EXPECT_TRUE(x.contains(real_tag{}));
+}
+
+TEST(ScalarAlgebraOperatorPropagation, MulOfPositiveAndUnknownHasNoSign) {
+  auto a = std::get<0>(make_scalar_variable("a"));
+  auto b = std::get<0>(make_scalar_variable("b"));
+  a.assumption(positive{});
+  auto p = a * b;
+  EXPECT_FALSE(p.data()->assumptions().contains(positive{}));
+  EXPECT_FALSE(p.data()->assumptions().contains(nonnegative{}));
+}
+
+TEST(ScalarAlgebraOperatorPropagation, NegOfPositiveIsNegative) {
+  auto a = std::get<0>(make_scalar_variable("a"));
+  a.assumption(positive{});
+  auto n = -a;
+  auto const &x = n.data()->assumptions();
+  EXPECT_TRUE(x.contains(negative{}));
+  EXPECT_TRUE(x.contains(nonpositive{}));
+  EXPECT_TRUE(x.contains(nonzero{}));
+  EXPECT_TRUE(x.contains(real_tag{}));
+}
+
+TEST(ScalarAlgebraOperatorPropagation, PowOfPositiveBaseRealExpIsPositive) {
+  auto a = std::get<0>(make_scalar_variable("a"));
+  a.assumption(positive{});
+  // Integer exponent is real-by-construction (open-coded check in
+  // scalar_positivity_propagation::read).
+  auto p = pow(a, 3);
+  auto const &x = p.data()->assumptions();
+  EXPECT_TRUE(x.contains(positive{}));
+  EXPECT_TRUE(x.contains(nonzero{}));
+  EXPECT_TRUE(x.contains(real_tag{}));
+}
+
+TEST(ScalarAlgebraOperatorPropagation, DivOfTwoPositivesIsPositive) {
+  // scalar div decomposes to lhs * pow(rhs, -1).
+  auto a = std::get<0>(make_scalar_variable("a"));
+  auto b = std::get<0>(make_scalar_variable("b"));
+  a.assumption(positive{});
+  b.assumption(positive{});
+  auto q = a / b;
+  auto const &x = q.data()->assumptions();
+  EXPECT_TRUE(x.contains(positive{}));
+  EXPECT_TRUE(x.contains(nonzero{}));
+  EXPECT_TRUE(x.contains(real_tag{}));
+}
+
+TEST(ScalarAlgebraOperatorPropagation,
+     DetPositiveScalarMulPdIsPositiveCrossDomainLockIn) {
+  // The flagship cross-domain lock-in from #260's review and #305's
+  // body. det(α·C) decomposes structurally in the det() factory to
+  // pow(α, d) · det(C). For positive α and PD C:
+  //   - scalar pow(α, 3) → positive (via #305's scalar pow rule)
+  //   - det(C) → positive (via α-2d's terminal det propagation)
+  //   - t2s mul of (scalar_wrapper(scalar_pow), tensor_det) →
+  //     positive (via #260's t2s mul rule, which reads through the
+  //     scalar_wrapper to the inner scalar's positivity)
+  // All three pieces need to work for the dcontract identity to
+  // hold via assumption alone.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  auto alpha = std::get<0>(make_scalar_variable("alpha"));
+  assume_positive_definite(C);
+  alpha.assumption(positive{});
+  auto d = det(alpha * C);
+  auto const &x = d.data()->assumptions();
+  EXPECT_TRUE(x.contains(positive{}));
+  EXPECT_TRUE(x.contains(nonnegative{}));
+  EXPECT_TRUE(x.contains(nonzero{}));
+  EXPECT_TRUE(x.contains(real_tag{}));
+}
+
+TEST(ScalarAlgebraOperatorPropagation, DetUnknownScalarMulPdHasNoSign) {
+  // Negative-case sibling: un-annotated α means det(α·C) has
+  // unknown sign even if C is PD. The rules must NOT fire.
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  auto alpha = std::get<0>(make_scalar_variable("alpha"));
+  assume_positive_definite(C);
+  auto d = det(alpha * C);
+  EXPECT_FALSE(d.data()->assumptions().contains(positive{}));
+  EXPECT_FALSE(d.data()->assumptions().contains(nonnegative{}));
+}
+
 // ─── #246 α-2c: trans(orthogonal) · orthogonal → I ──────────────────
 
 TEST(TensorAlgebraMulFold, TransOrthogonalTimesOrthogonalIsIdentity) {

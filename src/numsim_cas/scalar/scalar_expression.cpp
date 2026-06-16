@@ -4,6 +4,7 @@
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/scalar/scalar_negative.h>
+#include <numsim_cas/scalar/scalar_positivity_propagation.h>
 #include <numsim_cas/scalar/scalar_zero.h>
 
 namespace numsim::cas {
@@ -17,12 +18,17 @@ tag_invoke(detail::neg_fn, std::type_identity<scalar_expression>,
   if (is_same<scalar_zero>(e))
     return get_scalar_zero();
 
-  // -(-x) = x
+  // -(-x) = x — preserves x's existing assumptions automatically.
   if (is_same<scalar_negative>(e)) {
     return e.get<scalar_negative>().expr();
   }
 
-  return make_expression<scalar_negative>(e);
+  // #305 — capture operand sign BEFORE building the negative node so
+  // the propagation step can flip pos→neg / nonneg→nonpos / etc.
+  const auto operand_view = scalar_detail::positivity::read(e);
+  auto result = make_expression<scalar_negative>(e);
+  scalar_detail::positivity::propagate_neg_from_view(operand_view, result);
+  return result;
 }
 
 } // namespace numsim::cas
