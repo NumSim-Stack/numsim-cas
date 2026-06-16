@@ -48,20 +48,27 @@
 namespace numsim::cas::tensor_to_scalar_detail::positivity {
 
 // Single struct holds all the assumption bits we read off an operand.
-// Folded `view + bool real` into one type — there were two only because
-// I introduced them separately during the initial draft.
+//
+// NOTE: these are tag-state predicates, not truth predicates. A "true"
+// for `positive` means the manager contains `positive{}`, which IS the
+// closest tractable proxy for "the value is positive" given how the
+// codebase represents assumptions today — but a caller who mutates the
+// manager into an incoherent state (e.g. inserts both `positive{}` and
+// `nonpositive{}`) would defeat any inference here.
 struct view {
   bool positive;
   bool nonnegative;
   bool nonpositive;
   bool negative;
   bool nonzero;
-  bool real; // real_tag OR integer/rational tag OR known numeric
+  bool real; // real_tag OR integer/rational/irrational OR known numeric
 
-  // Convenience: "at least nonnegative" handles the brittle case where
-  // a caller inserted `positive{}` alone (no joint `nonnegative{}`).
-  bool is_at_least_nonneg() const { return positive || nonnegative; }
-  bool is_at_least_nonpos() const { return negative || nonpositive; }
+  // "At least nonneg" via TAG state: the operand carries either
+  // `positive{}` or `nonnegative{}`. Robust to direct-manager callers
+  // who set `positive{}` without the joint `nonnegative{}`. The "tag"
+  // suffix is intentional — distinguishes from the truth claim.
+  bool at_least_nonneg_tag() const { return positive || nonnegative; }
+  bool at_least_nonpos_tag() const { return negative || nonpositive; }
 };
 
 // Read sign tags from the t2s expression's assumption manager. If the
@@ -87,7 +94,8 @@ inline view read(expression_holder<tensor_to_scalar_expression> const &e) {
          a.contains(numsim::cas::nonzero{}),
          a.contains(numsim::cas::real_tag{}) ||
              a.contains(numsim::cas::integer{}) ||
-             a.contains(numsim::cas::rational{})};
+             a.contains(numsim::cas::rational{}) ||
+             a.contains(numsim::cas::irrational{})};
   if (is_same<tensor_to_scalar_scalar_wrapper>(e)) {
     auto const &inner =
         e.template get<tensor_to_scalar_scalar_wrapper>().expr();
@@ -99,7 +107,8 @@ inline view read(expression_holder<tensor_to_scalar_expression> const &e) {
     v.nonzero = v.nonzero || ia.contains(numsim::cas::nonzero{});
     v.real = v.real || ia.contains(numsim::cas::real_tag{}) ||
              ia.contains(numsim::cas::integer{}) ||
-             ia.contains(numsim::cas::rational{});
+             ia.contains(numsim::cas::rational{}) ||
+             ia.contains(numsim::cas::irrational{});
   }
   // Concrete numeric constants are real by construction — they evaluate
   // to a `scalar_number` (double under the hood today; no complex path
@@ -148,44 +157,62 @@ mark_nonpositive(expression_holder<tensor_to_scalar_expression> const &e) {
 }
 
 // Mul: pos·pos → pos; (≥nonneg)·(≥nonneg) → nonneg.
+//
 // Sign-aware rules (neg·neg → pos, pos·neg → neg) are out of scope
 // per #260's "narrow scope here to mul/div/pow/neg first".
+//
+// ORDER MATTERS: stronger before weaker. The `pos·pos → pos` branch
+// must run first; swapping with the `at_least_nonneg_tag` branch
+// would collapse `pos·pos` to `nonneg` (still correct, but weaker
+// than necessary — and `nonzero` would be lost).
 inline void propagate_mul_from_views(
     view lhs, view rhs,
     expression_holder<tensor_to_scalar_expression> const &result) {
   if (lhs.positive && rhs.positive) {
     mark_positive(result);
-  } else if (lhs.is_at_least_nonneg() && rhs.is_at_least_nonneg()) {
-    // Subsumes (pos·nonneg) and (nonneg·pos). Robust to direct-
-    // manager callers who set `positive{}` without `nonnegative{}`.
+  } else if (lhs.at_least_nonneg_tag() && rhs.at_least_nonneg_tag()) {
     mark_nonnegative(result);
   }
 }
 
-// Neg: flip sign, preserve magnitude class. The -(-x) → x fold lives
-// in the cpp file and bypasses this path; the -neg/-nonpos branches
-// below are defensive — they fire if a future code path produces a
-// non-tensor_to_scalar_negative node carrying negative/nonpositive
-// (e.g. via assumption propagation from a different operator that
-// concludes a negative result without wrapping in tensor_negative).
+// Neg: flip sign, preserve magnitude class.
+//
+// REACHABILITY NOTE: only the `positive → negative` and
+// `at_least_nonneg_tag → nonpositive` branches are reachable from the
+// current call graph. The `-(-x) → x` fold in the t2s_negative
+// factory short-circuits before this helper runs, so an operand
+// carrying `negative{}` or `nonpositive{}` can't reach here — those
+// tags are only ever produced by THIS helper's own `mark_negative` /
+// `mark_nonpositive`, and the fold strips them.
+//
+// The `negative → positive` and `at_least_nonpos_tag → nonnegative`
+// branches are kept for future-symmetry. If/when a sign-aware op
+// (out of scope per #260) produces a `negative{}`-tagged result via
+// a non-tensor_negative node (e.g. `mul(positive, negative_const)`
+// after sign-aware mul lands), those branches start firing and the
+// neg propagation stays correct without further changes.
 inline void propagate_neg_from_view(
     view operand,
     expression_holder<tensor_to_scalar_expression> const &result) {
   if (operand.positive) {
     mark_negative(result);
-  } else if (operand.is_at_least_nonneg()) {
+  } else if (operand.at_least_nonneg_tag()) {
     mark_nonpositive(result);
   } else if (operand.negative) {
     mark_positive(result);
-  } else if (operand.is_at_least_nonpos()) {
+  } else if (operand.at_least_nonpos_tag()) {
     mark_nonnegative(result);
   }
 }
 
 // Pow: pow(pos, real) → pos; pow(≥nonneg, ≥nonneg) → nonneg.
+//
 // The "real exponent" guard prevents a complex exponent from silently
 // inheriting positivity. The strict pow(neg, even-int) → pos rule is
 // deferred (#260 scope-out).
+//
+// ORDER MATTERS (same shape as mul): pos+real first, then the
+// broader nonneg case.
 inline void propagate_pow_from_views(
     view base, view exponent,
     expression_holder<tensor_to_scalar_expression> const &result) {
@@ -193,7 +220,7 @@ inline void propagate_pow_from_views(
     mark_positive(result);
     return;
   }
-  if (base.is_at_least_nonneg() && exponent.is_at_least_nonneg()) {
+  if (base.at_least_nonneg_tag() && exponent.at_least_nonneg_tag()) {
     mark_nonnegative(result);
   }
 }

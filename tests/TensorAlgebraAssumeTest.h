@@ -658,12 +658,18 @@ TEST(TensorAlgebraOperatorPropagation, DivOfTwoUnknownsHasNoSign) {
 }
 
 TEST(TensorAlgebraOperatorPropagation, NegOfDoubleNegativeFoldsToOperand) {
-  // -(-x) → x at the construction-time fold (tensor_to_scalar_negative
-  // factory). The fold returns x directly so propagate_neg_from_view
-  // never runs — but x already carries its own positivity tags, so
-  // the round-trip preserves them. Locks in this preservation: a
-  // future change to the fold (e.g. wrapping for hash consistency)
-  // that drops the operand's assumptions would catch here.
+  // -(-x) → x at the construction-time fold in the t2s_negative
+  // factory. Tests an INTERACTION between the fold and the
+  // propagation helper rather than the helper alone: the fold
+  // short-circuits before propagate_neg_from_view runs, so the
+  // helper never executes — but the user-visible contract
+  // (-(-positive) is positive) is what we care about. The
+  // operand's tags survive the round-trip because the fold
+  // returns x's own holder, so x's assumption manager is the
+  // result manager. A future fold change that wraps for hash
+  // consistency (or any other reason builds a fresh node) would
+  // need the helper to re-derive positivity from the operand;
+  // this test catches that regression.
   auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
   assume_positive_definite(C);
   auto d = det(C);
