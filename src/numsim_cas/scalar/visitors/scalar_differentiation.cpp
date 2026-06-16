@@ -19,9 +19,20 @@ void scalar_differentiation::operator()(
 }
 
 void scalar_differentiation::operator()(scalar_mul const &visitable) {
-  expr_holder_t expr_result;
+  // Initialize accumulators to identity elements so the first iteration's
+  // `+=` / `*=` doesn't operate on an invalid holder. Previously these
+  // were default-constructed (invalid) and relied on
+  // expression_holder's operator+= safety net (which converts
+  // `invalid += x` to `*this = x`). That safety net is real but it
+  // means CALLERS who read `data()->...` directly on the accumulator
+  // before the first iteration null-deref — surfaced as a segfault
+  // in #305 when the positivity-propagation read() call landed in the
+  // mul instrumentation. The is_valid() guard in read() is still
+  // belt-and-suspenders, but eliminating the invalid intermediate
+  // here is the principled fix.
+  expr_holder_t expr_result = get_scalar_zero();
   for (auto &expr_out : visitable.symbol_map() | std::views::values) {
-    expr_holder_t expr_result_in;
+    expr_holder_t expr_result_in = get_scalar_one();
     for (auto &expr_in : visitable.symbol_map() | std::views::values) {
       if (expr_out == expr_in) {
         scalar_differentiation d(m_arg);
@@ -42,7 +53,8 @@ void scalar_differentiation::operator()(scalar_mul const &visitable) {
 }
 
 void scalar_differentiation::operator()(scalar_add const &visitable) {
-  expr_holder_t expr_result;
+  // Identity-init: see scalar_mul comment above.
+  expr_holder_t expr_result = get_scalar_zero();
   for (auto &child : visitable.symbol_map() | std::views::values) {
     scalar_differentiation d(m_arg);
     expr_result += d.apply(child);

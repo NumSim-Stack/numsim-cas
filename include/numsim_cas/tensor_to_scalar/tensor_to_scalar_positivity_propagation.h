@@ -88,12 +88,14 @@ struct view {
 // #261 (constants pre-annotation) for the common `pow(x, integer)`
 // case.
 inline view read(expression_holder<tensor_to_scalar_expression> const &e) {
-  // Guard against invalid holders. Differentiation paths can produce
-  // transient invalid intermediates (corner cases of the chain rule —
-  // see #287); a read() on those would null-deref through
-  // numeric_assumption_manager::contains. The scalar side surfaced
-  // this on FuzzyScalarDiff seed 35; same latent UB on the t2s side
-  // so we patch symmetrically.
+  // Defense-in-depth: an invalid holder would null-deref through
+  // numeric_assumption_manager::contains. The
+  // tensor_to_scalar_differentiation.cpp accumulator fix
+  // (`tensor_to_scalar_add` now uses the explicit `is_valid()`
+  // check pattern instead of relying on `expression_holder::
+  // operator+=`'s invalid-lhs safety net) eliminates the only
+  // known source. Keeping the guard belt-and-suspenders for any
+  // future visitor that hasn't adopted the pattern.
   if (!e.is_valid())
     return {};
   auto const &a = e.data()->assumptions();

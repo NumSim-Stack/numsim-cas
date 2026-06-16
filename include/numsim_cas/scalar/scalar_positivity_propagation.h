@@ -10,11 +10,6 @@
 #include <numsim_cas/scalar/scalar_negative.h>
 #include <numsim_cas/scalar/scalar_one.h>
 #include <numsim_cas/scalar/scalar_zero.h>
-// Intentionally NOT including scalar_domain_traits.h — it transitively
-// pulls in scalar_std.h via scalar_all.h, which creates a cycle (since
-// scalar_std.h includes this header). Open-code the "is real-by-
-// construction numeric constant" check using the structural is_same
-// predicates instead.
 
 // #305 — positivity-tag propagation for scalar operators (mul, neg, pow).
 //
@@ -44,10 +39,14 @@ struct view {
 };
 
 inline view read(expression_holder<scalar_expression> const &e) {
-  // Scalar differentiation produces transient invalid holders during
-  // chain-rule decomposition (a known #287-tracked corner). Guard so
-  // a `read(invalid)` returns the all-false view rather than crashing
-  // in numeric_assumption_manager::contains via a null data pointer.
+  // Defense-in-depth: an invalid holder would null-deref through
+  // numeric_assumption_manager::contains. Today no caller in the
+  // codebase passes an invalid holder here — the accumulator-init
+  // fix in scalar_differentiation.cpp (`expr_result = scalar_zero,
+  // expr_result_in = scalar_one`) eliminates the only known source.
+  // Keeping the guard belt-and-suspenders: it's a single-branch
+  // overhead and protects against future visitors that haven't
+  // adopted the identity-init pattern yet.
   if (!e.is_valid())
     return {};
   auto const &a = e.data()->assumptions();

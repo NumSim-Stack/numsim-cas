@@ -45,12 +45,24 @@ void tensor_to_scalar_differentiation::operator()(
 // coeff is constant offset -> derivative is zero
 void tensor_to_scalar_differentiation::operator()(
     tensor_to_scalar_add const &visitable) {
+  // Mirror the explicit `is_valid()` accumulation pattern used in
+  // tensor_to_scalar_differentiation_wrt_scalar (cpp:82-90 there).
+  // Previously `sum` was default-constructed (invalid) and `sum += d`
+  // ran on the first iteration with an invalid lhs. The
+  // expression_holder operator+= safety net converts that to
+  // assignment, so the code worked — but any caller that reads
+  // `sum.data()->...` between iterations null-derefs. Surfaced on
+  // scalar in #305 (FuzzyScalarDiff seed 35); applying the symmetric
+  // fix here so the same latent UB doesn't trip a future t2s seed.
   tensor_holder_t sum;
   for (auto &child : visitable.symbol_map() | std::views::values) {
     auto d = diff(child, m_arg);
-    if (!is_same<tensor_zero>(d)) {
-      sum += d;
-    }
+    if (is_same<tensor_zero>(d))
+      continue;
+    if (sum.is_valid())
+      sum += std::move(d);
+    else
+      sum = std::move(d);
   }
   m_result = std::move(sum);
 }
