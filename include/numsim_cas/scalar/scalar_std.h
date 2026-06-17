@@ -110,12 +110,11 @@ template <scalar_expr_holder L, scalar_expr_holder R>
   }
 
   // #305 — capture sign views BEFORE forwarding to the simplifier.
-  const auto base_view = scalar_detail::positivity::read(expr_lhs);
-  const auto exp_view = scalar_detail::positivity::read(expr_rhs);
+  const auto base_view = positivity::read(expr_lhs);
+  const auto exp_view = positivity::read(expr_rhs);
   auto result = binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
                                            std::forward<R>(expr_rhs));
-  scalar_detail::positivity::propagate_pow_from_views(base_view, exp_view,
-                                                      result);
+  positivity::propagate_pow_from_views(base_view, exp_view, result);
   return result;
 }
 
@@ -129,12 +128,11 @@ requires std::is_arithmetic_v<std::remove_cvref_t<R>>
   // binary_scalar_pow_simplify directly (rather than routing
   // through the main pow above) to avoid the special-case folds,
   // so propagation needs to be applied here too.
-  const auto base_view = scalar_detail::positivity::read(expr_lhs);
-  const auto exp_view = scalar_detail::positivity::read(constant);
+  const auto base_view = positivity::read(expr_lhs);
+  const auto exp_view = positivity::read(constant);
   auto result = binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
                                            std::move(constant));
-  scalar_detail::positivity::propagate_pow_from_views(base_view, exp_view,
-                                                      result);
+  positivity::propagate_pow_from_views(base_view, exp_view, result);
   return result;
 }
 

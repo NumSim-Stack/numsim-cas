@@ -102,14 +102,13 @@ tag_invoke(mul_fn, [[maybe_unused]] L &&lhs, [[maybe_unused]] R &&rhs) {
   // #260 — read operand positivity BEFORE forwarding (the visitor may
   // consume L/R as rvalues). Idempotent insertion afterwards lets a
   // folded result that already carries the tag pass through unchanged.
-  const auto lhs_view = tensor_to_scalar_detail::positivity::read(lhs);
-  const auto rhs_view = tensor_to_scalar_detail::positivity::read(rhs);
+  const auto lhs_view = positivity::read(lhs);
+  const auto rhs_view = positivity::read(rhs);
   auto &_lhs{lhs.template get<tensor_to_scalar_visitable_t>()};
   tensor_to_scalar_detail::simplifier::mul_base visitor(std::forward<L>(lhs),
                                                         std::forward<R>(rhs));
   auto result = _lhs.accept(visitor);
-  tensor_to_scalar_detail::positivity::propagate_mul_from_views(
-      lhs_view, rhs_view, result);
+  positivity::propagate_mul_from_views(lhs_view, rhs_view, result);
   return result;
 }
 

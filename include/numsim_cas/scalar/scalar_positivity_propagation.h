@@ -67,20 +67,4 @@ inline view read(expression_holder<scalar_expression> const &e) {
 
 } // namespace numsim::cas::positivity
 
-// Backward-compat namespace alias: existing scalar-domain call sites
-// reference `scalar_detail::positivity::*`. Re-export the shared
-// helpers + the scalar read() under that name so the operator-file
-// instrumentation doesn't need to change.
-namespace numsim::cas::scalar_detail::positivity {
-using numsim::cas::positivity::mark_negative;
-using numsim::cas::positivity::mark_nonnegative;
-using numsim::cas::positivity::mark_nonpositive;
-using numsim::cas::positivity::mark_positive;
-using numsim::cas::positivity::propagate_mul_from_views;
-using numsim::cas::positivity::propagate_neg_from_view;
-using numsim::cas::positivity::propagate_pow_from_views;
-using numsim::cas::positivity::read;
-using numsim::cas::positivity::view;
-} // namespace numsim::cas::scalar_detail::positivity
-
 #endif // SCALAR_POSITIVITY_PROPAGATION_H
