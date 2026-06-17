@@ -39,15 +39,20 @@ struct view {
 };
 
 inline view read(expression_holder<scalar_expression> const &e) {
-  // Defense-in-depth: an invalid holder would null-deref through
-  // numeric_assumption_manager::contains. Today no caller in the
-  // codebase passes an invalid holder here — the scalar diff
-  // visitor uses identity-init (`expr_result = scalar_zero,
-  // expr_result_in = scalar_one` in scalar_differentiation.cpp) for
-  // its accumulators, which eliminates the only known source.
-  // Keeping the guard belt-and-suspenders: it's a single-branch
-  // overhead and protects against future visitors that don't follow
-  // the same pattern. See PR #309 for the audit.
+  // Invalid-holder guard: an invalid holder would null-deref through
+  // numeric_assumption_manager::contains. This is reached from any
+  // `tag_invoke(mul_fn / pow_fn / neg_fn, scalar, ...)` call, which
+  // includes:
+  //   * user code: `expression_holder<scalar_expression>{} * x`
+  //     constructs an invalid lhs that the *= safety net would
+  //     normally handle silently, but our read() bypasses it.
+  //   * diff visitor accumulator state — was the source of the
+  //     FuzzyScalarDiff seed 35 crash that surfaced this latent UB.
+  //     scalar_differentiation now identity-inits its accumulators
+  //     (scalar_zero / scalar_one), so the diff-internal source is
+  //     closed. The guard remains for the user-code path and any
+  //     future visitor that doesn't follow the identity-init
+  //     pattern.
   if (!e.is_valid())
     return {};
   auto const &a = e.data()->assumptions();

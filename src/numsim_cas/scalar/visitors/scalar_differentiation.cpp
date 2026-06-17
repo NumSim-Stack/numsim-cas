@@ -64,14 +64,12 @@ void scalar_differentiation::operator()(scalar_add const &visitable) {
 
 void scalar_differentiation::operator()(scalar_negative const &visitable) {
   scalar_differentiation d(m_arg);
-  auto diff_expr{d.apply(visitable.expr())};
-  // d.apply always returns valid (apply_imp converts invalid m_result
-  // to scalar_zero at the boundary). Skipping the assignment when
-  // diff_expr is zero leaves m_result invalid, which then surfaces
-  // as scalar_zero via apply_imp's same fallback — identical
-  // observable behavior, but more explicit to assign directly.
-  if (!is_same<scalar_zero>(diff_expr))
-    m_result = -diff_expr;
+  // d.apply() is guaranteed valid (see apply() contract in header).
+  // -scalar_zero short-circuits to scalar_zero in tag_invoke(neg_fn),
+  // so the assignment is correct unconditionally — no need to
+  // special-case zero. Also preserves the "visitor sets m_result to
+  // a valid expression" invariant called out in the apply contract.
+  m_result = -d.apply(visitable.expr());
 }
 
 void scalar_differentiation::operator()(scalar_pow const &visitable) {

@@ -88,15 +88,18 @@ struct view {
 // #261 (constants pre-annotation) for the common `pow(x, integer)`
 // case.
 inline view read(expression_holder<tensor_to_scalar_expression> const &e) {
-  // Defense-in-depth: an invalid holder would null-deref through
-  // numeric_assumption_manager::contains. The tensor-domain diff
-  // visitors use the explicit `is_valid()` accumulation pattern
-  // (`if (sum.is_valid()) sum += d; else sum = std::move(d);`),
-  // which eliminates the only known source of invalid intermediates.
-  // (Scalar uses identity-init via singletons — natural difference;
-  // tensor's dim/rank-dependent identities don't have global
-  // singletons.) Keeping the guard belt-and-suspenders. See PR #309
-  // for the audit.
+  // Invalid-holder guard: an invalid holder would null-deref through
+  // numeric_assumption_manager::contains. Reached from any
+  // `tag_invoke(mul_fn / pow_fn / neg_fn, t2s, ...)` call, which
+  // includes:
+  //   * user code: `expression_holder<tensor_to_scalar_expression>{}
+  //     * x` constructs an invalid lhs that the *= safety net would
+  //     normally handle silently, but our read() bypasses it.
+  //   * diff visitor accumulator state — tensor_to_scalar_add and
+  //     all other tensor-domain diff accumulators use the explicit
+  //     `if (acc.is_valid()) ...` pattern, so the diff-internal
+  //     source is closed. The guard remains for the user-code path
+  //     and any future visitor that doesn't follow the pattern.
   if (!e.is_valid())
     return {};
   auto const &a = e.data()->assumptions();

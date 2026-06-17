@@ -59,8 +59,15 @@ public:
    * (`scalar_zero` for additive, `scalar_one` for multiplicative)
    * to preserve the same contract for INTERMEDIATE state — a
    * caller reading the accumulator mid-iteration would otherwise
-   * null-deref through the invalid holder. See PR #309 for the
-   * audit and pattern.
+   * null-deref through the invalid holder.
+   *
+   * \note The tensor-domain diff visitors
+   * (`tensor_differentiation`, `tensor_to_scalar_differentiation`)
+   * achieve the same intermediate-state guarantee via a different
+   * pattern: explicit `if (acc.is_valid()) acc += d; else acc =
+   * std::move(d);` checks. The asymmetry is intentional — tensor
+   * has no global identity (dim/rank vary with `m_arg`) so the
+   * scalar identity-init pattern doesn't transfer directly.
    *
    * @param expr Expression to differentiate.
    * @return The symbolic derivative d(expr)/d(m_arg). Always valid.
@@ -344,10 +351,19 @@ private:
    * If the current visitor has set \f$m\_result = F'(u)\f$, this
    * multiplies by \f$u'(a)\f$ to obtain \f$F'(u(a))\,u'(a)\f$.
    *
-   * \warning Behavior change (PR #309): previously skipped the
+   * \par Precondition
+   * `m_result` MUST be valid before calling. All current callers
+   * set it explicitly (e.g. `scalar_sin` sets `m_result = cos(u)`
+   * before calling). If a future unary handler forgets, the
+   * `operator*=` safety net would silently assign `inner` to
+   * `m_result`, yielding `u'(x)` instead of `F'(u) * u'(x)` — a
+   * wrong derivative with no compile-time signal. The debug
+   * assert below catches it.
+   *
+   * \warning Behavior change (previously this helper skipped the
    * multiplication when `inner.is_valid()` was false, leaving
    * `m_result = F'(u)` un-multiplied — a silently-wrong derivative
-   * for the rare "couldn't differentiate inner" case. After
+   * for the rare "couldn't differentiate inner" case). After
    * apply_imp's invalid→zero contract was tightened, `inner` is
    * always valid (zero if `u` was constant), and the multiplication
    * runs unconditionally: `F'(u) * 0 = 0` for constant inner, which
@@ -357,6 +373,9 @@ private:
    * @param unary Unary node.
    */
   template <typename T> void apply_inner_unary(T const &unary) {
+    assert(m_result.is_valid() &&
+           "apply_inner_unary: caller must set m_result = F'(u) before "
+           "invoking the chain rule");
     scalar_differentiation inner_diff(m_arg);
     auto inner{inner_diff.apply(unary.expr())};
     m_result *= std::move(inner);
