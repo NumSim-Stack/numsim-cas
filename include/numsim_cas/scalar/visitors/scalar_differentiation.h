@@ -44,8 +44,26 @@ public:
 
   /**
    * @brief Differentiate an expression (const lvalue).
+   *
+   * \par Contract
+   * Always returns a VALID `expression_holder` — never the
+   * default-constructed (invalid) state. If a visitor overload
+   * leaves `m_result` unset (or unset == invalid), `apply_imp`
+   * substitutes `scalar_zero` at the boundary. Callers can rely
+   * on this and skip `is_valid()` checks on the result.
+   *
+   * This contract is load-bearing for instrumentation that reads
+   * `result.data()->...` directly (e.g. the positivity propagation
+   * helper at `scalar_positivity_propagation.h`). Visitor
+   * accumulator variables MUST be initialized to identity elements
+   * (`scalar_zero` for additive, `scalar_one` for multiplicative)
+   * to preserve the same contract for INTERMEDIATE state — a
+   * caller reading the accumulator mid-iteration would otherwise
+   * null-deref through the invalid holder. See PR #309 for the
+   * audit and pattern.
+   *
    * @param expr Expression to differentiate.
-   * @return The symbolic derivative d(expr)/d(m_arg).
+   * @return The symbolic derivative d(expr)/d(m_arg). Always valid.
    */
   auto apply(expr_holder_t const &expr) { return apply_imp(expr); }
 
@@ -326,15 +344,22 @@ private:
    * If the current visitor has set \f$m\_result = F'(u)\f$, this
    * multiplies by \f$u'(a)\f$ to obtain \f$F'(u(a))\,u'(a)\f$.
    *
+   * \warning Behavior change (PR #309): previously skipped the
+   * multiplication when `inner.is_valid()` was false, leaving
+   * `m_result = F'(u)` un-multiplied — a silently-wrong derivative
+   * for the rare "couldn't differentiate inner" case. After
+   * apply_imp's invalid→zero contract was tightened, `inner` is
+   * always valid (zero if `u` was constant), and the multiplication
+   * runs unconditionally: `F'(u) * 0 = 0` for constant inner, which
+   * is the correct chain-rule outcome.
+   *
    * @tparam T Unary node type exposing expr().
    * @param unary Unary node.
    */
   template <typename T> void apply_inner_unary(T const &unary) {
     scalar_differentiation inner_diff(m_arg);
     auto inner{inner_diff.apply(unary.expr())};
-    if (inner.is_valid()) {
-      m_result *= std::move(inner);
-    }
+    m_result *= std::move(inner);
   }
 
   /**
