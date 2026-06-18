@@ -73,13 +73,12 @@ inline expression_holder<scalar_expression> tag_invoke(mul_fn, L &&lhs,
                                                        R &&rhs) {
   // #305 — capture operand sign views BEFORE forwarding (the visitor
   // may consume L/R as rvalues). Same shape as the t2s mul wiring.
-  const auto lhs_view = scalar_detail::positivity::read(lhs);
-  const auto rhs_view = scalar_detail::positivity::read(rhs);
+  const auto lhs_view = positivity::read(lhs);
+  const auto rhs_view = positivity::read(rhs);
   auto &_lhs{lhs.template get<scalar_visitable_t>()};
   simplifier::mul_base visitor(std::forward<L>(lhs), std::forward<R>(rhs));
   auto result = _lhs.accept(visitor);
-  scalar_detail::positivity::propagate_mul_from_views(lhs_view, rhs_view,
-                                                      result);
+  positivity::propagate_mul_from_views(lhs_view, rhs_view, result);
   return result;
 }
 
@@ -116,22 +115,19 @@ inline expression_holder<scalar_expression> tag_invoke(div_fn, L &&lhs,
   // before the mul, since we bypassed the main pow() wrapper. The
   // subsequent `lhs * ...` mul DOES run propagation via the mul
   // operator's instrumentation.
-  const auto rhs_view = scalar_detail::positivity::read(rhs);
-  const auto neg_one_view =
-      scalar_detail::positivity::read(get_scalar_one()); // exp = -1
+  const auto rhs_view = positivity::read(rhs);
   auto pow_result =
       binary_scalar_pow_simplify(std::forward<R>(rhs), -get_scalar_one());
-  // exp view above was on +1; the actual exponent is -1, which is a
-  // numeric constant (real-by-construction) — open-code the real
-  // bit since we can't construct a view directly.
-  scalar_detail::positivity::view exp_view{};
-  exp_view.real = true; // numeric constant
-  exp_view.negative = true;
-  exp_view.nonpositive = true;
-  exp_view.nonzero = true;
-  (void)neg_one_view;
-  scalar_detail::positivity::propagate_pow_from_views(rhs_view, exp_view,
-                                                      pow_result);
+  // The exponent here is the literal -1 (a real numeric constant).
+  // Hand-construct the view rather than building a `-scalar_one`
+  // holder just to feed read() — same result, no allocation.
+  positivity::view const exp_view{.positive = false,
+                                  .nonnegative = false,
+                                  .nonpositive = true,
+                                  .negative = true,
+                                  .nonzero = true,
+                                  .real = true};
+  positivity::propagate_pow_from_views(rhs_view, exp_view, pow_result);
   return std::forward<L>(lhs) * std::move(pow_result);
 }
 

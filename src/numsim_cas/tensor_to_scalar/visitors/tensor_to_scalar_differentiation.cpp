@@ -45,12 +45,36 @@ void tensor_to_scalar_differentiation::operator()(
 // coeff is constant offset -> derivative is zero
 void tensor_to_scalar_differentiation::operator()(
     tensor_to_scalar_add const &visitable) {
+  // Explicit `is_valid()` accumulation pattern: the tensor-domain
+  // convention. The scalar diff visitor uses identity-init
+  // (`expr_result = scalar_zero`) instead — that's available there
+  // because scalar has cheap singleton identities (get_scalar_zero
+  // and get_scalar_one). Tensor doesn't have a global zero
+  // (rank/dim vary with m_arg), so the explicit check is the
+  // natural fit. Both patterns produce the same observable
+  // behavior; the asymmetry is intentional.
+  //
+  // All tensor-domain diff accumulators use this pattern —
+  //   * tensor_differentiation::operator()(tensor_add)
+  //   * tensor_differentiation::operator()(tensor_mul)
+  //   * tensor_differentiation::operator()(tensor_inner_product…)
+  //   * tensor_differentiation_wrt_scalar::operator()(tensor_add)
+  //   * tensor_differentiation_wrt_scalar::operator()(tensor_mul)
+  //   * tensor_to_scalar_differentiation_wrt_scalar::operator()(
+  //       tensor_to_scalar_add)
+  //   * tensor_to_scalar_differentiation_wrt_scalar::operator()(
+  //       tensor_to_scalar_mul)
+  // Keep this t2s_add consistent with the family when adding new
+  // accumulator-bearing visitors.
   tensor_holder_t sum;
   for (auto &child : visitable.symbol_map() | std::views::values) {
     auto d = diff(child, m_arg);
-    if (!is_same<tensor_zero>(d)) {
-      sum += d;
-    }
+    if (is_same<tensor_zero>(d))
+      continue;
+    if (sum.is_valid())
+      sum += std::move(d);
+    else
+      sum = std::move(d);
   }
   m_result = std::move(sum);
 }
