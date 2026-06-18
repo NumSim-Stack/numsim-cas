@@ -54,20 +54,23 @@ public:
    *
    * This contract is load-bearing for instrumentation that reads
    * `result.data()->...` directly (e.g. the positivity propagation
-   * helper at `scalar_positivity_propagation.h`). Visitor
-   * accumulator variables MUST be initialized to identity elements
-   * (`scalar_zero` for additive, `scalar_one` for multiplicative)
-   * to preserve the same contract for INTERMEDIATE state — a
-   * caller reading the accumulator mid-iteration would otherwise
-   * null-deref through the invalid holder.
+   * helper at `scalar_positivity_propagation.h`). To preserve the
+   * same contract for INTERMEDIATE state during accumulation, use
+   * one of these two patterns when building results iteratively:
    *
-   * \note The tensor-domain diff visitors
-   * (`tensor_differentiation`, `tensor_to_scalar_differentiation`)
-   * achieve the same intermediate-state guarantee via a different
-   * pattern: explicit `if (acc.is_valid()) acc += d; else acc =
-   * std::move(d);` checks. The asymmetry is intentional — tensor
-   * has no global identity (dim/rank vary with `m_arg`) so the
-   * scalar identity-init pattern doesn't transfer directly.
+   *   1. **Identity-init**: `acc = get_scalar_zero()` for additive,
+   *      `acc = get_scalar_one()` for multiplicative. Used here in
+   *      the scalar diff visitors (cheap singleton identities are
+   *      available).
+   *   2. **Explicit-check**: `if (acc.is_valid()) acc += d; else
+   *      acc = std::move(d);`. Used in the tensor-domain diff
+   *      visitors (`tensor_differentiation`,
+   *      `tensor_to_scalar_differentiation`) because tensor has no
+   *      global identity (dim/rank vary with `m_arg`).
+   *
+   * Either pattern preserves the invariant "accumulator holder is
+   * never invalid mid-iteration." Both produce identical observable
+   * behavior; the choice is per-domain ergonomics.
    *
    * @param expr Expression to differentiate.
    * @return The symbolic derivative d(expr)/d(m_arg). Always valid.

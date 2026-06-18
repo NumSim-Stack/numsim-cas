@@ -54,8 +54,7 @@ void tensor_to_scalar_differentiation::operator()(
   // natural fit. Both patterns produce the same observable
   // behavior; the asymmetry is intentional.
   //
-  // Audit (June 2026): all tensor-domain diff accumulators use
-  // this pattern —
+  // All tensor-domain diff accumulators use this pattern —
   //   * tensor_differentiation::operator()(tensor_add)
   //   * tensor_differentiation::operator()(tensor_mul)
   //   * tensor_differentiation::operator()(tensor_inner_product…)

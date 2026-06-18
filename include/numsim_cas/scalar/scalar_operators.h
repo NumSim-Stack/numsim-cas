@@ -116,18 +116,17 @@ inline expression_holder<scalar_expression> tag_invoke(div_fn, L &&lhs,
   // subsequent `lhs * ...` mul DOES run propagation via the mul
   // operator's instrumentation.
   const auto rhs_view = positivity::read(rhs);
-  const auto neg_one_view = positivity::read(get_scalar_one()); // exp = -1
   auto pow_result =
       binary_scalar_pow_simplify(std::forward<R>(rhs), -get_scalar_one());
-  // exp view above was on +1; the actual exponent is -1, which is a
-  // numeric constant (real-by-construction) — open-code the real
-  // bit since we can't construct a view directly.
-  positivity::view exp_view{};
-  exp_view.real = true; // numeric constant
-  exp_view.negative = true;
-  exp_view.nonpositive = true;
-  exp_view.nonzero = true;
-  (void)neg_one_view;
+  // The exponent here is the literal -1 (a real numeric constant).
+  // Hand-construct the view rather than building a `-scalar_one`
+  // holder just to feed read() — same result, no allocation.
+  positivity::view const exp_view{.positive = false,
+                                  .nonnegative = false,
+                                  .nonpositive = true,
+                                  .negative = true,
+                                  .nonzero = true,
+                                  .real = true};
   positivity::propagate_pow_from_views(rhs_view, exp_view, pow_result);
   return std::forward<L>(lhs) * std::move(pow_result);
 }
