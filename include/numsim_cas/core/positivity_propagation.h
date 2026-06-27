@@ -185,4 +185,6 @@ inline void propagate_pow_from_views(view base, view exponent,
 
 } // namespace numsim::cas::positivity
 
+#undef NUMSIM_CAS_POSITIVITY_ASSERT_NO_CONTRADICTION
+
 #endif // NUMSIM_CAS_CORE_POSITIVITY_PROPAGATION_H
