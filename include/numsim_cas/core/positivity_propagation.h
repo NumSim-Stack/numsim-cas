@@ -28,6 +28,15 @@
 // typed assumption tags instead of a bespoke bool mirror. The rules
 // below query it with `.contains(positive{})` etc.
 //
+// COST: the snapshot is a `std::set` copy per mul/pow/neg construction
+// (vs. the alloc-free bool struct this replaced). The manager holds a
+// handful of tags and the operator already allocates the result node,
+// so this is intentionally accepted as negligible. If it ever shows up
+// in a construction-heavy profile, back `numeric_assumption_manager`
+// onto a bitset (the 13 numeric tags fit in a uint16_t) and the copy
+// becomes trivial again — or drop the eager path entirely (#310), which
+// removes read()/propagate_* and this cost with it.
+//
 // `read()` also NORMALIZES the snapshot: it inserts real_tag whenever
 // the operand is real-by-implication (integer/rational/irrational, or a
 // numeric constant), so the rules only ever check real_tag. Complex
