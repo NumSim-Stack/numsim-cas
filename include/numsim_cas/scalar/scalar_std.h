@@ -124,10 +124,7 @@ requires std::is_arithmetic_v<std::remove_cvref_t<R>>
   auto constant{detail::tag_invoke(detail::make_constant_fn{},
                                    std::type_identity<scalar_expression>{},
                                    expr_rhs)};
-  // #305 — apply pow propagation. The arithmetic overload calls
-  // binary_scalar_pow_simplify directly (rather than routing
-  // through the main pow above) to avoid the special-case folds,
-  // so propagation needs to be applied here too.
+  // #305 — this overload bypasses the main pow() above, so propagate here.
   const auto base_tags = positivity::read(expr_lhs);
   const auto exp_tags = positivity::read(constant);
   auto result = binary_scalar_pow_simplify(std::forward<L>(expr_lhs),

@@ -19,17 +19,10 @@ void scalar_differentiation::operator()(
 }
 
 void scalar_differentiation::operator()(scalar_mul const &visitable) {
-  // Initialize accumulators to identity elements so the first iteration's
-  // `+=` / `*=` doesn't operate on an invalid holder. Previously these
-  // were default-constructed (invalid) and relied on
-  // expression_holder's operator+= safety net (which converts
-  // `invalid += x` to `*this = x`). That safety net is real but it
-  // means CALLERS who read `data()->...` directly on the accumulator
-  // before the first iteration null-deref — surfaced as a segfault
-  // in #305 when the positivity-propagation read() call landed in the
-  // mul instrumentation. The is_valid() guard in read() is still
-  // belt-and-suspenders, but eliminating the invalid intermediate
-  // here is the principled fix.
+  // Identity-init so the first += / *= never hits an invalid holder —
+  // default-construction relied on the += safety net, which left the
+  // accumulator invalid for a mid-iteration reader (the #305 positivity
+  // read() null-deref / segfault).
   expr_holder_t expr_result = get_scalar_zero();
   for (auto &expr_out : visitable.symbol_map() | std::views::values) {
     expr_holder_t expr_result_in = get_scalar_one();
@@ -64,11 +57,8 @@ void scalar_differentiation::operator()(scalar_add const &visitable) {
 
 void scalar_differentiation::operator()(scalar_negative const &visitable) {
   scalar_differentiation d(m_arg);
-  // d.apply() is guaranteed valid (see apply() contract in header).
-  // -scalar_zero short-circuits to scalar_zero in tag_invoke(neg_fn),
-  // so the assignment is correct unconditionally — no need to
-  // special-case zero. Also preserves the "visitor sets m_result to
-  // a valid expression" invariant called out in the apply contract.
+  // d.apply() is always valid and -scalar_zero folds to scalar_zero, so
+  // no zero special-case needed.
   m_result = -d.apply(visitable.expr());
 }
 

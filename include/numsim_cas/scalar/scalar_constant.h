@@ -18,21 +18,10 @@ public:
   scalar_constant() = delete;
   template <typename T>
   explicit scalar_constant(T const &v) : base(), m_value(v) {
-    // numsim-cas is a real-valued CAS for constitutive modelling; complex
-    // numbers never arise in that domain (stress/strain/energy are real;
-    // principal values come from symmetric PD tensors). Symbols already
-    // cannot be assumed complex, and no operation folds to a complex
-    // constant (sqrt(-1), pow(-1,1/2) stay symbolic). Rejecting complex
-    // here is the single boundary that keeps complex values out of every
-    // expression — so the positivity rules downstream can treat every
-    // constant, symbol, and subexpression as real. See cas_error.h.
-    //
-    // This is a structural check on the variant alternative, so a
-    // zero-imaginary complex (e.g. complex{5.0, 0.0}) is ALSO rejected:
-    // it is mathematically real but was spelled complex, and accepting
-    // it would quietly admit the alternative we've decided to exclude.
-    // Callers who want a real constant must spell it real (5.0, not
-    // complex{5.0, 0.0}).
+    // numsim-cas is a real-valued CAS: reject complex at this single
+    // boundary so every constant downstream is real. Structural variant
+    // check, so a zero-imaginary complex{5.0, 0.0} is rejected too —
+    // spell real constants as real (#267).
     if (std::holds_alternative<std::complex<double>>(m_value.raw()))
       throw invalid_expression_error(
           "scalar_constant: complex values are not supported");
@@ -159,11 +148,8 @@ private:
               a.insert(nonpositive{});
             }
           }
-          // complex: unreachable — the constructor rejects complex
-          // values before annotate_from_value() runs. Kept so the
-          // std::visit remains total over the variant; if the ctor
-          // guard is ever removed, a complex constant correctly gets
-          // no sign predicates and no real_tag.
+          // complex: unreachable (ctor rejects complex first); kept so
+          // the visit stays total. No predicates would apply anyway.
         },
         m_value.raw());
     a.set_inferred();

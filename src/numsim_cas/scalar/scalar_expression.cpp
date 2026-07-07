@@ -23,8 +23,7 @@ tag_invoke(detail::neg_fn, std::type_identity<scalar_expression>,
     return e.get<scalar_negative>().expr();
   }
 
-  // #305 — capture operand sign BEFORE building the negative node so
-  // the propagation step can flip pos→neg / nonneg→nonpos / etc.
+  // #305 — capture operand sign before building the node, then flip it.
   const auto operand_tags = positivity::read(e);
   auto result = make_expression<scalar_negative>(e);
   positivity::propagate_neg(operand_tags, result);

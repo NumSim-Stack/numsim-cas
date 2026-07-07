@@ -58,8 +58,7 @@ template <tensor_to_scalar_expr_holder ExprLHS,
       return make_expression<tensor_to_scalar_one>();
   }
 
-  // #260 — capture sign tags on base and exponent BEFORE forwarding;
-  // the visitor may consume the holders as rvalues.
+  // #260 — snapshot sign tags before forwarding (visitor may move them).
   const auto base_tags = positivity::read(expr_lhs);
   const auto exp_tags = positivity::read(expr_rhs);
   // Full simplification via visitor dispatch

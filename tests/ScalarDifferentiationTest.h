@@ -222,22 +222,12 @@ TEST(ScalarDifferentiationAudit, PowVariableBaseVariableExponent) {
 }
 
 // ─── Accumulator-init regression (follow-up to #305) ───────────────
-// scalar_differentiation's scalar_mul / scalar_add visitors previously
-// default-constructed the accumulator (invalid holder) and relied on
-// expression_holder::operator+=/*='s "invalid lhs → assign rhs"
-// safety net. That worked for the visitor itself but left an invalid
-// intermediate visible to any code that read `accumulator.data()->...`
-// directly — surfaced as a segfault when the #305 positivity-
-// propagation read() landed in the mul instrumentation (FuzzyScalar
-// Depth3 seed 35). Lock-in tests ensure the accumulator is initialized
-// to the identity element (scalar_zero for additive, scalar_one for
-// multiplicative) so any future read() in the visitor stays valid.
+// The scalar_mul/add visitors identity-init their accumulators
+// (scalar_zero/one) so no invalid intermediate is visible to a reader
+// like the #305 positivity read() (segfaulted on FuzzyScalar seed 35).
 
 TEST(ScalarDifferentiationAudit, MulAccumulatorReturnsScalarZeroForConstant) {
-  // d(c1·c2)/dx = 0. The mul visitor's outer accumulator is a
-  // sum; if not initialized to scalar_zero, the result could be
-  // invalid (and apply_imp's fallback would handle it). With the
-  // identity-init, the result is structurally scalar_zero already.
+  // d(c1·c2)/dx = 0, structurally scalar_zero via identity-init.
   auto x = make_expression<scalar>("x");
   auto y = make_expression<scalar>("y");
   auto z = make_expression<scalar>("z");

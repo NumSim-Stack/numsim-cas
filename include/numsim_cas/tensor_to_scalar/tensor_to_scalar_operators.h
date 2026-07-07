@@ -99,9 +99,7 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_to_scalar_expression>>
 inline expression_holder<tensor_to_scalar_expression>
 tag_invoke(mul_fn, [[maybe_unused]] L &&lhs, [[maybe_unused]] R &&rhs) {
-  // #260 — read operand positivity BEFORE forwarding (the visitor may
-  // consume L/R as rvalues). Idempotent insertion afterwards lets a
-  // folded result that already carries the tag pass through unchanged.
+  // #260 — snapshot sign tags before forwarding (visitor may move L/R).
   const auto lhs_tags = positivity::read(lhs);
   const auto rhs_tags = positivity::read(rhs);
   auto &_lhs{lhs.template get<tensor_to_scalar_visitable_t>()};

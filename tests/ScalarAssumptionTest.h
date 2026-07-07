@@ -157,14 +157,9 @@ TEST_F(AssumptionFixture, PropagatePowZeroSingletonAsEvenExp) {
       << "Expected nonnegative for x^0 (even exponent zero singleton)";
 }
 
-// Complex constants are not representable: numsim-cas is a real-valued
-// CAS, so scalar_constant construction rejects complex values. This is
-// the single boundary that keeps complex out of every expression and
-// lets the positivity rules treat every base/exponent as real (which is
-// why pow(positive, exp) → positive needs no real-exponent guard). Once
-// a complex value can't enter, pow(positive, 2i) / pow(i, 2) can't be
-// built at all — the unsoundness becomes unrepresentable rather than
-// merely guarded.
+// Complex is rejected at scalar_constant construction — the single
+// boundary that keeps it out of every expression, so pow(positive, 2i)
+// can't be built at all (the unsoundness is unrepresentable, not guarded).
 TEST_F(AssumptionFixture, ComplexConstantRejectedAtConstruction) {
   EXPECT_THROW(numsim::cas::make_scalar_constant(
                    numsim::cas::scalar_number{std::complex<double>{0.0, 2.0}}),
@@ -619,13 +614,8 @@ TEST(ScalarConstantValueAssumptions,
 }
 
 TEST(ScalarConstantValueAssumptions, ComplexValueRejectedAtConstruction) {
-  // numsim-cas is a real-valued CAS: complex values are never needed in
-  // constitutive modelling, symbols cannot be assumed complex, and no
-  // operation folds to a complex constant. scalar_constant construction
-  // therefore rejects complex outright — the previous behaviour (build a
-  // tag-less complex constant) was an attractive nuisance that left an
-  // unsound corner for the positivity rules. This pins the rejection so a
-  // future edit that re-admits complex constants must be deliberate.
+  // Real-valued CAS: scalar_constant rejects complex. Pins the rejection
+  // so re-admitting complex must be deliberate (#267).
   EXPECT_THROW(
       {
         auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(

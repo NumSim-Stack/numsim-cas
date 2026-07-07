@@ -71,8 +71,7 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<scalar_expression>>
 inline expression_holder<scalar_expression> tag_invoke(mul_fn, L &&lhs,
                                                        R &&rhs) {
-  // #305 — snapshot operand sign tags BEFORE forwarding (the visitor
-  // may consume L/R as rvalues). Same shape as the t2s mul wiring.
+  // #305 — snapshot sign tags before forwarding (visitor may move L/R).
   const auto lhs_tags = positivity::read(lhs);
   const auto rhs_tags = positivity::read(rhs);
   auto &_lhs{lhs.template get<scalar_visitable_t>()};
@@ -108,19 +107,14 @@ inline expression_holder<scalar_expression> tag_invoke(div_fn, L &&lhs,
   if (rhs_val && *rhs_val == scalar_number{1}) {
     return std::forward<L>(lhs);
   }
-  // General: x / y → x * y^(-1)
-  // Use binary_scalar_pow_simplify to bypass pow() constant folding
-  // so that pow(c, -1) stays structural and the printer formats as x/c.
-  // #305 — apply pow propagation manually on the simplify result
-  // before the mul, since we bypassed the main pow() wrapper. The
-  // subsequent `lhs * ...` mul DOES run propagation via the mul
-  // operator's instrumentation.
+  // General: x / y → x * y^(-1). binary_scalar_pow_simplify bypasses
+  // pow()'s folding so pow(c, -1) stays structural (printer shows x/c);
+  // propagate pow here since we skipped the pow() wrapper (the mul below
+  // runs its own propagation).
   const auto rhs_tags = positivity::read(rhs);
   auto pow_result =
       binary_scalar_pow_simplify(std::forward<R>(rhs), -get_scalar_one());
-  // The exponent here is the literal -1 (a real numeric constant).
-  // Hand-build the tag snapshot rather than building a `-scalar_one`
-  // holder just to feed read() — same result, no allocation.
+  // Exponent is the literal -1; hand-build its tags, no holder needed.
   numeric_assumption_manager exp_tags;
   exp_tags.insert(negative{});
   exp_tags.insert(nonpositive{});

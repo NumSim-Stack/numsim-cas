@@ -45,35 +45,14 @@ public:
   /**
    * @brief Differentiate an expression (const lvalue).
    *
-   * \par Contract
-   * Always returns a VALID `expression_holder` — never the
-   * default-constructed (invalid) state. If a visitor overload
-   * leaves `m_result` unset (or unset == invalid), `apply_imp`
-   * substitutes `scalar_zero` at the boundary. Callers can rely
-   * on this and skip `is_valid()` checks on the result.
+   * Always returns a VALID holder — apply_imp substitutes scalar_zero if
+   * a visitor leaves m_result unset. Instrumentation that reads
+   * result.data() directly (e.g. positivity propagation) relies on this.
+   * To keep intermediate accumulators valid, init to an identity
+   * (get_scalar_zero/one) or explicit-check (`if (acc.is_valid())`); the
+   * tensor domains use the latter since they have no global identity.
    *
-   * This contract is load-bearing for instrumentation that reads
-   * `result.data()->...` directly (e.g. the positivity propagation
-   * helper at `scalar_positivity_propagation.h`). To preserve the
-   * same contract for INTERMEDIATE state during accumulation, use
-   * one of these two patterns when building results iteratively:
-   *
-   *   1. **Identity-init**: `acc = get_scalar_zero()` for additive,
-   *      `acc = get_scalar_one()` for multiplicative. Used here in
-   *      the scalar diff visitors (cheap singleton identities are
-   *      available).
-   *   2. **Explicit-check**: `if (acc.is_valid()) acc += d; else
-   *      acc = std::move(d);`. Used in the tensor-domain diff
-   *      visitors (`tensor_differentiation`,
-   *      `tensor_to_scalar_differentiation`) because tensor has no
-   *      global identity (dim/rank vary with `m_arg`).
-   *
-   * Either pattern preserves the invariant "accumulator holder is
-   * never invalid mid-iteration." Both produce identical observable
-   * behavior; the choice is per-domain ergonomics.
-   *
-   * @param expr Expression to differentiate.
-   * @return The symbolic derivative d(expr)/d(m_arg). Always valid.
+   * @return d(expr)/d(m_arg). Always valid.
    */
   auto apply(expr_holder_t const &expr) { return apply_imp(expr); }
 
@@ -349,31 +328,12 @@ public:
 
 private:
   /**
-   * @brief Apply chain rule for unary nodes.
+   * @brief Chain rule for unary nodes: m_result = F'(u) *= u'(a).
    *
-   * If the current visitor has set \f$m\_result = F'(u)\f$, this
-   * multiplies by \f$u'(a)\f$ to obtain \f$F'(u(a))\,u'(a)\f$.
-   *
-   * \par Precondition
-   * `m_result` MUST be valid before calling. All current callers
-   * set it explicitly (e.g. `scalar_sin` sets `m_result = cos(u)`
-   * before calling). If a future unary handler forgets, the
-   * `operator*=` safety net would silently assign `inner` to
-   * `m_result`, yielding `u'(x)` instead of `F'(u) * u'(x)` — a
-   * wrong derivative with no compile-time signal. The debug
-   * assert below catches it.
-   *
-   * \warning Behavior change (previously this helper skipped the
-   * multiplication when `inner.is_valid()` was false, leaving
-   * `m_result = F'(u)` un-multiplied — a silently-wrong derivative
-   * for the rare "couldn't differentiate inner" case). After
-   * apply_imp's invalid→zero contract was tightened, `inner` is
-   * always valid (zero if `u` was constant), and the multiplication
-   * runs unconditionally: `F'(u) * 0 = 0` for constant inner, which
-   * is the correct chain-rule outcome.
-   *
-   * @tparam T Unary node type exposing expr().
-   * @param unary Unary node.
+   * Precondition: m_result valid (the caller set F'(u); the assert
+   * catches a handler that forgot — else the *= safety net would yield
+   * u'(x) instead of F'(u)*u'(x)). inner is always valid now (zero for
+   * constant u), so `F'(u) * 0 = 0` is the correct outcome.
    */
   template <typename T> void apply_inner_unary(T const &unary) {
     assert(m_result.is_valid() &&

@@ -129,20 +129,17 @@ TEST(ScalarComparison, EdgeCase_NaN_StructuralIdentity) {
   EXPECT_TRUE(is_same<scalar_zero>(ne(nan_const, nan_const)));
 }
 
-// Complex constants are not representable in the CAS: numsim-cas is a
-// real-valued system, so building a complex scalar_constant throws.
-// Complex comparison-folding is therefore unreachable through the
-// expression layer.
+// Real-valued CAS: building a complex scalar_constant throws, so complex
+// comparison-folding is unreachable through the expression layer.
 TEST(ScalarComparison, EdgeCase_Complex_RejectedAtBoundary) {
   EXPECT_THROW(
       make_scalar_constant(scalar_number{std::complex<double>{1.0, 5.0}}),
       invalid_expression_error);
 }
 
-// Locks in #144 at the type level: `scalar_number` still provides a
-// total order over complex values (real-then-imag tiebreak), needed for
-// variant comparison even though complex constants can't enter an
-// expression. Documents the choice so any future change is deliberate.
+// Locks in #144 at the type level: scalar_number keeps a total order
+// over complex values (real-then-imag), needed for variant comparison
+// even though complex constants can't enter an expression.
 TEST(ScalarComparison, EdgeCase_Complex_ScalarNumberTotalOrder) {
   scalar_number const c_1_5{std::complex<double>{1.0, 5.0}};
   scalar_number const c_1_3{std::complex<double>{1.0, 3.0}};

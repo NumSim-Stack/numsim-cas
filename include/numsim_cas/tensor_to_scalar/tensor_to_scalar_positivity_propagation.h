@@ -7,35 +7,18 @@
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h>
 
-// T2S adapter for the domain-agnostic positivity propagation (see
-// `core/positivity_propagation.h`). Only the `read()` function is
-// domain-specific: it forwards through `tensor_to_scalar_scalar_wrapper`
-// (the bridge from the scalar domain into t2s) to the inner scalar's
-// tags, and checks numeric constants via domain_traits::try_numeric.
-// Everything else (mark_*, propagate_*) is shared.
+// T2S adapter for core/positivity_propagation.h. Only read() is
+// domain-specific; mark_*/propagate_* are shared.
 
 namespace numsim::cas::positivity {
 
-// Snapshot a t2s expression's sign tags (normalized so real_tag is
-// materialized). If the expression is a `tensor_to_scalar_scalar_wrapper`,
-// ALSO merge the wrapped scalar's tags — the wrapper's own manager is
-// fresh at construction and doesn't inherit. Wrapper-forwarding is
-// single-level (the wrapper today wraps a scalar_expression, never
-// another t2s).
+// Snapshot a t2s expression's sign tags (real_tag materialized). For a
+// scalar_wrapper, also merge the wrapped scalar's tags (the wrapper's
+// own manager is fresh). Wrapper-forwarding is single-level.
 inline numeric_assumption_manager
 read(expression_holder<tensor_to_scalar_expression> const &e) {
-  // Invalid-holder guard: an invalid holder would null-deref through
-  // e.data()->assumptions(). Reached from any
-  // `tag_invoke(mul_fn / pow_fn / neg_fn, t2s, ...)` call, which
-  // includes:
-  //   * user code: `expression_holder<tensor_to_scalar_expression>{}
-  //     * x` constructs an invalid lhs that the *= safety net would
-  //     normally handle silently, but our read() bypasses it.
-  //   * diff visitor accumulator state — tensor_to_scalar_add and
-  //     all other tensor-domain diff accumulators use the explicit
-  //     `if (acc.is_valid()) ...` pattern, so the diff-internal
-  //     source is closed. The guard remains for the user-code path
-  //     and any future visitor that doesn't follow the pattern.
+  // Guard invalid holders (user code, or a diff accumulator before its
+  // first assignment) — assumptions() would null-deref otherwise.
   if (!e.is_valid())
     return {};
   numeric_assumption_manager m = e.data()->assumptions(); // value snapshot
@@ -45,16 +28,11 @@ read(expression_holder<tensor_to_scalar_expression> const &e) {
     for (auto const &t : inner.data()->assumptions().data())
       m.insert(t);
   }
-  // real-by-implication.
   if (m.contains(numsim::cas::integer{}) ||
       m.contains(numsim::cas::rational{}) ||
       m.contains(numsim::cas::irrational{}))
     m.insert(numsim::cas::real_tag{});
-  // Concrete numeric constants are real by construction. #261 will
-  // pre-annotate these, but until then we promote try_numeric() success
-  // to real_tag here. Sound because complex constants are rejected at
-  // scalar_constant construction (scalar_constant.h), so try_numeric()
-  // can only return a real value.
+  // Numeric constants are real (complex is rejected at construction).
   if (!m.contains(numsim::cas::real_tag{})) {
     using traits = numsim::cas::domain_traits<tensor_to_scalar_expression>;
     if (traits::try_numeric(e))
