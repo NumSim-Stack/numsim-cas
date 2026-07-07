@@ -661,7 +661,7 @@ TEST(TensorAlgebraOperatorPropagation, NegOfDoubleNegativeFoldsToOperand) {
   // -(-x) → x at the construction-time fold in the t2s_negative
   // factory. Tests an INTERACTION between the fold and the
   // propagation helper rather than the helper alone: the fold
-  // short-circuits before propagate_neg_from_view runs, so the
+  // short-circuits before propagate_neg runs, so the
   // helper never executes — but the user-visible contract
   // (-(-positive) is positive) is what we care about. The
   // operand's tags survive the round-trip because the fold
@@ -685,7 +685,7 @@ TEST(TensorAlgebraOperatorPropagation,
      PosTagOnlyTimesNonnegTagOnlyExercisesHardening) {
   // Direct-manager construction: insert `positive{}` alone (no joint
   // `nonnegative{}`) into lhs, and `nonnegative{}` alone into rhs.
-  // This is the exact brittle shape the at_least_nonneg_tag()
+  // This is the exact brittle shape the at_least_nonneg()
   // hardening was added for — joint-insertion paths (assume_positive_*)
   // can't produce this state, so the public API never reaches it
   // through the normal flow. This test pins the rule's behavior on
@@ -694,7 +694,7 @@ TEST(TensorAlgebraOperatorPropagation,
   // Without the hardening, the mul rule would test
   // `lhs.nonnegative && rhs.nonnegative` and skip — lhs.nonnegative
   // is false here (only positive was inserted). The hardening's
-  // `at_least_nonneg_tag()` reads "positive OR nonnegative", so the
+  // `at_least_nonneg()` reads "positive OR nonnegative", so the
   // rule still fires correctly.
   auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
   auto H = std::get<0>(make_tensor_variable(std::tuple{"H", 3, 2}));
@@ -708,7 +708,7 @@ TEST(TensorAlgebraOperatorPropagation,
   auto p = d1 * d2;
   auto const &a = p.data()->assumptions();
   EXPECT_TRUE(a.contains(nonnegative{}))
-      << "Hardening should fire: at_least_nonneg_tag covers the "
+      << "Hardening should fire: at_least_nonneg covers the "
          "pos-only × nonneg-only case";
   EXPECT_TRUE(a.contains(real_tag{}));
   // Can't conclude positive (rhs is only nonneg, may be zero) nor

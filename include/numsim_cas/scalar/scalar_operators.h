@@ -71,14 +71,14 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<scalar_expression>>
 inline expression_holder<scalar_expression> tag_invoke(mul_fn, L &&lhs,
                                                        R &&rhs) {
-  // #305 — capture operand sign views BEFORE forwarding (the visitor
+  // #305 — snapshot operand sign tags BEFORE forwarding (the visitor
   // may consume L/R as rvalues). Same shape as the t2s mul wiring.
-  const auto lhs_view = positivity::read(lhs);
-  const auto rhs_view = positivity::read(rhs);
+  const auto lhs_tags = positivity::read(lhs);
+  const auto rhs_tags = positivity::read(rhs);
   auto &_lhs{lhs.template get<scalar_visitable_t>()};
   simplifier::mul_base visitor(std::forward<L>(lhs), std::forward<R>(rhs));
   auto result = _lhs.accept(visitor);
-  positivity::propagate_mul_from_views(lhs_view, rhs_view, result);
+  positivity::propagate_mul(lhs_tags, rhs_tags, result);
   return result;
 }
 
@@ -115,19 +115,18 @@ inline expression_holder<scalar_expression> tag_invoke(div_fn, L &&lhs,
   // before the mul, since we bypassed the main pow() wrapper. The
   // subsequent `lhs * ...` mul DOES run propagation via the mul
   // operator's instrumentation.
-  const auto rhs_view = positivity::read(rhs);
+  const auto rhs_tags = positivity::read(rhs);
   auto pow_result =
       binary_scalar_pow_simplify(std::forward<R>(rhs), -get_scalar_one());
   // The exponent here is the literal -1 (a real numeric constant).
-  // Hand-construct the view rather than building a `-scalar_one`
+  // Hand-build the tag snapshot rather than building a `-scalar_one`
   // holder just to feed read() — same result, no allocation.
-  positivity::view const exp_view{.positive = false,
-                                  .nonnegative = false,
-                                  .nonpositive = true,
-                                  .negative = true,
-                                  .nonzero = true,
-                                  .real = true};
-  positivity::propagate_pow_from_views(rhs_view, exp_view, pow_result);
+  numeric_assumption_manager exp_tags;
+  exp_tags.insert(negative{});
+  exp_tags.insert(nonpositive{});
+  exp_tags.insert(nonzero{});
+  exp_tags.insert(real_tag{});
+  positivity::propagate_pow(rhs_tags, exp_tags, pow_result);
   return std::forward<L>(lhs) * std::move(pow_result);
 }
 

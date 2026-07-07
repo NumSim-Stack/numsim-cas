@@ -22,9 +22,9 @@ tag_invoke(detail::neg_fn, std::type_identity<tensor_to_scalar_expression>,
 
   // #260 — capture operand sign BEFORE building the negative node so
   // the propagation step can flip pos→neg / nonneg→nonpos / etc.
-  const auto operand_view = positivity::read(e);
+  const auto operand_tags = positivity::read(e);
   auto result = make_expression<tensor_to_scalar_negative>(e);
-  positivity::propagate_neg_from_view(operand_view, result);
+  positivity::propagate_neg(operand_tags, result);
   return result;
 }
 

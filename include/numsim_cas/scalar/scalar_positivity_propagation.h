@@ -13,17 +13,18 @@
 // is domain-specific: it inspects scalar-domain leaf node types
 // (scalar_zero/one/constant/negative) for the "is real-by-
 // construction numeric constant" check. Everything else
-// (mark_*, propagate_*, view) is shared.
+// (mark_*, propagate_*) is shared.
 
 namespace numsim::cas::positivity {
 
-// Read sign tags from a scalar expression's assumption manager.
-// Promotes the "concrete numeric constant" check to `real` so
-// `pow(x, integer)` exponents fire the real-exponent guard without
-// waiting on #261 (constants pre-annotation).
-inline view read(expression_holder<scalar_expression> const &e) {
+// Snapshot a scalar expression's sign tags, normalized so real_tag is
+// materialized (integer/rational/irrational and numeric constants all
+// imply real) — so `pow(x, integer)` exponents fire the real-exponent
+// guard without waiting on #261 (constants pre-annotation).
+inline numeric_assumption_manager
+read(expression_holder<scalar_expression> const &e) {
   // Invalid-holder guard: an invalid holder would null-deref through
-  // numeric_assumption_manager::contains. This is reached from any
+  // e.data()->assumptions(). This is reached from any
   // `tag_invoke(mul_fn / pow_fn / neg_fn, scalar, ...)` call, which
   // includes:
   //   * user code: `expression_holder<scalar_expression>{} * x`
@@ -37,34 +38,30 @@ inline view read(expression_holder<scalar_expression> const &e) {
   //     pattern.
   if (!e.is_valid())
     return {};
-  auto const &a = e.data()->assumptions();
-  view v{a.contains(numsim::cas::positive{}),
-         a.contains(numsim::cas::nonnegative{}),
-         a.contains(numsim::cas::nonpositive{}),
-         a.contains(numsim::cas::negative{}),
-         a.contains(numsim::cas::nonzero{}),
-         a.contains(numsim::cas::real_tag{}) ||
-             a.contains(numsim::cas::integer{}) ||
-             a.contains(numsim::cas::rational{}) ||
-             a.contains(numsim::cas::irrational{})};
+  numeric_assumption_manager m = e.data()->assumptions(); // value snapshot
+  // real-by-implication.
+  if (m.contains(numsim::cas::integer{}) ||
+      m.contains(numsim::cas::rational{}) ||
+      m.contains(numsim::cas::irrational{}))
+    m.insert(numsim::cas::real_tag{});
   // Concrete numeric constants are real by construction. Open-coded
   // structural check (instead of domain_traits::try_numeric) to
   // sidestep the scalar_domain_traits → scalar_all → scalar_std
   // include cycle. Promoting any scalar_constant to real is sound
   // because complex constants are rejected at scalar_constant
   // construction (scalar_constant.h) — every constant here is real.
-  if (!v.real) {
+  if (!m.contains(numsim::cas::real_tag{})) {
     if (is_same<scalar_zero>(e) || is_same<scalar_one>(e) ||
         is_same<scalar_constant>(e))
-      v.real = true;
+      m.insert(numsim::cas::real_tag{});
     else if (is_same<scalar_negative>(e)) {
       auto const &inner = e.template get<scalar_negative>().expr();
       if (is_same<scalar_zero>(inner) || is_same<scalar_one>(inner) ||
           is_same<scalar_constant>(inner))
-        v.real = true;
+        m.insert(numsim::cas::real_tag{});
     }
   }
-  return v;
+  return m;
 }
 
 } // namespace numsim::cas::positivity
