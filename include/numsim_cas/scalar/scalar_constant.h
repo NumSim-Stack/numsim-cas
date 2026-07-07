@@ -1,7 +1,11 @@
 #ifndef SCALAR_CONSTANT_H
 #define SCALAR_CONSTANT_H
 
+#include <complex>
+#include <variant>
+
 #include <numsim_cas/core/assumptions.h>
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/hash_functions.h>
 #include <numsim_cas/core/scalar_number.h>
 #include <numsim_cas/scalar/scalar_expression.h>
@@ -14,6 +18,17 @@ public:
   scalar_constant() = delete;
   template <typename T>
   explicit scalar_constant(T const &v) : base(), m_value(v) {
+    // numsim-cas is a real-valued CAS for constitutive modelling; complex
+    // numbers never arise in that domain (stress/strain/energy are real;
+    // principal values come from symmetric PD tensors). Symbols already
+    // cannot be assumed complex, and no operation folds to a complex
+    // constant (sqrt(-1), pow(-1,1/2) stay symbolic). Rejecting complex
+    // here is the single boundary that keeps complex values out of every
+    // expression — so the positivity rules downstream can treat every
+    // constant, symbol, and subexpression as real. See cas_error.h.
+    if (std::holds_alternative<std::complex<double>>(m_value.raw()))
+      throw invalid_expression_error(
+          "scalar_constant: complex values are not supported");
     // SymPy-style closed-form constant: derive numeric assumptions from
     // the value at construction time (same pattern as
     // tensor_to_scalar_zero/one). The user can no longer call

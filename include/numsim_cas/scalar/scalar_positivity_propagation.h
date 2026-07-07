@@ -50,7 +50,9 @@ inline view read(expression_holder<scalar_expression> const &e) {
   // Concrete numeric constants are real by construction. Open-coded
   // structural check (instead of domain_traits::try_numeric) to
   // sidestep the scalar_domain_traits → scalar_all → scalar_std
-  // include cycle.
+  // include cycle. Promoting any scalar_constant to real is sound
+  // because complex constants are rejected at scalar_constant
+  // construction (scalar_constant.h) — every constant here is real.
   if (!v.real) {
     if (is_same<scalar_zero>(e) || is_same<scalar_one>(e) ||
         is_same<scalar_constant>(e))

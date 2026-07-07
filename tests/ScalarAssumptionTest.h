@@ -8,6 +8,7 @@
 #include "gtest/gtest.h"
 
 #include <cmath>
+#include <complex>
 
 // ─── Fixture ─────────────────────────────────────────────────────────
 
@@ -154,6 +155,40 @@ TEST_F(AssumptionFixture, PropagatePowZeroSingletonAsEvenExp) {
   auto a = numsim::cas::propagate_assumptions(e);
   EXPECT_TRUE(a.contains(numsim::cas::nonnegative{}))
       << "Expected nonnegative for x^0 (even exponent zero singleton)";
+}
+
+// Complex constants are not representable: numsim-cas is a real-valued
+// CAS, so scalar_constant construction rejects complex values. This is
+// the single boundary that keeps complex out of every expression and
+// lets the positivity rules treat every base/exponent as real (which is
+// why pow(positive, exp) → positive needs no real-exponent guard). Once
+// a complex value can't enter, pow(positive, 2i) / pow(i, 2) can't be
+// built at all — the unsoundness becomes unrepresentable rather than
+// merely guarded.
+TEST_F(AssumptionFixture, ComplexConstantRejectedAtConstruction) {
+  EXPECT_THROW(numsim::cas::make_scalar_constant(
+                   numsim::cas::scalar_number{std::complex<double>{0.0, 2.0}}),
+               numsim::cas::invalid_expression_error);
+  // The low-level make_expression path is the same chokepoint.
+  EXPECT_THROW(
+      {
+        auto h = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+            numsim::cas::scalar_number{std::complex<double>{1.0, 1.0}});
+        (void)h;
+      },
+      numsim::cas::invalid_expression_error);
+}
+
+// Regression guard for the real-by-default convention that the
+// no-complex-guard pow rules rely on: pow(x, 2) for unassumed x stays
+// nonnegative, and pow(positive, integer) stays positive.
+TEST_F(AssumptionFixture, PowRealByDefaultConventionPreserved) {
+  numsim::cas::assume(y, numsim::cas::positive{});
+  EXPECT_TRUE(numsim::cas::propagate_assumptions(pow(x, 2)).contains(
+      numsim::cas::nonnegative{}))
+      << "pow(unassumed, 2) must remain nonnegative (real-by-default)";
+  EXPECT_TRUE(numsim::cas::is_positive(pow(y, 3)))
+      << "pow(positive, 3) must remain positive";
 }
 
 TEST_F(AssumptionFixture, PropagateSqrt) {
@@ -583,25 +618,21 @@ TEST(ScalarConstantValueAssumptions,
   EXPECT_FALSE(numsim::cas::is_integer(c));
 }
 
-TEST(ScalarConstantValueAssumptions, ComplexCarriesNoSignOrRealPredicates) {
-  // QA Q3d: complex values get NO sign predicates AND NO real_tag. This
-  // branch is purely negative (asserts nothing inserted) — the riskiest
-  // case because a future edit that adds real_tag for complex would be
-  // silently invisible without this test. Includes is_nonnegative /
-  // is_even as the most-plausible accidental insertions (e.g. if someone
-  // misused magnitude or even-bit logic on a complex value). The
-  // !is_rational assertion is the false-path lock-in for the
-  // is_rational query helper (QA fifth-round gap).
-  auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(
-      std::complex<double>{1.0, 1.0});
-  EXPECT_FALSE(numsim::cas::is_positive(c));
-  EXPECT_FALSE(numsim::cas::is_negative(c));
-  EXPECT_FALSE(numsim::cas::is_nonzero(c));
-  EXPECT_FALSE(numsim::cas::is_nonnegative(c));
-  EXPECT_FALSE(numsim::cas::is_real(c));
-  EXPECT_FALSE(numsim::cas::is_integer(c));
-  EXPECT_FALSE(numsim::cas::is_rational(c));
-  EXPECT_FALSE(numsim::cas::is_even(c));
+TEST(ScalarConstantValueAssumptions, ComplexValueRejectedAtConstruction) {
+  // numsim-cas is a real-valued CAS: complex values are never needed in
+  // constitutive modelling, symbols cannot be assumed complex, and no
+  // operation folds to a complex constant. scalar_constant construction
+  // therefore rejects complex outright — the previous behaviour (build a
+  // tag-less complex constant) was an attractive nuisance that left an
+  // unsound corner for the positivity rules. This pins the rejection so a
+  // future edit that re-admits complex constants must be deliberate.
+  EXPECT_THROW(
+      {
+        auto c = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+            std::complex<double>{1.0, 1.0});
+        (void)c;
+      },
+      numsim::cas::invalid_expression_error);
 }
 
 // ─── Step 5: expression_holder::assumption() variadic API ─────────────

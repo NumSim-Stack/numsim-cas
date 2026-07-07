@@ -62,8 +62,10 @@ inline view read(expression_holder<tensor_to_scalar_expression> const &e) {
              ia.contains(numsim::cas::irrational{});
   }
   // Concrete numeric constants are real by construction. #261 will
-  // pre-annotate these, but until then we promote try_numeric()
-  // success to real_tag here.
+  // pre-annotate these, but until then we promote try_numeric() success
+  // to real_tag here. Sound because complex constants are rejected at
+  // scalar_constant construction (scalar_constant.h), so try_numeric()
+  // can only return a real value.
   if (!v.real) {
     using traits = numsim::cas::domain_traits<tensor_to_scalar_expression>;
     if (traits::try_numeric(e))
