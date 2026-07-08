@@ -913,6 +913,23 @@ TEST(CoreBugFix, Issue184_DoublePathAndConstantPathMatch) {
   }
 }
 
+// #93 — a tensor_mul node's space() annotation must survive copy/move
+// reconstruction (the simplifier rebuilds mul nodes via the copy ctor).
+// tensor_add already did this; tensor_mul silently dropped it, which is
+// the platform-dependent Skew-loss root cause.
+TEST(CoreBugFix, TensorMulCopyPreservesSpaceAnnotation) {
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto B = make_expression<tensor>("B", 3, 2);
+  auto prod = A * B;
+  ASSERT_TRUE(is_same<tensor_mul>(prod));
+  prod.data()->set_space({Skew{}, AnyTraceTag{}});
+
+  auto copy = make_expression<tensor_mul>(prod.get<tensor_mul>());
+  ASSERT_TRUE(copy.get().space().has_value())
+      << "tensor_mul copy ctor dropped space() (#93)";
+  EXPECT_TRUE(std::holds_alternative<Skew>(copy.get().space()->perm));
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

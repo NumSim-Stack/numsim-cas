@@ -10,10 +10,19 @@ class tensor_mul final : public n_ary_vector<tensor_node_base_t<tensor_mul>> {
 public:
   using base = n_ary_vector<tensor_node_base_t<tensor_mul>>;
   tensor_mul(std::size_t dim, std::size_t rank) : base(dim, rank) {}
+  // #93 — the (data, dim, rank) base ctor deliberately does NOT copy
+  // space(); restore it here (as tensor_add already does) so a node's
+  // annotation survives copy/move reconstruction in the simplifier.
   tensor_mul(tensor_mul const &add)
-      : base(static_cast<const base &>(add), add.dim(), add.rank()) {}
+      : base(static_cast<const base &>(add), add.dim(), add.rank()) {
+    if (auto const &sp = add.space())
+      this->set_space(*sp);
+  }
   tensor_mul(tensor_mul &&add) noexcept
-      : base(static_cast<base &&>(add), add.dim(), add.rank()) {}
+      : base(static_cast<base &&>(add), add.dim(), add.rank()) {
+    if (auto const &sp = add.space())
+      this->set_space(*sp);
+  }
   ~tensor_mul() override = default;
   const tensor_mul &operator=(tensor_mul &&) = delete;
 };
