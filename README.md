@@ -103,6 +103,17 @@ ctest --test-dir build
 - [tmech](https://github.com/petlenz/tmech) -- fetched automatically via CMake FetchContent
 - [GoogleTest](https://github.com/google/googletest) -- fetched automatically for tests
 
+### Consuming an installed package
+
+The build always uses the pinned tmech (`GIT_TAG d03f2c2`), but an installed
+`find_package(NumSim_CAS)` resolves tmech via `find_dependency(tmech)` from the
+consumer's environment. tmech carries no version, so this cannot be enforced:
+**you must provide tmech at commit `d03f2c2` or newer** -- an older tmech
+satisfies the dependency but silently reintroduces the rank-4 `tmech::inv` NaN
+bug (#283/#248). Packaging is supported for the default (parser-off) build;
+enabling `NUMSIM_CAS_BUILD_PARSER` additionally requires a findable
+`taocpp::pegtl`.
+
 ## Architecture
 
 ```

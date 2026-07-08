@@ -1,0 +1,24 @@
+name: Package Smoke Test
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+# Verifies the installable package (#84/#293): install NumSim_CAS, then
+# consume it from a fresh project via find_package(NumSim_CAS).
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        parser: [ "OFF", "ON" ]
+    env:
+      CC: gcc-14
+      CXX: g++-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installable-package smoke test (parser=${{ matrix.parser }})
+        run: ./cmake/package_smoke_test.sh ${{ matrix.parser }}
