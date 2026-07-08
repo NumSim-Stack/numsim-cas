@@ -129,23 +129,26 @@ TEST(ScalarComparison, EdgeCase_NaN_StructuralIdentity) {
   EXPECT_TRUE(is_same<scalar_zero>(ne(nan_const, nan_const)));
 }
 
-// Locks in #144: complex ordering. `numeric_less` uses real-then-imag
-// tiebreak for complex values — a total order needed by sort
-// containers, but not a mathematically meaningful ordering. Documents
-// the choice so any future change is deliberate.
-TEST(ScalarComparison, EdgeCase_Complex_RealThenImagOrdering) {
-  using namespace std::complex_literals;
-  auto c_1_5 =
-      make_scalar_constant(scalar_number{std::complex<double>{1.0, 5.0}});
-  auto c_1_3 =
-      make_scalar_constant(scalar_number{std::complex<double>{1.0, 3.0}});
-  auto c_2_0 =
-      make_scalar_constant(scalar_number{std::complex<double>{2.0, 0.0}});
-  // Same real component → imag breaks the tie: 5 > 3 so c_1_5 > c_1_3
-  EXPECT_TRUE(is_same<scalar_one>(gt(c_1_5, c_1_3)));
-  EXPECT_TRUE(is_same<scalar_zero>(lt(c_1_5, c_1_3)));
-  // Different real components → real wins regardless of imag: 1 < 2
-  EXPECT_TRUE(is_same<scalar_one>(lt(c_1_5, c_2_0)));
+// Real-valued CAS: building a complex scalar_constant throws, so complex
+// comparison-folding is unreachable through the expression layer.
+TEST(ScalarComparison, EdgeCase_Complex_RejectedAtBoundary) {
+  EXPECT_THROW(
+      make_scalar_constant(scalar_number{std::complex<double>{1.0, 5.0}}),
+      invalid_expression_error);
+}
+
+// Locks in #144 at the type level: scalar_number keeps a total order
+// over complex values (real-then-imag), needed for variant comparison
+// even though complex constants can't enter an expression.
+TEST(ScalarComparison, EdgeCase_Complex_ScalarNumberTotalOrder) {
+  scalar_number const c_1_5{std::complex<double>{1.0, 5.0}};
+  scalar_number const c_1_3{std::complex<double>{1.0, 3.0}};
+  scalar_number const c_2_0{std::complex<double>{2.0, 0.0}};
+  // Same real component → imag breaks the tie: 3 < 5.
+  EXPECT_TRUE(numeric_less(c_1_3, c_1_5));
+  EXPECT_FALSE(numeric_less(c_1_5, c_1_3));
+  // Different real components → real wins regardless of imag: 1 < 2.
+  EXPECT_TRUE(numeric_less(c_1_5, c_2_0));
 }
 
 // Locks in #142: rational cross-multiplication must actually overflow.

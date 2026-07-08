@@ -224,6 +224,8 @@ void scalar_assumption_propagator::operator()(scalar_pow const &v) {
   // recognised. The bare `is_same<scalar_constant>` check this
   // replaced missed pow(x, 0) (scalar_zero, even) and would have
   // mis-classified pow(x, -2) (scalar_negative(scalar_constant{2})).
+  // No complex guard needed: complex is rejected at construction, so
+  // every base/exponent here is real (base^even ≥ 0, positive^real > 0).
   bool exp_even = false;
   if (auto iv = try_int_constant(v.expr_rhs())) {
     exp_even = (*iv % 2 == 0);
@@ -684,6 +686,8 @@ public:
     auto const &base_a = ensure_assumptions(v.expr_lhs());
     auto const &exp_a = ensure_assumptions(v.expr_rhs());
     m_result = {};
+    // No complex guard needed: complex is rejected at construction, so
+    // every base/exponent here is real (see the sibling pow rule above).
     bool exp_even = false;
     // try_int_constant (#284 architectural rule); see the equivalent
     // call in the earlier pow handler above for the singleton context.

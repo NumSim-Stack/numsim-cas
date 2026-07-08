@@ -109,13 +109,12 @@ template <scalar_expr_holder L, scalar_expr_holder R>
     }
   }
 
-  // #305 — capture sign views BEFORE forwarding to the simplifier.
-  const auto base_view = scalar_detail::positivity::read(expr_lhs);
-  const auto exp_view = scalar_detail::positivity::read(expr_rhs);
+  // #305 — snapshot sign tags BEFORE forwarding to the simplifier.
+  const auto base_tags = positivity::read(expr_lhs);
+  const auto exp_tags = positivity::read(expr_rhs);
   auto result = binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
                                            std::forward<R>(expr_rhs));
-  scalar_detail::positivity::propagate_pow_from_views(base_view, exp_view,
-                                                      result);
+  positivity::propagate_pow(base_tags, exp_tags, result);
   return result;
 }
 
@@ -125,16 +124,12 @@ requires std::is_arithmetic_v<std::remove_cvref_t<R>>
   auto constant{detail::tag_invoke(detail::make_constant_fn{},
                                    std::type_identity<scalar_expression>{},
                                    expr_rhs)};
-  // #305 — apply pow propagation. The arithmetic overload calls
-  // binary_scalar_pow_simplify directly (rather than routing
-  // through the main pow above) to avoid the special-case folds,
-  // so propagation needs to be applied here too.
-  const auto base_view = scalar_detail::positivity::read(expr_lhs);
-  const auto exp_view = scalar_detail::positivity::read(constant);
+  // #305 — this overload bypasses the main pow() above, so propagate here.
+  const auto base_tags = positivity::read(expr_lhs);
+  const auto exp_tags = positivity::read(constant);
   auto result = binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
                                            std::move(constant));
-  scalar_detail::positivity::propagate_pow_from_views(base_view, exp_view,
-                                                      result);
+  positivity::propagate_pow(base_tags, exp_tags, result);
   return result;
 }
 

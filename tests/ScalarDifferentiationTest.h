@@ -221,6 +221,39 @@ TEST(ScalarDifferentiationAudit, PowVariableBaseVariableExponent) {
   expect_is_zero(d - expected);
 }
 
+// ─── Accumulator-init regression (follow-up to #305) ───────────────
+// The scalar_mul/add visitors identity-init their accumulators
+// (scalar_zero/one) so no invalid intermediate is visible to a reader
+// like the #305 positivity read() (segfaulted on FuzzyScalar seed 35).
+
+TEST(ScalarDifferentiationAudit, MulAccumulatorReturnsScalarZeroForConstant) {
+  // d(c1·c2)/dx = 0, structurally scalar_zero via identity-init.
+  auto x = make_expression<scalar>("x");
+  auto y = make_expression<scalar>("y");
+  auto z = make_expression<scalar>("z");
+  auto d = diff(y * z, x);
+  EXPECT_TRUE(is_same<scalar_zero>(d));
+}
+
+TEST(ScalarDifferentiationAudit, AddAccumulatorReturnsScalarZeroForConstant) {
+  // Same shape for scalar_add.
+  auto x = make_expression<scalar>("x");
+  auto y = make_expression<scalar>("y");
+  auto z = make_expression<scalar>("z");
+  auto d = diff(y + z, x);
+  EXPECT_TRUE(is_same<scalar_zero>(d));
+}
+
+TEST(ScalarDifferentiationAudit, MulAccumulatorProductRuleStillWorks) {
+  // Sanity that initializing the inner accumulator to scalar_one
+  // doesn't bloat the product rule output. d/dx(x * y) = y.
+  auto x = make_expression<scalar>("x");
+  auto y = make_expression<scalar>("y");
+  auto d = diff(x * y, x);
+  // After folding scalar_one * y = y.
+  EXPECT_EQ(d, y);
+}
+
 } // namespace numsim::cas
 
 #endif // SCALARDIFFERENTIATIONTEST_H

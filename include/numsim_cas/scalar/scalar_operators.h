@@ -71,15 +71,13 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<scalar_expression>>
 inline expression_holder<scalar_expression> tag_invoke(mul_fn, L &&lhs,
                                                        R &&rhs) {
-  // #305 — capture operand sign views BEFORE forwarding (the visitor
-  // may consume L/R as rvalues). Same shape as the t2s mul wiring.
-  const auto lhs_view = scalar_detail::positivity::read(lhs);
-  const auto rhs_view = scalar_detail::positivity::read(rhs);
+  // #305 — snapshot sign tags before forwarding (visitor may move L/R).
+  const auto lhs_tags = positivity::read(lhs);
+  const auto rhs_tags = positivity::read(rhs);
   auto &_lhs{lhs.template get<scalar_visitable_t>()};
   simplifier::mul_base visitor(std::forward<L>(lhs), std::forward<R>(rhs));
   auto result = _lhs.accept(visitor);
-  scalar_detail::positivity::propagate_mul_from_views(lhs_view, rhs_view,
-                                                      result);
+  positivity::propagate_mul(lhs_tags, rhs_tags, result);
   return result;
 }
 
@@ -109,29 +107,20 @@ inline expression_holder<scalar_expression> tag_invoke(div_fn, L &&lhs,
   if (rhs_val && *rhs_val == scalar_number{1}) {
     return std::forward<L>(lhs);
   }
-  // General: x / y → x * y^(-1)
-  // Use binary_scalar_pow_simplify to bypass pow() constant folding
-  // so that pow(c, -1) stays structural and the printer formats as x/c.
-  // #305 — apply pow propagation manually on the simplify result
-  // before the mul, since we bypassed the main pow() wrapper. The
-  // subsequent `lhs * ...` mul DOES run propagation via the mul
-  // operator's instrumentation.
-  const auto rhs_view = scalar_detail::positivity::read(rhs);
-  const auto neg_one_view =
-      scalar_detail::positivity::read(get_scalar_one()); // exp = -1
+  // General: x / y → x * y^(-1). binary_scalar_pow_simplify bypasses
+  // pow()'s folding so pow(c, -1) stays structural (printer shows x/c);
+  // propagate pow here since we skipped the pow() wrapper (the mul below
+  // runs its own propagation).
+  const auto rhs_tags = positivity::read(rhs);
   auto pow_result =
       binary_scalar_pow_simplify(std::forward<R>(rhs), -get_scalar_one());
-  // exp view above was on +1; the actual exponent is -1, which is a
-  // numeric constant (real-by-construction) — open-code the real
-  // bit since we can't construct a view directly.
-  scalar_detail::positivity::view exp_view{};
-  exp_view.real = true; // numeric constant
-  exp_view.negative = true;
-  exp_view.nonpositive = true;
-  exp_view.nonzero = true;
-  (void)neg_one_view;
-  scalar_detail::positivity::propagate_pow_from_views(rhs_view, exp_view,
-                                                      pow_result);
+  // Exponent is the literal -1; hand-build its tags, no holder needed.
+  numeric_assumption_manager exp_tags;
+  exp_tags.insert(negative{});
+  exp_tags.insert(nonpositive{});
+  exp_tags.insert(nonzero{});
+  exp_tags.insert(real_tag{});
+  positivity::propagate_pow(rhs_tags, exp_tags, pow_result);
   return std::forward<L>(lhs) * std::move(pow_result);
 }
 

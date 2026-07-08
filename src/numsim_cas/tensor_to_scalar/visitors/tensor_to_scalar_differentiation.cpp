@@ -45,12 +45,18 @@ void tensor_to_scalar_differentiation::operator()(
 // coeff is constant offset -> derivative is zero
 void tensor_to_scalar_differentiation::operator()(
     tensor_to_scalar_add const &visitable) {
+  // Explicit is_valid() accumulation — the tensor-domain convention
+  // (no global zero, since rank/dim vary with m_arg; scalar diff
+  // identity-inits instead). Keep new tensor accumulators consistent.
   tensor_holder_t sum;
   for (auto &child : visitable.symbol_map() | std::views::values) {
     auto d = diff(child, m_arg);
-    if (!is_same<tensor_zero>(d)) {
-      sum += d;
-    }
+    if (is_same<tensor_zero>(d))
+      continue;
+    if (sum.is_valid())
+      sum += std::move(d);
+    else
+      sum = std::move(d);
   }
   m_result = std::move(sum);
 }

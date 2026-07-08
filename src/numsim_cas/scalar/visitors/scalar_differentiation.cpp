@@ -19,9 +19,13 @@ void scalar_differentiation::operator()(
 }
 
 void scalar_differentiation::operator()(scalar_mul const &visitable) {
-  expr_holder_t expr_result;
+  // Identity-init so the first += / *= never hits an invalid holder —
+  // default-construction relied on the += safety net, which left the
+  // accumulator invalid for a mid-iteration reader (the #305 positivity
+  // read() null-deref / segfault).
+  expr_holder_t expr_result = get_scalar_zero();
   for (auto &expr_out : visitable.symbol_map() | std::views::values) {
-    expr_holder_t expr_result_in;
+    expr_holder_t expr_result_in = get_scalar_one();
     for (auto &expr_in : visitable.symbol_map() | std::views::values) {
       if (expr_out == expr_in) {
         scalar_differentiation d(m_arg);
@@ -42,7 +46,8 @@ void scalar_differentiation::operator()(scalar_mul const &visitable) {
 }
 
 void scalar_differentiation::operator()(scalar_add const &visitable) {
-  expr_holder_t expr_result;
+  // Identity-init: see scalar_mul comment above.
+  expr_holder_t expr_result = get_scalar_zero();
   for (auto &child : visitable.symbol_map() | std::views::values) {
     scalar_differentiation d(m_arg);
     expr_result += d.apply(child);
@@ -52,10 +57,9 @@ void scalar_differentiation::operator()(scalar_add const &visitable) {
 
 void scalar_differentiation::operator()(scalar_negative const &visitable) {
   scalar_differentiation d(m_arg);
-  auto diff_expr{d.apply(visitable.expr())};
-  if (diff_expr.is_valid() && !is_same<scalar_zero>(diff_expr)) {
-    m_result = -diff_expr;
-  }
+  // d.apply() is always valid and -scalar_zero folds to scalar_zero, so
+  // no zero special-case needed.
+  m_result = -d.apply(visitable.expr());
 }
 
 void scalar_differentiation::operator()(scalar_pow const &visitable) {

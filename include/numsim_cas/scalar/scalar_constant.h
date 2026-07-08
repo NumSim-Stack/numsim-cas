@@ -1,7 +1,11 @@
 #ifndef SCALAR_CONSTANT_H
 #define SCALAR_CONSTANT_H
 
+#include <complex>
+#include <variant>
+
 #include <numsim_cas/core/assumptions.h>
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/hash_functions.h>
 #include <numsim_cas/core/scalar_number.h>
 #include <numsim_cas/scalar/scalar_expression.h>
@@ -14,6 +18,13 @@ public:
   scalar_constant() = delete;
   template <typename T>
   explicit scalar_constant(T const &v) : base(), m_value(v) {
+    // numsim-cas is a real-valued CAS: reject complex at this single
+    // boundary so every constant downstream is real. Structural variant
+    // check, so a zero-imaginary complex{5.0, 0.0} is rejected too —
+    // spell real constants as real (#267).
+    if (std::holds_alternative<std::complex<double>>(m_value.raw()))
+      throw invalid_expression_error(
+          "scalar_constant: complex values are not supported");
     // SymPy-style closed-form constant: derive numeric assumptions from
     // the value at construction time (same pattern as
     // tensor_to_scalar_zero/one). The user can no longer call
@@ -137,7 +148,8 @@ private:
               a.insert(nonpositive{});
             }
           }
-          // complex: no sign predicates apply; also not real.
+          // complex: unreachable (ctor rejects complex first); kept so
+          // the visit stays total. No predicates would apply anyway.
         },
         m_value.raw());
     a.set_inferred();

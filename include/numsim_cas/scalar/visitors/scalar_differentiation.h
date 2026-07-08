@@ -44,8 +44,15 @@ public:
 
   /**
    * @brief Differentiate an expression (const lvalue).
-   * @param expr Expression to differentiate.
-   * @return The symbolic derivative d(expr)/d(m_arg).
+   *
+   * Always returns a VALID holder — apply_imp substitutes scalar_zero if
+   * a visitor leaves m_result unset. Instrumentation that reads
+   * result.data() directly (e.g. positivity propagation) relies on this.
+   * To keep intermediate accumulators valid, init to an identity
+   * (get_scalar_zero/one) or explicit-check (`if (acc.is_valid())`); the
+   * tensor domains use the latter since they have no global identity.
+   *
+   * @return d(expr)/d(m_arg). Always valid.
    */
   auto apply(expr_holder_t const &expr) { return apply_imp(expr); }
 
@@ -321,20 +328,20 @@ public:
 
 private:
   /**
-   * @brief Apply chain rule for unary nodes.
+   * @brief Chain rule for unary nodes: m_result = F'(u) *= u'(a).
    *
-   * If the current visitor has set \f$m\_result = F'(u)\f$, this
-   * multiplies by \f$u'(a)\f$ to obtain \f$F'(u(a))\,u'(a)\f$.
-   *
-   * @tparam T Unary node type exposing expr().
-   * @param unary Unary node.
+   * Precondition: m_result valid (the caller set F'(u); the assert
+   * catches a handler that forgot — else the *= safety net would yield
+   * u'(x) instead of F'(u)*u'(x)). inner is always valid now (zero for
+   * constant u), so `F'(u) * 0 = 0` is the correct outcome.
    */
   template <typename T> void apply_inner_unary(T const &unary) {
+    assert(m_result.is_valid() &&
+           "apply_inner_unary: caller must set m_result = F'(u) before "
+           "invoking the chain rule");
     scalar_differentiation inner_diff(m_arg);
     auto inner{inner_diff.apply(unary.expr())};
-    if (inner.is_valid()) {
-      m_result *= std::move(inner);
-    }
+    m_result *= std::move(inner);
   }
 
   /**
