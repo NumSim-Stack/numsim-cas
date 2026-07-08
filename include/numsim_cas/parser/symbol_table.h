@@ -116,6 +116,28 @@ private:
   using entry = std::variant<scalar_entry, tensor_entry>;
 
   std::unordered_map<std::string, entry> m_entries;
+
+public:
+  /// RAII rollback guard (#222). Snapshots the table on construction and
+  /// restores it on destruction unless commit() ran — so a parse that
+  /// throws leaves no partial declarations behind. Entries hold
+  /// shared_ptr holders, so the snapshot is a cheap map copy.
+  class transaction {
+  public:
+    explicit transaction(symbol_table &t) : m_table(t), m_saved(t.m_entries) {}
+    transaction(transaction const &) = delete;
+    transaction &operator=(transaction const &) = delete;
+    ~transaction() {
+      if (!m_committed)
+        m_table.m_entries = std::move(m_saved);
+    }
+    void commit() noexcept { m_committed = true; }
+
+  private:
+    symbol_table &m_table;
+    std::unordered_map<std::string, entry> m_saved;
+    bool m_committed = false;
+  };
 };
 
 } // namespace numsim::cas::parser

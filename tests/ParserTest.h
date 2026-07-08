@@ -166,6 +166,35 @@ TEST(SymbolTable, HasReportsBothScalarAndTensor) {
   EXPECT_FALSE(st.has("y"));
 }
 
+// ─── #222: parse is transactional w.r.t. symbol_table ──────────────
+
+TEST(SymbolTable, FailedParseRollsBackDeclarations) {
+  // `A{...}` declares A during the parse, then the trailing `+` fails.
+  // The declaration must not survive the throw.
+  symbol_table st;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("A{rank=2, dim=3} +", st); },
+      parse_error);
+  EXPECT_FALSE(st.has("A"));
+}
+
+TEST(SymbolTable, SuccessfulParseCommitsDeclarations) {
+  symbol_table st;
+  [[maybe_unused]] auto e = parse("A{rank=2, dim=3}", st);
+  EXPECT_TRUE(st.has("A"));
+}
+
+TEST(SymbolTable, FailedDeclDoesNotBlockLaterRedecl) {
+  // REPL footgun (#222): a typo'd declaration must not leave a ghost
+  // declaration that then collides with the user's corrected one.
+  symbol_table st;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("Y{rank=2, dim=3} +", st); },
+      parse_error);
+  EXPECT_NO_THROW(
+      { [[maybe_unused]] auto e = parse_tensor("Y{rank=4, dim=3}", st); });
+}
+
 // ─── parse_error: snippet rendering ────────────────────────────────
 
 TEST(ParseError, NoSourceGivesBareMessage) {

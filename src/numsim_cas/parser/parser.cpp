@@ -50,6 +50,10 @@ parsed_expression parse(std::string_view source, symbol_table &syms) {
   // public API where we accept a string_view by value.
   pegtl::string_input input{std::string(source), "<source>"};
 
+  // #222 — roll back any declarations if the parse throws, so a failed
+  // parse leaves the symbol_table unchanged (committed only on success).
+  symbol_table::transaction tx(syms);
+
   actions::parser_state state(syms, source);
 
   try {
@@ -74,7 +78,7 @@ parsed_expression parse(std::string_view source, symbol_table &syms) {
   // `parsed_expression`. An index_list_value at the top is a syntax
   // error — bracket-list literals are only valid inside contraction
   // function arg lists, never as a top-level expression.
-  return std::visit(
+  auto result = std::visit(
       [&](auto &&v) -> parsed_expression {
         using V = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<V, registry::index_list_value>) {
@@ -86,6 +90,8 @@ parsed_expression parse(std::string_view source, symbol_table &syms) {
         }
       },
       std::move(state.values.front()));
+  tx.commit();
+  return result;
 }
 
 expression_holder<scalar_expression> parse_scalar(std::string_view source,
