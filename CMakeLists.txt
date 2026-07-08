@@ -135,7 +135,11 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
-    tmech::tmech
+    # tmech is a FetchContent build target — usable for our own build but
+    # not in any export set, so it can't appear in the installed
+    # interface. Link it BUILD-only; the installed package re-attaches the
+    # consumer's find_dependency(tmech) target in NumSim_CASConfig.cmake.in.
+    $<BUILD_INTERFACE:tmech::tmech>
 )
 
 target_compile_definitions(${PROJECT_NAME}
@@ -285,12 +289,14 @@ if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
   set(NUMSIM_CAS_INSTALL_CMAKEDIR
       "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS")
 
+  # No INCLUDES DESTINATION here: target_include_directories already sets
+  # the $<INSTALL_INTERFACE:> include dir; adding it again duplicates it in
+  # the exported target.
   install(TARGETS ${PROJECT_NAME}
     EXPORT NumSim_CASTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   )
 
   # Install headers preserving directory structure
@@ -311,7 +317,6 @@ if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-      INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/numsim_cas/parser/"
       DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/numsim_cas/parser"
@@ -329,6 +334,15 @@ if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
   )
+
+  # The parser lib links taocpp::pegtl; a consumer therefore needs it via
+  # find_dependency (PRIVATE static-lib deps propagate as LINK_ONLY). Only
+  # emit the line when the parser is part of this package.
+  if(NUMSIM_CAS_BUILD_PARSER)
+    set(NUMSIM_CAS_CONFIG_PARSER_DEP "find_dependency(pegtl REQUIRED)")
+  else()
+    set(NUMSIM_CAS_CONFIG_PARSER_DEP "")
+  endif()
 
   configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NumSim_CASConfig.cmake.in"

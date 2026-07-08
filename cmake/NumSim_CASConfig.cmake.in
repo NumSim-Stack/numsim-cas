@@ -1,8 +1,29 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
+
+# NumSim_CAS is built against a pinned tmech (FetchContent GIT_TAG). tmech
+# declares no version, so find_dependency cannot enforce a floor here — the
+# consumer MUST provide a tmech at or newer than that pin. An older tmech
+# satisfies this dependency but silently reintroduces the rank-4 tmech::inv
+# NaN bug (#283/#248). See the project README for the required tmech.
 find_dependency(tmech REQUIRED)
+@NUMSIM_CAS_CONFIG_PARSER_DEP@
 
 include("${CMAKE_CURRENT_LIST_DIR}/NumSim_CASTargets.cmake")
+
+# tmech is linked BUILD-only in our tree (FetchContent target, not
+# exportable); re-attach the consumer-found tmech::tmech to the imported
+# targets so downstream code gets tmech's headers transitively. Idempotent
+# so repeated find_package(NumSim_CAS) calls don't duplicate the entry.
+foreach(_ncas_tgt NumSim_CAS::NumSim_CAS NumSim_CAS::NumSim_CAS_Parser)
+  if(TARGET ${_ncas_tgt} AND TARGET tmech::tmech)
+    get_target_property(_ncas_links ${_ncas_tgt} INTERFACE_LINK_LIBRARIES)
+    if(NOT _ncas_links OR NOT "tmech::tmech" IN_LIST _ncas_links)
+      set_property(TARGET ${_ncas_tgt} APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES tmech::tmech)
+    endif()
+  endif()
+endforeach()
 
 check_required_components(NumSim_CAS)
