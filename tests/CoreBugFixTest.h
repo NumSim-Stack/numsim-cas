@@ -4,6 +4,8 @@
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
 #include <cmath>
+#include <numsim_cas/core/substitute.h>
+#include <numsim_cas/tensor/visitors/tensor_substitution.h>
 
 namespace numsim::cas {
 
@@ -666,6 +668,21 @@ TEST(CoreBugFix, SkewSpacePreservedAsTensorMulChild) {
   }
   EXPECT_TRUE(found_skew_child)
       << "skew(A) child of tensor_mul lost its Skew annotation on this build";
+}
+
+TEST(CoreBugFix, SkewSpacePreservedThroughRebuild) {
+  // #93 real mechanism (deterministic, unlike the platform-dependent
+  // mul-child case above): the rebuild visitor reconstructs annotated
+  // nodes via their variadic ctors, which drop the post-construction
+  // Skew space. Substituting a leaf inside skew(A) must keep it Skew.
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  auto sA = skew(A);
+  ASSERT_TRUE(is_skew_annotated(sA));
+  auto rebuilt = substitute(sA, A, B);
+  EXPECT_TRUE(is_skew_annotated(rebuilt))
+      << "Skew annotation lost through rebuild (#93)";
 }
 
 // ---------------------------------------------------------------------------
