@@ -913,6 +913,26 @@ TEST(CoreBugFix, Issue184_DoublePathAndConstantPathMatch) {
   }
 }
 
+// #284/#314 — the "const coeff/exponent → hash == inner.hash" invariant
+// must also hold for the scalar_one/scalar_zero singletons. The hash
+// checks now use the singleton-aware is_scalar_constant; a bare
+// is_same<scalar_constant> missed scalar_one (built via make_expression to
+// bypass the pow(A,1)->A / 1*A->A folds). scalar_negative(constant) is a
+// distinct expression (not scalar_constant{-k}) and is correctly hashed
+// via combine — intentionally NOT covered here.
+TEST(TensorConstHashInvariant, PowScalarOneSingletonExponentHashesLikeBase) {
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto p = make_expression<tensor_pow>(A, get_scalar_one());
+  EXPECT_EQ(p.get().hash_value(), A.get().hash_value());
+}
+
+TEST(TensorConstHashInvariant,
+     ScalarMulScalarOneSingletonCoeffHashesLikeInner) {
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto m = make_expression<tensor_scalar_mul>(get_scalar_one(), A);
+  EXPECT_EQ(m.get().hash_value(), A.get().hash_value());
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

@@ -195,6 +195,16 @@ TEST(SymbolTable, FailedDeclDoesNotBlockLaterRedecl) {
       { [[maybe_unused]] auto e = parse_tensor("Y{rank=4, dim=3}", st); });
 }
 
+TEST(SymbolTable, WrapperDomainMismatchRollsBack) {
+  // #222/#314 — parse_scalar on a tensor expression throws type_mismatch
+  // *and* rolls back the declaration parse() committed internally.
+  symbol_table st;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("A{rank=2, dim=3}", st); },
+      type_mismatch_error);
+  EXPECT_FALSE(st.has("A"));
+}
+
 // ─── parse_error: snippet rendering ────────────────────────────────
 
 TEST(ParseError, NoSourceGivesBareMessage) {

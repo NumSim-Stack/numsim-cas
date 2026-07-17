@@ -3,6 +3,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/binary_op.h>
+#include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
@@ -39,7 +40,7 @@ public:
   const tensor_pow &operator=(tensor_pow &&) = delete;
 
   void update_hash_value() const noexcept override {
-    if (is_same<scalar_constant>(this->m_rhs)) {
+    if (is_scalar_constant(this->m_rhs)) { // #284: singleton-aware
       base::m_hash_value = this->m_lhs.get().hash_value();
     } else {
       base::m_hash_value = 0;

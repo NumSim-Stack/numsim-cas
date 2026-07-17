@@ -2,6 +2,7 @@
 #define TENSOR_SCALAR_MUL_H
 
 #include <numsim_cas/core/binary_op.h>
+#include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/tensor/structural_propagation.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 
@@ -29,7 +30,7 @@ public:
   }
 
   void update_hash_value() const noexcept override {
-    if (is_same<scalar_constant>(this->m_lhs)) {
+    if (is_scalar_constant(this->m_lhs)) { // #284: singleton-aware
       base::m_hash_value = this->m_rhs.get().hash_value();
     } else {
       base::m_hash_value = 0;

@@ -96,8 +96,12 @@ parsed_expression parse(std::string_view source, symbol_table &syms) {
 
 expression_holder<scalar_expression> parse_scalar(std::string_view source,
                                                   symbol_table &syms) {
+  // #222/#314 — outer transaction so a domain mismatch rolls back the
+  // declarations parse() committed internally (commit only on match).
+  symbol_table::transaction tx(syms);
   auto result = parse(source, syms);
   if (auto *s = std::get_if<expression_holder<scalar_expression>>(&result)) {
+    tx.commit();
     return std::move(*s);
   }
   throw type_mismatch_error(
@@ -107,8 +111,10 @@ expression_holder<scalar_expression> parse_scalar(std::string_view source,
 
 expression_holder<tensor_expression> parse_tensor(std::string_view source,
                                                   symbol_table &syms) {
+  symbol_table::transaction tx(syms); // #222/#314 — roll back on mismatch
   auto result = parse(source, syms);
   if (auto *t = std::get_if<expression_holder<tensor_expression>>(&result)) {
+    tx.commit();
     return std::move(*t);
   }
   throw type_mismatch_error(
@@ -118,9 +124,11 @@ expression_holder<tensor_expression> parse_tensor(std::string_view source,
 
 expression_holder<tensor_to_scalar_expression>
 parse_t2s(std::string_view source, symbol_table &syms) {
+  symbol_table::transaction tx(syms); // #222/#314 — roll back on mismatch
   auto result = parse(source, syms);
   if (auto *t = std::get_if<expression_holder<tensor_to_scalar_expression>>(
           &result)) {
+    tx.commit();
     return std::move(*t);
   }
   throw type_mismatch_error(
