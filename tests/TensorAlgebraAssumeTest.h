@@ -1878,6 +1878,34 @@ TEST(TensorAlgebraStep6, ClosedFormConstantQueryConsistency) {
   EXPECT_FALSE(is_orthogonal(P));
 }
 
+// #256 — a positive scalar preserves PD/PSD through tensor_scalar_mul,
+// so positive · PD stays PD (both operand orders) and inv(2·mu·C) is PD.
+TEST(TensorAlgebraScalarMul, PositiveScalarPreservesPD) {
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  auto [mu] = make_scalar_variable("mu");
+  assume_positive_definite(C);
+  assume(mu, positive{});
+  EXPECT_TRUE(is_positive_definite(mu * C));
+  EXPECT_TRUE(is_positive_definite(C * mu));
+  EXPECT_TRUE(is_positive_definite(inv(2 * mu * C)));
+}
+
+TEST(TensorAlgebraScalarMul, PositiveScalarPreservesPSD) {
+  auto H = std::get<0>(make_tensor_variable(std::tuple{"H", 3, 2}));
+  auto [mu] = make_scalar_variable("mu");
+  assume_positive_semidefinite(H);
+  assume(mu, positive{});
+  EXPECT_TRUE(is_positive_semidefinite(mu * H));
+  EXPECT_FALSE(is_positive_definite(mu * H)); // PSD, not PD
+}
+
+TEST(TensorAlgebraScalarMul, UnknownSignScalarDropsPD) {
+  auto C = std::get<0>(make_tensor_variable(std::tuple{"C", 3, 2}));
+  auto [a] = make_scalar_variable("a"); // no sign assumption
+  assume_positive_definite(C);
+  EXPECT_FALSE(is_positive_definite(a * C));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORALGEBRAASSUMETEST_H

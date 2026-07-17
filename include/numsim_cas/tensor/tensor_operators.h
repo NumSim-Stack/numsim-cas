@@ -6,6 +6,7 @@
 #include <numsim_cas/core/operators.h>
 #include <numsim_cas/core/promote_expr.h>
 
+#include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/operators/tensor/tensor_add.h>
@@ -172,6 +173,21 @@ tag_invoke(mul_fn, L &&lhs, [[maybe_unused]] R &&rhs) {
   return _lhs.accept(visitor);
 }
 
+// #256 — a positive scalar preserves PD/PSD: pos·PD → PD, pos·PSD → PSD.
+// A negative scalar flips to negative-definite (not modelled) and
+// unknown-sign destroys the annotation. Orthogonality needs |α| = 1,
+// which isn't symbolically checkable, so it is NOT propagated.
+inline void propagate_pd_psd_scalar_mul(
+    bool scalar_positive, bool tensor_pd, bool tensor_psd,
+    expression_holder<tensor_expression> const &result) {
+  if (!scalar_positive || !tensor_psd)
+    return;
+  auto &out = result.data()->tensor_algebra_assumptions();
+  if (tensor_pd)
+    out.insert(positive_definite{});
+  out.insert(positive_semidefinite{}); // PD ⇒ PSD (#245 convention)
+}
+
 template <class L, class R>
 requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>> &&
@@ -192,9 +208,17 @@ inline expression_holder<tensor_expression> tag_invoke(mul_fn, L &&lhs,
   }
 
   auto &_lhs{lhs.template get<tensor_visitable_t>()};
+  // #256 — capture positivity/PD BEFORE forwarding consumes the operands.
+  const bool sp = is_positive(rhs);
+  const bool t_pd =
+      lhs.get().tensor_algebra_assumptions().contains(positive_definite{});
+  const bool t_psd = t_pd || lhs.get().tensor_algebra_assumptions().contains(
+                                 positive_semidefinite{});
   tensor_with_scalar_detail::simplifier::mul_base visitor(std::forward<R>(rhs),
                                                           std::forward<L>(lhs));
-  return _lhs.accept(visitor);
+  auto result = _lhs.accept(visitor);
+  propagate_pd_psd_scalar_mul(sp, t_pd, t_psd, result);
+  return result;
 }
 
 template <class L, class R>
@@ -217,9 +241,17 @@ inline expression_holder<tensor_expression> tag_invoke(mul_fn, L &&lhs,
   }
 
   auto &_rhs{rhs.template get<tensor_visitable_t>()};
+  // #256 — capture positivity/PD BEFORE forwarding consumes the operands.
+  const bool sp = is_positive(lhs);
+  const bool t_pd =
+      rhs.get().tensor_algebra_assumptions().contains(positive_definite{});
+  const bool t_psd = t_pd || rhs.get().tensor_algebra_assumptions().contains(
+                                 positive_semidefinite{});
   tensor_with_scalar_detail::simplifier::mul_base visitor(std::forward<L>(lhs),
                                                           std::forward<R>(rhs));
-  return _rhs.accept(visitor);
+  auto result = _rhs.accept(visitor);
+  propagate_pd_psd_scalar_mul(sp, t_pd, t_psd, result);
+  return result;
 }
 
 // tensor × tensor_to_scalar — produces a tensor result via the
