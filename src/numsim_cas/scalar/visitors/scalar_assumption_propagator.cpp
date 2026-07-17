@@ -210,44 +210,44 @@ void scalar_assumption_propagator::operator()(scalar_negative const &v) {
     m_result.insert(integer{});
 }
 
+// #311 — shared scalar_pow assumption rule, used by BOTH the eager
+// propagator (below) and the lazy shallow_inference_visitor. Extracted so
+// the two can't drift out of sync (an earlier divergence caused the
+// complex-guard bug). Given the base/exponent assumption sets and the
+// exponent holder (for the even-integer / singleton check via
+// try_int_constant, #284): base^even ≥ 0, positive^real > 0. No complex
+// guard — complex is rejected at construction, so both operands are real.
+static numeric_assumption_manager
+pow_assumptions(numeric_assumption_manager const &base_a,
+                numeric_assumption_manager const &exp_a,
+                expression_holder<scalar_expression> const &exponent) {
+  numeric_assumption_manager m;
+  bool exp_even = false;
+  if (auto iv = try_int_constant(exponent))
+    exp_even = (*iv % 2 == 0);
+  if (exp_a.contains(even{}))
+    exp_even = true;
+  if (exp_even) {
+    m.insert(nonnegative{});
+    m.insert(real_tag{});
+    if (base_a.contains(nonzero{}))
+      m.insert(positive{});
+  }
+  if (base_a.contains(positive{})) {
+    m.insert(positive{});
+    m.insert(nonnegative{});
+    m.insert(nonzero{});
+    m.insert(real_tag{});
+  }
+  if (base_a.contains(real_tag{}) && exp_a.contains(real_tag{}))
+    m.insert(real_tag{});
+  return m;
+}
+
 void scalar_assumption_propagator::operator()(scalar_pow const &v) {
   auto base_a = apply(v.expr_lhs());
   auto exp_a = apply(v.expr_rhs());
-
-  m_result = {};
-
-  // Check if exponent is an even integer constant. Uses
-  // try_int_constant (#284 architectural rule) so the
-  // scalar_one / scalar_zero / scalar_negative singletons —
-  // produced by the parser and the pow factory for the
-  // literal-0 / literal-1 / literal-negation cases — are
-  // recognised. The bare `is_same<scalar_constant>` check this
-  // replaced missed pow(x, 0) (scalar_zero, even) and would have
-  // mis-classified pow(x, -2) (scalar_negative(scalar_constant{2})).
-  // No complex guard needed: complex is rejected at construction, so
-  // every base/exponent here is real (base^even ≥ 0, positive^real > 0).
-  bool exp_even = false;
-  if (auto iv = try_int_constant(v.expr_rhs())) {
-    exp_even = (*iv % 2 == 0);
-  }
-  // Also check if exponent has even assumption
-  if (exp_a.contains(even{}))
-    exp_even = true;
-
-  if (exp_even) {
-    m_result.insert(nonnegative{});
-    m_result.insert(real_tag{});
-    if (base_a.contains(nonzero{}))
-      m_result.insert(positive{});
-  }
-  if (base_a.contains(positive{})) {
-    m_result.insert(positive{});
-    m_result.insert(nonnegative{});
-    m_result.insert(nonzero{});
-    m_result.insert(real_tag{});
-  }
-  if (base_a.contains(real_tag{}) && exp_a.contains(real_tag{}))
-    m_result.insert(real_tag{});
+  m_result = pow_assumptions(base_a, exp_a, v.expr_rhs());
 }
 
 // ─── Functions ─────────────────────────────────────────────────────
@@ -683,33 +683,10 @@ public:
   }
 
   void operator()(scalar_pow const &v) override {
+    // #311 — shared rule with the eager propagator (pow_assumptions).
     auto const &base_a = ensure_assumptions(v.expr_lhs());
     auto const &exp_a = ensure_assumptions(v.expr_rhs());
-    m_result = {};
-    // No complex guard needed: complex is rejected at construction, so
-    // every base/exponent here is real (see the sibling pow rule above).
-    bool exp_even = false;
-    // try_int_constant (#284 architectural rule); see the equivalent
-    // call in the earlier pow handler above for the singleton context.
-    if (auto iv = try_int_constant(v.expr_rhs())) {
-      exp_even = (*iv % 2 == 0);
-    }
-    if (exp_a.contains(even{}))
-      exp_even = true;
-    if (exp_even) {
-      m_result.insert(nonnegative{});
-      m_result.insert(real_tag{});
-      if (base_a.contains(nonzero{}))
-        m_result.insert(positive{});
-    }
-    if (base_a.contains(positive{})) {
-      m_result.insert(positive{});
-      m_result.insert(nonnegative{});
-      m_result.insert(nonzero{});
-      m_result.insert(real_tag{});
-    }
-    if (base_a.contains(real_tag{}) && exp_a.contains(real_tag{}))
-      m_result.insert(real_tag{});
+    m_result = pow_assumptions(base_a, exp_a, v.expr_rhs());
   }
 
   // Functions
