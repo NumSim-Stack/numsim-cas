@@ -52,6 +52,20 @@ public:
     return m_rhs_indices;
   }
 
+  // #266 — fold the contraction indices into the hash (mirrors
+  // outer_product_wrapper). Without this, the default binary_op hash
+  // ignores them, so two inner_products differing only in their
+  // contraction sequences hash-collide (cache aliasing + blind lock-ins).
+  void update_hash_value() const noexcept override {
+    hash_combine(base::m_hash_value, base::get_id());
+    numsim::cas::hash_combine(base::m_hash_value,
+                              base::expr_lhs().get().hash_value());
+    numsim::cas::hash_combine(base::m_hash_value,
+                              base::expr_rhs().get().hash_value());
+    numsim::cas::hash_combine(base::m_hash_value, indices_lhs());
+    numsim::cas::hash_combine(base::m_hash_value, indices_rhs());
+  }
+
 protected:
   sequence m_lhs_indices;
   sequence m_rhs_indices;

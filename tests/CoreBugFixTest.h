@@ -944,6 +944,18 @@ TEST(CoreBugFix, TensorMulCopyPreservesSpaceAnnotation) {
   EXPECT_TRUE(std::holds_alternative<Skew>(copy.get().space()->perm));
 }
 
+// #266 — inner_product's hash must include its contraction indices; two
+// products differing only in their contraction sequences must hash
+// differently (the default binary_op hash ignored them, causing cache
+// aliasing and structural lock-ins that couldn't see the difference).
+TEST(InnerProductHash, ContractionIndicesAffectHash) {
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto B = make_expression<tensor>("B", 3, 2);
+  auto e1 = inner_product(A, sequence{2}, B, sequence{1});
+  auto e2 = inner_product(A, sequence{1}, B, sequence{2});
+  EXPECT_NE(e1.get().hash_value(), e2.get().hash_value());
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
