@@ -139,7 +139,7 @@ tensor_verify_impl(unsigned seed, std::vector<TensorVarEntry> const &vars,
       static_cast<tensor_data<double, FDIM, VarRank> &>(*diff_var_ptr).data();
   auto var_original = var_tmech;
 
-  auto numdiff = fuzzy_num_diff<DiffRank>(
+  auto numdiff = fuzzy_num_diff_ho<DiffRank>(
       [&](auto const &x) {
         var_tmech = x;
         if (var.project)
@@ -731,34 +731,13 @@ namespace {
 // ===========================================================================
 class FuzzyTensorDiffTest : public ::testing::TestWithParam<unsigned> {};
 
-inline bool is_flaky_tensor_seed(unsigned seed) {
-  // Seed 10034 (Depth4, all platforms): max_err ≈ 3e-5,
-  // rel_err ≈ 1e-5. No inv() in the expression — pure-algebra
-  // rank-2 (pow + permute + outer + inner). The small absolute
-  // error trips compare_arrays's per-element check because the
-  // noise floor is scaled from the aggregate max_abs (O(1)) while
-  // some elements live at much smaller magnitudes. Likely FD
-  // step-size precision or a symbolic fold losing a few ulps.
-  // Tracked separately from the inv-conditioning issue.
-  //
-  // Previously also skipped seeds 10 (Depth3, macOS) and 10009
-  // (Depth4, Linux/Windows). Both were the same root cause:
-  // the fuzz inv operator generated `inv(composite)` forms that
-  // evaluate to outer-product matrices — rank-1 as a rank-2
-  // matrix → singular. E.g. seed 10009 produced
-  //   inv(inner(-a, outer(b, D), {3})) = inv(-b ⊗ (D·a))
-  // which is always singular regardless of leaf conditioning.
-  // Fixed at the fuzz generator by restricting inv to leaf inputs
-  // at rank 2 — the restriction already existed at rank 4 for
-  // the analogous `inv(outer(X, Y))` case.
-  return seed == 10034u;
-}
+// No flaky-seed skip list: seed 10034 (the last entry, an FD-precision
+// artifact) is resolved by the 4th-order fuzzy_num_diff_ho (#303). The
+// earlier singular-inv seeds (10, 10009) were fixed at the generator.
 
 #define FUZZY_TENSOR_DIFF_TEST_P(TestClass, TestName, SeedOffset, Depth)       \
   TEST_P(TestClass, TestName) {                                                \
     unsigned const seed = GetParam() + SeedOffset##u;                          \
-    if (is_flaky_tensor_seed(seed))                                            \
-      GTEST_SKIP() << "Flaky seed " << seed;                                   \
     try {                                                                      \
       numsim::cas::fuzzy_detail::FuzzyTensorMachine machine(seed, Depth);      \
       auto result = machine.run_one_test();                                    \

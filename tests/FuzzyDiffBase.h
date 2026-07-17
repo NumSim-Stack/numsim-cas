@@ -154,6 +154,26 @@ template <std::size_t N> auto fuzzy_num_diff(auto &&fn, auto &&val) {
                              std::make_index_sequence<N>{});
 }
 
+// 4th-order central difference via Richardson extrapolation of tmech's
+// 2-point num_diff_central: D4 = (4*D(h/2) - D(h)) / 3, O(h^4). Needed
+// because 2-point O(h^2) can't validate high-degree derivatives to the
+// per-element tolerance (#303, seed 10034). h = 1e-4 is the center of a
+// verified-robust plateau: the full fuzz suite passes for h in [1e-5,
+// 1e-3]. Interim until tmech gains a stencil-order parameter (tmech#27),
+// after which this collapses to num_diff_central<seq, k>.
+template <std::size_t... Is>
+auto fuzzy_num_diff_impl_h(auto const &fn, auto const &val, double h,
+                           std::index_sequence<Is...>) {
+  return tmech::num_diff_central<tmech::sequence<(Is + 1)...>>(fn, val, h);
+}
+template <std::size_t N>
+auto fuzzy_num_diff_ho(auto const &fn, auto const &val, double h = 1e-4) {
+  auto d_h = fuzzy_num_diff_impl_h(fn, val, h, std::make_index_sequence<N>{});
+  auto d_h2 =
+      fuzzy_num_diff_impl_h(fn, val, h * 0.5, std::make_index_sequence<N>{});
+  return tmech::eval((4.0 * d_h2 - d_h) * (1.0 / 3.0));
+}
+
 inline std::string
 tensor_expr_string(expression_holder<tensor_expression> const &e) {
   if (!e.is_valid())
