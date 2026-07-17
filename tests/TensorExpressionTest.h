@@ -1343,6 +1343,21 @@ TEST(TensorIfThenElseAnnotations, T2sCondSharedSpacePropagates) {
   EXPECT_TRUE(is_symmetric(if_then_else(cond, X, Y)));
 }
 
+// #297/#314 — incompatible-space arms (sym then, skew else) have no common
+// space, so the annotation is dropped (join_tensor_space → nullopt).
+TEST(TensorIfThenElseAnnotations, IncompatibleSpaceArmsDropAnnotation) {
+  using namespace numsim::cas;
+  auto cond = make_expression<scalar>("c");
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto B = make_expression<tensor>("B", 3, 2);
+  assume_symmetric(A);
+  assume_skew(B);
+  auto e = if_then_else(cond, A, B);
+  EXPECT_FALSE(e.get().space().has_value());
+  EXPECT_FALSE(is_symmetric(e));
+  EXPECT_FALSE(is_skew(e));
+}
+
 TYPED_TEST(TensorExpressionTest, TensorIfThenElseDiffPiecewise) {
   // d/dX if_then_else(cond, X, Y) = if_then_else(cond, dX/dX, dY/dX)
   //                                = if_then_else(cond, I{2*rank}, 0)
