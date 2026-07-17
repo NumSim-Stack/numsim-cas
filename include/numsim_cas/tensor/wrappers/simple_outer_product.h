@@ -12,10 +12,17 @@ public:
   using base = n_ary_vector<tensor_node_base_t<simple_outer_product>>;
 
   simple_outer_product(std::size_t dim, std::size_t rank) : base(dim, rank) {}
+  // #93 — restore space() (base ctor drops it; matches tensor_add/mul).
   simple_outer_product(simple_outer_product const &add)
-      : base(static_cast<const base &>(add), add.dim(), add.rank()) {}
+      : base(static_cast<const base &>(add), add.dim(), add.rank()) {
+    if (auto const &sp = add.space())
+      this->set_space(*sp);
+  }
   simple_outer_product(simple_outer_product &&add) noexcept
-      : base(static_cast<base &&>(add), add.dim(), add.rank()) {}
+      : base(static_cast<base &&>(add), add.dim(), add.rank()) {
+    if (auto const &sp = add.space())
+      this->set_space(*sp);
+  }
   ~simple_outer_product() override = default;
   const simple_outer_product &operator=(simple_outer_product &&) = delete;
 };

@@ -10,10 +10,18 @@ class tensor_mul final : public n_ary_vector<tensor_node_base_t<tensor_mul>> {
 public:
   using base = n_ary_vector<tensor_node_base_t<tensor_mul>>;
   tensor_mul(std::size_t dim, std::size_t rank) : base(dim, rank) {}
+  // #93 — restore space(): the (data,dim,rank) base ctor drops it,
+  // unlike tensor_add.
   tensor_mul(tensor_mul const &add)
-      : base(static_cast<const base &>(add), add.dim(), add.rank()) {}
+      : base(static_cast<const base &>(add), add.dim(), add.rank()) {
+    if (auto const &sp = add.space())
+      this->set_space(*sp);
+  }
   tensor_mul(tensor_mul &&add) noexcept
-      : base(static_cast<base &&>(add), add.dim(), add.rank()) {}
+      : base(static_cast<base &&>(add), add.dim(), add.rank()) {
+    if (auto const &sp = add.space())
+      this->set_space(*sp);
+  }
   ~tensor_mul() override = default;
   const tensor_mul &operator=(tensor_mul &&) = delete;
 };
