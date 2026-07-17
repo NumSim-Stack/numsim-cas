@@ -22,12 +22,9 @@ public:
     if (expr.is_valid()) {
       m_current = expr;
       expr.get<tensor_visitable_t>().accept(*this);
-      // #93 — the per-node reconstructions below build fresh nodes via
-      // their variadic ctors, which don't carry over a post-construction
-      // space() annotation (e.g. the Skew set on skew(A)). Restore it
-      // from the source so annotations survive substitution/diff
-      // rebuilds. Only when the result has none — don't clobber a
-      // self-computed space (e.g. tensor_add's child-join).
+      // #93 — reconstructions below build fresh nodes (variadic ctors)
+      // that drop post-construction space(). Restore from source, but not
+      // over a self-computed space (e.g. tensor_add's child-join).
       if (m_result.is_valid() && !m_result.get().space()) {
         if (auto const &sp = expr.get().space())
           m_result.data()->set_space(*sp);

@@ -671,10 +671,9 @@ TEST(CoreBugFix, SkewSpacePreservedAsTensorMulChild) {
 }
 
 TEST(CoreBugFix, SkewSpacePreservedThroughRebuild) {
-  // #93 real mechanism (deterministic, unlike the platform-dependent
-  // mul-child case above): the rebuild visitor reconstructs annotated
-  // nodes via their variadic ctors, which drop the post-construction
-  // Skew space. Substituting a leaf inside skew(A) must keep it Skew.
+  // #93 — rebuild reconstructs nodes via variadic ctors, dropping
+  // post-construction space(); substituting a leaf inside skew(A) must
+  // keep it Skew (deterministic reproducer).
   auto [A, B] =
       make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
                            std::tuple{"B", std::size_t{3}, std::size_t{2}});
@@ -930,10 +929,8 @@ TEST(CoreBugFix, Issue184_DoublePathAndConstantPathMatch) {
   }
 }
 
-// #93 — a tensor_mul node's space() annotation must survive copy/move
-// reconstruction (the simplifier rebuilds mul nodes via the copy ctor).
-// tensor_add already did this; tensor_mul silently dropped it, which is
-// the platform-dependent Skew-loss root cause.
+// #93 — a tensor_mul's space() must survive copy reconstruction
+// (tensor_add did this; mul dropped it).
 TEST(CoreBugFix, TensorMulCopyPreservesSpaceAnnotation) {
   auto A = make_expression<tensor>("A", 3, 2);
   auto B = make_expression<tensor>("B", 3, 2);
