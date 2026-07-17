@@ -4,6 +4,8 @@
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
 #include <cmath>
+#include <numsim_cas/core/substitute.h>
+#include <numsim_cas/tensor/visitors/tensor_substitution.h>
 
 namespace numsim::cas {
 
@@ -668,6 +670,20 @@ TEST(CoreBugFix, SkewSpacePreservedAsTensorMulChild) {
       << "skew(A) child of tensor_mul lost its Skew annotation on this build";
 }
 
+TEST(CoreBugFix, SkewSpacePreservedThroughRebuild) {
+  // #93 — rebuild reconstructs nodes via variadic ctors, dropping
+  // post-construction space(); substituting a leaf inside skew(A) must
+  // keep it Skew (deterministic reproducer).
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  auto sA = skew(A);
+  ASSERT_TRUE(is_skew_annotated(sA));
+  auto rebuilt = substitute(sA, A, B);
+  EXPECT_TRUE(is_skew_annotated(rebuilt))
+      << "Skew annotation lost through rebuild (#93)";
+}
+
 // ---------------------------------------------------------------------------
 // Division-by-reciprocal canonicalisation (issue #49).
 // `a * (1/b)` should canonicalise to `a/b`. Both produce the same
@@ -911,6 +927,21 @@ TEST(CoreBugFix, Issue184_DoublePathAndConstantPathMatch) {
     auto rhs = make_scalar_constant(v) * x;
     EXPECT_EQ(lhs, rhs) << "Construction-path mismatch at value v = " << v;
   }
+}
+
+// #93 — a tensor_mul's space() must survive copy reconstruction
+// (tensor_add did this; mul dropped it).
+TEST(CoreBugFix, TensorMulCopyPreservesSpaceAnnotation) {
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto B = make_expression<tensor>("B", 3, 2);
+  auto prod = A * B;
+  ASSERT_TRUE(is_same<tensor_mul>(prod));
+  prod.data()->set_space({Skew{}, AnyTraceTag{}});
+
+  auto copy = make_expression<tensor_mul>(prod.get<tensor_mul>());
+  ASSERT_TRUE(copy.get().space().has_value())
+      << "tensor_mul copy ctor dropped space() (#93)";
+  EXPECT_TRUE(std::holds_alternative<Skew>(copy.get().space()->perm));
 }
 
 } // namespace numsim::cas
