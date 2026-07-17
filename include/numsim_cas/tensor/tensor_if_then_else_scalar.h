@@ -1,6 +1,9 @@
 #ifndef TENSOR_IF_THEN_ELSE_SCALAR_H
 #define TENSOR_IF_THEN_ELSE_SCALAR_H
 
+#include <string>
+
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/ternary_op.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/tensor/tensor_expression.h>
@@ -68,10 +71,25 @@ public:
     //
     // Read from base's stored holders, not the constructor parameters —
     // by the time the body runs, base() has moved-from the forwarding
-    // references and accessing them via `then_branch.get()` would hit
-    // a null holder and throw.
-    assert(this->expr_then().get().dim() == this->expr_else().get().dim());
-    assert(this->expr_then().get().rank() == this->expr_else().get().rank());
+    // references. #295 — throw (not assert) so the check fires in Release.
+    if (this->expr_then().get().dim() != this->expr_else().get().dim() ||
+        this->expr_then().get().rank() != this->expr_else().get().rank()) {
+      throw invalid_expression_error(
+          "tensor_if_then_else_scalar: then/else branches must share dim and "
+          "rank (got " +
+          std::to_string(this->expr_then().get().dim()) + "/" +
+          std::to_string(this->expr_then().get().rank()) + " vs " +
+          std::to_string(this->expr_else().get().dim()) + "/" +
+          std::to_string(this->expr_else().get().rank()) + ")");
+    }
+    // #297 — propagate the space annotation when both arms carry one: the
+    // result is whichever arm cond selects, so it lies in their join.
+    auto const &then_sp = this->expr_then().get().space();
+    auto const &else_sp = this->expr_else().get().space();
+    if (then_sp && else_sp) {
+      if (auto joined = join_tensor_space(*then_sp, *else_sp))
+        this->set_space(*joined);
+    }
   }
 
   tensor_if_then_else_scalar(tensor_if_then_else_scalar const &expr)

@@ -19,6 +19,7 @@ See [README.md](README.md) for the full set of CMake options.
 - **clang-format**. Run before committing — CI verifies. Project style is in `.clang-format`. CI uses **clang-format-18**; the pre-commit hook is pinned to a matching v18 release in `.pre-commit-config.yaml`. If your distro ships an older `clang-format`, install v18 explicitly (e.g. `sudo apt-get install -y clang-format-18`) so local runs match CI.
 - **clang-tidy**. Runs in CI; new violations are blocking.
 - **No comments that describe what the code does**. Comments should explain *why*, not *what*. Identifiers carry the *what*.
+- **Never bare `is_same<scalar_constant>` for "is this a numeric constant?"**. The literals `0`, `1`, and `-k` are the `scalar_zero` / `scalar_one` / `scalar_negative(scalar_constant)` singletons — *not* `scalar_constant` nodes — so a bare `is_same<scalar_constant>(e)` silently mishandles all three. Use the singleton-aware predicates from `scalar_functions.h`: `is_scalar_constant(e)`, `get_scalar_number(e)`, or `try_int_constant(e)` (#284).
 
 ## Branch + PR workflow
 

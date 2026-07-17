@@ -1291,6 +1291,58 @@ TYPED_TEST(TensorExpressionTest, TensorIfThenElseSubstituteRecurses) {
   EXPECT_PRINT(subst, "if_then_else(x,Y,2*Y)");
 }
 
+// #295 — mismatched then/else shapes throw at construction in Release too
+// (was assert-only). Build via make_expression to bypass the factory.
+TEST(TensorIfThenElseGuards, ScalarCondMismatchedRankThrows) {
+  using namespace numsim::cas;
+  auto cond = make_expression<scalar>("c");
+  auto r2 = make_expression<tensor>("A", 3, 2);
+  auto r4 = make_expression<tensor>("B", 3, 4);
+  EXPECT_THROW(
+      {
+        auto e = make_expression<tensor_if_then_else_scalar>(cond, r2, r4);
+        (void)e;
+      },
+      invalid_expression_error);
+}
+
+TEST(TensorIfThenElseGuards, T2sCondMismatchedRankThrows) {
+  using namespace numsim::cas;
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto cond = trace(A); // t2s condition
+  auto r2 = make_expression<tensor>("X", 3, 2);
+  auto r4 = make_expression<tensor>("Y", 3, 4);
+  EXPECT_THROW(
+      {
+        auto e = make_expression<tensor_if_then_else_t2s>(cond, r2, r4);
+        (void)e;
+      },
+      invalid_expression_error);
+}
+
+// #297 — both arms share a space annotation → the result keeps it (the
+// result is whichever arm cond selects, so it lies in the join).
+TEST(TensorIfThenElseAnnotations, ScalarCondSharedSpacePropagates) {
+  using namespace numsim::cas;
+  auto cond = make_expression<scalar>("c");
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto B = make_expression<tensor>("B", 3, 2);
+  assume_symmetric(A);
+  assume_symmetric(B);
+  EXPECT_TRUE(is_symmetric(if_then_else(cond, A, B)));
+}
+
+TEST(TensorIfThenElseAnnotations, T2sCondSharedSpacePropagates) {
+  using namespace numsim::cas;
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto cond = trace(A);
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto Y = make_expression<tensor>("Y", 3, 2);
+  assume_symmetric(X);
+  assume_symmetric(Y);
+  EXPECT_TRUE(is_symmetric(if_then_else(cond, X, Y)));
+}
+
 TYPED_TEST(TensorExpressionTest, TensorIfThenElseDiffPiecewise) {
   // d/dX if_then_else(cond, X, Y) = if_then_else(cond, dX/dX, dY/dX)
   //                                = if_then_else(cond, I{2*rank}, 0)

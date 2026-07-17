@@ -1246,6 +1246,21 @@ TEST_F(TensorDiffWrtScalarTest, OuterProductWrapperRuleAppliesProductRule) {
       << "Expected non-zero derivative; got: " << to_string(d);
 }
 
+// #284 — the pow(A, 1) exponent is the scalar_one singleton, not
+// scalar_constant{1}. The diff visitor must recognize it via
+// try_int_constant, not a bare is_same<scalar_constant> (which threw
+// not_implemented_error). Built via make_expression to bypass the
+// pow(A,1)->A construction fold so the diff rule actually sees it.
+TEST(TensorDiffPow, LiteralOneExponentSingletonHandled) {
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto p = make_expression<tensor_pow>(A, get_scalar_one());
+  EXPECT_NO_THROW({
+    auto d = diff(p, X);
+    (void)d;
+  });
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORDIFFERENTIATIONTEST_H
