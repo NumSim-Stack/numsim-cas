@@ -5,6 +5,7 @@
 #include <memory>
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
@@ -1168,9 +1169,9 @@ TEST(TensorEval, EigenprojectionDiagonal3x3) {
                                    0.0, 3.0, 0.0,
                                    0.0, 0.0, 2.0}));
   // clang-format on
-  auto E0 = ev.apply(eigenprojection(A, 0));
-  auto E1 = ev.apply(eigenprojection(A, 1));
-  auto E2 = ev.apply(eigenprojection(A, 2));
+  auto E0 = ev.apply(eigen_decomposition(A).basis(0));
+  auto E1 = ev.apply(eigen_decomposition(A).basis(1));
+  auto E2 = ev.apply(eigen_decomposition(A).basis(2));
   ASSERT_NE(E0, nullptr);
   EXPECT_TRUE(tmech::almost_equal(
       as_tmech<3, 2>(*E0), make_tmech<3, 2>({0, 0, 0, 0, 0, 0, 0, 0, 1}), tol));
@@ -1189,9 +1190,9 @@ TEST(TensorEval, EigenprojectionCompletenessAndReconstruction) {
                                    1.0, 3.0, 1.0,
                                    0.0, 1.0, 2.0}));
   // clang-format on
-  auto E0 = as_tmech<3, 2>(*ev.apply(eigenprojection(A, 0)));
-  auto E1 = as_tmech<3, 2>(*ev.apply(eigenprojection(A, 1)));
-  auto E2 = as_tmech<3, 2>(*ev.apply(eigenprojection(A, 2)));
+  auto E0 = as_tmech<3, 2>(*ev.apply(eigen_decomposition(A).basis(0)));
+  auto E1 = as_tmech<3, 2>(*ev.apply(eigen_decomposition(A).basis(1)));
+  auto E2 = as_tmech<3, 2>(*ev.apply(eigen_decomposition(A).basis(2)));
 
   auto I = tmech::eval(tmech::eye<double, 3, 2>());
   EXPECT_TRUE(tmech::almost_equal(tmech::eval(E0 + E1 + E2), I, tol));

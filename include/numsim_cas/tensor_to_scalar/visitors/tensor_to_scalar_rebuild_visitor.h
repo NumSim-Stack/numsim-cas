@@ -3,6 +3,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
@@ -93,7 +94,7 @@ public:
   }
 
   void operator()(tensor_to_scalar_eigenvalue const &v) override {
-    m_result = eigenvalue(apply_tensor(v.expr()), v.index());
+    m_result = eigen_decomposition(apply_tensor(v.expr())).value(v.index());
   }
 
   // Binary t2s x t2s -> t2s

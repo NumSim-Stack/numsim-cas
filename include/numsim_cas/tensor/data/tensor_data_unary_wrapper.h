@@ -102,6 +102,60 @@ private:
   std::size_t m_index;
 };
 
+// ─── Eigenvector wrapper: n_i of a symmetric rank-2 tensor (#226). Runtime
+//     index selects the i-th (ascending-eigenvalue) eigenvector; output is
+//     a rank-1 tensor. Sign follows tmech's convention. ──────────────────
+//
+template <typename ValueType>
+class tensor_data_eigenvector_wrapper final
+    : public tensor_data_eval_up_unary<
+          tensor_data_eigenvector_wrapper<ValueType>, ValueType> {
+public:
+  tensor_data_eigenvector_wrapper(tensor_data_base<ValueType> &result,
+                                  tensor_data_base<ValueType> const &input,
+                                  std::size_t index)
+      : m_result(result), m_input(input), m_index(index) {}
+
+  template <std::size_t Dim, std::size_t Rank> void evaluate_imp() {
+    // Input is rank-2 (dim 2/3); output is rank-1 (dispatched on the
+    // result's own rank, so Rank == 1 here).
+    if constexpr (Rank == 1 && (Dim == 2 || Dim == 3)) {
+      if (m_index >= Dim)
+        throw evaluation_error(
+            "tensor_data_eigenvector_wrapper: index out of range");
+      using InTensor = tensor_data<ValueType, Dim, 2>;
+      using OutTensor = tensor_data<ValueType, Dim, 1>;
+      auto const &in = static_cast<const InTensor &>(m_input).data();
+      auto decomp = tmech::eigen_decomposition(tmech::sym(in));
+      auto const [eigvals, eigvecs] = decomp.decompose();
+      std::array<std::size_t, Dim> order{};
+      for (std::size_t i{0}; i < Dim; ++i)
+        order[i] = i;
+      std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+        return eigvals[a] < eigvals[b];
+      });
+      static_cast<OutTensor &>(m_result).data() = eigvecs[order[m_index]];
+    } else {
+      throw evaluation_error("tensor_data_eigenvector_wrapper: requires a "
+                             "rank-2 input of dim 2 or 3");
+    }
+  }
+
+  void mismatch(std::size_t dim, std::size_t rank) {
+    if (dim > this->MaxDim_ || dim == 0)
+      throw evaluation_error(
+          "tensor_data_eigenvector_wrapper: dim > MaxDim || dim == 0");
+    if (rank > this->MaxRank_ || rank == 0)
+      throw evaluation_error(
+          "tensor_data_eigenvector_wrapper: rank > MaxRank || rank == 0");
+  }
+
+private:
+  tensor_data_base<ValueType> &m_result;
+  tensor_data_base<ValueType> const &m_input;
+  std::size_t m_index;
+};
+
 // ─── Identity tensor creation via tmech::eye ─────────────────────────────────
 
 template <typename ValueType>

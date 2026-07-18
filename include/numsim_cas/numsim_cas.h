@@ -1,6 +1,9 @@
 #ifndef NUMSIM_CAS_H
 #define NUMSIM_CAS_H
 
+// spectral decomposition facade (bridges tensor / tensor_to_scalar)
+#include <numsim_cas/eigen_decomposition.h>
+
 // scalar expression
 #include <numsim_cas/scalar/scalar.h>
 #include <numsim_cas/scalar/scalar_abs.h>

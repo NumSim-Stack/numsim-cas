@@ -98,29 +98,34 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
   EXPECT_PRINT((X * X) * X, "pow(X,3)");
 }
 
-// Eigenprojection E_i(A) = n_i ⊗ n_i (#226).
-TYPED_TEST(TensorExpressionTest, EigenprojectionNode) {
+// eigen_decomposition facade: basis (E_i = n_i⊗n_i) and normal (n_i) (#226).
+TYPED_TEST(TensorExpressionTest, EigenDecompositionNodes) {
   auto &X = this->X;
   constexpr auto Dim = TestFixture::Dim;
 
-  using numsim::cas::eigenprojection;
+  using numsim::cas::eigen_decomposition;
   using numsim::cas::is_symmetric;
 
-  // Prints as E_<index>(A).
-  EXPECT_PRINT(eigenprojection(X, 0), "E_0(X)");
+  eigen_decomposition eig(X);
 
-  // E_i is a rank-2 symmetric tensor by construction.
-  auto E0 = eigenprojection(X, 0);
+  // basis prints as E_<index>(A); it is a rank-2 symmetric tensor.
+  EXPECT_PRINT(eig.basis(0), "E_0(X)");
+  auto E0 = eig.basis(0);
   EXPECT_EQ(E0.get().rank(), std::size_t{2});
   EXPECT_TRUE(is_symmetric(E0));
 
-  // Same tensor + index → equal hash; index folded in → distinct.
-  EXPECT_EQ(eigenprojection(X, 0).get().hash_value(),
-            eigenprojection(X, 0).get().hash_value());
+  // normal prints as n_<index>(A); it is a rank-1 tensor.
+  EXPECT_PRINT(eig.normal(0), "n_0(X)");
+  EXPECT_EQ(eig.normal(0).get().rank(), std::size_t{1});
+
+  // Index folded into the hash: distinct indices → distinct expressions.
+  EXPECT_EQ(eig.basis(0).get().hash_value(), eig.basis(0).get().hash_value());
   if constexpr (Dim >= 2) {
-    EXPECT_PRINT(eigenprojection(X, 1), "E_1(X)");
-    EXPECT_NE(eigenprojection(X, 0).get().hash_value(),
-              eigenprojection(X, 1).get().hash_value());
+    EXPECT_PRINT(eig.basis(1), "E_1(X)");
+    EXPECT_PRINT(eig.normal(1), "n_1(X)");
+    EXPECT_NE(eig.basis(0).get().hash_value(), eig.basis(1).get().hash_value());
+    EXPECT_NE(eig.normal(0).get().hash_value(),
+              eig.normal(1).get().hash_value());
   }
 }
 

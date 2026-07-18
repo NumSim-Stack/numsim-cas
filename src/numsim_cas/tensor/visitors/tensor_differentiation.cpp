@@ -316,6 +316,14 @@ void tensor_differentiation::operator()(
       "spectral derivative) is not yet implemented");
 }
 
+// dn_i/dA needs the eigenvector derivative (Σ_{j≠i} E_j/(λ_i-λ_j) · ...),
+// singular under repeated eigenvalues — deferred to a #226 follow-up.
+void tensor_differentiation::operator()(
+    tensor_eigenvector const & /*visitable*/) {
+  throw not_implemented_error(
+      "tensor_differentiation: d/dA of an eigenvector is not yet implemented");
+}
+
 void tensor_differentiation::operator()(tensor_inv const &visitable) {
   auto const &A = visitable.expr();
   auto dA = diff(A, m_arg);

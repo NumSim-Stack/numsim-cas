@@ -267,6 +267,13 @@ void tensor_differentiation_wrt_scalar::operator()(
 }
 
 void tensor_differentiation_wrt_scalar::operator()(
+    tensor_eigenvector const & /*visitable*/) {
+  throw not_implemented_error(
+      "tensor_differentiation_wrt_scalar: d/ds of an eigenvector is not yet "
+      "implemented");
+}
+
+void tensor_differentiation_wrt_scalar::operator()(
     tensor_inv const &visitable) {
   auto const &A = visitable.expr();
   auto dA = diff(A, m_arg);

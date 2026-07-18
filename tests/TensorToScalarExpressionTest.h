@@ -653,21 +653,21 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_Eigenvalue) {
   auto &X = this->X;
   constexpr auto Dim = TestFixture::Dim;
 
-  using numsim::cas::eigenvalue;
+  using numsim::cas::eigen_decomposition;
 
   // Prints as eig_<index>(A).
-  EXPECT_PRINT(eigenvalue(X, 0), "eig_0(X)");
+  EXPECT_PRINT(eigen_decomposition(X).value(0), "eig_0(X)");
 
   // Same tensor + same index → identical expression (equal hash).
-  EXPECT_EQ(eigenvalue(X, 0).get().hash_value(),
-            eigenvalue(X, 0).get().hash_value());
+  EXPECT_EQ(eigen_decomposition(X).value(0).get().hash_value(),
+            eigen_decomposition(X).value(0).get().hash_value());
 
   // Index is folded into the hash: different eigenvalues of the same
   // tensor are distinct expressions (#266-style disambiguation).
   if constexpr (Dim >= 2) {
-    EXPECT_PRINT(eigenvalue(X, 1), "eig_1(X)");
-    EXPECT_NE(eigenvalue(X, 0).get().hash_value(),
-              eigenvalue(X, 1).get().hash_value());
+    EXPECT_PRINT(eigen_decomposition(X).value(1), "eig_1(X)");
+    EXPECT_NE(eigen_decomposition(X).value(0).get().hash_value(),
+              eigen_decomposition(X).value(1).get().hash_value());
   }
 }
 

@@ -18,6 +18,7 @@
 #include <numsim_cas/tensor/wrappers/permute_indices_wrapper.h>
 #include <numsim_cas/tensor/wrappers/simple_outer_product.h>
 #include <numsim_cas/tensor/wrappers/tensor_eigenprojection.h>
+#include <numsim_cas/tensor/wrappers/tensor_eigenvector.h>
 #include <numsim_cas/tensor/wrappers/tensor_inv.h>
 #include <numsim_cas/tensor/wrappers/tensor_pow.h>
 

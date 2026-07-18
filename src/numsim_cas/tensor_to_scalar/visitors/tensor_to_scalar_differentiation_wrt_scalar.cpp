@@ -4,6 +4,7 @@
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/scalar/scalar_diff.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
@@ -280,7 +281,7 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
   if (!dB.is_valid() || is_same<tensor_zero>(dB)) {
     return;
   }
-  auto Ei = eigenprojection(visitable.expr(), visitable.index());
+  auto Ei = eigen_decomposition(visitable.expr()).basis(visitable.index());
   m_result =
       dot_product(std::move(Ei), sequence{1, 2}, std::move(dB), sequence{1, 2});
 }
