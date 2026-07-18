@@ -1221,10 +1221,13 @@ TEST(TensorEval, EigenvectorMatchesProjectionAndIsUnit) {
   eigen_decomposition eig(A);
   for (std::size_t i = 0; i < 3; ++i) {
     auto n_data = ev.apply(eig.normal(i));
+    auto E_data = ev.apply(eig.basis(i));
     ASSERT_NE(n_data, nullptr);
+    ASSERT_NE(E_data, nullptr);
     EXPECT_EQ(n_data->rank(), std::size_t{1});
+    // Keep n_data/E_data alive: as_tmech returns a reference into them.
     auto const &n = as_tmech<3, 1>(*n_data);
-    auto const &E = as_tmech<3, 2>(*ev.apply(eig.basis(i)));
+    auto const &E = as_tmech<3, 2>(*E_data);
     EXPECT_TRUE(tmech::almost_equal(tmech::eval(tmech::otimes(n, n)), E, tol))
         << "n_" << i << " ⊗ n_" << i << " != E_" << i;
   }
@@ -1242,7 +1245,8 @@ TEST(TensorEval, EigenvectorDiagonalAxes) {
                                    0.0, 0.0, 2.0}));
   // clang-format on
   eigen_decomposition eig(A);
-  auto const &n0 = as_tmech<3, 1>(*ev.apply(eig.normal(0)));
+  auto n0_data = ev.apply(eig.normal(0)); // keep alive: as_tmech aliases it
+  auto const &n0 = as_tmech<3, 1>(*n0_data);
   EXPECT_TRUE(tmech::almost_equal(tmech::eval(tmech::otimes(n0, n0)),
                                   make_tmech<3, 2>({0, 0, 0, 0, 0, 0, 0, 0, 1}),
                                   tol));
