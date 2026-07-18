@@ -98,6 +98,32 @@ TYPED_TEST(TensorExpressionTest, TensorExpressionTestPrint) {
   EXPECT_PRINT((X * X) * X, "pow(X,3)");
 }
 
+// Eigenprojection E_i(A) = n_i ⊗ n_i (#226).
+TYPED_TEST(TensorExpressionTest, EigenprojectionNode) {
+  auto &X = this->X;
+  constexpr auto Dim = TestFixture::Dim;
+
+  using numsim::cas::eigenprojection;
+  using numsim::cas::is_symmetric;
+
+  // Prints as E_<index>(A).
+  EXPECT_PRINT(eigenprojection(X, 0), "E_0(X)");
+
+  // E_i is a rank-2 symmetric tensor by construction.
+  auto E0 = eigenprojection(X, 0);
+  EXPECT_EQ(E0.get().rank(), std::size_t{2});
+  EXPECT_TRUE(is_symmetric(E0));
+
+  // Same tensor + index → equal hash; index folded in → distinct.
+  EXPECT_EQ(eigenprojection(X, 0).get().hash_value(),
+            eigenprojection(X, 0).get().hash_value());
+  if constexpr (Dim >= 2) {
+    EXPECT_PRINT(eigenprojection(X, 1), "E_1(X)");
+    EXPECT_NE(eigenprojection(X, 0).get().hash_value(),
+              eigenprojection(X, 1).get().hash_value());
+  }
+}
+
 TYPED_TEST(TensorExpressionTest, TensorScalarExpressionTestPrint) {
   auto &X = this->X;
   auto &Y = this->Y;

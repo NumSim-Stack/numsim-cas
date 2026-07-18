@@ -161,6 +161,7 @@ public:
   void operator()(tensor_mul const &visitable) override;
   void operator()(simple_outer_product const &visitable) override;
   void operator()(tensor_inv const &visitable) override;
+  void operator()(tensor_eigenprojection const &visitable) override;
   void operator()(inner_product_wrapper const &visitable) override;
   void operator()(outer_product_wrapper const &visitable) override;
   void operator()(tensor_to_scalar_with_tensor_mul const &visitable) override;

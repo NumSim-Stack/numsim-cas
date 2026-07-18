@@ -368,6 +368,12 @@ public:
     m_out << "}^{-1}";
   }
 
+  void operator()(tensor_eigenprojection const &visitable) override {
+    m_out << "\\mathbf{E}_{" << visitable.index() << "}\\left(";
+    apply(visitable.expr(), Precedence::None);
+    m_out << "\\right)";
+  }
+
   void operator()([[maybe_unused]] tensor_zero const &visitable) override {
     m_out << "0";
   }

@@ -72,6 +72,10 @@ public:
     m_result = inv(apply(v.expr()));
   }
 
+  void operator()(tensor_eigenprojection const &v) override {
+    m_result = eigenprojection(apply(v.expr()), v.index());
+  }
+
   void operator()(permute_indices_wrapper const &v) override {
     m_result =
         make_expression<permute_indices_wrapper>(apply(v.expr()), v.indices());

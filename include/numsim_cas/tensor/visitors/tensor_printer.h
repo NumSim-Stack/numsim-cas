@@ -498,6 +498,12 @@ public:
     print_unary("inv", visitable);
   }
 
+  void operator()(tensor_eigenprojection const &visitable) override {
+    m_out << "E_" << visitable.index() << "(";
+    apply(visitable.expr(), Precedence::None);
+    m_out << ")";
+  }
+
   /**
    * @brief Prints a zero tensor.
    *

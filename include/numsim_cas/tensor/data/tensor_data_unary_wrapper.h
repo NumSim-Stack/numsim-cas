@@ -4,6 +4,9 @@
 #include "tensor_data.h"
 #include <numsim_cas/core/cas_error.h>
 
+#include <algorithm>
+#include <array>
+
 namespace numsim::cas {
 
 // ─── Generic unary wrapper: dispatches runtime (dim,rank) to tmech Op ────────
@@ -43,6 +46,60 @@ public:
 private:
   tensor_data_base<ValueType> &m_result;
   tensor_data_base<ValueType> const &m_input;
+};
+
+// ─── Eigenprojection wrapper: E_i = n_i ⊗ n_i of a symmetric rank-2 tensor
+//     (#226). Runtime index selects the i-th (ascending-eigenvalue)
+//     eigenpair, so E_index pairs with the eigenvalue node's λ_index. ─────
+//
+template <typename ValueType>
+class tensor_data_eigenprojection_wrapper final
+    : public tensor_data_eval_up_unary<
+          tensor_data_eigenprojection_wrapper<ValueType>, ValueType> {
+public:
+  tensor_data_eigenprojection_wrapper(tensor_data_base<ValueType> &result,
+                                      tensor_data_base<ValueType> const &input,
+                                      std::size_t index)
+      : m_result(result), m_input(input), m_index(index) {}
+
+  template <std::size_t Dim, std::size_t Rank> void evaluate_imp() {
+    if constexpr (Rank == 2 && (Dim == 2 || Dim == 3)) {
+      if (m_index >= Dim)
+        throw evaluation_error(
+            "tensor_data_eigenprojection_wrapper: index out of range");
+      using Tensor = tensor_data<ValueType, Dim, Rank>;
+      auto const &in = static_cast<const Tensor &>(m_input).data();
+      auto decomp = tmech::eigen_decomposition(tmech::sym(in));
+      auto const [eigvals, eigvecs] = decomp.decompose();
+      // Sort eigenpair indices by eigenvalue ascending so this E_index
+      // corresponds to the eigenvalue node's λ_index.
+      std::array<std::size_t, Dim> order{};
+      for (std::size_t i{0}; i < Dim; ++i)
+        order[i] = i;
+      std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
+        return eigvals[a] < eigvals[b];
+      });
+      auto const &n = eigvecs[order[m_index]];
+      static_cast<Tensor &>(m_result).data() = tmech::otimes(n, n);
+    } else {
+      throw evaluation_error("tensor_data_eigenprojection_wrapper: requires a "
+                             "rank-2 tensor of dim 2 or 3");
+    }
+  }
+
+  void mismatch(std::size_t dim, std::size_t rank) {
+    if (dim > this->MaxDim_ || dim == 0)
+      throw evaluation_error(
+          "tensor_data_eigenprojection_wrapper: dim > MaxDim || dim == 0");
+    if (rank > this->MaxRank_ || rank == 0)
+      throw evaluation_error(
+          "tensor_data_eigenprojection_wrapper: rank > MaxRank || rank == 0");
+  }
+
+private:
+  tensor_data_base<ValueType> &m_result;
+  tensor_data_base<ValueType> const &m_input;
+  std::size_t m_index;
 };
 
 // ─── Identity tensor creation via tmech::eye ─────────────────────────────────

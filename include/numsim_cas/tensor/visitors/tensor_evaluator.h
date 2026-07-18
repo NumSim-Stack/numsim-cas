@@ -341,6 +341,15 @@ public:
     proj.evaluate(d, r);
   }
 
+  void operator()(tensor_eigenprojection const &v) override {
+    auto temp = apply(v.expr());
+    const auto dim = v.dim();
+    m_result = make_tensor_data<ValueType>(dim, 2);
+    tensor_data_eigenprojection_wrapper<ValueType> op(*m_result, *temp,
+                                                      v.index());
+    op.evaluate(dim, 2);
+  }
+
   // ─── Cross-domain ────────────────────────────────────────────
 
   // f * A where f is tensor_to_scalar (scalar-valued), A is tensor

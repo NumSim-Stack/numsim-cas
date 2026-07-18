@@ -507,6 +507,23 @@ template <tensor_expr_holder Expr>
   return make_expression<tensor_inv>(std::forward<Expr>(expr));
 }
 
+// The i-th eigenprojection E_i(A) = n_i ⊗ n_i of a symmetric rank-2 tensor
+// (#226) — a rank-2 symmetric tensor, ordered so E_i pairs with the i-th
+// ascending eigenvalue. Stays symbolic until evaluation; the spectral
+// derivative dλ_i/dA = E_i and isotropic functions f(A) = Σ f(λ_i) E_i
+// (#227) consume it. `index` is 0-based and must be less than dim.
+template <tensor_expr_holder Expr>
+[[nodiscard]] inline auto eigenprojection(Expr &&expr, std::size_t index) {
+  if (expr.get().rank() != 2)
+    throw invalid_expression_error(
+        "eigenprojection: input must be a rank-2 tensor");
+  if (index >= expr.get().dim())
+    throw invalid_expression_error(
+        "eigenprojection: index out of range for tensor dimension");
+  return make_expression<tensor_eigenprojection>(std::forward<Expr>(expr),
+                                                 index);
+}
+
 } // namespace numsim::cas
 
 #endif // NUMSIM_CAS_TENSOR_FUNCTIONS_H
