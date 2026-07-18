@@ -1206,6 +1206,48 @@ TEST(TensorEval, EigenprojectionCompletenessAndReconstruction) {
                                   A_val, tol));
 }
 
+TEST(TensorEval, EigenvectorMatchesProjectionAndIsUnit) {
+  // normal(i) is a rank-1 unit eigenvector; its outer product with itself
+  // must reproduce the (independently-validated) eigenprojection basis(i),
+  // which also pins |n_i| = 1 (tr(n⊗n) = |n|²). Sign-independent by
+  // construction (n⊗n is sign-free).
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({2.0, 1.0, 0.0,
+                                   1.0, 3.0, 1.0,
+                                   0.0, 1.0, 2.0}));
+  // clang-format on
+  eigen_decomposition eig(A);
+  for (std::size_t i = 0; i < 3; ++i) {
+    auto n_data = ev.apply(eig.normal(i));
+    ASSERT_NE(n_data, nullptr);
+    EXPECT_EQ(n_data->rank(), std::size_t{1});
+    auto const &n = as_tmech<3, 1>(*n_data);
+    auto const &E = as_tmech<3, 2>(*ev.apply(eig.basis(i)));
+    EXPECT_TRUE(tmech::almost_equal(tmech::eval(tmech::otimes(n, n)), E, tol))
+        << "n_" << i << " ⊗ n_" << i << " != E_" << i;
+  }
+}
+
+TEST(TensorEval, EigenvectorDiagonalAxes) {
+  // diag(5,3,2): ascending eigenpairs are (2,ẑ),(3,ŷ),(5,x̂). Eigenvectors
+  // are the coordinate axes up to sign, so n_i ⊗ n_i are the axis
+  // projections regardless of the ± convention.
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({5.0, 0.0, 0.0,
+                                   0.0, 3.0, 0.0,
+                                   0.0, 0.0, 2.0}));
+  // clang-format on
+  eigen_decomposition eig(A);
+  auto const &n0 = as_tmech<3, 1>(*ev.apply(eig.normal(0)));
+  EXPECT_TRUE(tmech::almost_equal(tmech::eval(tmech::otimes(n0, n0)),
+                                  make_tmech<3, 2>({0, 0, 0, 0, 0, 0, 0, 0, 1}),
+                                  tol));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSOREVALUATORTEST_H

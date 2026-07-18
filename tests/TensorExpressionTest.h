@@ -104,7 +104,14 @@ TYPED_TEST(TensorExpressionTest, EigenDecompositionNodes) {
   constexpr auto Dim = TestFixture::Dim;
 
   using numsim::cas::eigen_decomposition;
+  using numsim::cas::invalid_expression_error;
   using numsim::cas::is_symmetric;
+
+  // dim-1 is unsupported (tmech eigendecomposition covers dim 2/3 only).
+  if constexpr (Dim == 1) {
+    EXPECT_THROW(eigen_decomposition{X}, invalid_expression_error);
+    return;
+  }
 
   eigen_decomposition eig(X);
 

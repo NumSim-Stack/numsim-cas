@@ -654,17 +654,23 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_Eigenvalue) {
   constexpr auto Dim = TestFixture::Dim;
 
   using numsim::cas::eigen_decomposition;
+  using numsim::cas::invalid_expression_error;
 
-  // Prints as eig_<index>(A).
-  EXPECT_PRINT(eigen_decomposition(X).value(0), "eig_0(X)");
+  // eigendecomposition is only defined for dim 2/3 (tmech support);
+  // dim-1 is rejected at construction.
+  if constexpr (Dim == 1) {
+    EXPECT_THROW(eigen_decomposition{X}, invalid_expression_error);
+    return;
+  } else {
+    // Prints as eig_<index>(A).
+    EXPECT_PRINT(eigen_decomposition(X).value(0), "eig_0(X)");
 
-  // Same tensor + same index → identical expression (equal hash).
-  EXPECT_EQ(eigen_decomposition(X).value(0).get().hash_value(),
-            eigen_decomposition(X).value(0).get().hash_value());
+    // Same tensor + same index → identical expression (equal hash).
+    EXPECT_EQ(eigen_decomposition(X).value(0).get().hash_value(),
+              eigen_decomposition(X).value(0).get().hash_value());
 
-  // Index is folded into the hash: different eigenvalues of the same
-  // tensor are distinct expressions (#266-style disambiguation).
-  if constexpr (Dim >= 2) {
+    // Index is folded into the hash: different eigenvalues of the same
+    // tensor are distinct expressions (#266-style disambiguation).
     EXPECT_PRINT(eigen_decomposition(X).value(1), "eig_1(X)");
     EXPECT_NE(eigen_decomposition(X).value(0).get().hash_value(),
               eigen_decomposition(X).value(1).get().hash_value());

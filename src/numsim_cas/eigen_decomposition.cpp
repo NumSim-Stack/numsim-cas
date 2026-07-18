@@ -14,6 +14,12 @@ eigen_decomposition::eigen_decomposition(
   if (!m_expr.is_valid() || m_expr.get().rank() != 2)
     throw invalid_expression_error(
         "eigen_decomposition: requires a valid rank-2 tensor");
+  // tmech's eigendecomposition supports dim 2 and 3; reject other dims at
+  // construction rather than with a cryptic error at evaluation.
+  auto const dim = m_expr.get().dim();
+  if (dim != 2 && dim != 3)
+    throw invalid_expression_error(
+        "eigen_decomposition: only dimension 2 or 3 is supported");
 }
 
 expression_holder<tensor_to_scalar_expression>
