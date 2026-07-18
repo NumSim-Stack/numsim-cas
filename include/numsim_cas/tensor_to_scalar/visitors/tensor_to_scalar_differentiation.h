@@ -74,6 +74,7 @@ public:
   void operator()(tensor_dot const &visitable) override;
   void operator()(tensor_norm const &visitable) override;
   void operator()(tensor_det const &visitable) override;
+  void operator()(tensor_to_scalar_eigenvalue const &visitable) override;
   void operator()(tensor_inner_product_to_scalar const &visitable) override;
 
   // ─── if_then_else (#135 / #210) ─────────────────────────────────

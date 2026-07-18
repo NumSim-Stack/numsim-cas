@@ -244,6 +244,9 @@ public:
   void operator()(tensor_trace const &v) override { check_tensor(v.expr()); }
   void operator()(tensor_det const &v) override { check_tensor(v.expr()); }
   void operator()(tensor_norm const &v) override { check_tensor(v.expr()); }
+  void operator()(tensor_to_scalar_eigenvalue const &v) override {
+    check_tensor(v.expr());
+  }
   void operator()(tensor_dot const &v) override { check_tensor(v.expr()); }
   void operator()(tensor_inner_product_to_scalar const &v) override {
     check_tensor(v.expr_lhs());

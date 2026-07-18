@@ -70,6 +70,12 @@ public:
     print_unary("\\det", visitable);
   }
 
+  void operator()(tensor_to_scalar_eigenvalue const &visitable) override {
+    m_out << "\\lambda_{" << visitable.index() << "}\\left(";
+    apply(visitable.expr());
+    m_out << "\\right)";
+  }
+
   void operator()(tensor_to_scalar_negative const &visitable) override {
     constexpr auto precedence{Precedence::Unary};
     m_out << "-";

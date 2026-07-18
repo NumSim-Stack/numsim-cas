@@ -44,6 +44,13 @@ second_invariant(expression_holder<tensor_expression> const &expr);
 [[nodiscard]] expression_holder<tensor_to_scalar_expression>
 third_invariant(expression_holder<tensor_expression> const &expr);
 
+// The `index`-th eigenvalue of a symmetric rank-2 tensor (#226), ordered
+// ascending. Stays symbolic (an opaque scalar node) until evaluation, so
+// the chain rule composes over it. `index` is 0-based and must be less
+// than the tensor's dimension.
+[[nodiscard]] expression_holder<tensor_to_scalar_expression>
+eigenvalue(expression_holder<tensor_expression> const &expr, std::size_t index);
+
 } // namespace numsim::cas
 
 #endif // TENSOR_TO_SCALAR_FUNCTIONS_H

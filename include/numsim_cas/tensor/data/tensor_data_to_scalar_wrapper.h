@@ -4,6 +4,9 @@
 #include "tensor_data.h"
 #include <numsim_cas/core/cas_error.h>
 
+#include <algorithm>
+#include <array>
+
 namespace numsim::cas {
 
 // ─── Generic unary wrapper: dispatches runtime (dim,rank) to tmech Op
@@ -82,6 +85,55 @@ public:
 private:
   tensor_data_base<ValueType> const &m_lhs;
   tensor_data_base<ValueType> const &m_rhs;
+};
+
+// ─── Eigenvalue wrapper: dispatches runtime (dim,rank), computes the
+//     ascending-sorted eigenvalues of a symmetric rank-2 tensor and
+//     returns the index-th one (#226) ────────────────────────────────────
+//
+template <typename ValueType>
+class tensor_data_eigenvalue_wrapper final
+    : public tensor_data_eval_up_unary<
+          tensor_data_eigenvalue_wrapper<ValueType>, ValueType> {
+public:
+  tensor_data_eigenvalue_wrapper(tensor_data_base<ValueType> const &input,
+                                 std::size_t index)
+      : m_input(input), m_index(index) {}
+
+  template <std::size_t Dim, std::size_t Rank> ValueType evaluate_imp() {
+    if constexpr (Rank == 2 && (Dim == 2 || Dim == 3)) {
+      if (m_index >= Dim)
+        throw evaluation_error(
+            "tensor_data_eigenvalue_wrapper: eigenvalue index out of range");
+      using Tensor = tensor_data<ValueType, Dim, Rank>;
+      auto const &in = static_cast<const Tensor &>(m_input).data();
+      auto decomp = tmech::eigen_decomposition(tmech::sym(in));
+      decomp.decompose();
+      auto const values = decomp.eigenvalues();
+      std::array<ValueType, Dim> sorted{};
+      for (std::size_t i{0}; i < Dim; ++i)
+        sorted[i] = values[i];
+      std::sort(sorted.begin(), sorted.end());
+      return sorted[m_index];
+    } else {
+      throw evaluation_error("tensor_data_eigenvalue_wrapper: requires a "
+                             "rank-2 tensor of dim 2 or 3");
+    }
+  }
+
+  ValueType mismatch(std::size_t dim, std::size_t rank) {
+    if (dim > this->MaxDim_ || dim == 0)
+      throw evaluation_error(
+          "tensor_data_eigenvalue_wrapper: dim > MaxDim || dim == 0");
+    if (rank > this->MaxRank_ || rank == 0)
+      throw evaluation_error(
+          "tensor_data_eigenvalue_wrapper: rank > MaxRank || rank == 0");
+    return ValueType{};
+  }
+
+private:
+  tensor_data_base<ValueType> const &m_input;
+  std::size_t m_index;
 };
 
 // ─── tmech scalar-returning operation policies ──────────────────────────

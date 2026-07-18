@@ -261,6 +261,16 @@ void tensor_to_scalar_differentiation::operator()(tensor_det const &visitable) {
       std::move(contracted), m_expr);
 }
 
+// Eigenvalue: d(λ_i(A))/dA = n_i ⊗ n_i (the eigenprojection), which needs
+// symbolic eigenvectors — deferred until the eigenvector node lands (#226
+// follow-up). Evaluation of λ_i itself already works.
+void tensor_to_scalar_differentiation::operator()(
+    tensor_to_scalar_eigenvalue const & /*visitable*/) {
+  throw not_implemented_error(
+      "tensor_to_scalar_differentiation: d/dA of an eigenvalue needs the "
+      "eigenvector node (not yet implemented)");
+}
+
 // Inner product to scalar: product rule
 // d(inner(A, idx_a, B, idx_b))/dX
 // = inner(dA, idx_a, B, idx_b) + inner(A, idx_a, dB, idx_b)

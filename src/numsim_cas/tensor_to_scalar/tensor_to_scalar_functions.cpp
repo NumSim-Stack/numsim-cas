@@ -3,6 +3,7 @@
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/scalar/scalar_std.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
@@ -220,6 +221,19 @@ second_invariant(expression_holder<tensor_expression> const &expr) {
 expression_holder<tensor_to_scalar_expression>
 third_invariant(expression_holder<tensor_expression> const &expr) {
   return det(expr);
+}
+
+// ─── Eigenvalue (#226) ─────────────────────────────────────────────────
+
+expression_holder<tensor_to_scalar_expression>
+eigenvalue(expression_holder<tensor_expression> const &expr,
+           std::size_t index) {
+  assert(expr.get().rank() == 2);
+  if (index >= expr.get().dim())
+    throw invalid_expression_error(
+        "eigenvalue: index out of range for tensor dimension");
+
+  return make_expression<tensor_to_scalar_eigenvalue>(expr, index);
 }
 
 } // namespace numsim::cas
