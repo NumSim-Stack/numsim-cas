@@ -4,7 +4,6 @@
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/scalar/scalar_negative.h>
-#include <numsim_cas/scalar/scalar_positivity_propagation.h>
 #include <numsim_cas/scalar/scalar_zero.h>
 
 namespace numsim::cas {
@@ -23,11 +22,8 @@ tag_invoke(detail::neg_fn, std::type_identity<scalar_expression>,
     return e.get<scalar_negative>().expr();
   }
 
-  // #305 — capture operand sign before building the node, then flip it.
-  const auto operand_tags = positivity::read(e);
-  auto result = make_expression<scalar_negative>(e);
-  positivity::propagate_neg(operand_tags, result);
-  return result;
+  // #310 — sign is inferred lazily on query, not propagated here.
+  return make_expression<scalar_negative>(e);
 }
 
 } // namespace numsim::cas

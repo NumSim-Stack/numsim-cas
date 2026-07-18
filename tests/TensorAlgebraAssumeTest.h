@@ -765,10 +765,10 @@ TEST(ScalarAlgebraOperatorPropagation, MulOfTwoPositivesIsPositive) {
   a.assumption(positive{});
   b.assumption(positive{});
   auto p = a * b;
-  auto const &x = p.data()->assumptions();
-  EXPECT_TRUE(x.contains(positive{}));
-  EXPECT_TRUE(x.contains(nonzero{}));
-  EXPECT_TRUE(x.contains(real_tag{}));
+  // #310 — positivity is inferred lazily; query via is_* (not raw tags).
+  EXPECT_TRUE(is_positive(p));
+  EXPECT_TRUE(is_nonzero(p));
+  EXPECT_TRUE(is_real(p));
 }
 
 TEST(ScalarAlgebraOperatorPropagation, MulOfPositiveAndUnknownHasNoSign) {
@@ -776,31 +776,27 @@ TEST(ScalarAlgebraOperatorPropagation, MulOfPositiveAndUnknownHasNoSign) {
   auto b = std::get<0>(make_scalar_variable("b"));
   a.assumption(positive{});
   auto p = a * b;
-  EXPECT_FALSE(p.data()->assumptions().contains(positive{}));
-  EXPECT_FALSE(p.data()->assumptions().contains(nonnegative{}));
+  EXPECT_FALSE(is_positive(p));
+  EXPECT_FALSE(is_nonnegative(p));
 }
 
 TEST(ScalarAlgebraOperatorPropagation, NegOfPositiveIsNegative) {
   auto a = std::get<0>(make_scalar_variable("a"));
   a.assumption(positive{});
   auto n = -a;
-  auto const &x = n.data()->assumptions();
-  EXPECT_TRUE(x.contains(negative{}));
-  EXPECT_TRUE(x.contains(nonpositive{}));
-  EXPECT_TRUE(x.contains(nonzero{}));
-  EXPECT_TRUE(x.contains(real_tag{}));
+  EXPECT_TRUE(is_negative(n));
+  EXPECT_TRUE(is_nonpositive(n));
+  EXPECT_TRUE(is_nonzero(n));
+  EXPECT_TRUE(is_real(n));
 }
 
 TEST(ScalarAlgebraOperatorPropagation, PowOfPositiveBaseRealExpIsPositive) {
   auto a = std::get<0>(make_scalar_variable("a"));
   a.assumption(positive{});
-  // Integer exponent is real-by-construction (open-coded check in
-  // scalar_positivity_propagation::read).
   auto p = pow(a, 3);
-  auto const &x = p.data()->assumptions();
-  EXPECT_TRUE(x.contains(positive{}));
-  EXPECT_TRUE(x.contains(nonzero{}));
-  EXPECT_TRUE(x.contains(real_tag{}));
+  EXPECT_TRUE(is_positive(p));
+  EXPECT_TRUE(is_nonzero(p));
+  EXPECT_TRUE(is_real(p));
 }
 
 TEST(ScalarAlgebraOperatorPropagation, DivOfTwoPositivesIsPositive) {
@@ -810,10 +806,9 @@ TEST(ScalarAlgebraOperatorPropagation, DivOfTwoPositivesIsPositive) {
   a.assumption(positive{});
   b.assumption(positive{});
   auto q = a / b;
-  auto const &x = q.data()->assumptions();
-  EXPECT_TRUE(x.contains(positive{}));
-  EXPECT_TRUE(x.contains(nonzero{}));
-  EXPECT_TRUE(x.contains(real_tag{}));
+  EXPECT_TRUE(is_positive(q));
+  EXPECT_TRUE(is_nonzero(q));
+  EXPECT_TRUE(is_real(q));
 }
 
 TEST(ScalarAlgebraOperatorPropagation,

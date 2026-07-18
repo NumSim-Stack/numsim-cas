@@ -32,7 +32,6 @@
 #include <numsim_cas/scalar/scalar_ne.h>
 #include <numsim_cas/scalar/scalar_negative.h>
 #include <numsim_cas/scalar/scalar_one.h>
-#include <numsim_cas/scalar/scalar_positivity_propagation.h>
 #include <numsim_cas/scalar/scalar_power.h>
 #include <numsim_cas/scalar/scalar_sign.h>
 #include <numsim_cas/scalar/scalar_sin.h>
@@ -109,13 +108,9 @@ template <scalar_expr_holder L, scalar_expr_holder R>
     }
   }
 
-  // #305 — snapshot sign tags BEFORE forwarding to the simplifier.
-  const auto base_tags = positivity::read(expr_lhs);
-  const auto exp_tags = positivity::read(expr_rhs);
-  auto result = binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
-                                           std::forward<R>(expr_rhs));
-  positivity::propagate_pow(base_tags, exp_tags, result);
-  return result;
+  // #310 — positivity inferred lazily on query, not propagated here.
+  return binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
+                                    std::forward<R>(expr_rhs));
 }
 
 template <scalar_expr_holder L, typename R>
@@ -124,13 +119,9 @@ requires std::is_arithmetic_v<std::remove_cvref_t<R>>
   auto constant{detail::tag_invoke(detail::make_constant_fn{},
                                    std::type_identity<scalar_expression>{},
                                    expr_rhs)};
-  // #305 — this overload bypasses the main pow() above, so propagate here.
-  const auto base_tags = positivity::read(expr_lhs);
-  const auto exp_tags = positivity::read(constant);
-  auto result = binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
-                                           std::move(constant));
-  positivity::propagate_pow(base_tags, exp_tags, result);
-  return result;
+  // #310 — positivity inferred lazily on query, not propagated here.
+  return binary_scalar_pow_simplify(std::forward<L>(expr_lhs),
+                                    std::move(constant));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto sin(E &&e) {

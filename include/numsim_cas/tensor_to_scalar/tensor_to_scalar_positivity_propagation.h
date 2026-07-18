@@ -2,6 +2,7 @@
 #define TENSOR_TO_SCALAR_POSITIVITY_PROPAGATION_H
 
 #include <numsim_cas/core/positivity_propagation.h>
+#include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_domain_traits.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
@@ -25,6 +26,11 @@ read(expression_holder<tensor_to_scalar_expression> const &e) {
   if (is_same<tensor_to_scalar_scalar_wrapper>(e)) {
     auto const &inner =
         e.template get<tensor_to_scalar_scalar_wrapper>().expr();
+    // #310 — scalar positivity is inferred lazily now; infer before
+    // reading the inner scalar's tags (t2s has no lazy visitor of its
+    // own, so it keeps eager propagation and just needs the scalar
+    // facts materialized here).
+    infer_assumptions(inner);
     for (auto const &t : inner.data()->assumptions().data())
       m.insert(t);
   }

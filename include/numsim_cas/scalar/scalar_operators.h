@@ -13,7 +13,6 @@
 #include <numsim_cas/scalar/scalar_functions_fwd.h>
 #include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/scalar/scalar_negative.h>
-#include <numsim_cas/scalar/scalar_positivity_propagation.h>
 
 #include <numsim_cas/scalar/simplifier/scalar_simplifier_add.h>
 #include <numsim_cas/scalar/simplifier/scalar_simplifier_mul.h>
@@ -71,14 +70,11 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<scalar_expression>>
 inline expression_holder<scalar_expression> tag_invoke(mul_fn, L &&lhs,
                                                        R &&rhs) {
-  // #305 — snapshot sign tags before forwarding (visitor may move L/R).
-  const auto lhs_tags = positivity::read(lhs);
-  const auto rhs_tags = positivity::read(rhs);
+  // #310 — positivity is inferred lazily on query (shallow_inference_visitor
+  // via is_positive/infer_assumptions), not propagated eagerly here.
   auto &_lhs{lhs.template get<scalar_visitable_t>()};
   simplifier::mul_base visitor(std::forward<L>(lhs), std::forward<R>(rhs));
-  auto result = _lhs.accept(visitor);
-  positivity::propagate_mul(lhs_tags, rhs_tags, result);
-  return result;
+  return _lhs.accept(visitor);
 }
 
 template <class L, class R>
@@ -108,19 +104,9 @@ inline expression_holder<scalar_expression> tag_invoke(div_fn, L &&lhs,
     return std::forward<L>(lhs);
   }
   // General: x / y → x * y^(-1). binary_scalar_pow_simplify bypasses
-  // pow()'s folding so pow(c, -1) stays structural (printer shows x/c);
-  // propagate pow here since we skipped the pow() wrapper (the mul below
-  // runs its own propagation).
-  const auto rhs_tags = positivity::read(rhs);
+  // pow()'s folding so pow(c, -1) stays structural (printer shows x/c).
   auto pow_result =
       binary_scalar_pow_simplify(std::forward<R>(rhs), -get_scalar_one());
-  // Exponent is the literal -1; hand-build its tags, no holder needed.
-  numeric_assumption_manager exp_tags;
-  exp_tags.insert(negative{});
-  exp_tags.insert(nonpositive{});
-  exp_tags.insert(nonzero{});
-  exp_tags.insert(real_tag{});
-  positivity::propagate_pow(rhs_tags, exp_tags, pow_result);
   return std::forward<L>(lhs) * std::move(pow_result);
 }
 
