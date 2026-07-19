@@ -5,11 +5,13 @@
 #include <memory>
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/diff.h>
 #include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
+#include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
@@ -1296,6 +1298,107 @@ TEST(TensorEval, EigenRepeatedEigenvalue) {
   // The λ=2 eigenspace projector E0+E1 is unique too: I − E2.
   EXPECT_TRUE(
       tmech::almost_equal(tmech::eval(E0 + E1), tmech::eval(I - E2), 1e-9));
+}
+
+TEST(TensorEval, EigenprojectionDerivativeMatchesFiniteDiff) {
+  // Validate ∂E_a/∂A (the 4th-order spectral derivative) against a central
+  // finite difference of E_a, on a symmetric A with well-separated
+  // eigenvalues {1, 2.382, 4.618}. For a symmetric direction H:
+  //   (∂E_a/∂A : H)  ==  d/dt E_a(A + t H) |_{t=0}.
+  using T2 = tmech::tensor<double, 3, 2>;
+  T2 A_val;
+  A_val = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0};
+  T2 H;
+  H = {0.1, 0.2, 0.3, 0.2, 0.4, 0.1, 0.3, 0.1, 0.5}; // symmetric direction
+
+  auto data_from = [](T2 const &t) {
+    auto ptr = std::make_shared<tensor_data<double, 3, 2>>();
+    auto *dst = ptr->raw_data();
+    auto const *src = t.raw_data();
+    for (std::size_t i = 0; i < 9; ++i)
+      dst[i] = src[i];
+    return ptr;
+  };
+
+  auto A = make_expression<tensor>("A", 3, 2);
+  tensor_evaluator<double> ev;
+  eigen_decomposition eig(A);
+
+  for (std::size_t a = 0; a < 3; ++a) {
+    // Symbolic ∂E_a/∂A — differentiating the eigenprojection w.r.t. A.
+    auto dEa = diff(eig.basis(a), A);
+    ASSERT_TRUE(dEa.is_valid());
+    EXPECT_EQ(dEa.get().rank(), std::size_t{4});
+
+    // Analytical directional derivative D : H.
+    ev.set(A, data_from(A_val));
+    auto D_data = ev.apply(dEa);
+    auto const &D = as_tmech<3, 4>(*D_data);
+    auto analytic = tmech::eval(tmech::dcontract(D, H));
+
+    // Central finite difference of E_a along H.
+    const double t = 1e-6;
+    T2 Aplus = tmech::eval(A_val + t * H);
+    T2 Aminus = tmech::eval(A_val - t * H);
+    ev.set(A, data_from(Aplus));
+    auto Ep_data = ev.apply(eig.basis(a));
+    auto const &Ep = as_tmech<3, 2>(*Ep_data);
+    ev.set(A, data_from(Aminus));
+    auto Em_data = ev.apply(eig.basis(a));
+    auto const &Em = as_tmech<3, 2>(*Em_data);
+    auto fd = tmech::eval((Ep - Em) / (2.0 * t));
+
+    EXPECT_TRUE(tmech::almost_equal(analytic, fd, 1e-6))
+        << "∂E_" << a << "/∂A : H mismatch vs finite difference";
+  }
+}
+
+TEST(TensorEval, SpectralEnergyStressAndTangent) {
+  // End-to-end spectral chain via eigenvalues + dE/dA. For the isotropic
+  // energy ψ = Σ λ_i² (= tr(A²)) built purely from eigenvalue nodes:
+  //   stress  S = dψ/dA         = Σ 2λ_i E_i = 2A
+  //   tangent C = dS/dA,  C : H = 2H   (for symmetric H)
+  // Known closed forms, but the computation flows through the eigenvalue
+  // derivative (dλ/dA = E_i) and the eigenprojection derivative (dE/dA).
+  using T2 = tmech::tensor<double, 3, 2>;
+  T2 A_val;
+  A_val = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0};
+  T2 H;
+  H = {0.1, 0.2, 0.3, 0.2, 0.4, 0.1, 0.3, 0.1, 0.5};
+
+  auto data_from = [](T2 const &t) {
+    auto ptr = std::make_shared<tensor_data<double, 3, 2>>();
+    auto *dst = ptr->raw_data();
+    auto const *src = t.raw_data();
+    for (std::size_t i = 0; i < 9; ++i)
+      dst[i] = src[i];
+    return ptr;
+  };
+
+  auto A = make_expression<tensor>("A", 3, 2);
+  tensor_evaluator<double> ev;
+  ev.set(A, data_from(A_val));
+  eigen_decomposition eig(A);
+
+  auto psi = eig.value(0) * eig.value(0) + eig.value(1) * eig.value(1) +
+             eig.value(2) * eig.value(2);
+  auto S = diff(psi, A); // stress, rank-2
+  ASSERT_TRUE(S.is_valid());
+
+  auto S_data = ev.apply(S);
+  auto const &S_num = as_tmech<3, 2>(*S_data);
+  EXPECT_TRUE(tmech::almost_equal(S_num, tmech::eval(2.0 * A_val), 1e-9))
+      << "dψ/dA should be 2A";
+
+  auto C = diff(S, A); // tangent, rank-4
+  ASSERT_TRUE(C.is_valid());
+  EXPECT_EQ(C.get().rank(), std::size_t{4});
+
+  auto C_data = ev.apply(C);
+  auto const &C_num = as_tmech<3, 4>(*C_data);
+  auto CH = tmech::eval(tmech::dcontract(C_num, H));
+  EXPECT_TRUE(tmech::almost_equal(CH, tmech::eval(2.0 * H), 1e-7))
+      << "C : H should be 2H";
 }
 
 } // namespace numsim::cas

@@ -2,6 +2,7 @@
 
 #include <numeric>
 #include <numsim_cas/core/diff.h>
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/tensor_diff.h>
@@ -259,11 +260,15 @@ void tensor_differentiation_wrt_scalar::operator()(
 // admits a higher rank without updating this visitor.
 // dE_i/ds needs the 4th-order spectral derivative contracted with dA/ds —
 // deferred to a #226 follow-up alongside dE_i/dA.
+// d(E_a(B))/ds = (∂E_a/∂B) : (dB/ds), rank-4 : rank-2 → rank-2.
 void tensor_differentiation_wrt_scalar::operator()(
-    tensor_eigenprojection const & /*visitable*/) {
-  throw not_implemented_error(
-      "tensor_differentiation_wrt_scalar: d/ds of an eigenprojection is not "
-      "yet implemented");
+    tensor_eigenprojection const &v) {
+  auto dB = diff(v.expr(), m_arg);
+  if (!dB.is_valid() || is_same<tensor_zero>(dB))
+    return;
+  auto dEdB = eigen_decomposition(v.expr()).basis_derivative(v.index());
+  m_result = inner_product(std::move(dEdB), sequence{3, 4}, std::move(dB),
+                           sequence{1, 2});
 }
 
 void tensor_differentiation_wrt_scalar::operator()(
