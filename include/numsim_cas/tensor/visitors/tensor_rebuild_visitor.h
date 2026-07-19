@@ -3,6 +3,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
@@ -73,7 +74,11 @@ public:
   }
 
   void operator()(tensor_eigenprojection const &v) override {
-    m_result = eigenprojection(apply(v.expr()), v.index());
+    m_result = eigen_decomposition(apply(v.expr())).basis(v.index());
+  }
+
+  void operator()(tensor_eigenvector const &v) override {
+    m_result = eigen_decomposition(apply(v.expr())).normal(v.index());
   }
 
   void operator()(permute_indices_wrapper const &v) override {

@@ -90,9 +90,13 @@ TYPED_TEST(TensorToScalarSubstitutionTest, EigenvalueTensorSub) {
   auto &X = this->X;
   auto &Y = this->Y;
 
-  auto expr = numsim::cas::eigenvalue(X, 0);
+  // eigendecomposition is dim-2/3 only.
+  if constexpr (TestFixture::Dim == 1)
+    return;
+
+  auto expr = numsim::cas::eigen_decomposition(X).value(0);
   auto result = numsim::cas::substitute(expr, X, Y);
-  auto expected = numsim::cas::eigenvalue(Y, 0);
+  auto expected = numsim::cas::eigen_decomposition(Y).value(0);
   EXPECT_TRUE(result == expected)
       << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
 }

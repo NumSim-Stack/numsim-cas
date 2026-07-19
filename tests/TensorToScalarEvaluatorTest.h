@@ -7,6 +7,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/cas_error.h>
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
@@ -401,9 +402,9 @@ TEST(T2sEval, EigenvalueDiagonal3x3Ascending) {
                                    0.0, 3.0, 0.0,
                                    0.0, 0.0, 2.0}));
   // clang-format on
-  EXPECT_NEAR(ev.apply(eigenvalue(A, 0)), 2.0, t2s_tol);
-  EXPECT_NEAR(ev.apply(eigenvalue(A, 1)), 3.0, t2s_tol);
-  EXPECT_NEAR(ev.apply(eigenvalue(A, 2)), 5.0, t2s_tol);
+  EXPECT_NEAR(ev.apply(eigen_decomposition(A).value(0)), 2.0, t2s_tol);
+  EXPECT_NEAR(ev.apply(eigen_decomposition(A).value(1)), 3.0, t2s_tol);
+  EXPECT_NEAR(ev.apply(eigen_decomposition(A).value(2)), 5.0, t2s_tol);
 }
 
 TEST(T2sEval, EigenvalueSumEqualsTraceProductEqualsDet) {
@@ -416,15 +417,17 @@ TEST(T2sEval, EigenvalueSumEqualsTraceProductEqualsDet) {
                                    1.0, 3.0, 1.0,
                                    0.0, 1.0, 2.0}));
   // clang-format on
-  auto const l0 = ev.apply(eigenvalue(A, 0));
-  auto const l1 = ev.apply(eigenvalue(A, 1));
-  auto const l2 = ev.apply(eigenvalue(A, 2));
+  auto const l0 = ev.apply(eigen_decomposition(A).value(0));
+  auto const l1 = ev.apply(eigen_decomposition(A).value(1));
+  auto const l2 = ev.apply(eigen_decomposition(A).value(2));
   EXPECT_LE(l0, l1);
   EXPECT_LE(l1, l2);
   // Symbolic composition: eigenvalues are opaque atoms that flow through
   // the t2s add/mul simplifiers like any other scalar node.
-  auto sum = eigenvalue(A, 0) + eigenvalue(A, 1) + eigenvalue(A, 2);
-  auto prod = eigenvalue(A, 0) * eigenvalue(A, 1) * eigenvalue(A, 2);
+  auto sum = eigen_decomposition(A).value(0) + eigen_decomposition(A).value(1) +
+             eigen_decomposition(A).value(2);
+  auto prod = eigen_decomposition(A).value(0) *
+              eigen_decomposition(A).value(1) * eigen_decomposition(A).value(2);
   EXPECT_NEAR(ev.apply(sum), ev.apply(trace(A)), 1e-10);
   EXPECT_NEAR(ev.apply(prod), ev.apply(det(A)), 1e-10);
 }
@@ -434,14 +437,14 @@ TEST(T2sEval, Eigenvalue2x2) {
   tensor_to_scalar_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
   ev.set(A, make_test_data<2, 2>({2.0, 1.0, 1.0, 2.0}));
-  EXPECT_NEAR(ev.apply(eigenvalue(A, 0)), 1.0, 1e-10);
-  EXPECT_NEAR(ev.apply(eigenvalue(A, 1)), 3.0, 1e-10);
+  EXPECT_NEAR(ev.apply(eigen_decomposition(A).value(0)), 1.0, 1e-10);
+  EXPECT_NEAR(ev.apply(eigen_decomposition(A).value(1)), 3.0, 1e-10);
 }
 
 TEST(T2sEval, EigenvalueIndexOutOfRangeThrows) {
   // index must be < dim; the factory rejects it at construction.
   auto A = make_expression<tensor>("A", 3, 2);
-  EXPECT_THROW((void)eigenvalue(A, 3), invalid_expression_error);
+  EXPECT_THROW((void)eigen_decomposition(A).value(3), invalid_expression_error);
 }
 
 } // namespace numsim::cas

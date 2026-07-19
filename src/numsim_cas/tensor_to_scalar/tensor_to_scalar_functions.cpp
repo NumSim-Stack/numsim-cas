@@ -223,17 +223,4 @@ third_invariant(expression_holder<tensor_expression> const &expr) {
   return det(expr);
 }
 
-// ─── Eigenvalue (#226) ─────────────────────────────────────────────────
-
-expression_holder<tensor_to_scalar_expression>
-eigenvalue(expression_holder<tensor_expression> const &expr,
-           std::size_t index) {
-  assert(expr.get().rank() == 2);
-  if (index >= expr.get().dim())
-    throw invalid_expression_error(
-        "eigenvalue: index out of range for tensor dimension");
-
-  return make_expression<tensor_to_scalar_eigenvalue>(expr, index);
-}
-
 } // namespace numsim::cas

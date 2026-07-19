@@ -4,6 +4,7 @@
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
@@ -269,7 +270,7 @@ void tensor_to_scalar_differentiation::operator()(
   if (is_same<tensor_zero>(dB)) {
     return;
   }
-  auto Ei = eigenprojection(visitable.expr(), visitable.index());
+  auto Ei = eigen_decomposition(visitable.expr()).basis(visitable.index());
   // dB = I{4} (differentiating w.r.t. B itself) ⇒ E_i : I{4} = E_i.
   if (is_same<identity_tensor>(dB)) {
     m_result = std::move(Ei);

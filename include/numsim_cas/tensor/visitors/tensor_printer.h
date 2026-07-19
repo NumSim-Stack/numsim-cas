@@ -504,6 +504,12 @@ public:
     m_out << ")";
   }
 
+  void operator()(tensor_eigenvector const &visitable) override {
+    m_out << "n_" << visitable.index() << "(";
+    apply(visitable.expr(), Precedence::None);
+    m_out << ")";
+  }
+
   /**
    * @brief Prints a zero tensor.
    *

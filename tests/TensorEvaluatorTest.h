@@ -5,10 +5,13 @@
 #include <memory>
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/diff.h>
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
+#include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
@@ -1168,9 +1171,9 @@ TEST(TensorEval, EigenprojectionDiagonal3x3) {
                                    0.0, 3.0, 0.0,
                                    0.0, 0.0, 2.0}));
   // clang-format on
-  auto E0 = ev.apply(eigenprojection(A, 0));
-  auto E1 = ev.apply(eigenprojection(A, 1));
-  auto E2 = ev.apply(eigenprojection(A, 2));
+  auto E0 = ev.apply(eigen_decomposition(A).basis(0));
+  auto E1 = ev.apply(eigen_decomposition(A).basis(1));
+  auto E2 = ev.apply(eigen_decomposition(A).basis(2));
   ASSERT_NE(E0, nullptr);
   EXPECT_TRUE(tmech::almost_equal(
       as_tmech<3, 2>(*E0), make_tmech<3, 2>({0, 0, 0, 0, 0, 0, 0, 0, 1}), tol));
@@ -1189,9 +1192,9 @@ TEST(TensorEval, EigenprojectionCompletenessAndReconstruction) {
                                    1.0, 3.0, 1.0,
                                    0.0, 1.0, 2.0}));
   // clang-format on
-  auto E0 = as_tmech<3, 2>(*ev.apply(eigenprojection(A, 0)));
-  auto E1 = as_tmech<3, 2>(*ev.apply(eigenprojection(A, 1)));
-  auto E2 = as_tmech<3, 2>(*ev.apply(eigenprojection(A, 2)));
+  auto E0 = as_tmech<3, 2>(*ev.apply(eigen_decomposition(A).basis(0)));
+  auto E1 = as_tmech<3, 2>(*ev.apply(eigen_decomposition(A).basis(1)));
+  auto E2 = as_tmech<3, 2>(*ev.apply(eigen_decomposition(A).basis(2)));
 
   auto I = tmech::eval(tmech::eye<double, 3, 2>());
   EXPECT_TRUE(tmech::almost_equal(tmech::eval(E0 + E1 + E2), I, tol));
@@ -1203,6 +1206,299 @@ TEST(TensorEval, EigenprojectionCompletenessAndReconstruction) {
   double l2 = tmech::dcontract(A_val, E2);
   EXPECT_TRUE(tmech::almost_equal(tmech::eval(l0 * E0 + l1 * E1 + l2 * E2),
                                   A_val, tol));
+}
+
+TEST(TensorEval, EigenvectorMatchesProjectionAndIsUnit) {
+  // normal(i) is a rank-1 unit eigenvector; its outer product with itself
+  // must reproduce the (independently-validated) eigenprojection basis(i),
+  // which also pins |n_i| = 1 (tr(n⊗n) = |n|²). Sign-independent by
+  // construction (n⊗n is sign-free).
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({2.0, 1.0, 0.0,
+                                   1.0, 3.0, 1.0,
+                                   0.0, 1.0, 2.0}));
+  // clang-format on
+  eigen_decomposition eig(A);
+  for (std::size_t i = 0; i < 3; ++i) {
+    auto n_data = ev.apply(eig.normal(i));
+    auto E_data = ev.apply(eig.basis(i));
+    ASSERT_NE(n_data, nullptr);
+    ASSERT_NE(E_data, nullptr);
+    EXPECT_EQ(n_data->rank(), std::size_t{1});
+    // Keep n_data/E_data alive: as_tmech returns a reference into them.
+    auto const &n = as_tmech<3, 1>(*n_data);
+    auto const &E = as_tmech<3, 2>(*E_data);
+    EXPECT_TRUE(tmech::almost_equal(tmech::eval(tmech::otimes(n, n)), E, tol))
+        << "n_" << i << " ⊗ n_" << i << " != E_" << i;
+  }
+}
+
+TEST(TensorEval, EigenvectorDiagonalAxes) {
+  // diag(5,3,2): ascending eigenpairs are (2,ẑ),(3,ŷ),(5,x̂). Eigenvectors
+  // are the coordinate axes up to sign, so n_i ⊗ n_i are the axis
+  // projections regardless of the ± convention.
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({5.0, 0.0, 0.0,
+                                   0.0, 3.0, 0.0,
+                                   0.0, 0.0, 2.0}));
+  // clang-format on
+  eigen_decomposition eig(A);
+  auto n0_data = ev.apply(eig.normal(0)); // keep alive: as_tmech aliases it
+  auto const &n0 = as_tmech<3, 1>(*n0_data);
+  EXPECT_TRUE(tmech::almost_equal(tmech::eval(tmech::otimes(n0, n0)),
+                                  make_tmech<3, 2>({0, 0, 0, 0, 0, 0, 0, 0, 1}),
+                                  tol));
+}
+
+TEST(TensorEval, EigenRepeatedEigenvalue) {
+  // A = [[3,1,1],[1,3,1],[1,1,3]] has eigenvalues {2, 2, 5}: 5 for the
+  // (1,1,1) direction, 2 (doubled) on its orthogonal complement. Verifies
+  // the wrappers stay correct across the eigenvalue degeneracy — where the
+  // per-index eigenvector/projection split is arbitrary but the
+  // basis-invariant identities must still hold.
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({3.0, 1.0, 1.0,
+                                   1.0, 3.0, 1.0,
+                                   1.0, 1.0, 3.0}));
+  // clang-format on
+  eigen_decomposition eig(A);
+
+  auto E0d = ev.apply(eig.basis(0));
+  auto E1d = ev.apply(eig.basis(1));
+  auto E2d = ev.apply(eig.basis(2));
+  auto const &E0 = as_tmech<3, 2>(*E0d);
+  auto const &E1 = as_tmech<3, 2>(*E1d);
+  auto const &E2 = as_tmech<3, 2>(*E2d);
+
+  // Eigenvalues via Rayleigh quotient λ_i = A : E_i — ascending 2, 2, 5.
+  auto A_val = make_tmech<3, 2>({3, 1, 1, 1, 3, 1, 1, 1, 3});
+  EXPECT_NEAR(tmech::dcontract(A_val, E0), 2.0, 1e-10);
+  EXPECT_NEAR(tmech::dcontract(A_val, E1), 2.0, 1e-10);
+  EXPECT_NEAR(tmech::dcontract(A_val, E2), 5.0, 1e-10);
+
+  // Completeness holds despite the degenerate split.
+  auto I = tmech::eval(tmech::eye<double, 3, 2>());
+  EXPECT_TRUE(tmech::almost_equal(tmech::eval(E0 + E1 + E2), I, 1e-10));
+
+  // Spectral reconstruction: 2·E0 + 2·E1 + 5·E2 == A.
+  EXPECT_TRUE(tmech::almost_equal(tmech::eval(2.0 * E0 + 2.0 * E1 + 5.0 * E2),
+                                  A_val, 1e-10));
+
+  // The λ=5 projection is unique (multiplicity 1): (1/3)·ones.
+  double t{1.0 / 3.0};
+  EXPECT_TRUE(tmech::almost_equal(
+      E2, make_tmech<3, 2>({t, t, t, t, t, t, t, t, t}), 1e-9));
+
+  // The λ=2 eigenspace projector E0+E1 is unique too: I − E2.
+  EXPECT_TRUE(
+      tmech::almost_equal(tmech::eval(E0 + E1), tmech::eval(I - E2), 1e-9));
+}
+
+TEST(TensorEval, EigenprojectionDerivativeMatchesFiniteDiff) {
+  // Validate ∂E_a/∂A (the 4th-order spectral derivative) against a central
+  // finite difference of E_a, on a symmetric A with well-separated
+  // eigenvalues {1, 2.382, 4.618}. For a symmetric direction H:
+  //   (∂E_a/∂A : H)  ==  d/dt E_a(A + t H) |_{t=0}.
+  using T2 = tmech::tensor<double, 3, 2>;
+  T2 A_val;
+  A_val = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0};
+  T2 H;
+  H = {0.1, 0.2, 0.3, 0.2, 0.4, 0.1, 0.3, 0.1, 0.5}; // symmetric direction
+
+  auto data_from = [](T2 const &t) {
+    auto ptr = std::make_shared<tensor_data<double, 3, 2>>();
+    auto *dst = ptr->raw_data();
+    auto const *src = t.raw_data();
+    for (std::size_t i = 0; i < 9; ++i)
+      dst[i] = src[i];
+    return ptr;
+  };
+
+  auto A = make_expression<tensor>("A", 3, 2);
+  tensor_evaluator<double> ev;
+  eigen_decomposition eig(A);
+
+  for (std::size_t a = 0; a < 3; ++a) {
+    // Symbolic ∂E_a/∂A — differentiating the eigenprojection w.r.t. A.
+    auto dEa = diff(eig.basis(a), A);
+    ASSERT_TRUE(dEa.is_valid());
+    EXPECT_EQ(dEa.get().rank(), std::size_t{4});
+
+    // Analytical directional derivative D : H.
+    ev.set(A, data_from(A_val));
+    auto D_data = ev.apply(dEa);
+    auto const &D = as_tmech<3, 4>(*D_data);
+    auto analytic = tmech::eval(tmech::dcontract(D, H));
+
+    // Central finite difference of E_a along H.
+    const double t = 1e-6;
+    T2 Aplus = tmech::eval(A_val + t * H);
+    T2 Aminus = tmech::eval(A_val - t * H);
+    ev.set(A, data_from(Aplus));
+    auto Ep_data = ev.apply(eig.basis(a));
+    auto const &Ep = as_tmech<3, 2>(*Ep_data);
+    ev.set(A, data_from(Aminus));
+    auto Em_data = ev.apply(eig.basis(a));
+    auto const &Em = as_tmech<3, 2>(*Em_data);
+    auto fd = tmech::eval((Ep - Em) / (2.0 * t));
+
+    EXPECT_TRUE(tmech::almost_equal(analytic, fd, 1e-6))
+        << "∂E_" << a << "/∂A : H mismatch vs finite difference";
+  }
+}
+
+TEST(TensorEval, SpectralEnergyStressAndTangent) {
+  // End-to-end spectral chain via eigenvalues + dE/dA. For the isotropic
+  // energy ψ = Σ λ_i² (= tr(A²)) built purely from eigenvalue nodes:
+  //   stress  S = dψ/dA         = Σ 2λ_i E_i = 2A
+  //   tangent C = dS/dA,  C : H = 2H   (for symmetric H)
+  // Known closed forms, but the computation flows through the eigenvalue
+  // derivative (dλ/dA = E_i) and the eigenprojection derivative (dE/dA).
+  using T2 = tmech::tensor<double, 3, 2>;
+  T2 A_val;
+  A_val = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0};
+  T2 H;
+  H = {0.1, 0.2, 0.3, 0.2, 0.4, 0.1, 0.3, 0.1, 0.5};
+
+  auto data_from = [](T2 const &t) {
+    auto ptr = std::make_shared<tensor_data<double, 3, 2>>();
+    auto *dst = ptr->raw_data();
+    auto const *src = t.raw_data();
+    for (std::size_t i = 0; i < 9; ++i)
+      dst[i] = src[i];
+    return ptr;
+  };
+
+  auto A = make_expression<tensor>("A", 3, 2);
+  tensor_evaluator<double> ev;
+  ev.set(A, data_from(A_val));
+  eigen_decomposition eig(A);
+
+  auto psi = eig.value(0) * eig.value(0) + eig.value(1) * eig.value(1) +
+             eig.value(2) * eig.value(2);
+  auto S = diff(psi, A); // stress, rank-2
+  ASSERT_TRUE(S.is_valid());
+
+  auto S_data = ev.apply(S);
+  auto const &S_num = as_tmech<3, 2>(*S_data);
+  EXPECT_TRUE(tmech::almost_equal(S_num, tmech::eval(2.0 * A_val), 1e-9))
+      << "dψ/dA should be 2A";
+
+  auto C = diff(S, A); // tangent, rank-4
+  ASSERT_TRUE(C.is_valid());
+  EXPECT_EQ(C.get().rank(), std::size_t{4});
+
+  auto C_data = ev.apply(C);
+  auto const &C_num = as_tmech<3, 4>(*C_data);
+  auto CH = tmech::eval(tmech::dcontract(C_num, H));
+  EXPECT_TRUE(tmech::almost_equal(CH, tmech::eval(2.0 * H), 1e-7))
+      << "C : H should be 2H";
+}
+
+TEST(TensorEval, EigenprojectionDerivativeMinorSymmetric) {
+  // ∂E_a/∂A must be minor-symmetric: E_a depends on A only through sym(A)
+  // (the evaluator symmetrises), so a NON-symmetric increment H probes the
+  // same response as sym(H). This test fails for the bare-otimesu form and
+  // passes only for the minor-symmetric ⊙ form.
+  using T2 = tmech::tensor<double, 3, 2>;
+  T2 A_val;
+  A_val = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0};
+  T2 Hns; // deliberately NON-symmetric
+  Hns = {0.1, 0.3, 0.2, 0.0, 0.4, 0.5, 0.6, 0.1, 0.2};
+
+  auto data_from = [](T2 const &t) {
+    auto ptr = std::make_shared<tensor_data<double, 3, 2>>();
+    auto *dst = ptr->raw_data();
+    auto const *src = t.raw_data();
+    for (std::size_t i = 0; i < 9; ++i)
+      dst[i] = src[i];
+    return ptr;
+  };
+
+  auto A = make_expression<tensor>("A", 3, 2);
+  tensor_evaluator<double> ev;
+  eigen_decomposition eig(A);
+
+  for (std::size_t a = 0; a < 3; ++a) {
+    auto dEa = diff(eig.basis(a), A);
+    ev.set(A, data_from(A_val));
+    auto D_data = ev.apply(dEa);
+    auto const &D = as_tmech<3, 4>(*D_data);
+    auto analytic = tmech::eval(tmech::dcontract(D, Hns));
+
+    // Central FD along the non-symmetric Hns; the evaluator symmetrises
+    // the input internally, so this measures the response to sym(Hns).
+    const double t = 1e-6;
+    T2 Aplus = tmech::eval(A_val + t * Hns);
+    T2 Aminus = tmech::eval(A_val - t * Hns);
+    ev.set(A, data_from(Aplus));
+    auto Ep_data = ev.apply(eig.basis(a));
+    auto const &Ep = as_tmech<3, 2>(*Ep_data);
+    ev.set(A, data_from(Aminus));
+    auto Em_data = ev.apply(eig.basis(a));
+    auto const &Em = as_tmech<3, 2>(*Em_data);
+    auto fd = tmech::eval((Ep - Em) / (2.0 * t));
+
+    EXPECT_TRUE(tmech::almost_equal(analytic, fd, 1e-6))
+        << "∂E_" << a << "/∂A is not minor-symmetric (fails on non-sym H)";
+  }
+}
+
+TEST(TensorEval, EigenprojectionDerivativeWrtScalar) {
+  // dE_a/ds for A(s) = A0 + s·A1 — exercises the scalar-derivative path
+  // (∂E_a/∂A : dA/ds), validated against a central FD in s.
+  using T2 = tmech::tensor<double, 3, 2>;
+  T2 A0, A1;
+  A0 = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0};
+  A1 = {0.0, 0.0, 0.5, 0.0, 0.0, 0.3, 0.5, 0.3, 0.0}; // symmetric
+  const double s0 = 0.5;
+
+  auto data_from = [](T2 const &t) {
+    auto ptr = std::make_shared<tensor_data<double, 3, 2>>();
+    auto *dst = ptr->raw_data();
+    auto const *src = t.raw_data();
+    for (std::size_t i = 0; i < 9; ++i)
+      dst[i] = src[i];
+    return ptr;
+  };
+
+  auto s = make_expression<scalar>("s");
+  auto A0e = make_expression<tensor>("A0", 3, 2);
+  auto A1e = make_expression<tensor>("A1", 3, 2);
+  auto A = A0e + s * A1e; // scalar-dependent tensor
+  eigen_decomposition eig(A);
+
+  tensor_evaluator<double> ev;
+  ev.set(A0e, data_from(A0));
+  ev.set(A1e, data_from(A1));
+
+  for (std::size_t a = 0; a < 3; ++a) {
+    auto dEa_ds = diff(eig.basis(a), s); // rank-2
+    ASSERT_TRUE(dEa_ds.is_valid());
+    EXPECT_EQ(dEa_ds.get().rank(), std::size_t{2});
+
+    ev.set_scalar(s, s0);
+    auto D_data = ev.apply(dEa_ds);
+    auto const &analytic = as_tmech<3, 2>(*D_data);
+
+    const double t = 1e-6;
+    ev.set_scalar(s, s0 + t);
+    auto Ep_data = ev.apply(eig.basis(a));
+    auto const &Ep = as_tmech<3, 2>(*Ep_data);
+    ev.set_scalar(s, s0 - t);
+    auto Em_data = ev.apply(eig.basis(a));
+    auto const &Em = as_tmech<3, 2>(*Em_data);
+    auto fd = tmech::eval((Ep - Em) / (2.0 * t));
+
+    EXPECT_TRUE(tmech::almost_equal(tmech::eval(analytic), fd, 1e-6))
+        << "dE_" << a << "/ds mismatch vs finite difference";
+  }
 }
 
 } // namespace numsim::cas

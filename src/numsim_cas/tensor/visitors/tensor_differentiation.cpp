@@ -2,6 +2,7 @@
 
 #include <numeric>
 #include <numsim_cas/core/diff.h>
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/tensor_assume.h>
@@ -309,11 +310,30 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
 // needs the full eigenvalue/eigenvector set and the degenerate-eigenvalue
 // limit — deferred to a #226 follow-up. Evaluation of E_i already works,
 // and dλ_i/dA = E_i is handled directly in the eigenvalue diff visitor.
+// d(E_a(B))/dX = (∂E_a/∂B) : (dB/dX). The local spectral derivative
+// ∂E_a/∂B is rank-4 (eigen_decomposition::basis_derivative); chain it with
+// dB/dX over the B indices.
+void tensor_differentiation::operator()(tensor_eigenprojection const &v) {
+  auto dB = diff(v.expr(), m_arg);
+  if (!dB.is_valid() || is_same<tensor_zero>(dB))
+    return;
+  auto dEdB = eigen_decomposition(v.expr()).basis_derivative(v.index());
+  // Differentiating w.r.t. B itself: dB/dB is the 4th-order identity, so
+  // (∂E_a/∂B) : I{4} = ∂E_a/∂B.
+  if (is_same<identity_tensor>(dB)) {
+    m_result = std::move(dEdB);
+    return;
+  }
+  m_result = inner_product(std::move(dEdB), sequence{3, 4}, std::move(dB),
+                           sequence{1, 2});
+}
+
+// dn_i/dA needs the eigenvector derivative (Σ_{j≠i} E_j/(λ_i-λ_j) · ...),
+// singular under repeated eigenvalues — deferred to a #226 follow-up.
 void tensor_differentiation::operator()(
-    tensor_eigenprojection const & /*visitable*/) {
+    tensor_eigenvector const & /*visitable*/) {
   throw not_implemented_error(
-      "tensor_differentiation: d/dA of an eigenprojection (the 4th-order "
-      "spectral derivative) is not yet implemented");
+      "tensor_differentiation: d/dA of an eigenvector is not yet implemented");
 }
 
 void tensor_differentiation::operator()(tensor_inv const &visitable) {

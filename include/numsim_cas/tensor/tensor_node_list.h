@@ -20,6 +20,7 @@
   NEXT(simple_outer_product)                                                   \
   NEXT(tensor_inv)                                                             \
   NEXT(tensor_eigenprojection)                                                 \
+  NEXT(tensor_eigenvector)                                                     \
   NEXT(tensor_zero)                                                            \
   NEXT(tensor_projector)                                                       \
   NEXT(identity_tensor)                                                        \
