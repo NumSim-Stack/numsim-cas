@@ -516,12 +516,6 @@ public:
     m_out << ")";
   }
 
-  void operator()(tensor_isotropic_function_tangent const &visitable) override {
-    m_out << "d_" << name(visitable.kind()) << "(";
-    apply(visitable.expr(), Precedence::None);
-    m_out << ")";
-  }
-
   /**
    * @brief Prints a zero tensor.
    *

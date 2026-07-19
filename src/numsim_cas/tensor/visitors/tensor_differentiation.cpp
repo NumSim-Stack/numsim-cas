@@ -8,6 +8,7 @@
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor/tensor_functions.h>
+#include <numsim_cas/tensor/tensor_isotropic_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
@@ -336,15 +337,16 @@ void tensor_differentiation::operator()(
       "tensor_differentiation: d/dA of an eigenvector is not yet implemented");
 }
 
-// d(f(B))/dX = (∂f/∂B) : (dB/dX). ∂f/∂B is the coincidence-safe rank-4
-// isotropic-function tangent node; chain it with dB/dX over the B indices.
+// d(f(B))/dX = (∂f/∂B) : (dB/dX). ∂f/∂B is the SYMBOLIC Daleckii–Krein
+// tangent (divided-difference + eigenprojection nodes); chain it with dB/dX
+// over the B indices. Because the tangent is symbolic, differentiating the
+// result again gives d²f/dA² for free (generic chain rule).
 void tensor_differentiation::operator()(
     tensor_isotropic_function const &visitable) {
   auto dB = diff(visitable.expr(), m_arg);
   if (!dB.is_valid() || is_same<tensor_zero>(dB))
     return;
-  auto tangent = make_expression<tensor_isotropic_function_tangent>(
-      visitable.expr(), visitable.kind());
+  auto tangent = isotropic_tangent(visitable.expr(), visitable.kind());
   // dB = I{4} (differentiating w.r.t. B itself) ⇒ (∂f/∂B) : I{4} = ∂f/∂B.
   if (is_same<identity_tensor>(dB)) {
     m_result = std::move(tangent);
@@ -352,15 +354,6 @@ void tensor_differentiation::operator()(
   }
   m_result = inner_product(std::move(tangent), sequence{3, 4}, std::move(dB),
                            sequence{1, 2});
-}
-
-// The isotropic-function tangent is opaque: its own derivative is the
-// higher spectral derivative, not implemented.
-void tensor_differentiation::operator()(
-    tensor_isotropic_function_tangent const & /*visitable*/) {
-  throw not_implemented_error(
-      "tensor_differentiation: d/dA of an isotropic-function tangent (higher "
-      "spectral derivative) is not implemented");
 }
 
 void tensor_differentiation::operator()(tensor_inv const &visitable) {

@@ -280,6 +280,40 @@ void tensor_to_scalar_differentiation::operator()(
                            sequence{1, 2});
 }
 
+// Divided difference [f; λ_M] of eigenvalues of B: the classical identity
+//   d/dX [f; λ_M] = Σ_{distinct k in M} mult_k [f; λ_{M∪{k}}] dλ_k/dX
+// (the derivative of a k-th divided difference is a (k+1)-th one with the
+// point repeated). dλ_k/dX = d(value(k))/dX composes the chain rule, so this
+// is arbitrary-order differentiable — differentiating again just grows the
+// point multiset.
+void tensor_to_scalar_differentiation::operator()(
+    tensor_to_scalar_divided_difference const &v) {
+  auto const &B = v.expr();
+  auto const &M = v.indices(); // sorted
+  eigen_decomposition eig(B);
+  tensor_holder_t sum;
+  for (std::size_t p = 0; p < M.size();) {
+    const std::size_t k = M[p];
+    std::size_t mult = 0;
+    while (p < M.size() && M[p] == k) {
+      ++mult;
+      ++p;
+    }
+    auto dlam = diff(eig.value(k), m_arg); // tensor
+    if (!dlam.is_valid() || is_same<tensor_zero>(dlam))
+      continue;
+    std::vector<std::size_t> m_plus = M;
+    m_plus.push_back(k);
+    t2s_holder_t coeff = make_expression<tensor_to_scalar_divided_difference>(
+        B, v.kind(), std::move(m_plus));
+    if (mult != 1)
+      coeff = coeff * make_expression<scalar_constant>(static_cast<int>(mult));
+    auto term = std::move(dlam) * std::move(coeff); // tensor * t2s → tensor
+    sum = sum.is_valid() ? sum + term : term;
+  }
+  m_result = std::move(sum);
+}
+
 // Inner product to scalar: product rule
 // d(inner(A, idx_a, B, idx_b))/dX
 // = inner(dA, idx_a, B, idx_b) + inner(A, idx_a, dB, idx_b)

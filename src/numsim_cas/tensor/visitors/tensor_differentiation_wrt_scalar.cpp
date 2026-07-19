@@ -7,6 +7,7 @@
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor/tensor_functions.h>
+#include <numsim_cas/tensor/tensor_isotropic_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
@@ -278,23 +279,16 @@ void tensor_differentiation_wrt_scalar::operator()(
       "implemented");
 }
 
-// d(f(B))/ds = (∂f/∂B) : (dB/ds), rank-4 : rank-2 → rank-2.
+// d(f(B))/ds = (∂f/∂B) : (dB/ds), rank-4 : rank-2 → rank-2. ∂f/∂B is the
+// symbolic Daleckii–Krein tangent.
 void tensor_differentiation_wrt_scalar::operator()(
     tensor_isotropic_function const &visitable) {
   auto dB = diff(visitable.expr(), m_arg);
   if (!dB.is_valid() || is_same<tensor_zero>(dB))
     return;
-  auto tangent = make_expression<tensor_isotropic_function_tangent>(
-      visitable.expr(), visitable.kind());
+  auto tangent = isotropic_tangent(visitable.expr(), visitable.kind());
   m_result = inner_product(std::move(tangent), sequence{3, 4}, std::move(dB),
                            sequence{1, 2});
-}
-
-void tensor_differentiation_wrt_scalar::operator()(
-    tensor_isotropic_function_tangent const & /*visitable*/) {
-  throw not_implemented_error(
-      "tensor_differentiation_wrt_scalar: d/ds of an isotropic-function "
-      "tangent is not implemented");
 }
 
 void tensor_differentiation_wrt_scalar::operator()(

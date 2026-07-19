@@ -91,6 +91,21 @@ public:
     m_out << ")";
   }
 
+  void
+  operator()(tensor_to_scalar_divided_difference const &visitable) override {
+    m_out << "dd_" << name(visitable.kind()) << "[";
+    bool first = true;
+    for (std::size_t idx : visitable.indices()) {
+      if (!first)
+        m_out << ",";
+      m_out << idx;
+      first = false;
+    }
+    m_out << "](";
+    apply(visitable.expr());
+    m_out << ")";
+  }
+
   void operator()(tensor_to_scalar_negative const &visitable) override {
     constexpr auto precedence{Precedence::Unary};
     m_out << "-";

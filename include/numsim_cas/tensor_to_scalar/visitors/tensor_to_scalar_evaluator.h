@@ -9,6 +9,7 @@
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/scalar/visitors/scalar_evaluator.h>
 #include <numsim_cas/tensor/data/tensor_data.h>
+#include <numsim_cas/tensor/data/tensor_data_isotropic.h>
 #include <numsim_cas/tensor/data/tensor_data_to_scalar_wrapper.h>
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_add.h>
@@ -142,6 +143,15 @@ public:
     const auto dim = data->dim();
     const auto rank = data->rank();
     tensor_data_eigenvalue_wrapper<ValueType> op(*data, v.index());
+    m_result = op.evaluate(dim, rank);
+  }
+
+  void operator()(tensor_to_scalar_divided_difference const &v) override {
+    auto data = m_tensor_eval.apply(v.expr());
+    const auto dim = data->dim();
+    const auto rank = data->rank();
+    tensor_data_divided_difference_wrapper<ValueType> op(*data, v.kind(),
+                                                         v.indices());
     m_result = op.evaluate(dim, rank);
   }
 

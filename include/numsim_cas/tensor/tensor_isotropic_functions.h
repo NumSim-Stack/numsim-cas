@@ -1,9 +1,20 @@
 #ifndef NUMSIM_CAS_TENSOR_ISOTROPIC_FUNCTIONS_H
 #define NUMSIM_CAS_TENSOR_ISOTROPIC_FUNCTIONS_H
 
+#include <numsim_cas/tensor/isotropic_kind.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 
 namespace numsim::cas {
+
+// The fourth-order derivative ∂f(A)/∂A of an isotropic tensor function, as a
+// SYMBOLIC expression (#326): ∂f/∂A = Σ_{i,j} [f; λ_i, λ_j] (E_i ⊙ E_j),
+// built from divided-difference and eigenprojection nodes. Because those
+// primitives are themselves differentiable, the result differentiates to
+// arbitrary order via the generic chain rule (d²f/dA², …). Used by the
+// isotropic-function differentiation visitors.
+[[nodiscard]] expression_holder<tensor_expression>
+isotropic_tangent(expression_holder<tensor_expression> const &A,
+                  isotropic_kind kind);
 
 // Isotropic tensor functions of a symmetric rank-2 tensor A (#227):
 // f(A) = Σ f(λ_i) E_i, applied spectrally. These build the

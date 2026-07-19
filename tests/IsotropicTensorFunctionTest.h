@@ -13,6 +13,8 @@
 #include <numsim_cas/tensor/tensor_operators.h>
 #include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
 
 namespace numsim::cas {
 
@@ -199,6 +201,44 @@ TEST(IsotropicFn, TangentMinorSymmetric) {
   auto Hsym = tmech::eval(0.5 * (Hns + tmech::trans(Hns)));
   auto with_Hsym = tmech::eval(tmech::dcontract(D, Hsym));
   EXPECT_TRUE(tmech::almost_equal(with_H, with_Hsym, 1e-12));
+}
+
+// ─── Higher-order differentiation: d²(...)/dA² via the dd primitive ────
+// g = trace(log(A)) = log det(A), so dg/dA = inv(A) (closed form) and
+// d²g/dA² exercises differentiating the divided-difference tangent. That
+// the second derivative even builds (no not_implemented) is the point.
+TEST(IsotropicFn, SecondDerivativeViaTraceLog) {
+  using namespace isofn_detail;
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  T2 A_val;
+  A_val = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 2.0}; // distinct, SPD
+  T2 H;
+  H = {0.1, 0.2, 0.0, 0.2, 0.3, 0.1, 0.0, 0.1, 0.15};
+
+  auto g = trace(log(A)); // t2s scalar
+  auto dg = diff(g, A);   // rank-2 tensor
+  auto d2g = diff(dg, A); // rank-4 — SECOND derivative via divided diffs
+  ASSERT_TRUE(d2g.is_valid());
+  EXPECT_EQ(d2g.get().rank(), std::size_t{4});
+
+  // dg/dA == inv(A).
+  ev.set(A, data_from(A_val));
+  auto dg_data = ev.apply(dg);
+  auto inv_num = tmech::eval(tmech::inv(tmech::sym(A_val)));
+  EXPECT_TRUE(tmech::almost_equal(as_t<3, 2>(*dg_data), inv_num, 1e-9));
+
+  // d²g/dA² : H  vs  central FD of dg/dA along H.
+  auto d2_data = ev.apply(d2g);
+  auto analytic = tmech::eval(tmech::dcontract(as_t<3, 4>(*d2_data), H));
+  const double t = 1e-6;
+  ev.set(A, data_from(T2{tmech::eval(A_val + t * H)}));
+  auto dgp_data = ev.apply(dg);
+  auto dgp = as_t<3, 2>(*dgp_data);
+  ev.set(A, data_from(T2{tmech::eval(A_val - t * H)}));
+  auto dgm_data = ev.apply(dg);
+  auto fd = tmech::eval((dgp - as_t<3, 2>(*dgm_data)) / (2.0 * t));
+  EXPECT_TRUE(tmech::almost_equal(analytic, fd, 1e-6));
 }
 
 // ─── Printing ──────────────────────────────────────────────────────────

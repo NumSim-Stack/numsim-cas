@@ -86,11 +86,6 @@ public:
         make_expression<tensor_isotropic_function>(apply(v.expr()), v.kind());
   }
 
-  void operator()(tensor_isotropic_function_tangent const &v) override {
-    m_result = make_expression<tensor_isotropic_function_tangent>(
-        apply(v.expr()), v.kind());
-  }
-
   void operator()(permute_indices_wrapper const &v) override {
     m_result =
         make_expression<permute_indices_wrapper>(apply(v.expr()), v.indices());

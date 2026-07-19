@@ -76,6 +76,19 @@ public:
     m_out << "\\right)";
   }
 
+  void
+  operator()(tensor_to_scalar_divided_difference const &visitable) override {
+    m_out << "\\left[\\" << name(visitable.kind()) << ";";
+    bool first = true;
+    for (std::size_t idx : visitable.indices()) {
+      if (!first)
+        m_out << ",";
+      m_out << "\\lambda_{" << idx << "}";
+      first = false;
+    }
+    m_out << "\\right]";
+  }
+
   void operator()(tensor_to_scalar_negative const &visitable) override {
     constexpr auto precedence{Precedence::Unary};
     m_out << "-";

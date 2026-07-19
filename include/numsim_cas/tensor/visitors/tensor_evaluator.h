@@ -368,15 +368,6 @@ public:
     op.evaluate(dim, 2);
   }
 
-  void operator()(tensor_isotropic_function_tangent const &v) override {
-    auto temp = apply(v.expr());
-    const auto dim = v.dim();
-    m_result = make_tensor_data<ValueType>(dim, 4);
-    tensor_data_isotropic_tangent_wrapper<ValueType> op(*m_result, *temp,
-                                                        v.kind());
-    op.evaluate(dim, 4);
-  }
-
   // ─── Cross-domain ────────────────────────────────────────────
 
   // f * A where f is tensor_to_scalar (scalar-valued), A is tensor

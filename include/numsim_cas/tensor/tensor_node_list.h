@@ -22,7 +22,6 @@
   NEXT(tensor_eigenprojection)                                                 \
   NEXT(tensor_eigenvector)                                                     \
   NEXT(tensor_isotropic_function)                                              \
-  NEXT(tensor_isotropic_function_tangent)                                      \
   NEXT(tensor_zero)                                                            \
   NEXT(tensor_projector)                                                       \
   NEXT(identity_tensor)                                                        \

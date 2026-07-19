@@ -21,7 +21,6 @@
 #include <numsim_cas/tensor/wrappers/tensor_eigenvector.h>
 #include <numsim_cas/tensor/wrappers/tensor_inv.h>
 #include <numsim_cas/tensor/wrappers/tensor_isotropic_function.h>
-#include <numsim_cas/tensor/wrappers/tensor_isotropic_function_tangent.h>
 #include <numsim_cas/tensor/wrappers/tensor_pow.h>
 
 #endif // TENSOR_DEFINITIONS_H
