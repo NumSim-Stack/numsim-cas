@@ -305,6 +305,17 @@ void tensor_differentiation::operator()(simple_outer_product const &visitable) {
 // space() is cleared but the algebra tag remains. Vol/Dev inputs route
 // through the sym branch too (their space()->perm is Symmetric{}).
 // Closes #250.
+// dE_i/dA is the fourth-order spectral derivative (Miehe/Simo), which
+// needs the full eigenvalue/eigenvector set and the degenerate-eigenvalue
+// limit — deferred to a #226 follow-up. Evaluation of E_i already works,
+// and dλ_i/dA = E_i is handled directly in the eigenvalue diff visitor.
+void tensor_differentiation::operator()(
+    tensor_eigenprojection const & /*visitable*/) {
+  throw not_implemented_error(
+      "tensor_differentiation: d/dA of an eigenprojection (the 4th-order "
+      "spectral derivative) is not yet implemented");
+}
+
 void tensor_differentiation::operator()(tensor_inv const &visitable) {
   auto const &A = visitable.expr();
   auto dA = diff(A, m_arg);

@@ -257,6 +257,15 @@ void tensor_differentiation_wrt_scalar::operator()(
 // std::unreachable()` pins that contract — the trailing
 // `std::unreachable` catches drift if a future wrapper relaxation
 // admits a higher rank without updating this visitor.
+// dE_i/ds needs the 4th-order spectral derivative contracted with dA/ds —
+// deferred to a #226 follow-up alongside dE_i/dA.
+void tensor_differentiation_wrt_scalar::operator()(
+    tensor_eigenprojection const & /*visitable*/) {
+  throw not_implemented_error(
+      "tensor_differentiation_wrt_scalar: d/ds of an eigenprojection is not "
+      "yet implemented");
+}
+
 void tensor_differentiation_wrt_scalar::operator()(
     tensor_inv const &visitable) {
   auto const &A = visitable.expr();

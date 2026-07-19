@@ -1156,6 +1156,55 @@ TEST(TensorEval, IfThenElseLazyOnUnselectedBranch) {
   EXPECT_TRUE(tmech::almost_equal(as_tmech<2, 2>(*result2), expected, tol));
 }
 
+// ─── Eigenprojection E_i = n_i ⊗ n_i (#226) ───────────────────────────
+
+TEST(TensorEval, EigenprojectionDiagonal3x3) {
+  // diag(5,3,2): eigenpairs sorted ascending are (2,ẑ),(3,ŷ),(5,x̂), so
+  // E_0 = diag(0,0,1), E_1 = diag(0,1,0), E_2 = diag(1,0,0).
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({5.0, 0.0, 0.0,
+                                   0.0, 3.0, 0.0,
+                                   0.0, 0.0, 2.0}));
+  // clang-format on
+  auto E0 = ev.apply(eigenprojection(A, 0));
+  auto E1 = ev.apply(eigenprojection(A, 1));
+  auto E2 = ev.apply(eigenprojection(A, 2));
+  ASSERT_NE(E0, nullptr);
+  EXPECT_TRUE(tmech::almost_equal(
+      as_tmech<3, 2>(*E0), make_tmech<3, 2>({0, 0, 0, 0, 0, 0, 0, 0, 1}), tol));
+  EXPECT_TRUE(tmech::almost_equal(
+      as_tmech<3, 2>(*E1), make_tmech<3, 2>({0, 0, 0, 0, 1, 0, 0, 0, 0}), tol));
+  EXPECT_TRUE(tmech::almost_equal(
+      as_tmech<3, 2>(*E2), make_tmech<3, 2>({1, 0, 0, 0, 0, 0, 0, 0, 0}), tol));
+}
+
+TEST(TensorEval, EigenprojectionCompletenessAndReconstruction) {
+  // Non-diagonal symmetric A: Σ E_i = I, and A = Σ λ_i E_i (spectral thm).
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({2.0, 1.0, 0.0,
+                                   1.0, 3.0, 1.0,
+                                   0.0, 1.0, 2.0}));
+  // clang-format on
+  auto E0 = as_tmech<3, 2>(*ev.apply(eigenprojection(A, 0)));
+  auto E1 = as_tmech<3, 2>(*ev.apply(eigenprojection(A, 1)));
+  auto E2 = as_tmech<3, 2>(*ev.apply(eigenprojection(A, 2)));
+
+  auto I = tmech::eval(tmech::eye<double, 3, 2>());
+  EXPECT_TRUE(tmech::almost_equal(tmech::eval(E0 + E1 + E2), I, tol));
+
+  // λ_i = A : E_i (double contraction), so A = Σ λ_i E_i must recover A.
+  auto A_val = make_tmech<3, 2>({2, 1, 0, 1, 3, 1, 0, 1, 2});
+  double l0 = tmech::dcontract(A_val, E0);
+  double l1 = tmech::dcontract(A_val, E1);
+  double l2 = tmech::dcontract(A_val, E2);
+  EXPECT_TRUE(tmech::almost_equal(tmech::eval(l0 * E0 + l1 * E1 + l2 * E2),
+                                  A_val, tol));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSOREVALUATORTEST_H

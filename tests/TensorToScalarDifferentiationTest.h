@@ -53,6 +53,20 @@ TEST_F(TensorToScalarDifferentiationTest, Node_Trace_NonDependencyGivesZero) {
   EXPECT_SAME_PRINT(d, Zero);
 }
 
+// d(λ_i(Y))/d(Y) = E_i(Y) (the eigenprojection). Differentiating w.r.t.
+// Y itself makes dY/dY the 4th-order identity, so E_i : I{4} = E_i.
+TEST_F(TensorToScalarDifferentiationTest, Node_Eigenvalue) {
+  auto d = diff(eigenvalue(Y, 0), Y);
+  EXPECT_TRUE(d.is_valid()) << "Expected valid result for eigenvalue diff";
+  EXPECT_SAME_PRINT(d, eigenprojection(Y, 0));
+}
+
+// d(λ_i(X))/d(Y) = zero (no dependency).
+TEST_F(TensorToScalarDifferentiationTest, Node_Eigenvalue_NonDependencyZero) {
+  auto d = diff(eigenvalue(X, 0), Y);
+  EXPECT_SAME_PRINT(d, Zero);
+}
+
 // d(-tr(Y))/d(Y) should be -I
 TEST_F(TensorToScalarDifferentiationTest, Node_Negative) {
   auto f = -trY;
