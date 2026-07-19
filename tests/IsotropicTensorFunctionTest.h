@@ -159,6 +159,48 @@ TEST(IsotropicFn, LogTangentFullyCoincident) {
   EXPECT_TRUE(tmech::almost_equal(analytic, tmech::eval(0.5 * H), 1e-10));
 }
 
+// ─── Per-pair relative tolerance: distinct SMALL eigenvalues stay distinct
+TEST(IsotropicFn, TangentRelativeToleranceDistinctSmall) {
+  // A = diag(1e-8, 2e-8, 5). The pair {1e-8, 2e-8} is genuinely distinct but
+  // tiny; a global sqrt(eps)·max|λ| tolerance would falsely merge it and use
+  // f'(λ)=1e8, while the correct divided difference is ~6.9e7. Diagonal ⇒
+  // eigenvectors are the axes (no ill-conditioning), so the (0,1) coefficient
+  // is exact and checkable in closed form.
+  using namespace isofn_detail;
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  T2 A_val;
+  A_val = {1e-8, 0, 0, 0, 2e-8, 0, 0, 0, 5};
+  ev.set(A, data_from(A_val));
+  T2 H;
+  H = {0, 1, 0, 1, 0, 0, 0, 0, 0}; // only the (0,1) symmetric off-diagonal
+  auto D_data = ev.apply(diff(log(A), A));
+  auto res = tmech::eval(tmech::dcontract(as_t<3, 4>(*D_data), H));
+
+  const double dd01 = (std::log(1e-8) - std::log(2e-8)) / (1e-8 - 2e-8);
+  EXPECT_NEAR(res.raw_data()[1], dd01, std::abs(dd01) * 1e-9); // ≈ 6.93e7
+  EXPECT_GT(std::abs(res.raw_data()[1] - 1e8), 1e6); // NOT f'(1e-8)=1e8
+}
+
+// ─── Minor-symmetry: tangent : H == tangent : sym(H) ───────────────────
+TEST(IsotropicFn, TangentMinorSymmetric) {
+  using namespace isofn_detail;
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  T2 A_val;
+  A_val = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 2.0}; // distinct, SPD
+  ev.set(A, data_from(A_val));
+  T2 Hns; // non-symmetric
+  Hns = {0.1, 0.3, 0.2, 0.0, 0.4, 0.5, 0.6, 0.1, 0.2};
+
+  auto D_data = ev.apply(diff(log(A), A));
+  auto const &D = as_t<3, 4>(*D_data);
+  auto with_H = tmech::eval(tmech::dcontract(D, Hns));
+  auto Hsym = tmech::eval(0.5 * (Hns + tmech::trans(Hns)));
+  auto with_Hsym = tmech::eval(tmech::dcontract(D, Hsym));
+  EXPECT_TRUE(tmech::almost_equal(with_H, with_Hsym, 1e-12));
+}
+
 // ─── Printing ──────────────────────────────────────────────────────────
 TEST(IsotropicFn, Printing) {
   auto A = make_expression<tensor>("A", 3, 2);

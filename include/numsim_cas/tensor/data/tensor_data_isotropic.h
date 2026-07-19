@@ -134,19 +134,11 @@ public:
       iso_detail::decompose_sorted(in, lam, vec);
 
       std::array<tmech::tensor<ValueType, Dim, 2>, Dim> E{};
-      ValueType scale{1};
-      for (std::size_t i = 0; i < Dim; ++i) {
+      for (std::size_t i = 0; i < Dim; ++i)
         E[i] = tmech::otimes(vec[i], vec[i]);
-        scale = std::max(scale, std::abs(lam[i]));
-      }
-      // Degenerate eigenvalues are only accurate to ~sqrt(eps) (a double
-      // root of the characteristic polynomial), and their eigenvectors are
-      // ill-conditioned within that band — so switch to the analytic limit
-      // f'(λ) once the pair is closer than sqrt(eps)·scale. For genuinely
-      // distinct eigenvalues this band is far below the divided difference's
-      // own error, so it changes nothing there.
-      const ValueType tol =
-          std::sqrt(std::numeric_limits<ValueType>::epsilon()) * scale;
+
+      const ValueType rel =
+          std::sqrt(std::numeric_limits<ValueType>::epsilon());
 
       tmech::tensor<ValueType, Dim, 4> out;
       for (std::size_t i = 0; i < Dim; ++i)
@@ -155,7 +147,17 @@ public:
       for (std::size_t i = 0; i < Dim; ++i) {
         for (std::size_t j = i + 1; j < Dim; ++j) {
           const ValueType diff = lam[i] - lam[j];
-          const ValueType dd = std::abs(diff) < tol
+          // Switch to the analytic limit f'(λ) once the pair is closer than
+          // sqrt(eps) RELATIVE to its own magnitude — that is where a
+          // repeated root loses accuracy and its eigenvectors go
+          // ill-conditioned. A per-pair relative band (not a global one)
+          // avoids falsely merging two genuinely-distinct small eigenvalues,
+          // whose divided difference is large but correct (e.g. log at small
+          // λ). `diff == 0` also captures an exactly-repeated pair of zeros.
+          const ValueType tol =
+              rel * std::max(std::abs(lam[i]), std::abs(lam[j]));
+          const bool coincident = diff == ValueType{0} || std::abs(diff) <= tol;
+          const ValueType dd = coincident
                                    ? iso_detail::apply_fprime(m_kind, lam[i])
                                    : (iso_detail::apply_f(m_kind, lam[i]) -
                                       iso_detail::apply_f(m_kind, lam[j])) /
