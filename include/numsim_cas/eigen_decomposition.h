@@ -22,6 +22,15 @@ namespace numsim::cas {
 //
 // basis(i) is the sign-free quantity (E_i is unique); normal(i) carries the
 // usual ± eigenvector sign ambiguity — prefer basis(i) for differentiation.
+//
+// Repeated eigenvalues: value(i) is always well defined, but within a
+// degenerate eigenspace the per-index basis(i)/normal(i) split is arbitrary
+// (any orthonormal basis of the subspace is valid). Only basis-invariant
+// combinations are unique — the sum of basis(i) over a repeated eigenvalue
+// (the full eigenspace projector), Σ_i basis(i) = I, and A = Σ_i value(i)
+// basis(i). tmech supplies a valid orthonormal eigenbasis regardless, so
+// these identities hold; do not rely on an individual basis(i)/normal(i)
+// when its eigenvalue is repeated.
 class eigen_decomposition {
 public:
   explicit eigen_decomposition(expression_holder<tensor_expression> expr);

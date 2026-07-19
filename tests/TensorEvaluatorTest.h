@@ -1252,6 +1252,52 @@ TEST(TensorEval, EigenvectorDiagonalAxes) {
                                   tol));
 }
 
+TEST(TensorEval, EigenRepeatedEigenvalue) {
+  // A = [[3,1,1],[1,3,1],[1,1,3]] has eigenvalues {2, 2, 5}: 5 for the
+  // (1,1,1) direction, 2 (doubled) on its orthogonal complement. Verifies
+  // the wrappers stay correct across the eigenvalue degeneracy — where the
+  // per-index eigenvector/projection split is arbitrary but the
+  // basis-invariant identities must still hold.
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({3.0, 1.0, 1.0,
+                                   1.0, 3.0, 1.0,
+                                   1.0, 1.0, 3.0}));
+  // clang-format on
+  eigen_decomposition eig(A);
+
+  auto E0d = ev.apply(eig.basis(0));
+  auto E1d = ev.apply(eig.basis(1));
+  auto E2d = ev.apply(eig.basis(2));
+  auto const &E0 = as_tmech<3, 2>(*E0d);
+  auto const &E1 = as_tmech<3, 2>(*E1d);
+  auto const &E2 = as_tmech<3, 2>(*E2d);
+
+  // Eigenvalues via Rayleigh quotient λ_i = A : E_i — ascending 2, 2, 5.
+  auto A_val = make_tmech<3, 2>({3, 1, 1, 1, 3, 1, 1, 1, 3});
+  EXPECT_NEAR(tmech::dcontract(A_val, E0), 2.0, 1e-10);
+  EXPECT_NEAR(tmech::dcontract(A_val, E1), 2.0, 1e-10);
+  EXPECT_NEAR(tmech::dcontract(A_val, E2), 5.0, 1e-10);
+
+  // Completeness holds despite the degenerate split.
+  auto I = tmech::eval(tmech::eye<double, 3, 2>());
+  EXPECT_TRUE(tmech::almost_equal(tmech::eval(E0 + E1 + E2), I, 1e-10));
+
+  // Spectral reconstruction: 2·E0 + 2·E1 + 5·E2 == A.
+  EXPECT_TRUE(tmech::almost_equal(tmech::eval(2.0 * E0 + 2.0 * E1 + 5.0 * E2),
+                                  A_val, 1e-10));
+
+  // The λ=5 projection is unique (multiplicity 1): (1/3)·ones.
+  double t{1.0 / 3.0};
+  EXPECT_TRUE(tmech::almost_equal(
+      E2, make_tmech<3, 2>({t, t, t, t, t, t, t, t, t}), 1e-9));
+
+  // The λ=2 eigenspace projector E0+E1 is unique too: I − E2.
+  EXPECT_TRUE(
+      tmech::almost_equal(tmech::eval(E0 + E1), tmech::eval(I - E2), 1e-9));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSOREVALUATORTEST_H
