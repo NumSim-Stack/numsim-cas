@@ -1,6 +1,7 @@
 #ifndef TENSOR_DATA_UNARY_WRAPPER_H
 #define TENSOR_DATA_UNARY_WRAPPER_H
 
+#include "spectral_decomposition_cache.h"
 #include "tensor_data.h"
 #include <numsim_cas/core/cas_error.h>
 
@@ -69,17 +70,8 @@ public:
             "tensor_data_eigenprojection_wrapper: index out of range");
       using Tensor = tensor_data<ValueType, Dim, Rank>;
       auto const &in = static_cast<const Tensor &>(m_input).data();
-      auto decomp = tmech::eigen_decomposition(tmech::sym(in));
-      auto const [eigvals, eigvecs] = decomp.decompose();
-      // Sort eigenpair indices by eigenvalue ascending so this E_index
-      // corresponds to the eigenvalue node's λ_index.
-      std::array<std::size_t, Dim> order{};
-      for (std::size_t i{0}; i < Dim; ++i)
-        order[i] = i;
-      std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
-        return eigvals[a] < eigvals[b];
-      });
-      auto const &n = eigvecs[order[m_index]];
+      auto const &n =
+          spectral::cached_decompose<ValueType, Dim>(in).eigenvectors[m_index];
       static_cast<Tensor &>(m_result).data() = tmech::otimes(n, n);
     } else {
       throw evaluation_error("tensor_data_eigenprojection_wrapper: requires a "
@@ -126,15 +118,8 @@ public:
       using InTensor = tensor_data<ValueType, Dim, 2>;
       using OutTensor = tensor_data<ValueType, Dim, 1>;
       auto const &in = static_cast<const InTensor &>(m_input).data();
-      auto decomp = tmech::eigen_decomposition(tmech::sym(in));
-      auto const [eigvals, eigvecs] = decomp.decompose();
-      std::array<std::size_t, Dim> order{};
-      for (std::size_t i{0}; i < Dim; ++i)
-        order[i] = i;
-      std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
-        return eigvals[a] < eigvals[b];
-      });
-      static_cast<OutTensor &>(m_result).data() = eigvecs[order[m_index]];
+      static_cast<OutTensor &>(m_result).data() =
+          spectral::cached_decompose<ValueType, Dim>(in).eigenvectors[m_index];
     } else {
       throw evaluation_error("tensor_data_eigenvector_wrapper: requires a "
                              "rank-2 input of dim 2 or 3");
