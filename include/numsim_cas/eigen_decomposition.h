@@ -47,14 +47,16 @@ public:
   // The fourth-order derivative ∂E_i/∂A of the i-th eigenprojection with
   // respect to A (Miehe/Simo spectral derivative, distinct eigenvalues):
   //
-  //   ∂E_a/∂A = Σ_{b≠a} 1/(λ_a − λ_b) [ E_a ⊠ E_b + E_b ⊠ E_a ],
-  //   (X ⊠ Y)_ijkl = X_ik Y_jl  (tmech otimesu)
+  //   ∂E_a/∂A = Σ_{b≠a} 1/(λ_a − λ_b) [ E_a ⊙ E_b + E_b ⊙ E_a ],
+  //   (X ⊙ Y)_ijkl = ½(X_ik Y_jl + X_il Y_jk)   (minor-symmetric product)
   //
-  // A rank-4 tensor, symbolic (the 1/(λ_a−λ_b) factors are eigenvalue
-  // nodes). It acts on symmetric increments; at a repeated eigenvalue the
-  // factor diverges (the eigenprojection is not differentiable there).
-  // This is what a consistent tangent of an isotropic tensor function
-  // f(A) = Σ f(λ_i) E_i needs (#227).
+  // A rank-4 minor-symmetric tensor, symbolic (the 1/(λ_a−λ_b) factors are
+  // eigenvalue nodes). Minor-symmetric because E_a depends on A only
+  // through sym(A) (the evaluator symmetrises), so this is the true
+  // derivative of the evaluated function and an FE-ready tangent. At a
+  // repeated eigenvalue the 1/(λ_a−λ_b) factor diverges (the eigenprojection
+  // is not differentiable there). This is what a consistent tangent of an
+  // isotropic tensor function f(A) = Σ f(λ_i) E_i needs (#227).
   [[nodiscard]] expression_holder<tensor_expression>
   basis_derivative(std::size_t index) const;
 

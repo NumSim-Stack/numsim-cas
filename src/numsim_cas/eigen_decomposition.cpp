@@ -60,16 +60,30 @@ eigen_decomposition::basis_derivative(std::size_t a) const {
   const std::size_t dim = m_expr.get().dim();
   auto const Ea = basis(a);
   auto const la = value(a);
+  auto const two = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar_constant>(2));
 
-  // ∂E_a/∂A = Σ_{b≠a} 1/(λ_a − λ_b) [ otimesu(E_a,E_b) + otimesu(E_b,E_a) ].
+  // ∂E_a/∂A = Σ_{b≠a} 1/(λ_a − λ_b) [ E_a ⊙ E_b + E_b ⊙ E_a ], with the
+  // minor-symmetric product X ⊙ Y = ½(otimesu(X,Y) + otimesl(X,Y)). The ½
+  // is folded into the coefficient: 1/(2(λ_a−λ_b)).
+  //
+  // The symmetric product (rather than bare otimesu) makes the result
+  // minor-symmetric — the correct derivative of the evaluated function,
+  // since E_a(A) = E_a(sym A) (the evaluator symmetrises its input), so E_a
+  // depends on A only through sym(A). It agrees with the raw otimesu form
+  // on symmetric increments but, unlike it, also matches finite differences
+  // for non-symmetric increments and yields an FE-ready tangent.
+  //
   // dim ∈ {2,3} (facade ctor), so there is always ≥ 1 term.
   expression_holder<tensor_expression> result;
   for (std::size_t b = 0; b < dim; ++b) {
     if (b == a)
       continue;
     auto const Eb = basis(b);
-    auto coeff = pow(la - value(b), -get_scalar_one()); // 1/(λ_a−λ_b)
-    auto term = (otimesu(Ea, Eb) + otimesu(Eb, Ea)) * coeff;
+    auto coeff = pow(two * (la - value(b)), -get_scalar_one()); // 1/(2(λa−λb))
+    auto sym4 =
+        otimesu(Ea, Eb) + otimesl(Ea, Eb) + otimesu(Eb, Ea) + otimesl(Eb, Ea);
+    auto term = sym4 * coeff;
     result = result.is_valid() ? result + term : term;
   }
   return result;

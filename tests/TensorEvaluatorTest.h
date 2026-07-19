@@ -1401,6 +1401,106 @@ TEST(TensorEval, SpectralEnergyStressAndTangent) {
       << "C : H should be 2H";
 }
 
+TEST(TensorEval, EigenprojectionDerivativeMinorSymmetric) {
+  // ∂E_a/∂A must be minor-symmetric: E_a depends on A only through sym(A)
+  // (the evaluator symmetrises), so a NON-symmetric increment H probes the
+  // same response as sym(H). This test fails for the bare-otimesu form and
+  // passes only for the minor-symmetric ⊙ form.
+  using T2 = tmech::tensor<double, 3, 2>;
+  T2 A_val;
+  A_val = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0};
+  T2 Hns; // deliberately NON-symmetric
+  Hns = {0.1, 0.3, 0.2, 0.0, 0.4, 0.5, 0.6, 0.1, 0.2};
+
+  auto data_from = [](T2 const &t) {
+    auto ptr = std::make_shared<tensor_data<double, 3, 2>>();
+    auto *dst = ptr->raw_data();
+    auto const *src = t.raw_data();
+    for (std::size_t i = 0; i < 9; ++i)
+      dst[i] = src[i];
+    return ptr;
+  };
+
+  auto A = make_expression<tensor>("A", 3, 2);
+  tensor_evaluator<double> ev;
+  eigen_decomposition eig(A);
+
+  for (std::size_t a = 0; a < 3; ++a) {
+    auto dEa = diff(eig.basis(a), A);
+    ev.set(A, data_from(A_val));
+    auto D_data = ev.apply(dEa);
+    auto const &D = as_tmech<3, 4>(*D_data);
+    auto analytic = tmech::eval(tmech::dcontract(D, Hns));
+
+    // Central FD along the non-symmetric Hns; the evaluator symmetrises
+    // the input internally, so this measures the response to sym(Hns).
+    const double t = 1e-6;
+    T2 Aplus = tmech::eval(A_val + t * Hns);
+    T2 Aminus = tmech::eval(A_val - t * Hns);
+    ev.set(A, data_from(Aplus));
+    auto Ep_data = ev.apply(eig.basis(a));
+    auto const &Ep = as_tmech<3, 2>(*Ep_data);
+    ev.set(A, data_from(Aminus));
+    auto Em_data = ev.apply(eig.basis(a));
+    auto const &Em = as_tmech<3, 2>(*Em_data);
+    auto fd = tmech::eval((Ep - Em) / (2.0 * t));
+
+    EXPECT_TRUE(tmech::almost_equal(analytic, fd, 1e-6))
+        << "∂E_" << a << "/∂A is not minor-symmetric (fails on non-sym H)";
+  }
+}
+
+TEST(TensorEval, EigenprojectionDerivativeWrtScalar) {
+  // dE_a/ds for A(s) = A0 + s·A1 — exercises the scalar-derivative path
+  // (∂E_a/∂A : dA/ds), validated against a central FD in s.
+  using T2 = tmech::tensor<double, 3, 2>;
+  T2 A0, A1;
+  A0 = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0};
+  A1 = {0.0, 0.0, 0.5, 0.0, 0.0, 0.3, 0.5, 0.3, 0.0}; // symmetric
+  const double s0 = 0.5;
+
+  auto data_from = [](T2 const &t) {
+    auto ptr = std::make_shared<tensor_data<double, 3, 2>>();
+    auto *dst = ptr->raw_data();
+    auto const *src = t.raw_data();
+    for (std::size_t i = 0; i < 9; ++i)
+      dst[i] = src[i];
+    return ptr;
+  };
+
+  auto s = make_expression<scalar>("s");
+  auto A0e = make_expression<tensor>("A0", 3, 2);
+  auto A1e = make_expression<tensor>("A1", 3, 2);
+  auto A = A0e + s * A1e; // scalar-dependent tensor
+  eigen_decomposition eig(A);
+
+  tensor_evaluator<double> ev;
+  ev.set(A0e, data_from(A0));
+  ev.set(A1e, data_from(A1));
+
+  for (std::size_t a = 0; a < 3; ++a) {
+    auto dEa_ds = diff(eig.basis(a), s); // rank-2
+    ASSERT_TRUE(dEa_ds.is_valid());
+    EXPECT_EQ(dEa_ds.get().rank(), std::size_t{2});
+
+    ev.set_scalar(s, s0);
+    auto D_data = ev.apply(dEa_ds);
+    auto const &analytic = as_tmech<3, 2>(*D_data);
+
+    const double t = 1e-6;
+    ev.set_scalar(s, s0 + t);
+    auto Ep_data = ev.apply(eig.basis(a));
+    auto const &Ep = as_tmech<3, 2>(*Ep_data);
+    ev.set_scalar(s, s0 - t);
+    auto Em_data = ev.apply(eig.basis(a));
+    auto const &Em = as_tmech<3, 2>(*Em_data);
+    auto fd = tmech::eval((Ep - Em) / (2.0 * t));
+
+    EXPECT_TRUE(tmech::almost_equal(tmech::eval(analytic), fd, 1e-6))
+        << "dE_" << a << "/ds mismatch vs finite difference";
+  }
+}
+
 } // namespace numsim::cas
 
 #endif // TENSOREVALUATORTEST_H
