@@ -34,6 +34,7 @@ add_numsim_cas_test(numsim_cas_test
     CoreBugFixTest.h
     SolveTest.h
     LeviCivitaTest.h
+    IsotropicTensorFunctionTest.h
     LimitVisitorTest.h
     NumericalDiffHelpers.h
     NumericalDiffTest.h
