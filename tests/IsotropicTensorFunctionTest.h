@@ -14,7 +14,9 @@
 #include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_divided_difference.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
+#include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_evaluator.h>
 
 namespace numsim::cas {
 
@@ -239,6 +241,65 @@ TEST(IsotropicFn, SecondDerivativeViaTraceLog) {
   auto dgm_data = ev.apply(dg);
   auto fd = tmech::eval((dgp - as_t<3, 2>(*dgm_data)) / (2.0 * t));
   EXPECT_TRUE(tmech::almost_equal(analytic, fd, 1e-6));
+}
+
+// ─── Third-order differentiation: d³(trace log A)/dA³ ──────────────────
+// One level deeper than the second-derivative test: differentiating the
+// divided-difference tangent AGAIN pushes every [f;λ…] up to a triple-point
+// divided difference. d³g/dA³ is rank-6; contracting with H gives the
+// directional derivative of d²g/dA², checked against its central FD. That an
+// arbitrary order builds and evaluates (no not_implemented) is the payoff of
+// the symbolic-tangent / divided-difference rework.
+TEST(IsotropicFn, ThirdDerivativeViaTraceLog) {
+  using namespace isofn_detail;
+  tensor_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  T2 A_val;
+  A_val = {4.0, 1.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 2.0}; // distinct, SPD
+  T2 H;
+  H = {0.1, 0.2, 0.0, 0.2, 0.3, 0.1, 0.0, 0.1, 0.15};
+
+  auto g = trace(log(A));  // t2s scalar
+  auto dg = diff(g, A);    // rank-2
+  auto d2g = diff(dg, A);  // rank-4
+  auto d3g = diff(d2g, A); // rank-6 — THIRD derivative via divided diffs
+  ASSERT_TRUE(d3g.is_valid());
+  EXPECT_EQ(d3g.get().rank(), std::size_t{6});
+
+  // d³g/dA³ : H  vs  central FD of d²g/dA² along H (both rank-4).
+  ev.set(A, data_from(A_val));
+  auto d3_data = ev.apply(d3g);
+  auto analytic = tmech::eval(tmech::dcontract(as_t<3, 6>(*d3_data), H));
+  const double t = 1e-5;
+  ev.set(A, data_from(T2{tmech::eval(A_val + t * H)}));
+  auto d2p = as_t<3, 4>(*ev.apply(d2g));
+  ev.set(A, data_from(T2{tmech::eval(A_val - t * H)}));
+  auto fd = tmech::eval((d2p - as_t<3, 4>(*ev.apply(d2g))) / (2.0 * t));
+  EXPECT_TRUE(tmech::almost_equal(analytic, fd, 1e-5));
+}
+
+// ─── The dd primitive at a confluent (triple) point, checked directly ──
+// [log; λ,λ,λ] = log''(λ)/2!. At λ=2 that is (−1/4)/2 = −0.125 — the value
+// that the third derivative above rides on. Evaluating the node with a
+// three-fold repeated index exercises the coincidence collapse for a span of
+// length 2 (not just a pair), independently of the tangent assembly.
+TEST(IsotropicFn, DividedDifferenceTriplePoint) {
+  using namespace isofn_detail;
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  T2 A_val;
+  A_val = {2.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 7.0}; // λ₀=2 distinct
+  ev.set(A, data_from(A_val));
+
+  // [log; λ₀,λ₀,λ₀] with λ₀=2  ⇒  log''(2)/2 = -1/8.
+  auto ddd = make_expression<tensor_to_scalar_divided_difference>(
+      A, isotropic_kind::log, std::vector<std::size_t>{0, 0, 0});
+  EXPECT_NEAR(ev.apply(ddd), -0.125, 1e-12);
+
+  // [log; λ₀,λ₀] = log'(2) = 1/2 (the diagonal tangent coefficient).
+  auto dd2 = make_expression<tensor_to_scalar_divided_difference>(
+      A, isotropic_kind::log, std::vector<std::size_t>{0, 0});
+  EXPECT_NEAR(ev.apply(dd2), 0.5, 1e-12);
 }
 
 // ─── Printing ──────────────────────────────────────────────────────────
