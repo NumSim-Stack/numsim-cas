@@ -92,6 +92,10 @@ public:
     m_result = norm(apply_tensor(v.expr()));
   }
 
+  void operator()(tensor_to_scalar_eigenvalue const &v) override {
+    m_result = eigenvalue(apply_tensor(v.expr()), v.index());
+  }
+
   // Binary t2s x t2s -> t2s
   void operator()(tensor_to_scalar_pow const &v) override {
     m_result = pow(apply(v.expr_lhs()), apply(v.expr_rhs()));

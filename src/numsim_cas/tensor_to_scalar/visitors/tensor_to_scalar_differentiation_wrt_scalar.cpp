@@ -272,6 +272,15 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
   m_result = m_expr * std::move(contracted);
 }
 
+// λ_i(A): d/ds = n_i ⊗ n_i : dA/ds, needs symbolic eigenvectors — deferred
+// until the eigenvector node lands (#226 follow-up).
+void tensor_to_scalar_differentiation_wrt_scalar::operator()(
+    tensor_to_scalar_eigenvalue const & /*visitable*/) {
+  throw not_implemented_error(
+      "tensor_to_scalar_differentiation_wrt_scalar: d/ds of an eigenvalue "
+      "needs the eigenvector node (not yet implemented)");
+}
+
 // inner_product_to_scalar(A, idxA, B, idxB): product rule, t2s-valued.
 // d/ds = inner(dA, idxA, B, idxB) + inner(A, idxA, dB, idxB)
 void tensor_to_scalar_differentiation_wrt_scalar::operator()(

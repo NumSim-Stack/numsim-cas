@@ -6,6 +6,7 @@
 #include <memory>
 
 #include <numsim_cas/basic_functions.h>
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
@@ -386,6 +387,61 @@ TEST(T2sEval, IfThenElseLazyOnUnselectedBranch) {
   ev.set_scalar(x, 0.0);
   auto expr_else_safe = if_then_else(cond, unsafe, safe);
   EXPECT_NEAR(ev.apply(expr_else_safe), 42.0, t2s_tol);
+}
+
+// ─── Eigenvalue (#226) ────────────────────────────────────────────────
+
+TEST(T2sEval, EigenvalueDiagonal3x3Ascending) {
+  // diag(5,3,2): eigenvalues are the diagonal entries. The node returns
+  // them ascending regardless of input order, so eig_0=2, eig_1=3, eig_2=5.
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({5.0, 0.0, 0.0,
+                                   0.0, 3.0, 0.0,
+                                   0.0, 0.0, 2.0}));
+  // clang-format on
+  EXPECT_NEAR(ev.apply(eigenvalue(A, 0)), 2.0, t2s_tol);
+  EXPECT_NEAR(ev.apply(eigenvalue(A, 1)), 3.0, t2s_tol);
+  EXPECT_NEAR(ev.apply(eigenvalue(A, 2)), 5.0, t2s_tol);
+}
+
+TEST(T2sEval, EigenvalueSumEqualsTraceProductEqualsDet) {
+  // Cross-check on a non-diagonal symmetric matrix without hardcoding the
+  // (irrational) eigenvalues: Σλ_i = tr(A), Πλ_i = det(A).
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  // clang-format off
+  ev.set(A, make_test_data<3, 2>({2.0, 1.0, 0.0,
+                                   1.0, 3.0, 1.0,
+                                   0.0, 1.0, 2.0}));
+  // clang-format on
+  auto const l0 = ev.apply(eigenvalue(A, 0));
+  auto const l1 = ev.apply(eigenvalue(A, 1));
+  auto const l2 = ev.apply(eigenvalue(A, 2));
+  EXPECT_LE(l0, l1);
+  EXPECT_LE(l1, l2);
+  // Symbolic composition: eigenvalues are opaque atoms that flow through
+  // the t2s add/mul simplifiers like any other scalar node.
+  auto sum = eigenvalue(A, 0) + eigenvalue(A, 1) + eigenvalue(A, 2);
+  auto prod = eigenvalue(A, 0) * eigenvalue(A, 1) * eigenvalue(A, 2);
+  EXPECT_NEAR(ev.apply(sum), ev.apply(trace(A)), 1e-10);
+  EXPECT_NEAR(ev.apply(prod), ev.apply(det(A)), 1e-10);
+}
+
+TEST(T2sEval, Eigenvalue2x2) {
+  // A = [[2,1],[1,2]] has eigenvalues 1 and 3.
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  ev.set(A, make_test_data<2, 2>({2.0, 1.0, 1.0, 2.0}));
+  EXPECT_NEAR(ev.apply(eigenvalue(A, 0)), 1.0, 1e-10);
+  EXPECT_NEAR(ev.apply(eigenvalue(A, 1)), 3.0, 1e-10);
+}
+
+TEST(T2sEval, EigenvalueIndexOutOfRangeThrows) {
+  // index must be < dim; the factory rejects it at construction.
+  auto A = make_expression<tensor>("A", 3, 2);
+  EXPECT_THROW((void)eigenvalue(A, 3), invalid_expression_error);
 }
 
 } // namespace numsim::cas

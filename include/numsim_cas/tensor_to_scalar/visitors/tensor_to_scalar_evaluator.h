@@ -137,6 +137,14 @@ public:
     m_result = eval_tensor_to_scalar<tmech_ops::dcontract_self_op>(v.expr());
   }
 
+  void operator()(tensor_to_scalar_eigenvalue const &v) override {
+    auto data = m_tensor_eval.apply(v.expr());
+    const auto dim = data->dim();
+    const auto rank = data->rank();
+    tensor_data_eigenvalue_wrapper<ValueType> op(*data, v.index());
+    m_result = op.evaluate(dim, rank);
+  }
+
   void operator()(tensor_inner_product_to_scalar const &v) override {
     auto lhs_data = m_tensor_eval.apply(v.expr_lhs());
     auto rhs_data = m_tensor_eval.apply(v.expr_rhs());
