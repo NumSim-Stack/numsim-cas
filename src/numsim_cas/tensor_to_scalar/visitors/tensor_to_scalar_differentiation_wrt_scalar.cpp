@@ -286,6 +286,36 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
       dot_product(std::move(Ei), sequence{1, 2}, std::move(dB), sequence{1, 2});
 }
 
+// [f; λ_M]: d/ds = Σ_{distinct k in M} mult_k [f; λ_{M∪{k}}] dλ_k/ds
+// (same divided-difference identity as the tensor-arg case, scalar-valued).
+void tensor_to_scalar_differentiation_wrt_scalar::operator()(
+    tensor_to_scalar_divided_difference const &v) {
+  auto const &B = v.expr();
+  auto const &M = v.indices();
+  eigen_decomposition eig(B);
+  t2s_holder_t sum;
+  for (std::size_t p = 0; p < M.size();) {
+    const std::size_t k = M[p];
+    std::size_t mult = 0;
+    while (p < M.size() && M[p] == k) {
+      ++mult;
+      ++p;
+    }
+    auto dlam = diff(eig.value(k), m_arg); // t2s
+    if (!dlam.is_valid() || is_same<tensor_to_scalar_zero>(dlam))
+      continue;
+    std::vector<std::size_t> m_plus = M;
+    m_plus.push_back(k);
+    t2s_holder_t coeff = make_expression<tensor_to_scalar_divided_difference>(
+        B, v.kind(), std::move(m_plus));
+    if (mult != 1)
+      coeff = coeff * make_expression<scalar_constant>(static_cast<int>(mult));
+    auto term = std::move(coeff) * std::move(dlam);
+    sum = sum.is_valid() ? sum + term : term;
+  }
+  m_result = std::move(sum);
+}
+
 // inner_product_to_scalar(A, idxA, B, idxB): product rule, t2s-valued.
 // d/ds = inner(dA, idxA, B, idxB) + inner(A, idxA, dB, idxB)
 void tensor_to_scalar_differentiation_wrt_scalar::operator()(

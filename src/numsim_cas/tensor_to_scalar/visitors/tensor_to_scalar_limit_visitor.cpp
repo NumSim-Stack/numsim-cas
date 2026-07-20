@@ -134,6 +134,18 @@ void tensor_to_scalar_limit_visitor::operator()(
 }
 
 void tensor_to_scalar_limit_visitor::operator()(
+    [[maybe_unused]] tensor_to_scalar_divided_difference const &v) {
+  // A divided difference of eigenvalues — like an eigenvalue, not
+  // recoverable from the AST; any tensor dependency is unknown.
+  if (m_mode == dependency_mode::tensor_dependency &&
+      contains_expression(v.expr(), m_tensor_var)) {
+    m_result = {dir::unknown};
+    return;
+  }
+  m_result = {dir::finite_positive};
+}
+
+void tensor_to_scalar_limit_visitor::operator()(
     tensor_inner_product_to_scalar const &v) {
   if (m_mode == dependency_mode::tensor_dependency) {
     bool lhs_dep = contains_expression(v.expr_lhs(), m_tensor_var);

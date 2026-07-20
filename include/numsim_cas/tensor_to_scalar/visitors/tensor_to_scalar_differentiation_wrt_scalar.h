@@ -71,6 +71,8 @@ public:
   void operator()(tensor_norm const &visitable) override;
   void operator()(tensor_det const &visitable) override;
   void operator()(tensor_to_scalar_eigenvalue const &visitable) override;
+  void
+  operator()(tensor_to_scalar_divided_difference const &visitable) override;
   void operator()(tensor_inner_product_to_scalar const &visitable) override;
   void operator()(tensor_to_scalar_if_then_else const &visitable) override;
 

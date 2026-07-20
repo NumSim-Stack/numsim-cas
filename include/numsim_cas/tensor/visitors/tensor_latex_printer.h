@@ -380,6 +380,12 @@ public:
     m_out << "\\right)";
   }
 
+  void operator()(tensor_isotropic_function const &visitable) override {
+    m_out << "\\" << name(visitable.kind()) << "\\left(";
+    apply(visitable.expr(), Precedence::None);
+    m_out << "\\right)";
+  }
+
   void operator()([[maybe_unused]] tensor_zero const &visitable) override {
     m_out << "0";
   }

@@ -97,6 +97,11 @@ public:
     m_result = eigen_decomposition(apply_tensor(v.expr())).value(v.index());
   }
 
+  void operator()(tensor_to_scalar_divided_difference const &v) override {
+    m_result = make_expression<tensor_to_scalar_divided_difference>(
+        apply_tensor(v.expr()), v.kind(), v.indices());
+  }
+
   // Binary t2s x t2s -> t2s
   void operator()(tensor_to_scalar_pow const &v) override {
     m_result = pow(apply(v.expr_lhs()), apply(v.expr_rhs()));

@@ -34,6 +34,7 @@ public:
   void operator()(tensor_det const &) override;
   void operator()(tensor_norm const &) override;
   void operator()(tensor_to_scalar_eigenvalue const &) override;
+  void operator()(tensor_to_scalar_divided_difference const &) override;
   void operator()(tensor_inner_product_to_scalar const &) override;
 
   // Arithmetic

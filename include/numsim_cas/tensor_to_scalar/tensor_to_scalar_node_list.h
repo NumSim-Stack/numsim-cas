@@ -17,6 +17,7 @@
   NEXT(tensor_to_scalar_exp)                                                   \
   NEXT(tensor_to_scalar_sqrt)                                                  \
   NEXT(tensor_to_scalar_eigenvalue)                                            \
+  NEXT(tensor_to_scalar_divided_difference)                                    \
   NEXT(tensor_to_scalar_scalar_wrapper)                                        \
   NEXT(tensor_to_scalar_if_then_else)
 
