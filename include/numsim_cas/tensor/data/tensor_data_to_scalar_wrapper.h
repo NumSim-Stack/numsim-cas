@@ -1,6 +1,7 @@
 #ifndef TENSOR_DATA_TO_SCALAR_WRAPPER_H
 #define TENSOR_DATA_TO_SCALAR_WRAPPER_H
 
+#include "spectral_decomposition_cache.h"
 #include "tensor_data.h"
 #include <numsim_cas/core/cas_error.h>
 
@@ -107,14 +108,8 @@ public:
             "tensor_data_eigenvalue_wrapper: eigenvalue index out of range");
       using Tensor = tensor_data<ValueType, Dim, Rank>;
       auto const &in = static_cast<const Tensor &>(m_input).data();
-      auto decomp = tmech::eigen_decomposition(tmech::sym(in));
-      decomp.decompose();
-      auto const values = decomp.eigenvalues();
-      std::array<ValueType, Dim> sorted{};
-      for (std::size_t i{0}; i < Dim; ++i)
-        sorted[i] = values[i];
-      std::sort(sorted.begin(), sorted.end());
-      return sorted[m_index];
+      return spectral::cached_decompose<ValueType, Dim>(in)
+          .eigenvalues[m_index];
     } else {
       throw evaluation_error("tensor_data_eigenvalue_wrapper: requires a "
                              "rank-2 tensor of dim 2 or 3");

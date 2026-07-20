@@ -447,6 +447,39 @@ TEST(T2sEval, EigenvalueIndexOutOfRangeThrows) {
   EXPECT_THROW((void)eigen_decomposition(A).value(3), invalid_expression_error);
 }
 
+// The shared decomposition cache (#325) is content-keyed: changing the
+// tensor's value between evaluations must invalidate it (no stale result).
+TEST(T2sEval, SpectralCacheNoStaleAcrossValues) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  eigen_decomposition eig(A);
+
+  ev.set(A, make_test_data<3, 2>({4, 0, 0, 0, 1, 0, 0, 0, 9}));
+  EXPECT_NEAR(ev.apply(eig.value(0)), 1.0, t2s_tol); // smallest of {4,1,9}
+
+  ev.set(A, make_test_data<3, 2>({2, 0, 0, 0, 2, 0, 0, 0, 5})); // changed
+  EXPECT_NEAR(ev.apply(eig.value(0)), 2.0, t2s_tol); // smallest of {2,2,5}
+  EXPECT_NEAR(ev.apply(eig.value(2)), 5.0, t2s_tol);
+}
+
+// Interleaving two different tensors thrashes the single-entry cache but
+// must stay correct — each read decomposes the tensor it was given.
+TEST(T2sEval, SpectralCacheInterleavedTensors) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto B = make_expression<tensor>("B", 3, 2);
+  ev.set(A, make_test_data<3, 2>({4, 0, 0, 0, 1, 0, 0, 0, 9})); // {1,4,9}
+  ev.set(B, make_test_data<3, 2>({6, 0, 0, 0, 3, 0, 0, 0, 2})); // {2,3,6}
+  eigen_decomposition eigA(A);
+  eigen_decomposition eigB(B);
+  for (int rep = 0; rep < 3; ++rep) {
+    EXPECT_NEAR(ev.apply(eigA.value(0)), 1.0, t2s_tol);
+    EXPECT_NEAR(ev.apply(eigB.value(0)), 2.0, t2s_tol);
+    EXPECT_NEAR(ev.apply(eigA.value(2)), 9.0, t2s_tol);
+    EXPECT_NEAR(ev.apply(eigB.value(2)), 6.0, t2s_tol);
+  }
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALAREVALUATORTEST_H
