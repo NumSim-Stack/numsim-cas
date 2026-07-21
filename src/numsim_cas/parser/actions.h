@@ -474,16 +474,14 @@ template <> struct action<grammar::function_call> {
     state.arg_marks.pop_back();
     auto arg_count = state.values.size() - mark;
 
-    // Resolve in the polymorphic registry.
+    // Resolve in the polymorphic registry. A name may carry several overloads
+    // (multimap) distinguished by argument kinds — e.g. scalar `log(x)` vs
+    // isotropic tensor `log(A)`. Pick the overload whose arg kinds match the
+    // actual arguments.
     auto const &reg = registry::function_registry();
-    auto it = reg.find(name);
-    if (it == reg.end()) {
+    auto const [cand_begin, cand_end] = reg.equal_range(name);
+    if (cand_begin == cand_end) {
       throw unknown_function_error(std::move(name), pos, state.source);
-    }
-    auto const &entry = it->second;
-    if (arg_count != entry.arg_kinds.size()) {
-      throw arity_error(std::move(name), entry.arg_kinds.size(), arg_count, pos,
-                        state.source);
     }
 
     // Collect args in source order. The stack has them in push order
@@ -496,37 +494,58 @@ template <> struct action<grammar::function_call> {
     }
     std::reverse(args.begin(), args.end());
 
-    // Type-check each arg against the entry's declared kinds before
-    // calling dispatch — dispatch uses unchecked `std::get` so a
-    // mismatch here would throw `std::bad_variant_access` rather
-    // than our nicer type_mismatch_error.
-    for (std::size_t i = 0; i < arg_count; ++i) {
-      bool ok = false;
-      switch (entry.arg_kinds[i]) {
+    auto kind_matches = [](registry::parser_value const &v,
+                           registry::arg_kind k) -> bool {
+      switch (k) {
       case registry::arg_kind::scalar:
-        ok = std::holds_alternative<expression_holder<scalar_expression>>(
-            args[i]);
-        break;
+        return std::holds_alternative<expression_holder<scalar_expression>>(v);
       case registry::arg_kind::tensor:
-        ok = std::holds_alternative<expression_holder<tensor_expression>>(
-            args[i]);
-        break;
+        return std::holds_alternative<expression_holder<tensor_expression>>(v);
       case registry::arg_kind::index_list:
-        ok = std::holds_alternative<registry::index_list_value>(args[i]);
+        return std::holds_alternative<registry::index_list_value>(v);
+      }
+      return false;
+    };
+
+    // Match on arity first, then on arg kinds — the kind match doubles as the
+    // type check (dispatch uses unchecked std::get, so the chosen overload's
+    // kinds are guaranteed to fit).
+    registry::function_entry const *chosen = nullptr;
+    bool arity_seen = false;
+    std::size_t const some_arity = cand_begin->second.arg_kinds.size();
+    for (auto it = cand_begin; it != cand_end; ++it) {
+      auto const &cand = it->second;
+      if (cand.arg_kinds.size() != arg_count) {
+        continue;
+      }
+      arity_seen = true;
+      bool all = true;
+      for (std::size_t i = 0; i < arg_count; ++i) {
+        if (!kind_matches(args[i], cand.arg_kinds[i])) {
+          all = false;
+          break;
+        }
+      }
+      if (all) {
+        chosen = &cand;
         break;
       }
-      if (!ok) {
-        throw type_mismatch_error(
-            "function '" + name + "': argument " + std::to_string(i + 1) +
-                " has wrong type for the expected signature",
-            pos, state.source);
+    }
+
+    if (chosen == nullptr) {
+      if (!arity_seen) {
+        throw arity_error(std::move(name), some_arity, arg_count, pos,
+                          state.source);
       }
+      throw type_mismatch_error("no overload of '" + name +
+                                    "' matches the given argument types",
+                                pos, state.source);
     }
 
     // Dispatch returns `parsed_expression` (3-variant); convert up to
     // the wider `parser_value` (4-variant) before pushing onto the
     // parser-internal stack.
-    auto result = entry.dispatch(std::move(args));
+    auto result = chosen->dispatch(std::move(args));
     state.values.emplace_back(std::visit(
         [](auto &&v) -> registry::parser_value { return std::move(v); },
         std::move(result)));

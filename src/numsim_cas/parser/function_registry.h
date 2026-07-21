@@ -14,15 +14,16 @@
 // smoothed_macauley), rank-2 projectors (dev, sym, vol, skew), and
 // the 2-arg outer product (`otimes`, aliased as `outer_product`).
 //
-// Overload resolution note: the registry keys on name only, so each
-// name binds to ONE dispatch entry. `if_then_else` registers the
-// 3-scalar form; the (scalar, tensor, tensor), (t2s, tensor, tensor),
-// and (scalar, t2s, t2s) overloads — whose C++ nodes
-// (`tensor_if_then_else_scalar`, `tensor_if_then_else_t2s` (#241),
-// `tensor_to_scalar_if_then_else`) already exist on main — need
-// either dispatch-on-arg-kinds (multi-entry per name) or separately
-// named entries. The 4-arg index-list form of `outer_product`
-// likewise needs bracket-list grammar support and is deferred.
+// Overload resolution: the registry is a MULTIMAP, so a name may carry several
+// entries distinguished by argument kinds. The `function_call` action picks the
+// entry whose `arg_kinds` match the actual arguments (arity first, then kinds).
+// This is how `log`/`exp`/`sqrt` serve both the scalar form (`log(x)`) and the
+// isotropic tensor form (`log(A)`) under one name. Single-entry names behave
+// exactly as before. STILL DEFERRED: the mixed-domain `if_then_else` overloads
+// (scalar/t2s condition with tensor branches — nodes `tensor_if_then_else_scalar`
+// / `tensor_if_then_else_t2s` / `tensor_to_scalar_if_then_else`) are not yet
+// registered; the resolver now supports them, only the entries are missing. The
+// 4-arg index-list form of `outer_product` still needs bracket-list grammar.
 //
 // Aliasing policy (#229): this PR introduces the first *synonym
 // pair* in the registry — `outer_product` and `otimes` mapping to
@@ -62,6 +63,7 @@
 // PR locks in the current state so the choice is visible.
 
 #include <numsim_cas/core/expression_holder.h>
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/parser/parse_error.h>
 #include <numsim_cas/parser/parser.h>
 #include <numsim_cas/scalar/scalar_constant.h>
@@ -74,6 +76,7 @@
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_functions.h>
+#include <numsim_cas/tensor/tensor_isotropic_functions.h>
 #include <numsim_cas/tensor/tensor_std.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
@@ -221,6 +224,43 @@ inline std::size_t to_positive_size_t(scalar_expr const &e,
   return static_cast<std::size_t>(*val);
 }
 
+// Extract a NON-negative integer literal (a 0-based index, unlike
+// to_positive_size_t which is for dims/ranks that must be ≥ 1). Used by the
+// spectral accessors eigenvalue/eigenvector/eigenprojection.
+inline std::size_t to_index_size_t(scalar_expr const &e,
+                                   std::string_view fn_name) {
+  auto val = try_int_constant(e);
+  if (!val || *val < 0) {
+    throw type_mismatch_error(std::string{fn_name} +
+                                  ": index must be a non-negative integer "
+                                  "literal",
+                              /*pos=*/0, /*source=*/"");
+  }
+  return static_cast<std::size_t>(*val);
+}
+
+// Spectral-accessor entry: (tensor, integer-index) → t2s eigenvalue.
+inline function_entry eigen_accessor_t2s(auto fn) {
+  return {{arg_kind::tensor, arg_kind::scalar},
+          [fn = std::move(fn)](arg_vec a) -> parsed_expression {
+            auto &A = std::get<tensor_expr>(a[0]);
+            auto i = to_index_size_t(std::get<scalar_expr>(a[1]), "eigenvalue");
+            return fn(A, i);
+          }};
+}
+
+// Spectral-accessor entry: (tensor, integer-index) → tensor eigenvector /
+// eigenprojection.
+inline function_entry eigen_accessor_tensor(auto fn) {
+  return {{arg_kind::tensor, arg_kind::scalar},
+          [fn = std::move(fn)](arg_vec a) -> parsed_expression {
+            auto &A = std::get<tensor_expr>(a[0]);
+            auto i =
+                to_index_size_t(std::get<scalar_expr>(a[1]), "eigen accessor");
+            return fn(A, i);
+          }};
+}
+
 // Convert a parsed index_list_value (1-based) to numsim_cas's
 // `sequence` (0-based internally; sequence accepts a count then
 // per-element writes via `operator[]`).
@@ -329,10 +369,14 @@ inline function_entry dot_product_entry() {
 
 } // namespace detail
 
-inline std::unordered_map<std::string, function_entry> const &
+// A multimap so a name can carry several overloads distinguished by argument
+// kinds (e.g. scalar `log(x)` vs isotropic tensor `log(A)`). The function_call
+// action resolves among the entries for a name by matching arg kinds. Names
+// with a single entry behave exactly as before.
+inline std::unordered_multimap<std::string, function_entry> const &
 function_registry() {
   static auto const r = [] {
-    std::unordered_map<std::string, function_entry> m;
+    std::unordered_multimap<std::string, function_entry> m;
     using detail::scalar_binary;
     using detail::scalar_ternary;
     using detail::scalar_unary;
@@ -401,6 +445,30 @@ function_registry() {
     m.emplace("vol", tensor_unary([](auto t) { return vol(t); }));
     m.emplace("skew", tensor_unary([](auto t) { return skew(t); }));
 
+    // Isotropic tensor functions f(A) = Σ f(λ_i) E_i. These OVERLOAD the
+    // scalar log/exp/sqrt on the argument kind: log(x) is scalar, log(A) is the
+    // isotropic tensor log. Resolved by the function_call action's arg-kind
+    // matching (multimap registry).
+    m.emplace("log", tensor_unary([](auto t) { return log(t); }));
+    m.emplace("exp", tensor_unary([](auto t) { return exp(t); }));
+    m.emplace("sqrt", tensor_unary([](auto t) { return sqrt(t); }));
+
+    // Spectral accessors: eigenvalue(A, i) → λ_i (t2s), eigenvector(A, i) → n_i
+    // (rank-1 tensor), eigenprojection(A, i) → E_i = n_i⊗n_i (rank-2 tensor).
+    // The index is a 0-based integer literal.
+    m.emplace("eigenvalue",
+              detail::eigen_accessor_t2s([](auto const &A, std::size_t i) {
+                return eigen_decomposition(A).value(i);
+              }));
+    m.emplace("eigenvector",
+              detail::eigen_accessor_tensor([](auto const &A, std::size_t i) {
+                return eigen_decomposition(A).normal(i);
+              }));
+    m.emplace("eigenprojection",
+              detail::eigen_accessor_tensor([](auto const &A, std::size_t i) {
+                return eigen_decomposition(A).basis(i);
+              }));
+
     // 2-arg outer product. The 4-arg index-list variant
     // (otimes(A, [i...], B, [j...])) is deferred until the grammar
     // grows bracket-list literals.
@@ -416,12 +484,29 @@ function_registry() {
               tensor_binary([](auto a, auto b) { return otimes(a, b); }));
     m.emplace("outer_product",
               tensor_binary([](auto a, auto b) { return otimes(a, b); }));
+    // The minor-symmetric-basis outer products: otimesu(A,B)_ijkl = A_ik B_jl,
+    // otimesl(A,B)_ijkl = A_il B_jk. Domain abbreviations (differential
+    // geometry), so no long-form alias per the aliasing policy above.
+    m.emplace("otimesu",
+              tensor_binary([](auto a, auto b) { return otimesu(a, b); }));
+    m.emplace("otimesl",
+              tensor_binary([](auto a, auto b) { return otimesl(a, b); }));
 
     // ─── Tensor → t2s ──────────────────────────────────────────
     m.emplace("trace", tensor_to_scalar_unary([](auto t) { return trace(t); }));
     m.emplace("det", tensor_to_scalar_unary([](auto t) { return det(t); }));
     m.emplace("norm", tensor_to_scalar_unary([](auto t) { return norm(t); }));
     m.emplace("dot", tensor_to_scalar_unary([](auto t) { return dot(t); }));
+    // Principal invariants I1/I2/I3 of a rank-2 tensor (t2s-valued).
+    m.emplace("first_invariant", tensor_to_scalar_unary([](auto t) {
+                return first_invariant(t);
+              }));
+    m.emplace("second_invariant", tensor_to_scalar_unary([](auto t) {
+                return second_invariant(t);
+              }));
+    m.emplace("third_invariant", tensor_to_scalar_unary([](auto t) {
+                return third_invariant(t);
+              }));
 
     // ─── Contraction (tensor, [idx], tensor, [idx]) ────────────
     m.emplace("inner_product", detail::inner_product_entry());

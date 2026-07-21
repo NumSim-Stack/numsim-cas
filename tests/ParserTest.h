@@ -2005,6 +2005,80 @@ TEST(ParserErrorCoverage, UnknownSymbolErrorIsUnreachableFromParser) {
   EXPECT_TRUE(syms.has("never_seen_before"));
 }
 
+// ─── Newly registered functions (invariants, otimesu/l, isotropic, spectral)
+
+TEST(ParserFunctions, PrincipalInvariantsReturnT2s) {
+  symbol_table st;
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e =
+        parse_t2s("first_invariant(A{rank=2, dim=3})", st);
+  });
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e =
+        parse_t2s("second_invariant(A{rank=2, dim=3})", st);
+  });
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e =
+        parse_t2s("third_invariant(A{rank=2, dim=3})", st);
+  });
+}
+
+TEST(ParserFunctions, MinorBasisOuterProductsReturnTensor) {
+  symbol_table st;
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e =
+        parse_tensor("otimesu(A{rank=2, dim=3}, B{rank=2, dim=3})", st);
+  });
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e =
+        parse_tensor("otimesl(A{rank=2, dim=3}, B{rank=2, dim=3})", st);
+  });
+}
+
+// The isotropic log/exp/sqrt overloads: same name, resolved by argument kind.
+TEST(ParserFunctions, IsotropicTensorFunctionsOverloadOnArgKind) {
+  symbol_table st;
+  EXPECT_NO_THROW(
+      { [[maybe_unused]] auto e = parse_tensor("log(A{rank=2, dim=3})", st); });
+  EXPECT_NO_THROW(
+      { [[maybe_unused]] auto e = parse_tensor("exp(A{rank=2, dim=3})", st); });
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e = parse_tensor("sqrt(A{rank=2, dim=3})", st);
+  });
+  // The scalar overload is untouched.
+  EXPECT_NO_THROW({ [[maybe_unused]] auto e = parse_scalar("log(x)", st); });
+  EXPECT_NO_THROW({ [[maybe_unused]] auto e = parse_scalar("sqrt(y)", st); });
+}
+
+TEST(ParserFunctions, SpectralAccessors) {
+  symbol_table st;
+  // eigenvalue → t2s, eigenvector/eigenprojection → tensor.
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e = parse_t2s("eigenvalue(A{rank=2, dim=3}, 0)", st);
+  });
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e =
+        parse_tensor("eigenvector(A{rank=2, dim=3}, 1)", st);
+  });
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e =
+        parse_tensor("eigenprojection(A{rank=2, dim=3}, 2)", st);
+  });
+}
+
+TEST(ParserFunctions, OverloadResolutionErrors) {
+  symbol_table st;
+  // No tensor-arg overload of a purely-scalar composition: eigenvalue wants a
+  // tensor first arg.
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("eigenvalue(x, 0)", st); },
+      type_mismatch_error);
+  // Wrong arity for log (neither the scalar nor tensor overload takes 2 args).
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse("log(A{rank=2, dim=3}, 5)", st); },
+      arity_error);
+}
+
 } // namespace numsim::cas::parser_test
 
 #endif // NUMSIM_CAS_PARSER_ENABLED
