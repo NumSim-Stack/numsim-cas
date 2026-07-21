@@ -501,6 +501,9 @@ template <> struct action<grammar::function_call> {
         return std::holds_alternative<expression_holder<scalar_expression>>(v);
       case registry::arg_kind::tensor:
         return std::holds_alternative<expression_holder<tensor_expression>>(v);
+      case registry::arg_kind::tensor_to_scalar:
+        return std::holds_alternative<
+            expression_holder<tensor_to_scalar_expression>>(v);
       case registry::arg_kind::index_list:
         return std::holds_alternative<registry::index_list_value>(v);
       }
@@ -509,7 +512,9 @@ template <> struct action<grammar::function_call> {
 
     // Match on arity first, then on arg kinds — the kind match doubles as the
     // type check (dispatch uses unchecked std::get, so the chosen overload's
-    // kinds are guaranteed to fit).
+    // kinds are guaranteed to fit). Scan ALL candidates so a duplicate
+    // signature (a registration bug) fails loudly rather than resolving to
+    // whichever the unordered_multimap happened to visit first.
     registry::function_entry const *chosen = nullptr;
     bool arity_seen = false;
     std::size_t const some_arity = cand_begin->second.arg_kinds.size();
@@ -527,8 +532,13 @@ template <> struct action<grammar::function_call> {
         }
       }
       if (all) {
+        if (chosen != nullptr) {
+          throw internal_error("parser: ambiguous overloads for function '" +
+                               name +
+                               "' — two entries share the same argument "
+                               "kinds");
+        }
         chosen = &cand;
-        break;
       }
     }
 
@@ -545,7 +555,32 @@ template <> struct action<grammar::function_call> {
     // Dispatch returns `parsed_expression` (3-variant); convert up to
     // the wider `parser_value` (4-variant) before pushing onto the
     // parser-internal stack.
-    auto result = chosen->dispatch(std::move(args));
+    //
+    // A dispatch may throw the parser's own position-less parse_error (e.g. the
+    // integer-literal index check in to_index_size_t builds one with no source
+    // offset); re-raise it positioned at the call so the user gets a line:col +
+    // snippet like every other parse error. cas *construction* errors
+    // (invalid_expression_error — bad rank, out-of-range spectral index) are
+    // deliberately left to propagate with their own type and message: that is
+    // the established contract, pinned by the ParserGrammar levi_civita /
+    // permute_indices tests.
+    parsed_expression result = [&] {
+      try {
+        return chosen->dispatch(std::move(args));
+      } catch (parse_error const &e) {
+        if (e.has_position()) {
+          throw; // already positioned — leave it
+        }
+        // A position-less parse_error renders what() as "parse error: <body>";
+        // strip that prefix so re-wrapping doesn't double it.
+        std::string body = e.what();
+        constexpr std::string_view prefix = "parse error: ";
+        if (body.starts_with(prefix)) {
+          body.erase(0, prefix.size());
+        }
+        throw type_mismatch_error(std::move(body), pos, state.source);
+      }
+    }();
     state.values.emplace_back(std::visit(
         [](auto &&v) -> registry::parser_value { return std::move(v); },
         std::move(result)));

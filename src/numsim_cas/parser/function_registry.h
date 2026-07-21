@@ -20,10 +20,11 @@
 // This is how `log`/`exp`/`sqrt` serve both the scalar form (`log(x)`) and the
 // isotropic tensor form (`log(A)`) under one name. Single-entry names behave
 // exactly as before. STILL DEFERRED: the mixed-domain `if_then_else` overloads
-// (scalar/t2s condition with tensor branches — nodes `tensor_if_then_else_scalar`
-// / `tensor_if_then_else_t2s` / `tensor_to_scalar_if_then_else`) are not yet
-// registered; the resolver now supports them, only the entries are missing. The
-// 4-arg index-list form of `outer_product` still needs bracket-list grammar.
+// (scalar/t2s condition with tensor branches — nodes
+// `tensor_if_then_else_scalar` / `tensor_if_then_else_t2s` /
+// `tensor_to_scalar_if_then_else`) are not yet registered; the resolver now
+// supports them, only the entries are missing. The 4-arg index-list form of
+// `outer_product` still needs bracket-list grammar.
 //
 // Aliasing policy (#229): this PR introduces the first *synonym
 // pair* in the registry — `outer_product` and `otimes` mapping to
@@ -53,7 +54,10 @@
 // compound expressions out of existing AST nodes rather than
 // producing a dedicated node of their own. Those are:
 //   sinh, cosh, tanh, asinh, acosh, atanh, log10 (pre-existing),
-//   macauley_plus, macauley_minus, heaviside, smoothed_macauley.
+//   macauley_plus, macauley_minus, heaviside, smoothed_macauley,
+//   first_invariant (= trace), second_invariant, third_invariant (= det),
+//   eigenvalue/eigenvector/eigenprojection (print as eig_i/E_i/…, not the
+//   source spelling).
 // Their printed form is the LOWERED expression (e.g. macauley_plus(x)
 // prints as `max(x, 0)`), so parse→print→parse is SEMANTICALLY
 // round-trip (hash-equal — locked in by the *LowersTo* tests in
@@ -81,6 +85,7 @@
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_std.h>
 
 #include <cstddef>
 #include <functional>
@@ -117,7 +122,7 @@ using arg_vec = std::vector<parser_value>;
 /// Which kind each positional arg must be in. Checked by the
 /// `function_call` action before calling `dispatch` — wrong kind
 /// raises `type_mismatch_error` with the call's position.
-enum class arg_kind { scalar, tensor, index_list };
+enum class arg_kind { scalar, tensor, tensor_to_scalar, index_list };
 
 struct function_entry {
   // arg_kinds.size() == arity.
@@ -170,6 +175,14 @@ inline function_entry tensor_to_scalar_unary(auto fn) {
   return {{arg_kind::tensor},
           [fn = std::move(fn)](arg_vec a) -> parsed_expression {
             auto &t = std::get<tensor_expr>(a[0]);
+            return fn(std::move(t));
+          }};
+}
+// A function of a t2s (scalar-valued) argument, e.g. log of an invariant.
+inline function_entry t2s_unary(auto fn) {
+  return {{arg_kind::tensor_to_scalar},
+          [fn = std::move(fn)](arg_vec a) -> parsed_expression {
+            auto &t = std::get<t2s_expr>(a[0]);
             return fn(std::move(t));
           }};
 }
@@ -452,6 +465,13 @@ function_registry() {
     m.emplace("log", tensor_unary([](auto t) { return log(t); }));
     m.emplace("exp", tensor_unary([](auto t) { return exp(t); }));
     m.emplace("sqrt", tensor_unary([](auto t) { return sqrt(t); }));
+
+    // …and on a t2s (scalar-valued) argument, so log/exp/sqrt of an invariant
+    // parse: log(trace(A)), sqrt(det(A)), etc. Same name, resolved by arg kind.
+    using detail::t2s_unary;
+    m.emplace("log", t2s_unary([](auto t) { return log(t); }));
+    m.emplace("exp", t2s_unary([](auto t) { return exp(t); }));
+    m.emplace("sqrt", t2s_unary([](auto t) { return sqrt(t); }));
 
     // Spectral accessors: eigenvalue(A, i) → λ_i (t2s), eigenvector(A, i) → n_i
     // (rank-1 tensor), eigenprojection(A, i) → E_i = n_i⊗n_i (rank-2 tensor).

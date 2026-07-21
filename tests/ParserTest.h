@@ -2007,32 +2007,45 @@ TEST(ParserErrorCoverage, UnknownSymbolErrorIsUnreachableFromParser) {
 
 // ─── Newly registered functions (invariants, otimesu/l, isotropic, spectral)
 
-TEST(ParserFunctions, PrincipalInvariantsReturnT2s) {
+namespace fn_detail {
+// Hash of a parsed t2s / tensor expression — pins a parse to its intended NODE,
+// not merely its result domain (a mis-wired dispatch of the same domain would
+// otherwise slip through).
+inline std::size_t t2s_hash(std::string const &s, symbol_table &st) {
+  return parse_t2s(s, st).get().hash_value();
+}
+inline std::size_t tensor_hash(std::string const &s, symbol_table &st) {
+  return parse_tensor(s, st).get().hash_value();
+}
+} // namespace fn_detail
+
+TEST(ParserFunctions, PrincipalInvariantsAreDistinctT2sNodes) {
+  using namespace fn_detail;
   symbol_table st;
-  EXPECT_NO_THROW({
-    [[maybe_unused]] auto e =
-        parse_t2s("first_invariant(A{rank=2, dim=3})", st);
-  });
-  EXPECT_NO_THROW({
-    [[maybe_unused]] auto e =
-        parse_t2s("second_invariant(A{rank=2, dim=3})", st);
-  });
-  EXPECT_NO_THROW({
-    [[maybe_unused]] auto e =
-        parse_t2s("third_invariant(A{rank=2, dim=3})", st);
-  });
+  std::string const A = "A{rank=2, dim=3}";
+  auto i1 = t2s_hash("first_invariant(" + A + ")", st);
+  auto i2 = t2s_hash("second_invariant(" + A + ")", st);
+  auto i3 = t2s_hash("third_invariant(" + A + ")", st);
+  // Distinct nodes — a dispatch mis-wired to the wrong invariant would collide.
+  EXPECT_NE(i1, i2);
+  EXPECT_NE(i2, i3);
+  EXPECT_NE(i1, i3);
+  // Lock the identities the lowering uses: I1 == tr, I3 == det.
+  EXPECT_EQ(i1, t2s_hash("trace(" + A + ")", st));
+  EXPECT_EQ(i3, t2s_hash("det(" + A + ")", st));
 }
 
-TEST(ParserFunctions, MinorBasisOuterProductsReturnTensor) {
+TEST(ParserFunctions, MinorBasisOuterProductsAreDistinctTensorNodes) {
+  using namespace fn_detail;
   symbol_table st;
-  EXPECT_NO_THROW({
-    [[maybe_unused]] auto e =
-        parse_tensor("otimesu(A{rank=2, dim=3}, B{rank=2, dim=3})", st);
-  });
-  EXPECT_NO_THROW({
-    [[maybe_unused]] auto e =
-        parse_tensor("otimesl(A{rank=2, dim=3}, B{rank=2, dim=3})", st);
-  });
+  std::string const AB = "A{rank=2, dim=3}, B{rank=2, dim=3}";
+  auto ou = tensor_hash("otimesu(" + AB + ")", st);
+  auto ol = tensor_hash("otimesl(" + AB + ")", st);
+  auto oo = tensor_hash("otimes(" + AB + ")", st);
+  // The three index pairings are genuinely different — a swap would be caught.
+  EXPECT_NE(ou, ol);
+  EXPECT_NE(ou, oo);
+  EXPECT_NE(ol, oo);
 }
 
 // The isotropic log/exp/sqrt overloads: same name, resolved by argument kind.
@@ -2050,7 +2063,23 @@ TEST(ParserFunctions, IsotropicTensorFunctionsOverloadOnArgKind) {
   EXPECT_NO_THROW({ [[maybe_unused]] auto e = parse_scalar("sqrt(y)", st); });
 }
 
+// A t2s (scalar-valued) argument resolves the t2s overload: log/exp/sqrt of an
+// invariant parse and stay in the t2s domain.
+TEST(ParserFunctions, ScalarFunctionsAcceptT2sArguments) {
+  symbol_table st;
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e = parse_t2s("log(trace(A{rank=2, dim=3}))", st);
+  });
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e = parse_t2s("sqrt(det(A{rank=2, dim=3}))", st);
+  });
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto e = parse_t2s("exp(norm(A{rank=2, dim=3}))", st);
+  });
+}
+
 TEST(ParserFunctions, SpectralAccessors) {
+  using namespace fn_detail;
   symbol_table st;
   // eigenvalue → t2s, eigenvector/eigenprojection → tensor.
   EXPECT_NO_THROW({
@@ -2064,6 +2093,9 @@ TEST(ParserFunctions, SpectralAccessors) {
     [[maybe_unused]] auto e =
         parse_tensor("eigenprojection(A{rank=2, dim=3}, 2)", st);
   });
+  // The index is part of the node — different index ⇒ different eigenvalue.
+  EXPECT_NE(t2s_hash("eigenvalue(A{rank=2, dim=3}, 0)", st),
+            t2s_hash("eigenvalue(A{rank=2, dim=3}, 1)", st));
 }
 
 TEST(ParserFunctions, OverloadResolutionErrors) {
@@ -2073,10 +2105,39 @@ TEST(ParserFunctions, OverloadResolutionErrors) {
   EXPECT_THROW(
       { [[maybe_unused]] auto e = parse("eigenvalue(x, 0)", st); },
       type_mismatch_error);
-  // Wrong arity for log (neither the scalar nor tensor overload takes 2 args).
+  // Wrong arity for log (no overload takes 2 args).
   EXPECT_THROW(
       { [[maybe_unused]] auto e = parse("log(A{rank=2, dim=3}, 5)", st); },
       arity_error);
+}
+
+// The parser's own literal-index check is re-raised as a POSITIONED parse
+// error at the call site.
+TEST(ParserFunctions, NonLiteralIndexErrorIsPositioned) {
+  symbol_table st;
+  try {
+    [[maybe_unused]] auto e = parse("eigenvalue(A{rank=2, dim=3}, k)", st);
+    FAIL() << "expected a parse error for a non-literal index";
+  } catch (parse_error const &pe) {
+    EXPECT_TRUE(pe.has_position());
+  }
+}
+
+// cas construction errors from the spectral accessors keep their own type and
+// message (the established contract for construction-time validation), rather
+// than being reclassified as parser errors.
+TEST(ParserFunctions, SpectralConstructionErrorsPropagate) {
+  symbol_table st;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e = parse("eigenvalue(A{rank=4, dim=3}, 0)", st);
+      },
+      invalid_expression_error); // not rank-2
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e = parse("eigenvalue(A{rank=2, dim=3}, 5)", st);
+      },
+      invalid_expression_error); // index out of range
 }
 
 } // namespace numsim::cas::parser_test
