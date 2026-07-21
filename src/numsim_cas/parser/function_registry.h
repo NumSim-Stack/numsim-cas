@@ -89,6 +89,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <iterator>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -539,6 +540,24 @@ function_registry() {
 
     // ─── Index permutation (tensor, [idx]) ─────────────────────
     m.emplace("permute_indices", detail::permute_indices_entry());
+
+    // Registration-time ambiguity guard: no name may carry two overloads with
+    // the SAME arg_kinds, or resolution would depend on unordered_multimap
+    // order. Checked once, here, so a duplicate-signature registration bug
+    // fails at first registry access regardless of what any test happens to
+    // parse (the resolver's runtime check only fires on a matching call).
+    for (auto it = m.begin(); it != m.end(); ++it) {
+      auto range = m.equal_range(it->first);
+      for (auto a = range.first; a != range.second; ++a) {
+        for (auto b = std::next(a); b != range.second; ++b) {
+          if (a->second.arg_kinds == b->second.arg_kinds) {
+            throw internal_error(
+                "parser function registry: '" + it->first +
+                "' has two overloads with identical argument kinds");
+          }
+        }
+      }
+    }
 
     return m;
   }();
