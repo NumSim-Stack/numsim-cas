@@ -56,25 +56,6 @@ template <typename T, typename... Args>
       std::make_shared<T>(std::forward<Args>(args)...));
 }
 
-template <typename T, typename Expr>
-[[nodiscard]] auto copy_expression(expression_holder<Expr> const &expr) {
-  using ExprType = typename get_type_t<T>::expr_type;
-  using variant = typename expression_holder_data_type<ExprType, T>::data_type;
-  using variant_traits = variant_index<0, T, variant>;
-
-  if constexpr (variant_traits::value) {
-    return expression_holder<ExprType>(std::make_shared<variant>(
-        std::in_place_index<variant_traits::index>, expr.template get<T>()));
-  } else {
-    static_assert(!variant_traits::value, "Type not included in variant");
-  }
-}
-
-template <typename T, typename Expr>
-[[nodiscard]] auto copy_expression(expression_holder<Expr> &&expr) {
-  return std::move(expr);
-}
-
 template <typename... Args> auto make_scalar_variable(Args &&...args) {
   return std::make_tuple(make_expression<scalar>(std::forward<Args>(args))...);
 }
