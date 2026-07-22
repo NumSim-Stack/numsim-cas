@@ -46,12 +46,23 @@ set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 # install to leak into the build.
 #
 # Bump GIT_TAG as a separate maintenance PR.
+# v1.1.1 (d7e27f3): includes tmech #29 "Fix inner_product returning zeros for a
+# lazy operand needing a basis change" — the prior pin (d03f2c2) silently
+# produced a zero rank-4 for a lazy operand feeding inner_product, which surfaced
+# as half-correct finite-strain tangents (∂(FᵀF)/∂F) downstream in numsim-codegen.
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+# v1.1.1 renamed these toggles to the TMECH_-prefixed form (was bare
+# BUILD_TESTS/BUILD_EXAMPLES). Set BOTH so tmech's tests/examples stay off across
+# the bump — otherwise tmech's own examples build, and `examples/symdiff/
+# system_nonlinear_equations` ICEs g++-14 in general_lu_decomposition.
+set(TMECH_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(TMECH_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(TMECH_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
   tmech
   GIT_REPOSITORY https://github.com/petlenz/tmech.git
-  GIT_TAG d03f2c2
+  GIT_TAG d7e27f30807fbd54dd7a0a0b1665a46da28d1681 # v1.1.1
 )
 FetchContent_MakeAvailable(tmech)
 # Restore so our own tests/examples are not affected.
