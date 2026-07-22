@@ -101,15 +101,17 @@ det(expression_holder<tensor_expression> const &expr) {
   if (is_same<identity_tensor>(expr))
     return make_expression<tensor_to_scalar_one>();
 
-  // det(orthogonal R) = +1 for proper rotations. The "orthogonal"
-  // annotation in this codebase doesn't distinguish proper rotations
-  // (det = +1) from improper ones / reflections (det = -1); the
-  // common continuum-mechanics use case is proper rotation so we
-  // default to +1. TODO(#269): a `chirality` sub-tag could refine this
-  // for callers working with reflections / improper rotations.
-  // Closes one half of #246.
-  if (is_orthogonal(expr))
+  // det of an orthogonal tensor is ±1, resolved by chirality (#269):
+  //   proper rotation   → +1
+  //   improper rotation → -1  (reflection)
+  //   bare `orthogonal`  → NO fold — det could be either sign, so folding to
+  //                        +1 would be silently wrong for a reflection.
+  // (proper/improper still imply orthogonal, so inv(R) → trans(R) is
+  //  unaffected.) Closes one half of #246.
+  if (is_proper_rotation(expr))
     return make_expression<tensor_to_scalar_one>();
+  if (is_improper_rotation(expr))
+    return -make_expression<tensor_to_scalar_one>();
 
   // det(inv(A)) = 1/det(A). Routes through the t2s div operator which
   // composes via pow(rhs, -1) — produces canonical pow(det(A), -1).

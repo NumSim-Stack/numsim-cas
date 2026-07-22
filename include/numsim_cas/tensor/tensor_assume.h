@@ -115,6 +115,21 @@ assume_orthogonal(expression_holder<tensor_expression> const &expr) {
   expr.data()->tensor_algebra_assumptions().insert(orthogonal{});
 }
 
+// A proper rotation (det = +1) — orthogonal with a chirality commitment (#269).
+inline void
+assume_proper_rotation(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_proper_rotation");
+  expr.data()->tensor_algebra_assumptions().insert(proper_rotation{});
+}
+
+// An improper rotation / reflection (det = -1) — orthogonal with the opposite
+// chirality (#269).
+inline void
+assume_improper_rotation(expression_holder<tensor_expression> const &expr) {
+  detail::require_symbol(expr.get(), "assume_improper_rotation");
+  expr.data()->tensor_algebra_assumptions().insert(improper_rotation{});
+}
+
 [[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void
 assume_positive_definite(expression_holder<tensor_expression> const &expr) {
@@ -235,8 +250,25 @@ inline bool is_minor_major(expression_holder<tensor_expression> const &expr) {
 // Auto-implication (PD => PSD) is already baked into the set by
 // assume_positive_definite() — no special-case logic needed here.
 
+// True for any orthogonal-family annotation: a bare `orthogonal` (chirality
+// unspecified) OR a proper/improper rotation (both satisfy RᵀR = I). This is
+// what chirality-agnostic folds like inv(R) → trans(R) key on (#269).
 inline bool is_orthogonal(expression_holder<tensor_expression> const &expr) {
-  return expr.get().tensor_algebra_assumptions().contains(orthogonal{});
+  auto const &a = expr.get().tensor_algebra_assumptions();
+  return a.contains(orthogonal{}) || a.contains(proper_rotation{}) ||
+         a.contains(improper_rotation{});
+}
+
+// Chirality-specific predicates (#269). A tensor is a proper rotation iff it
+// was annotated as such; likewise improper. Bare `orthogonal` is neither.
+inline bool
+is_proper_rotation(expression_holder<tensor_expression> const &expr) {
+  return expr.get().tensor_algebra_assumptions().contains(proper_rotation{});
+}
+
+inline bool
+is_improper_rotation(expression_holder<tensor_expression> const &expr) {
+  return expr.get().tensor_algebra_assumptions().contains(improper_rotation{});
 }
 
 inline bool
