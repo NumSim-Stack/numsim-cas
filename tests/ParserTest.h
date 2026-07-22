@@ -2083,19 +2083,26 @@ TEST(ParserFunctions, SpectralAccessors) {
   symbol_table st;
   // eigenvalue → t2s, eigenvector/eigenprojection → tensor.
   EXPECT_NO_THROW({
-    [[maybe_unused]] auto e = parse_t2s("eigenvalue(A{rank=2, dim=3}, 0)", st);
+    [[maybe_unused]] auto e = parse_t2s("eigenvalue(A{rank=2, dim=3}, 1)", st);
   });
   EXPECT_NO_THROW({
     [[maybe_unused]] auto e =
-        parse_tensor("eigenvector(A{rank=2, dim=3}, 1)", st);
+        parse_tensor("eigenvector(A{rank=2, dim=3}, 2)", st);
   });
   EXPECT_NO_THROW({
     [[maybe_unused]] auto e =
-        parse_tensor("eigenprojection(A{rank=2, dim=3}, 2)", st);
+        parse_tensor("eigenprojection(A{rank=2, dim=3}, 3)", st);
   });
   // The index is part of the node — different index ⇒ different eigenvalue.
-  EXPECT_NE(t2s_hash("eigenvalue(A{rank=2, dim=3}, 0)", st),
-            t2s_hash("eigenvalue(A{rank=2, dim=3}, 1)", st));
+  EXPECT_NE(t2s_hash("eigenvalue(A{rank=2, dim=3}, 1)", st),
+            t2s_hash("eigenvalue(A{rank=2, dim=3}, 2)", st));
+  // Indices are 1-based (like the bracket-list contraction indices); 0 is
+  // rejected.
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e = parse("eigenvalue(A{rank=2, dim=3}, 0)", st);
+      },
+      type_mismatch_error);
 }
 
 TEST(ParserFunctions, OverloadResolutionErrors) {
@@ -2103,7 +2110,7 @@ TEST(ParserFunctions, OverloadResolutionErrors) {
   // No tensor-arg overload of a purely-scalar composition: eigenvalue wants a
   // tensor first arg.
   EXPECT_THROW(
-      { [[maybe_unused]] auto e = parse("eigenvalue(x, 0)", st); },
+      { [[maybe_unused]] auto e = parse("eigenvalue(x, 1)", st); },
       type_mismatch_error);
   // Wrong arity for log (no overload takes 2 args).
   EXPECT_THROW(
@@ -2130,7 +2137,7 @@ TEST(ParserFunctions, SpectralConstructionErrorsPropagate) {
   symbol_table st;
   EXPECT_THROW(
       {
-        [[maybe_unused]] auto e = parse("eigenvalue(A{rank=4, dim=3}, 0)", st);
+        [[maybe_unused]] auto e = parse("eigenvalue(A{rank=4, dim=3}, 1)", st);
       },
       invalid_expression_error); // not rank-2
   EXPECT_THROW(

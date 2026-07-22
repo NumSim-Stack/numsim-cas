@@ -238,39 +238,42 @@ inline std::size_t to_positive_size_t(scalar_expr const &e,
   return static_cast<std::size_t>(*val);
 }
 
-// Extract a NON-negative integer literal (a 0-based index, unlike
-// to_positive_size_t which is for dims/ranks that must be ≥ 1). Used by the
-// spectral accessors eigenvalue/eigenvector/eigenprojection.
-inline std::size_t to_index_size_t(scalar_expr const &e,
-                                   std::string_view fn_name) {
+// Extract a 1-BASED index literal and convert to the 0-based index the
+// eigen_decomposition facade uses. The parser surface is 1-based throughout
+// (bracket-list contraction indices like `[1, 2]` are 1-based), so the spectral
+// accessors eigenvalue/eigenvector/eigenprojection are too: `eigenvalue(A, 1)`
+// is the first eigenpair. A literal `< 1` is rejected.
+inline std::size_t to_one_based_index(scalar_expr const &e,
+                                      std::string_view fn_name) {
   auto val = try_int_constant(e);
-  if (!val || *val < 0) {
+  if (!val || *val < 1) {
     throw type_mismatch_error(std::string{fn_name} +
-                                  ": index must be a non-negative integer "
-                                  "literal",
+                                  ": index must be a positive integer literal "
+                                  "(1-based)",
                               /*pos=*/0, /*source=*/"");
   }
-  return static_cast<std::size_t>(*val);
+  return static_cast<std::size_t>(*val - 1);
 }
 
-// Spectral-accessor entry: (tensor, integer-index) → t2s eigenvalue.
+// Spectral-accessor entry: (tensor, 1-based index) → t2s eigenvalue.
 inline function_entry eigen_accessor_t2s(auto fn) {
   return {{arg_kind::tensor, arg_kind::scalar},
           [fn = std::move(fn)](arg_vec a) -> parsed_expression {
             auto &A = std::get<tensor_expr>(a[0]);
-            auto i = to_index_size_t(std::get<scalar_expr>(a[1]), "eigenvalue");
+            auto i =
+                to_one_based_index(std::get<scalar_expr>(a[1]), "eigenvalue");
             return fn(A, i);
           }};
 }
 
-// Spectral-accessor entry: (tensor, integer-index) → tensor eigenvector /
+// Spectral-accessor entry: (tensor, 1-based index) → tensor eigenvector /
 // eigenprojection.
 inline function_entry eigen_accessor_tensor(auto fn) {
   return {{arg_kind::tensor, arg_kind::scalar},
           [fn = std::move(fn)](arg_vec a) -> parsed_expression {
             auto &A = std::get<tensor_expr>(a[0]);
-            auto i =
-                to_index_size_t(std::get<scalar_expr>(a[1]), "eigen accessor");
+            auto i = to_one_based_index(std::get<scalar_expr>(a[1]),
+                                        "eigen accessor");
             return fn(A, i);
           }};
 }
