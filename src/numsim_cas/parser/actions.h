@@ -474,16 +474,14 @@ template <> struct action<grammar::function_call> {
     state.arg_marks.pop_back();
     auto arg_count = state.values.size() - mark;
 
-    // Resolve in the polymorphic registry.
+    // Resolve in the polymorphic registry. A name may carry several overloads
+    // (multimap) distinguished by argument kinds — e.g. scalar `log(x)` vs
+    // isotropic tensor `log(A)`. Pick the overload whose arg kinds match the
+    // actual arguments.
     auto const &reg = registry::function_registry();
-    auto it = reg.find(name);
-    if (it == reg.end()) {
+    auto const [cand_begin, cand_end] = reg.equal_range(name);
+    if (cand_begin == cand_end) {
       throw unknown_function_error(std::move(name), pos, state.source);
-    }
-    auto const &entry = it->second;
-    if (arg_count != entry.arg_kinds.size()) {
-      throw arity_error(std::move(name), entry.arg_kinds.size(), arg_count, pos,
-                        state.source);
     }
 
     // Collect args in source order. The stack has them in push order
@@ -496,37 +494,93 @@ template <> struct action<grammar::function_call> {
     }
     std::reverse(args.begin(), args.end());
 
-    // Type-check each arg against the entry's declared kinds before
-    // calling dispatch — dispatch uses unchecked `std::get` so a
-    // mismatch here would throw `std::bad_variant_access` rather
-    // than our nicer type_mismatch_error.
-    for (std::size_t i = 0; i < arg_count; ++i) {
-      bool ok = false;
-      switch (entry.arg_kinds[i]) {
+    auto kind_matches = [](registry::parser_value const &v,
+                           registry::arg_kind k) -> bool {
+      switch (k) {
       case registry::arg_kind::scalar:
-        ok = std::holds_alternative<expression_holder<scalar_expression>>(
-            args[i]);
-        break;
+        return std::holds_alternative<expression_holder<scalar_expression>>(v);
       case registry::arg_kind::tensor:
-        ok = std::holds_alternative<expression_holder<tensor_expression>>(
-            args[i]);
-        break;
+        return std::holds_alternative<expression_holder<tensor_expression>>(v);
+      case registry::arg_kind::tensor_to_scalar:
+        return std::holds_alternative<
+            expression_holder<tensor_to_scalar_expression>>(v);
       case registry::arg_kind::index_list:
-        ok = std::holds_alternative<registry::index_list_value>(args[i]);
-        break;
+        return std::holds_alternative<registry::index_list_value>(v);
       }
-      if (!ok) {
-        throw type_mismatch_error(
-            "function '" + name + "': argument " + std::to_string(i + 1) +
-                " has wrong type for the expected signature",
-            pos, state.source);
+      return false;
+    };
+
+    // Match on arity first, then on arg kinds — the kind match doubles as the
+    // type check (dispatch uses unchecked std::get, so the chosen overload's
+    // kinds are guaranteed to fit). Scan ALL candidates so a duplicate
+    // signature (a registration bug) fails loudly rather than resolving to
+    // whichever the unordered_multimap happened to visit first.
+    registry::function_entry const *chosen = nullptr;
+    bool arity_seen = false;
+    std::size_t const some_arity = cand_begin->second.arg_kinds.size();
+    for (auto it = cand_begin; it != cand_end; ++it) {
+      auto const &cand = it->second;
+      if (cand.arg_kinds.size() != arg_count) {
+        continue;
       }
+      arity_seen = true;
+      bool all = true;
+      for (std::size_t i = 0; i < arg_count; ++i) {
+        if (!kind_matches(args[i], cand.arg_kinds[i])) {
+          all = false;
+          break;
+        }
+      }
+      if (all) {
+        if (chosen != nullptr) {
+          throw internal_error("parser: ambiguous overloads for function '" +
+                               name +
+                               "' — two entries share the same argument "
+                               "kinds");
+        }
+        chosen = &cand;
+      }
+    }
+
+    if (chosen == nullptr) {
+      if (!arity_seen) {
+        throw arity_error(std::move(name), some_arity, arg_count, pos,
+                          state.source);
+      }
+      throw type_mismatch_error("no overload of '" + name +
+                                    "' matches the given argument types",
+                                pos, state.source);
     }
 
     // Dispatch returns `parsed_expression` (3-variant); convert up to
     // the wider `parser_value` (4-variant) before pushing onto the
     // parser-internal stack.
-    auto result = entry.dispatch(std::move(args));
+    //
+    // A dispatch may throw the parser's own position-less parse_error (e.g. the
+    // integer-literal index check in to_index_size_t builds one with no source
+    // offset); re-raise it positioned at the call so the user gets a line:col +
+    // snippet like every other parse error. cas *construction* errors
+    // (invalid_expression_error — bad rank, out-of-range spectral index) are
+    // deliberately left to propagate with their own type and message: that is
+    // the established contract, pinned by the ParserGrammar levi_civita /
+    // permute_indices tests.
+    parsed_expression result = [&] {
+      try {
+        return chosen->dispatch(std::move(args));
+      } catch (parse_error const &e) {
+        if (e.has_position()) {
+          throw; // already positioned — leave it
+        }
+        // A position-less parse_error renders what() as "parse error: <body>";
+        // strip that prefix so re-wrapping doesn't double it.
+        std::string body = e.what();
+        constexpr std::string_view prefix = "parse error: ";
+        if (body.starts_with(prefix)) {
+          body.erase(0, prefix.size());
+        }
+        throw type_mismatch_error(std::move(body), pos, state.source);
+      }
+    }();
     state.values.emplace_back(std::visit(
         [](auto &&v) -> registry::parser_value { return std::move(v); },
         std::move(result)));
