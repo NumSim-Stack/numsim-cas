@@ -16,12 +16,12 @@ namespace simplifier {
 template <typename T> n_ary_add::expr_holder_t n_ary_add::dispatch(T const &) {
   auto expr_add{make_expression<tensor_to_scalar_add>(this->lhs)};
   auto &add{expr_add.template get<tensor_to_scalar_add>()};
-  // Direct match: (sum with expr) + expr → combine
-  auto pos{add.symbol_map().find(this->m_rhs)};
+  // Direct or like-term match: (sum with c*expr) + expr → combine
+  auto pos{add.find_like(this->m_rhs)};
   if (pos != add.symbol_map().end()) {
     auto combined{pos->second + this->m_rhs};
     add.symbol_map().erase(pos);
-    add.push_back(std::move(combined));
+    add.merge_or_insert(std::move(combined));
     return expr_add;
   }
   // Reverse-negative: (sum with -expr) + expr → cancel

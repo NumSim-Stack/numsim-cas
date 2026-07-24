@@ -976,6 +976,58 @@ TEST(InnerProductHash, ContractionIndicesAffectHash) {
   EXPECT_NE(e1.get().hash_value(), e2.get().hash_value());
 }
 
+// #339 — n_ary equality must compare the coefficient. The coefficient-blind
+// hash stays (like-term map keying), but == is semantic identity.
+TEST(NAryCoeffEquality, AddCoefficientDistinguishes) {
+  auto [x] = make_scalar_variable("x");
+  EXPECT_FALSE(*(x + 2.0) == *(x + 5.0));
+  EXPECT_FALSE(*(2.0 * x) == *(3.0 * x));
+  EXPECT_FALSE(*sin(x + 2.0) == *sin(x + 5.0));
+  EXPECT_TRUE(*(x + 2.0) == *(2.0 + x));
+  EXPECT_TRUE(*(2.0 * x) == *(x * 2.0));
+}
+
+TEST(NAryCoeffEquality, NoFalseIdentityFolds) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  EXPECT_DOUBLE_EQ(ev.apply((x + 2.0) * (x + 5.0)), 18.0);
+  EXPECT_DOUBLE_EQ(ev.apply((x + 2.0) + (-(x + 5.0))), -3.0);
+  EXPECT_NE(to_string(sin(x + 2.0) + sin(x + 5.0)), "2*sin(5+x)");
+  EXPECT_NE(to_string(eq(2.0 * x, 3.0 * x)), "1");
+  // substitution must not match a subtree differing only in coefficient
+  EXPECT_EQ(to_string(substitute(x + 5.0, x + 2.0, y)), to_string(x + 5.0));
+}
+
+TEST(NAryCoeffEquality, PrinterKeepsDistinctChildren) {
+  auto [x] = make_scalar_variable("x");
+  // both factors share the coefficient-blind hash; print must keep both
+  auto m = (x + 2.0) * (x + 5.0);
+  auto const s = to_string(m);
+  EXPECT_NE(s.find("2+x"), std::string::npos);
+  EXPECT_NE(s.find("5+x"), std::string::npos);
+}
+
+TEST(NAryCoeffEquality, LikeTermMergesPreserved) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  EXPECT_EQ(to_string(2.0 * x + 3.0 * x), "5*x");
+  EXPECT_EQ(to_string(x + 2.0 * x), "3*x");
+  EXPECT_EQ(to_string(((x + y) + x) + x), "3*x+y"); // #347
+  EXPECT_EQ(to_string((y + 2.0 * x) + 3.0 * x), "5*x+y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, 10.0);
+  EXPECT_DOUBLE_EQ(ev.apply(((x + y) + x) + x), 13.0);
+}
+
+TEST(NAryCoeffEquality, HalfCoefficientsMerge) {
+  auto [x] = make_scalar_variable("x");
+  // (c1*T)+(c2*T) with c1+c2 == 1 collapses back to T
+  EXPECT_EQ(to_string(0.5 * x + 0.5 * x), "x");
+  // and with c1+c2 == 0 to zero
+  EXPECT_EQ(to_string(2.0 * x + (-2.0) * x), "0");
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

@@ -41,6 +41,12 @@ public:
         return Traits::make_constant(sum);
       }
 
+      // Like terms first: (c1*T)+(c2*T) → (c1+c2)*T, T+(c*T) → (1+c)*T
+      // (also covers c*T + c*T without nesting muls)
+      if (auto merged = try_merge_like(m_lhs, m_rhs); merged.is_valid()) {
+        return merged;
+      }
+
       // Same expression: expr + expr → 2*expr
       if (m_lhs == m_rhs) {
         auto mul_expr{make_expression<mul_type>()};
@@ -72,6 +78,56 @@ public:
 
   static bool is_numeric_expr(expr_holder_t const &expr) {
     return Traits::try_numeric(expr).has_value();
+  }
+
+  // (c1*T)+(c2*T) with equal children → (c1+c2)*T; also T+(c*T) → (1+c)*T.
+  // Coefficients combine as expressions so symbolic (t2s) coeffs survive.
+  // Returns an invalid holder when the operands are not like terms.
+  expr_holder_t try_merge_like(expr_holder_t const &a, expr_holder_t const &b) {
+    if constexpr (std::is_void_v<typename Traits::mul_type>) {
+      return expr_holder_t{};
+    } else {
+      using mul_type = typename Traits::mul_type;
+      const bool a_mul{is_same<mul_type>(a)};
+      const bool b_mul{is_same<mul_type>(b)};
+      if (!a_mul && !b_mul)
+        return expr_holder_t{};
+      auto coeff_or_one = [](mul_type const &m) {
+        return m.coeff().is_valid() ? m.coeff()
+                                    : Traits::make_constant(scalar_number{1});
+      };
+      if (a_mul && b_mul) {
+        auto const &am{a.template get<mul_type>()};
+        auto const &bm{b.template get<mul_type>()};
+        if (!am.like_term_of(bm))
+          return expr_holder_t{};
+        return scaled_copy(am, coeff_or_one(am) + coeff_or_one(bm));
+      }
+      auto const &m{(a_mul ? a : b).template get<mul_type>()};
+      auto const &other{a_mul ? b : a};
+      if (!(m.size() == 1 && m.symbol_map().begin()->second == other))
+        return expr_holder_t{};
+      return scaled_copy(m, coeff_or_one(m) +
+                                Traits::make_constant(scalar_number{1}));
+    }
+  }
+
+  template <typename MulT>
+  expr_holder_t scaled_copy(MulT const &m, expr_holder_t coeff) {
+    using mul_type = MulT;
+    auto val = Traits::try_numeric(coeff);
+    if (val && *val == scalar_number{0})
+      return Traits::zero(m_lhs);
+    auto expr{make_expression<mul_type>(m)};
+    auto &mul{expr.template get<mul_type>()};
+    if (val && *val == scalar_number{1}) {
+      mul.coeff().free();
+      if (mul.size() == 1)
+        return mul.symbol_map().begin()->second;
+      return expr;
+    }
+    mul.set_coeff(std::move(coeff));
+    return expr;
   }
 
   template <typename Expr> expr_holder_t dispatch(Expr const &) {
@@ -291,7 +347,13 @@ public:
   expr_holder_t dispatch(SymbolType const &) {
     auto expr_add{make_expression<typename Traits::add_type>(lhs)};
     auto &add{expr_add.template get<typename Traits::add_type>()};
-    auto pos{add.symbol_map().find(base::m_rhs)};
+    auto pos{add.find_like(base::m_rhs)};
+    if (pos == add.symbol_map().end()) {
+      // c*x lives in a different hash run than x: retry with a bare mul{x}
+      auto probe{make_expression<typename Traits::mul_type>()};
+      probe.template get<typename Traits::mul_type>().push_back(base::m_rhs);
+      pos = add.find_like(probe);
+    }
     if (pos != add.symbol_map().end()) {
       auto expr{pos->second + base::m_rhs};
       add.symbol_map().erase(pos);
@@ -374,17 +436,10 @@ public:
     return get_default();
   }
 
-  /// expr + expr --> 2*expr
+  /// c1*T + c2*T --> (c1+c2)*T
   expr_holder_t dispatch(typename Traits::mul_type const &rhs) {
-    const auto &hash_rhs{rhs.hash_value()};
-    const auto &hash_lhs{lhs.hash_value()};
-    if (hash_rhs == hash_lhs) {
-      const auto fac_lhs{get_coefficient<Traits>(lhs, 1)};
-      const auto fac_rhs{get_coefficient<Traits>(rhs, 1)};
-      auto expr{make_expression<typename Traits::mul_type>(lhs)};
-      auto &mul{expr.template get<typename Traits::mul_type>()};
-      mul.set_coeff(Traits::make_constant(fac_lhs + fac_rhs));
-      return expr;
+    if (lhs.like_term_of(rhs)) {
+      return base::try_merge_like(base::m_lhs, base::m_rhs);
     }
     return get_default();
   }
