@@ -2151,4 +2151,32 @@ TEST(ParserFunctions, SpectralConstructionErrorsPropagate) {
 
 #endif // NUMSIM_CAS_PARSER_ENABLED
 
+// #355 — deeply nested input must raise parse_error, not overflow the
+// C++ stack (SIGSEGV pre-fix at ~10-20k frames, including the unclosed-
+// paren error path).
+TEST(ParserDepthGuard, DeepNestingRaisesParseError) {
+  numsim::cas::parser::symbol_table syms;
+  std::string deep(20000, '(');
+  deep += "1";
+  deep += std::string(20000, ')');
+  EXPECT_THROW((void)numsim::cas::parser::parse(deep, syms),
+               numsim::cas::parser::parse_error);
+
+  std::string unclosed(20000, '(');
+  unclosed += "1";
+  EXPECT_THROW((void)numsim::cas::parser::parse(unclosed, syms),
+               numsim::cas::parser::parse_error);
+
+  std::string minuses(20000, '-');
+  minuses += "1";
+  EXPECT_THROW((void)numsim::cas::parser::parse(minuses, syms),
+               numsim::cas::parser::parse_error);
+
+  // moderate nesting still parses
+  std::string ok(200, '(');
+  ok += "1";
+  ok += std::string(200, ')');
+  EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok, syms));
+}
+
 #endif // PARSERTEST_H

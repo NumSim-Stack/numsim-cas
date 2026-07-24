@@ -40,9 +40,39 @@ syntax_error translate_pegtl_error(pegtl::parse_error const &e,
   return syntax_error(std::move(msg), byte, source);
 }
 
+// #355 — PEGTL parses by C++ recursion; deeply nested input overflows the
+// stack (SIGSEGV at ~10-20k frames) instead of raising parse_error. A cheap
+// pre-scan bounds every recursion driver: bracket nesting and unary-minus
+// runs (whitespace does not reset a run: "- - -x" recurses per minus).
+void check_nesting_depth(std::string_view source) {
+  constexpr std::size_t max_depth = 512;
+  std::size_t depth = 0;
+  std::size_t minus_run = 0;
+  for (std::size_t i = 0; i < source.size(); ++i) {
+    const char c = source[i];
+    if (c == '(' || c == '[' || c == '{') {
+      if (++depth > max_depth) {
+        throw syntax_error("expression nesting too deep", i, source);
+      }
+    } else if (c == ')' || c == ']' || c == '}') {
+      if (depth > 0) {
+        --depth;
+      }
+    }
+    if (c == '-') {
+      if (++minus_run > max_depth) {
+        throw syntax_error("expression nesting too deep", i, source);
+      }
+    } else if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+      minus_run = 0;
+    }
+  }
+}
+
 } // namespace
 
 parsed_expression parse(std::string_view source, symbol_table &syms) {
+  check_nesting_depth(source);
   // Make a copy into a std::string-backed input — PEGTL's
   // memory_input takes ownership of the source view (it doesn't
   // copy) so callers must keep the string alive across the parse.
