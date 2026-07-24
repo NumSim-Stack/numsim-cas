@@ -15,6 +15,11 @@ static scalar_number::variant_t normalize_rational(std::int64_t num,
     // Division by zero — fall back to double for inf/nan
     return static_cast<double>(num) / 0.0;
   }
+  // INT64_MIN cannot be negated/abs'd — demote to double (#349)
+  if (num == std::numeric_limits<std::int64_t>::min() ||
+      den == std::numeric_limits<std::int64_t>::min()) {
+    return static_cast<double>(num) / static_cast<double>(den);
+  }
   if (num == 0) {
     return std::int64_t{0};
   }
@@ -116,36 +121,101 @@ scalar_number::variant_t promote_binary(scalar_number::variant_t const &a,
       a, b);
 }
 
-// Rational arithmetic helpers
-rational_t rat_add(rational_t a, rational_t b) {
+// Overflow-checked int64 arithmetic (#349). MSVC has no
+// __builtin_*_overflow, hence the manual fallbacks.
+inline bool add_overflows(std::int64_t a, std::int64_t b, std::int64_t &r) {
+#if defined(__GNUC__) || defined(__clang__)
+  return __builtin_add_overflow(a, b, &r);
+#else
+  constexpr auto mx = std::numeric_limits<std::int64_t>::max();
+  constexpr auto mn = std::numeric_limits<std::int64_t>::min();
+  if ((b > 0 && a > mx - b) || (b < 0 && a < mn - b))
+    return true;
+  r = a + b;
+  return false;
+#endif
+}
+
+inline bool sub_overflows(std::int64_t a, std::int64_t b, std::int64_t &r) {
+#if defined(__GNUC__) || defined(__clang__)
+  return __builtin_sub_overflow(a, b, &r);
+#else
+  constexpr auto mx = std::numeric_limits<std::int64_t>::max();
+  constexpr auto mn = std::numeric_limits<std::int64_t>::min();
+  if ((b < 0 && a > mx + b) || (b > 0 && a < mn + b))
+    return true;
+  r = a - b;
+  return false;
+#endif
+}
+
+inline bool mul_overflows(std::int64_t a, std::int64_t b, std::int64_t &r) {
+#if defined(__GNUC__) || defined(__clang__)
+  return __builtin_mul_overflow(a, b, &r);
+#else
+  constexpr auto mx = std::numeric_limits<std::int64_t>::max();
+  constexpr auto mn = std::numeric_limits<std::int64_t>::min();
+  if (a == 0 || b == 0) {
+    r = 0;
+    return false;
+  }
+  if (a == -1 && b == mn)
+    return true;
+  if (b == -1 && a == mn)
+    return true;
+  if (a > 0 ? (b > 0 ? a > mx / b : b < mn / a)
+            : (b > 0 ? a < mn / b : a < mx / b))
+    return true;
+  r = a * b;
+  return false;
+#endif
+}
+
+inline double rat_to_double(rational_t const &r) {
+  return static_cast<double>(r.num) / static_cast<double>(r.den);
+}
+
+// Rational arithmetic helpers. Overflowing intermediates demote to double
+// instead of wrapping (UB) — value stays correct, exactness is lost (#349).
+scalar_number::variant_t rat_add(rational_t a, rational_t b) {
   // a.num/a.den + b.num/b.den = (a.num*b.den + b.num*a.den) / (a.den*b.den)
-  auto num = a.num * b.den + b.num * a.den;
-  auto den = a.den * b.den;
-  auto g = std::gcd(std::abs(num), std::abs(den));
-  return {num / g, den / g};
+  std::int64_t t1, t2, num, den;
+  if (mul_overflows(a.num, b.den, t1) || mul_overflows(b.num, a.den, t2) ||
+      add_overflows(t1, t2, num) || mul_overflows(a.den, b.den, den)) {
+    return rat_to_double(a) + rat_to_double(b);
+  }
+  return normalize_rational(num, den);
 }
 
-rational_t rat_sub(rational_t a, rational_t b) {
-  auto num = a.num * b.den - b.num * a.den;
-  auto den = a.den * b.den;
-  auto g = std::gcd(std::abs(num), std::abs(den));
-  return {num / g, den / g};
+scalar_number::variant_t rat_sub(rational_t a, rational_t b) {
+  std::int64_t t1, t2, num, den;
+  if (mul_overflows(a.num, b.den, t1) || mul_overflows(b.num, a.den, t2) ||
+      sub_overflows(t1, t2, num) || mul_overflows(a.den, b.den, den)) {
+    return rat_to_double(a) - rat_to_double(b);
+  }
+  return normalize_rational(num, den);
 }
 
-rational_t rat_mul(rational_t a, rational_t b) {
-  // Cross-cancel before multiplying to avoid overflow
+scalar_number::variant_t rat_mul(rational_t a, rational_t b) {
+  // Cross-cancel before multiplying to keep intermediates small
   auto g1 = std::gcd(std::abs(a.num), std::abs(b.den));
   auto g2 = std::gcd(std::abs(b.num), std::abs(a.den));
-  auto num = (a.num / g1) * (b.num / g2);
-  auto den = (a.den / g2) * (b.den / g1);
-  if (den < 0) {
-    num = -num;
-    den = -den;
+  std::int64_t num, den;
+  if (mul_overflows(a.num / g1, b.num / g2, num) ||
+      mul_overflows(a.den / g2, b.den / g1, den)) {
+    return rat_to_double(a) * rat_to_double(b);
   }
-  return {num, den};
+  return normalize_rational(num, den);
 }
 
-rational_t rat_div(rational_t a, rational_t b) {
+scalar_number::variant_t rat_div(rational_t a, rational_t b) {
+  if (b.num == 0) {
+    // a / 0 → ±inf double, matching the int/int path (#349)
+    return rat_to_double(a) / 0.0;
+  }
+  if (b.num == std::numeric_limits<std::int64_t>::min()) {
+    return rat_to_double(a) / rat_to_double(b);
+  }
   return rat_mul(a, {b.den, b.num});
 }
 
@@ -157,7 +227,13 @@ scalar_number operator+(scalar_number const &a, scalar_number const &b) {
   return scalar_number(promote_binary(a.v_, b.v_, [](auto x, auto y) {
     using T = std::decay_t<decltype(x)>;
     if constexpr (is_rat_v<T>) {
-      return scalar_number::variant_t{rat_add(x, y)};
+      return rat_add(x, y);
+    } else if constexpr (std::is_same_v<T, std::int64_t>) {
+      std::int64_t r;
+      if (add_overflows(x, y, r))
+        return scalar_number::variant_t{static_cast<double>(x) +
+                                        static_cast<double>(y)};
+      return scalar_number::variant_t{r};
     } else {
       return scalar_number::variant_t{x + y};
     }
@@ -168,7 +244,13 @@ scalar_number operator-(scalar_number const &a, scalar_number const &b) {
   return scalar_number(promote_binary(a.v_, b.v_, [](auto x, auto y) {
     using T = std::decay_t<decltype(x)>;
     if constexpr (is_rat_v<T>) {
-      return scalar_number::variant_t{rat_sub(x, y)};
+      return rat_sub(x, y);
+    } else if constexpr (std::is_same_v<T, std::int64_t>) {
+      std::int64_t r;
+      if (sub_overflows(x, y, r))
+        return scalar_number::variant_t{static_cast<double>(x) -
+                                        static_cast<double>(y)};
+      return scalar_number::variant_t{r};
     } else {
       return scalar_number::variant_t{x - y};
     }
@@ -179,7 +261,13 @@ scalar_number operator*(scalar_number const &a, scalar_number const &b) {
   return scalar_number(promote_binary(a.v_, b.v_, [](auto x, auto y) {
     using T = std::decay_t<decltype(x)>;
     if constexpr (is_rat_v<T>) {
-      return scalar_number::variant_t{rat_mul(x, y)};
+      return rat_mul(x, y);
+    } else if constexpr (std::is_same_v<T, std::int64_t>) {
+      std::int64_t r;
+      if (mul_overflows(x, y, r))
+        return scalar_number::variant_t{static_cast<double>(x) *
+                                        static_cast<double>(y)};
+      return scalar_number::variant_t{r};
     } else {
       return scalar_number::variant_t{x * y};
     }
@@ -190,7 +278,7 @@ scalar_number operator/(scalar_number const &a, scalar_number const &b) {
   return scalar_number(promote_binary(a.v_, b.v_, [](auto x, auto y) {
     using T = std::decay_t<decltype(x)>;
     if constexpr (is_rat_v<T>) {
-      return scalar_number::variant_t{rat_div(x, y)};
+      return rat_div(x, y);
     } else if constexpr (std::is_same_v<T, std::int64_t>) {
       // int / int → rational (exact)
       return normalize_rational(x, y);
@@ -205,7 +293,13 @@ scalar_number operator-(scalar_number const &a) {
       [](auto const &x) -> scalar_number::variant_t {
         using T = std::decay_t<decltype(x)>;
         if constexpr (is_rat_v<T>) {
+          if (x.num == std::numeric_limits<std::int64_t>::min())
+            return -rat_to_double(x);
           return rational_t{-x.num, x.den};
+        } else if constexpr (std::is_same_v<T, std::int64_t>) {
+          if (x == std::numeric_limits<std::int64_t>::min())
+            return -static_cast<double>(x);
+          return -x;
         } else {
           return -x;
         }
