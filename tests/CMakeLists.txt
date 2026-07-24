@@ -45,6 +45,7 @@ add_numsim_cas_test(numsim_cas_test
     ScalarEvaluatorTest.h
     ScalarExpressionTest.h
     ScalarSubstitutionTest.h
+    TensorAnnotationMatrixTest.h
     TensorDifferentiationTest.h
     TensorEvaluatorTest.h
     TensorExpressionTest.h
