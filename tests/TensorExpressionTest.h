@@ -280,8 +280,8 @@ TYPED_TEST(TensorExpressionTest, TensorProductOrderAndPowersMore) {
   EXPECT_PRINT(x * y * X * Y, "x*y*X*Y");
   EXPECT_PRINT(y * x * X * Y, "x*y*X*Y");
 
-  // EXPECT_PRINT(pow(X, 2) * pow(X, 2), "pow(X,4)");
-  // EXPECT_PRINT(pow(X, 2) * X * Y, "pow(X,3)*Y");
+  EXPECT_PRINT(pow(X, 2) * pow(X, 2), "pow(X,4)");
+  EXPECT_PRINT(pow(X, 2) * X * Y, "pow(X,3)*Y");
 }
 
 TYPED_TEST(TensorExpressionTest, TensorDivisionFormattingMore) {

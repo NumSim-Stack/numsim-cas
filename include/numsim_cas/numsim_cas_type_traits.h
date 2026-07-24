@@ -127,12 +127,6 @@ class tensor_to_scalar_one;
 class tensor_to_scalar_log;
 class tensor_to_scalar_scalar_wrapper;
 
-template <typename ExprBase, typename T> struct expression_holder_data_type {
-  using data_type = ExprBase;
-};
-
-template <typename ExprBase, typename T> struct expression_holder_data_type;
-
 template <typename T> struct get_type<std::shared_ptr<T>> {
   using type = T;
 };
@@ -142,47 +136,6 @@ template <typename T> struct get_type<expression_holder<T>> {
 
 template <typename T>
 using get_type_t = typename get_type<std::remove_cvref_t<T>>::type;
-
-template <typename T>
-concept has_variant_type = requires { typename T::variant_type; };
-template <typename T>
-concept is_variant_type_index = requires { typename T::type; };
-
-template <typename T, typename Variant> struct variant_index_inner;
-
-template <typename T, typename... Types>
-struct variant_index_inner<T, std::variant<T, Types...>>
-    : std::integral_constant<std::size_t, 0> {};
-
-template <typename T, typename U, typename... Types>
-struct variant_index_inner<T, std::variant<U, Types...>>
-    : std::integral_constant<
-          std::size_t,
-          1 + variant_index_inner<T, std::variant<Types...>>::value> {};
-
-template <typename T, typename Variant> struct variant_index_outer;
-
-template <typename T, typename... SubVariants>
-struct variant_index_outer<T, std::variant<SubVariants...>> {
-private:
-  template <std::size_t Index, typename... Rest> struct helper;
-
-  template <std::size_t Index, typename First, typename... Rest>
-  struct helper<Index, First, Rest...> {
-    static constexpr bool found =
-        variant_index_inner<T, typename First::variant_type>::value <
-        std::variant_size<typename First::variant_type>::value;
-    static constexpr std::size_t value =
-        found ? Index : helper<Index + 1, Rest...>::value;
-  };
-
-  template <std::size_t Index> struct helper<Index> {
-    static constexpr std::size_t value = static_cast<std::size_t>(-1);
-  };
-
-public:
-  static constexpr std::size_t value = helper<0, SubVariants...>::value;
-};
 
 template <std::size_t Index, typename T, typename Variant> struct variant_index;
 
