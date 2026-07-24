@@ -204,6 +204,25 @@ TEST_F(TensorAnnotationMatrixTest, DerivedSkewFromTransMinusSelf) {
       << "trans(A) + (-A) must mirror the sub form's Skew annotation";
 }
 
+// The `mul` row above only exercises A*A, which is symmetric because a tensor
+// commutes with itself ((A·A)^T = A^T·A^T = A·A). The product of two DISTINCT
+// symmetric tensors is symmetric iff they commute — false in general, since
+// (A·B)^T = B^T·A^T = B·A. So sym × sym must NOT propagate to sym here; a false
+// positive would let unsound (A·B)^T = A·B simplifications through.
+TEST_F(TensorAnnotationMatrixTest,
+       DistinctSymmetricProductIsNotFalselySymmetric) {
+  auto A = mk("A", 3);
+  assume_symmetric(A);
+  auto B = mk("B", 3);
+  assume_symmetric(B);
+  auto AB = A * B;
+  EXPECT_FALSE(is_symmetric(AB))
+      << "A·B of distinct symmetric tensors is symmetric only if they commute";
+  EXPECT_FALSE(is_skew(AB));
+  // Sanity: the self-product IS symmetric (A·A = A^2).
+  EXPECT_TRUE(is_symmetric(A * A));
+}
+
 // Product / cross-domain nodes are annotation-opaque: they never *falsely*
 // claim skew/vol/dev (a false positive would drive unsound simplifications).
 // Symmetry is left unasserted (Any) — some products are provably symmetric
