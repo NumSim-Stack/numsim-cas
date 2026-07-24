@@ -1021,4 +1021,27 @@ TEST_F(ScalarFixture, SmoothedMacauleyAtEpsZeroDegeneratesToMacauleyPlus) {
   EXPECT_EQ(smoothed_macauley(x, _zero), macauley_plus(x));
 }
 
+// #262 Layer A: is_constant_one / is_constant_zero recognise the numeric
+// constant in either form (singleton or scalar_constant) and nothing else.
+TEST(ScalarConstantRecognition, OneAndZeroInBothForms) {
+  using namespace numsim::cas;
+  auto x = std::get<0>(make_scalar_variable("x"));
+  // Raw (non-canonicalised) constants exercise the scalar_constant branch —
+  // make_scalar_constant(1) would collapse to the scalar_one singleton.
+  auto raw_one = make_expression<scalar_constant>(scalar_number{1});
+  auto raw_zero = make_expression<scalar_constant>(scalar_number{0});
+  auto raw_two = make_expression<scalar_constant>(scalar_number{2});
+
+  EXPECT_TRUE(is_constant_one(get_scalar_one())); // singleton
+  EXPECT_TRUE(is_constant_one(raw_one));          // scalar_constant{1}
+  EXPECT_FALSE(is_constant_one(raw_two));
+  EXPECT_FALSE(is_constant_one(get_scalar_zero()));
+  EXPECT_FALSE(is_constant_one(x));
+
+  EXPECT_TRUE(is_constant_zero(get_scalar_zero())); // singleton
+  EXPECT_TRUE(is_constant_zero(raw_zero));          // scalar_constant{0}
+  EXPECT_FALSE(is_constant_zero(raw_one));
+  EXPECT_FALSE(is_constant_zero(x));
+}
+
 #endif // SCALAREXPRESSIONTEST_H
