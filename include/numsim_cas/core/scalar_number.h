@@ -106,6 +106,25 @@ private:
   variant_t v_;
 };
 
+// Value-normalizing hash: numerically equal constants must hash equal
+// across variant alternatives (int64 2 vs double 2.0 vs rational 2/1),
+// while doubles otherwise hash by bit pattern (#361).
+inline void hash_combine(std::size_t &seed, scalar_number const &value) {
+  std::visit(
+      [&](auto const &x) {
+        using T = std::decay_t<decltype(x)>;
+        if constexpr (std::is_same_v<T, double>) {
+          if (x == static_cast<double>(static_cast<std::int64_t>(x)) &&
+              x >= -9.2e18 && x <= 9.2e18) {
+            hash_combine(seed, static_cast<std::int64_t>(x));
+            return;
+          }
+        }
+        hash_combine(seed, x);
+      },
+      value.raw());
+}
+
 } // namespace numsim::cas
 
 #endif // SCALAR_NUMBER_H
