@@ -12,6 +12,9 @@ namespace simplifier {
 // --- constant_mul ---
 using t2s_traits = domain_traits<tensor_to_scalar_expression>;
 
+static void push_or_combine(tensor_to_scalar_mul &mul,
+                            mul_base::expr_holder_t const &child);
+
 constant_mul::constant_mul(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
       lhs_val{t2s_traits::try_numeric(base::m_lhs)} {}
@@ -36,10 +39,14 @@ constant_mul::dispatch(tensor_to_scalar_mul const &rhs) {
   }
   auto mul_expr{make_expression<tensor_to_scalar_mul>(rhs)};
   auto &mul{mul_expr.template get<tensor_to_scalar_mul>()};
-  auto coeff{get_coefficient<t2s_traits>(mul, 1)};
-  if (lhs_val) {
-    coeff = coeff * *lhs_val;
+  if (!lhs_val) {
+    // symbolic scalar_wrapper: keep it as a factor instead of silently
+    // resetting the coefficient (#354)
+    push_or_combine(mul, base::m_lhs);
+    return mul_expr;
   }
+  auto coeff{get_coefficient<t2s_traits>(mul, 1)};
+  coeff = coeff * *lhs_val;
   mul.set_coeff(t2s_traits::make_constant(coeff));
   return mul_expr;
 }

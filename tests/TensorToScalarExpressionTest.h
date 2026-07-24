@@ -921,4 +921,20 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_EQ(d.get().dim(), X.get().dim());
 }
 
+// #354 — a symbolic scalar_wrapper multiplied into an existing t2s mul must
+// survive as a factor (it was silently dropped and the coefficient reset).
+TYPED_TEST(TensorToScalarExpressionTest,
+           SymbolicWrapperFactorSurvivesMulMerge) {
+  auto &X = this->X;
+  auto &x = this->x;
+  using numsim::cas::det;
+  using numsim::cas::trace;
+  auto f = trace(X) * det(X); // tensor_to_scalar_mul
+  auto w = numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_scalar_wrapper>(x);
+  auto e = w * f; // wrapper-first: hits constant_mul::dispatch(mul)
+  auto const s = numsim::cas::to_string(e);
+  EXPECT_NE(s.find("x"), std::string::npos) << s;
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H
