@@ -37,6 +37,36 @@ public:
     return m_rhs_indices;
   }
 
+  // #343 — the contraction sequences are part of the node's identity
+  // (mirrors inner_product_wrapper's #266 fix): A:B and A:B^T must not
+  // hash or compare equal.
+  void update_hash_value() const noexcept override {
+    base::m_hash_value = 0;
+    hash_combine(base::m_hash_value, base::get_id());
+    hash_combine(base::m_hash_value, base::expr_lhs().get().hash_value());
+    hash_combine(base::m_hash_value, base::expr_rhs().get().hash_value());
+    hash_combine(base::m_hash_value, m_lhs_indices);
+    hash_combine(base::m_hash_value, m_rhs_indices);
+  }
+
+  friend bool operator==(tensor_inner_product_to_scalar const &lhs,
+                         tensor_inner_product_to_scalar const &rhs) {
+    return lhs.m_lhs_indices == rhs.m_lhs_indices &&
+           lhs.m_rhs_indices == rhs.m_rhs_indices &&
+           static_cast<base const &>(lhs) == static_cast<base const &>(rhs);
+  }
+
+  friend bool operator<(tensor_inner_product_to_scalar const &lhs,
+                        tensor_inner_product_to_scalar const &rhs) {
+    if (static_cast<base const &>(lhs) < static_cast<base const &>(rhs))
+      return true;
+    if (static_cast<base const &>(rhs) < static_cast<base const &>(lhs))
+      return false;
+    if (lhs.m_lhs_indices != rhs.m_lhs_indices)
+      return lhs.m_lhs_indices < rhs.m_lhs_indices;
+    return lhs.m_rhs_indices < rhs.m_rhs_indices;
+  }
+
 protected:
   sequence m_lhs_indices;
   sequence m_rhs_indices;

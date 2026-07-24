@@ -49,6 +49,30 @@ public:
     return m_indices;
   }
 
+  // #342 — the permutation is part of the node's identity: two different
+  // permutations of the same tensor must not hash or compare equal.
+  void update_hash_value() const noexcept override {
+    base::m_hash_value = 0;
+    hash_combine(base::m_hash_value, base::get_id());
+    hash_combine(base::m_hash_value, this->expr().get().hash_value());
+    hash_combine(base::m_hash_value, m_indices);
+  }
+
+  friend bool operator==(permute_indices_wrapper const &lhs,
+                         permute_indices_wrapper const &rhs) {
+    return lhs.m_indices == rhs.m_indices &&
+           static_cast<base const &>(lhs) == static_cast<base const &>(rhs);
+  }
+
+  friend bool operator<(permute_indices_wrapper const &lhs,
+                        permute_indices_wrapper const &rhs) {
+    if (static_cast<base const &>(lhs) < static_cast<base const &>(rhs))
+      return true;
+    if (static_cast<base const &>(rhs) < static_cast<base const &>(lhs))
+      return false;
+    return lhs.m_indices < rhs.m_indices;
+  }
+
 protected:
   /**
    * @brief Stores the permutation indices.
