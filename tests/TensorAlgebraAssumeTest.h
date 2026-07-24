@@ -1214,11 +1214,13 @@ TEST(TensorAlgebraIdentityAssumptions, Rank2IsNotSkew) {
   EXPECT_FALSE(is_skew(I));
 }
 
-TEST(TensorAlgebraIdentityAssumptions, Rank4MinorIdentityIsMinorMajor) {
-  // I_{ijkl} = δ_ik · δ_jl. Has minor symmetry (swap (i,j) or (k,l)) AND
-  // major symmetry (swap (ij)↔(kl)).
+TEST(TensorAlgebraIdentityAssumptions, Rank4IdentityIsMajorOnly) {
+  // I_{ijkl} = δ_ik · δ_jl has MAJOR symmetry only (#351): swapping i↔j
+  // gives δ_jk·δ_il ≠ δ_ik·δ_jl. The MinorMajor tag routed inv() through
+  // the symmetric Voigt path and evaluated inv(-I4) wrongly.
   auto I = make_expression<identity_tensor>(std::size_t{3}, std::size_t{4});
-  EXPECT_TRUE(is_minor_major(I));
+  EXPECT_TRUE(is_major(I));
+  EXPECT_FALSE(is_minor_major(I));
 }
 
 TEST(TensorAlgebraIdentityAssumptions, Rank4MinorIdentityIsSymmetric) {
@@ -1334,13 +1336,13 @@ TEST(TensorAlgebraIdentityAssumptions, CopyPreservesAnnotationRank2) {
 
 TEST(TensorAlgebraIdentityAssumptions, MovePreservesAnnotationRank4) {
   // Rank-4 move ctor coverage (cpp-pro F7 gap): the rank-4 branch
-  // produces MinorMajor, distinct from rank-2 Symmetric. Both must
+  // produces Major (#351), distinct from rank-2 Symmetric. Both must
   // survive move construction. Pass-1 review on #258: also assert PD
   // survives (orthogonal is rank-2-only by design).
   identity_tensor src{std::size_t{3}, std::size_t{4}};
   identity_tensor moved{std::move(src)};
   ASSERT_TRUE(moved.space().has_value());
-  EXPECT_TRUE(std::holds_alternative<MinorMajor>(moved.space()->perm));
+  EXPECT_TRUE(std::holds_alternative<Major>(moved.space()->perm));
   EXPECT_TRUE(moved.tensor_algebra_assumptions().contains(positive_definite{}));
   EXPECT_TRUE(
       moved.tensor_algebra_assumptions().contains(positive_semidefinite{}));
@@ -1378,7 +1380,7 @@ TEST(TensorAlgebraIdentityAssumptions, CopyPreservesAnnotationRank4) {
   identity_tensor src{std::size_t{3}, std::size_t{4}};
   identity_tensor copy{src};
   ASSERT_TRUE(copy.space().has_value());
-  EXPECT_TRUE(std::holds_alternative<MinorMajor>(copy.space()->perm));
+  EXPECT_TRUE(std::holds_alternative<Major>(copy.space()->perm));
   EXPECT_TRUE(copy.tensor_algebra_assumptions().contains(positive_definite{}));
   EXPECT_TRUE(
       copy.tensor_algebra_assumptions().contains(positive_semidefinite{}));

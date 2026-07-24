@@ -1793,6 +1793,17 @@ TEST(HashCombineDouble, HugeAndNonFiniteConstantsHashSafely) {
   EXPECT_NE(big.get().hash_value(), inf.get().hash_value());
 }
 
+// #351 — rank-4 identity is major-symmetric only; the MinorMajor tag routed
+// inv() through the symmetric Voigt path, evaluating inv(-I4) to -0.25 at
+// component (0,1,0,1) instead of -1 (the inverse of -I4 is -I4).
+TEST(Rank4IdentityTag, InvOfNegatedIdentity) {
+  auto I4 = make_expression<identity_tensor>(std::size_t{3}, std::size_t{4});
+  tensor_evaluator<double> ev;
+  auto r = ev.apply(inv(-I4));
+  // (0,1,0,1) flattens to ((0*3+1)*3+0)*3+1 = 10
+  EXPECT_NEAR(r->raw_data()[10], -1.0, 1e-12);
+  EXPECT_NEAR(r->raw_data()[0], -1.0, 1e-12); // (0,0,0,0)}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

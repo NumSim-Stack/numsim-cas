@@ -154,16 +154,16 @@ public:
 
 private:
   // Closed-form structural classification by rank. Rank-2 is Kronecker δ_ij
-  // (Symmetric). Rank-4 minor identity is δ_ik·δ_jl (MinorMajor — fully
-  // symmetric at rank-4). Higher ranks return nullopt; the variant has no
-  // general "all-pairs-minor" alternative and higher-rank identity is
-  // rarely queried. Open decision tracked in
-  // docs/sympy-assumption-redesign.md.
+  // (Symmetric). Rank-4 identity δ_ik·δ_jl has MAJOR symmetry only:
+  // swapping (ij)<->(kl) gives δ_ki·δ_lj = δ_ik·δ_jl, but swapping i<->j
+  // gives δ_jk·δ_il ≠ δ_ik·δ_jl (the minor-symmetric identity is P_sym,
+  // a different tensor). The former MinorMajor tag routed inv() through
+  // the symmetric Voigt path, evaluating inv(-I4) wrongly (#351).
   static std::optional<tensor_space> space_for_rank(std::size_t rank) noexcept {
     if (rank == 2)
       return tensor_space{Symmetric{}, AnyTraceTag{}};
     if (rank == 4)
-      return tensor_space{MinorMajor{}, AnyTraceTag{}};
+      return tensor_space{Major{}, AnyTraceTag{}};
     return std::nullopt;
   }
 };
