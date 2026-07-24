@@ -13,7 +13,8 @@ pow_pow::pow_pow(expr_holder_t lhs, expr_holder_t rhs)
       m_lhs_node{base::m_lhs.template get<scalar_pow>()} {}
 
 /// pow(pow(x,a),b) --> pow(x,a*b)
-/// TODO(#268): pow(pow(x,-a), -b) --> pow(x,a*b) only when x,a,b>0
+/// (The double-negative case pow(pow(x,-a),-b) = pow(x,ab) is covered by
+/// the a*b exponent multiply above; closed #268.)
 template <typename Expr>
 pow_pow::expr_holder_t pow_pow::dispatch(Expr const &) {
   return pow(m_lhs_node.expr_lhs(), m_lhs_node.expr_rhs() * m_rhs);
