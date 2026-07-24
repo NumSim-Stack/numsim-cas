@@ -424,6 +424,75 @@ TEST_F(TensorSpacePropagationTest, DiffAddSymmetric) {
   EXPECT_PRINT(d, "2*P_sym{4}");
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Gram forms (#389): trans(X)*X and X*trans(X) are symmetric + PSD for any X
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST_F(TensorSpacePropagationTest, GramTransXtimesXIsSymmetricPSD) {
+  // trans(X)*X = right Cauchy-Green; symmetric and PSD regardless of X.
+  auto g = trans(X) * X;
+  EXPECT_TRUE(is_symmetric(g)) << "trans(X)*X must be symmetric";
+  EXPECT_TRUE(is_positive_semidefinite(g)) << "trans(X)*X must be PSD";
+  EXPECT_FALSE(is_skew(g));
+  EXPECT_FALSE(is_positive_definite(g)) << "X invertibility unknown → PSD only";
+}
+
+TEST_F(TensorSpacePropagationTest, GramXtimesTransXIsSymmetricPSD) {
+  // X*trans(X) = left Cauchy-Green / Finger tensor.
+  auto g = X * trans(X);
+  EXPECT_TRUE(is_symmetric(g));
+  EXPECT_TRUE(is_positive_semidefinite(g));
+}
+
+TEST_F(TensorSpacePropagationTest, GramNormalizesUnderSymProjector) {
+  // The derived symmetric annotation must let sym() short-circuit.
+  EXPECT_PRINT(sym(trans(X) * X), ::testcas::S(trans(X) * X));
+}
+
+TEST_F(TensorSpacePropagationTest, OrthogonalTransXtimesXStillFoldsToIdentity) {
+  // Safety: for orthogonal Q the trans(Q)*Q -> I fold must still win over the
+  // Gram annotation branch (I is stronger than "some symmetric PSD tensor").
+  auto Q = std::get<0>(make_tensor_variable(std::tuple{"Q", dim, 2}));
+  assume_orthogonal(Q);
+  EXPECT_TRUE(is_same<identity_tensor>(trans(Q) * Q));
+  EXPECT_TRUE(is_same<identity_tensor>(Q * trans(Q)));
+}
+
+TEST_F(TensorSpacePropagationTest, DistinctSymmetricProductStaysNonSymmetric) {
+  // Safety: A*B of two DISTINCT symmetric tensors is symmetric only if they
+  // commute — the Gram rule must not over-generalize to any product.
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
+  assume_symmetric(B);
+  EXPECT_FALSE(is_symmetric(C * B));
+  EXPECT_FALSE(is_positive_semidefinite(C * B));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Symmetric part (#390): trans(X)+X and X+trans(X) are symmetric for any X
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST_F(TensorSpacePropagationTest, SymmetricPartXPlusTransXIsSymmetric) {
+  // X + trans(X) = 2*sym(X); symmetric in any dimension.
+  EXPECT_TRUE(is_symmetric(X + trans(X)));
+  EXPECT_TRUE(is_symmetric(trans(X) + X));
+  EXPECT_FALSE(is_skew(X + trans(X)));
+}
+
+TEST_F(TensorSpacePropagationTest, SymmetricPartDoesNotStealTheSkewSpelling) {
+  // Safety: trans(X)-X and trans(X)+(-X) must remain skew — the skew branch
+  // is checked before the symmetric-part branch.
+  EXPECT_TRUE(is_skew(trans(X) - X));
+  EXPECT_TRUE(is_skew(trans(X) + (-X)));
+  EXPECT_TRUE(is_skew(X - trans(X)));
+}
+
+TEST_F(TensorSpacePropagationTest, GeneralSumStaysUnannotated) {
+  // Safety: a generic X+Y (Y not trans(X)) carries no space.
+  auto Y = std::get<0>(make_tensor_variable(std::tuple{"Y", dim, 2}));
+  EXPECT_FALSE(is_symmetric(X + Y));
+  EXPECT_FALSE(is_skew(X + Y));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORSPACEPROPAGATIONTEST_H
