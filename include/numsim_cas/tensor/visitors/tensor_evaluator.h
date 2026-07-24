@@ -1,6 +1,8 @@
 #ifndef TENSOR_EVALUATOR_H
 #define TENSOR_EVALUATOR_H
 
+#include <cmath>
+
 #include <algorithm>
 #include <cstring>
 #include <map>
@@ -257,6 +259,11 @@ public:
   void operator()(tensor_pow const &visitable) override {
     auto base_data = apply(visitable.expr_lhs());
     const auto exp_val = m_scalar_eval.apply(visitable.expr_rhs());
+    if (exp_val != std::round(exp_val)) {
+      // silently truncating pow(A, 0.5) to the identity was #350
+      throw evaluation_error(
+          "tensor_pow: exponent must evaluate to an integer");
+    }
     const auto n = static_cast<int>(exp_val);
     const auto d = visitable.dim();
     const auto r = visitable.rank();
@@ -283,6 +290,14 @@ public:
                                               lhs_idx, rhs_idx);
       ip.evaluate(d, r, r);
       accumulated = std::move(temp);
+    }
+    if (n < 0) {
+      // A^-n = inv(A^n); without this, pow(X,-1) returned X itself (#350)
+      auto inverted = make_tensor_data<ValueType>(d, r);
+      tensor_data_unary_wrapper<tmech_ops::inv, ValueType> iv(*inverted,
+                                                              *accumulated);
+      iv.evaluate(d, r);
+      accumulated = std::move(inverted);
     }
     m_result = std::move(accumulated);
   }

@@ -1844,6 +1844,43 @@ TEST(RoundTwoReview, DimChangingSubstitutionDropsTag) {
   EXPECT_THROW((void)ev.apply(s), evaluation_error);
 }
 
+// #350 — tensor_pow contract: rank-2 only, integer exponents, negative
+// exponents invert, diff of negative powers no longer silently zero.
+TEST(TensorPowContract, RankAndExponentGates) {
+  auto [C] =
+      make_tensor_variable(std::tuple{"C", std::size_t{3}, std::size_t{4}});
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  EXPECT_THROW((void)pow(C, 2), invalid_expression_error);
+  EXPECT_THROW((void)pow(C, 0), invalid_expression_error);
+  EXPECT_THROW((void)pow(X, make_expression<scalar_constant>(0.5)),
+               invalid_expression_error);
+  EXPECT_NO_THROW((void)pow(X, 3));
+  EXPECT_NO_THROW((void)pow(X, -2));
+}
+
+TEST(TensorPowContract, NegativeExponentEvaluatesInverse) {
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  tensor_evaluator<double> ev;
+  auto data = std::make_shared<tensor_data<double, 3, 2>>();
+  data->data()(0, 0) = 2.0;
+  data->data()(1, 1) = 4.0;
+  data->data()(2, 2) = 5.0;
+  ev.set(X, data);
+  auto r1 = ev.apply(pow(X, -1));
+  EXPECT_NEAR(r1->raw_data()[0], 0.5, 1e-12); // was 2.0 (#350)
+  auto r2 = ev.apply(pow(X, -2));
+  EXPECT_NEAR(r2->raw_data()[0], 0.25, 1e-12);
+}
+
+TEST(TensorPowContract, DiffOfNegativePowerThrows) {
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  // was a silent 0{4} (#350); inv(pow(X, 2)) is the supported spelling
+  EXPECT_THROW((void)diff(pow(X, -2), X), not_implemented_error);
+  EXPECT_NO_THROW((void)diff(inv(pow(X, 2)), X));}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
