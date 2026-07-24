@@ -10,6 +10,7 @@
 #include <numsim_cas/scalar/scalar_globals.h>
 #include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/operators/tensor/tensor_add.h>
+#include <numsim_cas/tensor/operators/tensor/tensor_mul.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_add.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_mul.h>
 #include <numsim_cas/tensor/simplifier/tensor_simplifier_sub.h>
@@ -37,6 +38,55 @@ is_trans_of(expression_holder<tensor_expression> const &a,
   if (bc.indices() != sequence{2, 1})
     return false;
   return bc.expr() == inner_target;
+}
+
+// Congruence / quadratic-sandwich space inference for a 3-factor tensor_mul
+// of the form trans(X)*M*X or X*M*trans(X):
+//   - Orthogonal outer Q: Q^T M Q is an orthogonal similarity, so it preserves
+//     M's *full* space (Sym / Dev / Vol — trace is preserved) and definiteness
+//     (PD/PSD). Closes #392.
+//   - General outer A: A^T S A is symmetric when S is symmetric, and PSD when S
+//     is PSD; the trace tag is dropped (tr(A^T D A) != 0 in general), and PD is
+//     not claimed (needs A invertible, which is unknown). Closes #391.
+// Sound-only: annotates nothing unless the middle factor carries the property.
+// Called on the generic tensor*tensor mul result (2-factor Gram forms are
+// handled earlier by their own branch).
+inline void
+annotate_congruence_space(expression_holder<tensor_expression> const &result) {
+  if (!is_same<tensor_mul>(result))
+    return;
+  auto const &factors = result.template get<tensor_mul>().data();
+  if (factors.size() != 3)
+    return;
+  auto const &front = factors[0];
+  auto const &mid = factors[1];
+  auto const &back = factors[2];
+  if (!(is_trans_of(front, back) || is_trans_of(back, front)))
+    return;
+
+  auto &out_asm = result.data()->tensor_algebra_assumptions();
+  auto const &mid_asm = mid.get().tensor_algebra_assumptions();
+  bool const mid_pd = mid_asm.contains(positive_definite{});
+  bool const mid_psd = mid_pd || mid_asm.contains(positive_semidefinite{});
+
+  // Orthogonal congruence preserves the middle's space and definiteness.
+  if (is_orthogonal(front) || is_orthogonal(back)) {
+    if (auto const &sp = mid.get().space())
+      result.data()->set_space(*sp);
+    if (mid_pd)
+      out_asm.insert(positive_definite{});
+    if (mid_psd)
+      out_asm.insert(positive_semidefinite{});
+    return;
+  }
+
+  // General congruence: symmetric kernel -> symmetric (trace tag lost);
+  // PD/PSD kernel -> PSD only.
+  if (is_symmetric(mid)) {
+    result.data()->set_space({Symmetric{}, AnyTraceTag{}});
+    if (mid_psd)
+      out_asm.insert(positive_semidefinite{});
+  }
 }
 
 // scalar binary ops
@@ -199,7 +249,10 @@ tag_invoke(mul_fn, L &&lhs, [[maybe_unused]] R &&rhs) {
   auto &_lhs{lhs.template get<tensor_visitable_t>()};
   tensor_detail::simplifier::mul_base visitor(std::forward<L>(lhs),
                                               std::forward<R>(rhs));
-  return _lhs.accept(visitor);
+  auto result = _lhs.accept(visitor);
+  // #391 / #392 — quadratic sandwich A^T*M*A and orthogonal congruence.
+  annotate_congruence_space(result);
+  return result;
 }
 
 // #256 — a positive scalar preserves PD/PSD: pos·PD → PD, pos·PSD → PSD.

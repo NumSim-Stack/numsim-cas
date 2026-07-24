@@ -493,6 +493,95 @@ TEST_F(TensorSpacePropagationTest, GeneralSumStaysUnannotated) {
   EXPECT_FALSE(is_skew(X + Y));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Quadratic sandwich (#391): trans(A)*S*A is symmetric (PSD if S is PSD),
+// with the trace tag dropped because a general A does not preserve trace.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST_F(TensorSpacePropagationTest, SandwichSymmetricKernelIsSymmetric) {
+  // trans(A)*S*A and A*S*trans(A) are symmetric for any A when S is symmetric.
+  EXPECT_TRUE(is_symmetric(trans(X) * C * X));
+  EXPECT_TRUE(is_symmetric(X * C * trans(X)));
+  EXPECT_FALSE(is_skew(trans(X) * C * X));
+}
+
+TEST_F(TensorSpacePropagationTest, SandwichPSDKernelIsPSDNotPD) {
+  // trans(A)*P*A is PSD (PD only if A invertible, which is unknown).
+  auto P = std::get<0>(make_tensor_variable(std::tuple{"P", dim, 2}));
+  assume_positive_definite(P);
+  auto s = trans(X) * P * X;
+  EXPECT_TRUE(is_symmetric(s));
+  EXPECT_TRUE(is_positive_semidefinite(s));
+  EXPECT_FALSE(is_positive_definite(s)) << "A invertibility unknown → PSD only";
+}
+
+TEST_F(TensorSpacePropagationTest, SandwichDropsTraceTagForGeneralOuter) {
+  // Safety: trans(A)*D*A is symmetric but NOT deviatoric — a general A does
+  // not preserve trace (tr(A^T D A) != 0 in general).
+  auto s = trans(X) * D * X;
+  EXPECT_TRUE(is_symmetric(s));
+  EXPECT_FALSE(is_deviatoric(s));
+}
+
+TEST_F(TensorSpacePropagationTest, SandwichNonSymmetricKernelIsUnannotated) {
+  // Safety: a non-symmetric kernel yields no symmetric claim.
+  auto G = std::get<0>(make_tensor_variable(std::tuple{"G", dim, 2}));
+  EXPECT_FALSE(is_symmetric(trans(X) * G * X));
+}
+
+TEST_F(TensorSpacePropagationTest, SandwichRequiresTransposePairing) {
+  // Safety: A*S*A (no transpose) is not a congruence and stays unannotated.
+  EXPECT_FALSE(is_symmetric(X * C * X));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Orthogonal congruence (#392): trans(Q)*X*Q preserves the full space
+// (sym/dev/vol) and definiteness, because orthogonal similarity keeps
+// eigenvalues and trace.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class OrthoCongruenceFixture : public TensorSpacePropagationTest {
+protected:
+  tensor_t Q;
+  OrthoCongruenceFixture() {
+    Q = std::get<0>(make_tensor_variable(std::tuple{"Q", dim, 2}));
+    assume_orthogonal(Q);
+  }
+};
+
+TEST_F(OrthoCongruenceFixture, PreservesSymmetric) {
+  EXPECT_TRUE(is_symmetric(trans(Q) * C * Q));
+}
+
+TEST_F(OrthoCongruenceFixture, PreservesDeviatoric) {
+  // trans(Q)*D*Q stays deviatoric: tr(Q^T D Q) = tr(D) = 0.
+  auto s = trans(Q) * D * Q;
+  EXPECT_TRUE(is_deviatoric(s));
+  EXPECT_TRUE(is_symmetric(s));
+}
+
+TEST_F(OrthoCongruenceFixture, PreservesVolumetric) {
+  EXPECT_TRUE(is_volumetric(trans(Q) * V * Q));
+}
+
+TEST_F(OrthoCongruenceFixture, PreservesPositiveDefinite) {
+  // Orthogonal similarity preserves eigenvalues → PD stays PD.
+  auto P = std::get<0>(make_tensor_variable(std::tuple{"P", dim, 2}));
+  assume_positive_definite(P);
+  auto s = trans(Q) * P * Q;
+  EXPECT_TRUE(is_positive_definite(s));
+  EXPECT_TRUE(is_symmetric(s));
+}
+
+TEST_F(OrthoCongruenceFixture, GeneralOuterDoesNotPreserveTrace) {
+  // Contrast with the orthogonal case: a non-orthogonal outer must drop the
+  // trace tag and must not claim PD.
+  auto P = std::get<0>(make_tensor_variable(std::tuple{"P2", dim, 2}));
+  assume_positive_definite(P);
+  EXPECT_FALSE(is_deviatoric(trans(X) * D * X));
+  EXPECT_FALSE(is_positive_definite(trans(X) * P * X));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORSPACEPROPAGATIONTEST_H
