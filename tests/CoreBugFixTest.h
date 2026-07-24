@@ -1805,6 +1805,30 @@ TEST(Rank4IdentityTag, InvOfNegatedIdentity) {
   EXPECT_NEAR(r->raw_data()[0], -1.0, 1e-12); // (0,0,0,0)
 }
 
+// #352 — substitution must not inherit the source's space annotation when
+// the structure changed: substitute(trans(A)-A, trans(A), C) is C-A,
+// which is NOT skew for general C.
+TEST(SubstitutionSpace, ChangedStructureDropsStaleTag) {
+  auto [A, C] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"C", std::size_t{3}, std::size_t{2}});
+  auto f = substitute(trans(A) - A, trans(A), C); // C - A, general
+  EXPECT_NE(to_string(sym(f)), "0{2}");
+  EXPECT_NE(to_string(skew(f)), to_string(f));
+}
+
+TEST(SubstitutionSpace, OperatorDerivedTagSurvives) {
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  // skew(X) is skew for any X: substituting the argument keeps the tag
+  auto s = substitute(skew(A), A, B);
+  EXPECT_TRUE(is_skew_annotated(s));
+  // structurally skew trans(C)-C is re-derived by construction
+  auto h = substitute(trans(A) - A, A, B);
+  EXPECT_EQ(to_string(sym(h)), "0{2}");
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
