@@ -72,21 +72,12 @@ public:
   // expr * 1 → expr
   expr_holder_t dispatch(typename Traits::one_type const &) { return m_lhs; }
 
-  // x * (x*y*z) → push x into existing mul
+  // x * (x*y*z) → merge x into the existing mul (combining a duplicate
+  // factor into a pow instead of throwing on duplicate insertion, #346)
   expr_holder_t dispatch(typename Traits::mul_type const &rhs) {
-    auto mul_expr{make_expression<typename Traits::mul_type>(rhs)};
-    auto &mul{mul_expr.template get<typename Traits::mul_type>()};
-    // an identical factor may already exist (sin(x) * (c*sin(x)*y)); a raw
-    // push_back would hit the no-duplicates assert — combine to a pow
-    auto pos{rhs.symbol_map().find(m_lhs)};
-    if (pos != rhs.symbol_map().end() && pos->second == m_lhs) {
-      auto combined{pos->second * m_lhs};
-      mul.symbol_map().erase(m_lhs);
-      mul.invalidate_hash();
-      return std::move(mul_expr) * combined;
-    }
-    mul.push_back(m_lhs);
-    return mul_expr;
+    auto mul{make_expression<typename Traits::mul_type>(rhs)};
+    mul.template get<typename Traits::mul_type>().merge_or_insert_mul(m_lhs);
+    return mul;
   }
 
 protected:

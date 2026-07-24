@@ -1618,6 +1618,28 @@ TEST(IndexSequenceIdentity, T2sContractionSequencesDistinguish) {
   EXPECT_EQ(to_string(ab - ab2), "0");
 }
 
+// #346 — multiplying a function factor into a product already containing it
+// must fold to a pow instead of throwing "duplicate child insertion".
+TEST(MulDuplicateFactor, FunctionFactorIntoProduct) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  ev.set(y, 3.0);
+  expression_holder<scalar_expression> e;
+  EXPECT_NO_THROW(e = sin(x) * (sin(x) * y));
+  EXPECT_EQ(to_string(e), to_string(pow(sin(x), 2.0) * y));
+  EXPECT_NEAR(ev.apply(e), std::sin(2.0) * std::sin(2.0) * 3.0, 1e-15);
+
+  expression_holder<scalar_expression> e2;
+  EXPECT_NO_THROW(e2 = log(x) * (log(x) * y));
+  EXPECT_NEAR(ev.apply(e2), std::log(2.0) * std::log(2.0) * 3.0, 1e-15);
+
+  // chained collision: pow result meets an existing pow factor
+  expression_holder<scalar_expression> e3;
+  EXPECT_NO_THROW(e3 = sin(x) * (pow(sin(x), 2.0) * y));
+  EXPECT_NEAR(ev.apply(e3), std::pow(std::sin(2.0), 3.0) * 3.0, 1e-12);
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
