@@ -456,9 +456,8 @@ TYPED_TEST(TensorExpressionTest, AddMergeTwoNary) {
   EXPECT_PRINT((X + Y + Z) + (X + Y + Z), "2*X+2*Y+2*Z");
 }
 
-// n_ary_add + scalar_mul: hash_map find uses hash+id; tensor_scalar_mul
-// has same hash as its tensor child but different id, so find() doesn't
-// match existing bare symbols — scalar_mul is pushed as a separate child.
+// n_ary_add + scalar_mul: c*X is a like term of a stored bare X (#340);
+// find_like merges them into (1+c)*X. Unrelated symbols stay separate.
 TYPED_TEST(TensorExpressionTest, AddNaryPlusScalarMul) {
   auto &X = this->X;
   auto &Y = this->Y;
@@ -466,8 +465,8 @@ TYPED_TEST(TensorExpressionTest, AddNaryPlusScalarMul) {
   auto &_2 = this->_2;
   auto &_3 = this->_3;
 
-  EXPECT_PRINT((X + Y) + _2 * X, "X+2*X+Y");
-  EXPECT_PRINT((X + Y) + _3 * Y, "X+Y+3*Y");
+  EXPECT_PRINT((X + Y) + _2 * X, "3*X+Y");
+  EXPECT_PRINT((X + Y) + _3 * Y, "X+4*Y");
   EXPECT_PRINT((X + Y) + _2 * Z, "X+Y+2*Z");
 }
 

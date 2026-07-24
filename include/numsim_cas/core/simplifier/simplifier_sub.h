@@ -24,7 +24,7 @@ public:
       : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)) {}
 
   expr_holder_t get_default() {
-    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
+    if (m_lhs == m_rhs) {
       return Traits::zero();
     }
 

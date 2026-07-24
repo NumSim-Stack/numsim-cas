@@ -36,6 +36,22 @@ public:
     base::push_back(std::move(expr));
   }
 
+  /// Recompute the space join from the current children (for merge-based
+  /// construction paths that bypass push_back, e.g. merge_or_insert).
+  inline void recompute_space() {
+    this->clear_space();
+    bool first{true};
+    for (auto const &child : this->symbol_map() | std::views::values) {
+      if (first) {
+        if (auto const &sp = child.get().space())
+          this->set_space(*sp);
+        first = false;
+        continue;
+      }
+      join_child_space(child.get());
+    }
+  }
+
 private:
   void join_child_space(tensor_expression const &child) {
     auto const &child_sp = child.space();

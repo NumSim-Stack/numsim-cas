@@ -66,7 +66,7 @@ public:
    * @param visitable Scalar variable node.
    */
   void operator()(scalar const &visitable) override {
-    if (visitable.hash_value() == m_arg.get().hash_value()) {
+    if (visitable == m_arg.get()) {
       m_result = get_scalar_one();
     } else {
       m_result = get_scalar_zero();

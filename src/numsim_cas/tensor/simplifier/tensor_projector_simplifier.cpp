@@ -135,6 +135,9 @@ void tensor_projector_simplifier::operator()(tensor_add const &v) {
       for (std::size_t j = i + 1; j < entries.size(); ++j) {
         if (consumed[entries[j].child_index])
           continue;
+        // hash groups may alias (hash(c*T)==hash(T)); require deep equality
+        if (!(entries[i].argument == entries[j].argument))
+          continue;
 
         auto combined = addition_rule(entries[i].kind, entries[j].kind);
         if (combined) {

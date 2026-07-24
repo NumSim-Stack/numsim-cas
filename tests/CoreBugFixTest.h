@@ -1117,7 +1117,58 @@ TEST(RoundTwoReview, T2sWrapperCancelCollapses) {
   auto e2 = (trace(A) + w(a)) - w(a);
   EXPECT_TRUE(*e2 == *trace(A));
 }
+// #340 — raw hash_value() comparisons replaced by deep equality / explicit
+// like-term folds. hash(c*X)==hash(X) and hash(pow(X,c))==hash(X) stay by
+// design; they must never merge without a deep check.
+TEST(HashIdentitySweep, TensorAddNoFalseMerges) {
+  auto [X] = make_tensor_variable(std::tuple{"X", 3, 2});
+  EXPECT_EQ(to_string(X + pow(X, 2)), "X+pow(X,2)");
+  EXPECT_EQ(to_string(X + 2.0 * X), "3*X");
+  EXPECT_EQ(to_string(2.0 * X + 3.0 * X), "5*X");
+  EXPECT_NE(to_string(X + (-pow(X, 2))), "0{2}");
+  EXPECT_NE(to_string((-X) + 2.0 * pow(X, 2)), "pow(X,2)");
+}
 
+TEST(HashIdentitySweep, TensorMulNoFalsePow) {
+  auto [X] = make_tensor_variable(std::tuple{"X", 3, 2});
+  // X*(2X) and (2X)*X: the scalar factor must survive
+  EXPECT_EQ(to_string(X * (2.0 * X)).find("pow(2*X"), std::string::npos);
+  auto s1 = to_string(X * (2.0 * X));
+  auto s2 = to_string((2.0 * X) * X);
+  EXPECT_NE(s1.find("2"), std::string::npos);
+  EXPECT_NE(s2.find("2"), std::string::npos);
+  // exact same operand still folds to pow
+  EXPECT_EQ(to_string(X * X), "pow(X,2)");
+}
+
+TEST(HashIdentitySweep, ProjectorMergeRequiresSameArgument) {
+  auto [X] = make_tensor_variable(std::tuple{"X", 3, 2});
+  auto e = vol(pow(X, 2)) + dev(X);
+  EXPECT_NE(to_string(e), "sym(pow(X,2))");
+  EXPECT_NE(to_string(e), "sym(X)");
+  // same argument keeps merging
+  EXPECT_EQ(to_string(vol(X) + dev(X)), "sym(X)");
+  EXPECT_EQ(to_string(sym(X) + skew(X)), "X");
+}
+
+TEST(HashIdentitySweep, ScalarSubMaxMinDeepEquality) {
+  auto [x] = make_scalar_variable("x");
+  EXPECT_NE(to_string(sin(x + 2.0) - sin(x + 5.0)), "0");
+  EXPECT_NE(to_string(max(2.0 * x, 3.0 * x)), "2*x");
+  EXPECT_NE(to_string(min(2.0 * x, 3.0 * x)), "2*x");
+  // exact duplicates still fold
+  EXPECT_EQ(to_string(max(x, x)), "x");
+  EXPECT_EQ(to_string(sin(x + 2.0) - sin(x + 2.0)), "0");
+}
+
+TEST(HashIdentitySweep, TensorAddSpaceJoinSurvivesMerge) {
+  auto [A] = make_tensor_variable(std::tuple{"A", 3, 2});
+  auto [B] = make_tensor_variable(std::tuple{"B", 3, 2});
+  auto sa = sym(A);
+  auto sb = sym(B);
+  EXPECT_TRUE(is_symmetric(sa + sb));
+  // like-term merge path keeps the join
+  EXPECT_TRUE(is_symmetric((sa + sb) + 2.0 * sa));}
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
