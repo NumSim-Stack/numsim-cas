@@ -117,14 +117,22 @@ public:
       : base(std::move(lhs_in), std::move(rhs)),
         lhs{base::m_lhs.template get<typename Traits::mul_type>()} {}
 
+  // (a*b)^n = a^n * b^n only holds for all reals when n is an integer (#345)
+  [[nodiscard]] bool integer_outer_exponent() const {
+    auto val = Traits::try_numeric(this->m_rhs);
+    return val && pow_integer_exponent(*val).has_value();
+  }
+
   // pow(mul, -rhs)
-  expr_holder_t dispatch([[maybe_unused]]
-                         typename Traits::negative_type const &rhs) {
+  expr_holder_t dispatch(typename Traits::negative_type const &rhs) {
+    auto inner_val = Traits::try_numeric(rhs.expr());
+    const bool int_exp{integer_outer_exponent() ||
+                       (inner_val && pow_integer_exponent(*inner_val))};
     auto mul_expr{make_expression<typename Traits::mul_type>(lhs)};
     auto &mul{mul_expr.template get<typename Traits::mul_type>()};
     // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pow(z,base*rhs)
     const auto pows{get_all<typename Traits::pow_type>(lhs)};
-    if (!pows.empty()) {
+    if (!pows.empty() && int_exp) {
       expr_holder_t result;
       for (const auto &expr : pows) {
         const auto &pow_expr{expr.template get<typename Traits::pow_type>()};
@@ -155,7 +163,7 @@ public:
 
     // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pow(z,base*rhs)
     const auto pows{get_all<typename Traits::pow_type>(lhs)};
-    if (!pows.empty()) {
+    if (!pows.empty() && integer_outer_exponent()) {
       expr_holder_t result;
       for (const auto &expr : pows) {
         const auto &pow_expr{expr.template get<typename Traits::pow_type>()};

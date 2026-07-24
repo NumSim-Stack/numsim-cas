@@ -189,7 +189,10 @@ scalar_pow_mul::dispatch([[maybe_unused]] scalar_pow const &rhs) {
     return pow(m_lhs_node.expr_lhs(), rhs_expr);
   }
 
-  if (m_lhs_node.expr_rhs() == rhs.expr_rhs()) {
+  // x^a * y^a --> (x*y)^a only for integer a (#345; mirrors
+  // simplify_scalar_pow_pow_mul's guard)
+  if (m_lhs_node.expr_rhs() == rhs.expr_rhs() &&
+      is_integer_exponent(m_lhs_node.expr_rhs())) {
     const auto lhs_expr{m_lhs_node.expr_lhs() * rhs.expr_lhs()};
     return pow(lhs_expr, m_lhs_node.expr_rhs());
   }

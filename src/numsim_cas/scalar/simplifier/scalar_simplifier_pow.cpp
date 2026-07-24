@@ -30,11 +30,12 @@ mul_pow::mul_pow(expr_holder_t lhs, expr_holder_t rhs)
 // pow(scalar_mul, -rhs)
 mul_pow::expr_holder_t
 mul_pow::dispatch([[maybe_unused]] scalar_negative const &rhs) {
+  const bool int_exp{try_int_constant(m_rhs).has_value()};
   auto mul_expr{make_expression<scalar_mul>(m_lhs_node)};
   auto &mul{mul_expr.template get<scalar_mul>()};
   // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pos(z,base*rhs)
   const auto pows{get_all<scalar_pow>(m_lhs_node)};
-  if (!pows.empty()) {
+  if (!pows.empty() && int_exp) {
     expr_holder_t result;
     for (const auto &expr : pows) {
       const auto &pow_expr{expr.get<scalar_pow>()};
@@ -59,7 +60,7 @@ mul_pow::expr_holder_t mul_pow::dispatch([[maybe_unused]] Expr const &rhs) {
 
   // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pos(z,base*rhs)
   const auto pows{get_all<scalar_pow>(m_lhs_node)};
-  if (!pows.empty()) {
+  if (!pows.empty() && try_int_constant(m_rhs)) {
     expr_holder_t result;
     for (const auto &expr : pows) {
       const auto &pow_expr{expr.get<scalar_pow>()};
