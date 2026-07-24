@@ -48,10 +48,11 @@ struct Cell {
 
 inline void check_cell(Cell c, expression_holder<tensor_expression> const &e) {
   auto chk = [&](Tri t, bool actual, char const *which) {
-    if (t == Tri::Yes)
+    if (t == Tri::Yes) {
       EXPECT_TRUE(actual) << which << " should be present";
-    else if (t == Tri::No)
+    } else if (t == Tri::No) {
       EXPECT_FALSE(actual) << which << " should be absent";
+    }
   };
   chk(c.sym, is_symmetric(e), "is_symmetric");
   chk(c.skew, is_skew(e), "is_skew");
