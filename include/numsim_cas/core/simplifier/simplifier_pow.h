@@ -2,27 +2,25 @@
 #define SIMPLIFIER_POW_H
 
 #include <cmath>
-#include <cstdint>
-#include <variant>
-
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/domain_traits.h>
 #include <numsim_cas/core/scalar_number.h>
+#include <optional>
+#include <variant>
 
 namespace numsim::cas {
 namespace detail {
 
-// -1: not a (representable) integer, 0: even, 1: odd
-inline int integer_parity(scalar_number const &n) {
-  if (auto const *i = std::get_if<std::int64_t>(&n.raw())) {
-    return static_cast<int>(*i & 1);
+// Exact integer value of a numeric exponent (int64 or whole double).
+inline std::optional<std::int64_t>
+pow_integer_exponent(scalar_number const &v) {
+  if (auto const *i = std::get_if<std::int64_t>(&v.raw()))
+    return *i;
+  if (auto const *d = std::get_if<double>(&v.raw())) {
+    if (*d == std::round(*d) && std::abs(*d) < 9.007199254740992e15)
+      return static_cast<std::int64_t>(*d);
   }
-  if (auto const *d = std::get_if<double>(&n.raw())) {
-    if (*d == std::floor(*d) && std::fabs(*d) < 9.0e15) {
-      return static_cast<int>(static_cast<std::int64_t>(*d) & 1);
-    }
-  }
-  return -1;
+  return std::nullopt;
 }
 
 //==============================================================================
@@ -39,42 +37,17 @@ public:
 
   expr_holder_t get_default() {
     using negative_type = typename Traits::negative_type;
-    using mul_type = typename Traits::mul_type;
     using pow_type = typename Traits::pow_type;
 
-    if (is_same<negative_type>(m_rhs)) {
-      const auto expr{m_rhs.template get<negative_type>().expr()};
-      // expr / expr --> 1; for x /= 0
-      if (m_lhs == expr) {
-        return Traits::one();
-      }
-
-      // expr*x / x --> expr; for x /= 0
-      if (is_same<mul_type>(m_lhs)) {
-        const auto &map{m_lhs.template get<mul_type>().symbol_map()};
-        // map keys compare by hash; confirm deep equality before erasing
-        auto pos{map.find(expr)};
-        if (pos != map.end() && pos->second == expr) {
-          auto copy{make_expression<mul_type>(m_lhs.template get<mul_type>())};
-          auto &mul{copy.template get<mul_type>()};
-          mul.symbol_map().erase(expr);
-          mul.invalidate_hash();
-          return copy;
-        }
-      }
-    }
-    // pow(-expr, p): the sign survives only for odd integer p; even integer
-    // p absorbs it; unknown/non-integer p must keep the negative base.
+    // pow(-expr, p): sign pull-out only for provably integer exponents
+    // (pow(x, -y) is NOT x/y — the former division-style rules here were
+    // unsound, #344)
     if (auto expr_neg{is_same_r<negative_type>(m_lhs)}) {
-      if (auto num = Traits::try_numeric(m_rhs)) {
-        const int parity = integer_parity(*num);
-        if (parity == 0) {
-          return make_expression<pow_type>(expr_neg->get().expr(),
-                                           std::move(m_rhs));
-        }
-        if (parity == 1) {
-          return -make_expression<pow_type>(expr_neg->get().expr(),
-                                            std::move(m_rhs));
+      if (auto val = Traits::try_numeric(m_rhs)) {
+        if (auto n = pow_integer_exponent(*val)) {
+          auto p{make_expression<pow_type>(expr_neg->get().expr(),
+                                           std::move(m_rhs))};
+          return (*n % 2 == 0) ? p : -p;
         }
       }
     }
@@ -138,18 +111,10 @@ public:
         lhs{base::m_lhs.template get<typename Traits::mul_type>()} {}
 
   // pow(mul, -rhs)
-  expr_holder_t dispatch(typename Traits::negative_type const &rhs) {
-    // map keys compare by hash; confirm deep equality before erasing
-    auto pos{lhs.symbol_map().find(rhs.expr())};
+  expr_holder_t dispatch([[maybe_unused]]
+                         typename Traits::negative_type const &rhs) {
     auto mul_expr{make_expression<typename Traits::mul_type>(lhs)};
     auto &mul{mul_expr.template get<typename Traits::mul_type>()};
-    // x*y*z / x --> y*z
-    if (pos != lhs.symbol_map().end() && pos->second == rhs.expr()) {
-      mul.symbol_map().erase(rhs.expr());
-      mul.invalidate_hash();
-      return mul_expr;
-    }
-
     // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pow(z,base*rhs)
     const auto pows{get_all<typename Traits::pow_type>(lhs)};
     if (!pows.empty()) {

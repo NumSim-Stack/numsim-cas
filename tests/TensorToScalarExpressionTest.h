@@ -269,16 +269,14 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_PowSimplification) {
   // pow of pow with different base expressions
   EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(nX, 2), 3), "pow(norm(X),6)");
 
-  // --- Negative base: sign extraction is parity-dependent (round-5 review:
-  // (-tr(X))^2 = tr(X)^2; only odd integer exponents keep the sign) ---
+  // --- Negative base: sign pull-out only for integer exponents (#344).
+  // pow(-tr(X), 2) is +tr(X)^2.
   EXPECT_PRINT(numsim::cas::pow(-trX, 2), "pow(tr(X),2)");
   EXPECT_PRINT(numsim::cas::pow(-trX, _3), "-pow(tr(X),3)");
 
-  // --- Division cancellation: pow(expr, -expr) → 1 ---
-  EXPECT_PRINT(numsim::cas::pow(trX, -trX), "1");
-
-  // --- Mul factor cancel: pow(expr*x, -x) → expr ---
-  EXPECT_PRINT(numsim::cas::pow(trX * nX, -nX), "tr(X)");
+  // --- No division folds: pow(e, -e) is e^(-e), not e/e (#344) ---
+  EXPECT_PRINT(numsim::cas::pow(trX, -trX), "pow(tr(X),-tr(X))");
+  EXPECT_PRINT(numsim::cas::pow(trX * nX, -nX), "pow(norm(X)*tr(X),-norm(X))");
 
   // --- Mul-pow extraction: pow(a*pow(b,c), d) → pow(a,d)*pow(b,c*d) ---
   EXPECT_PRINT(numsim::cas::pow(trX * numsim::cas::pow(nX, 2), 3),

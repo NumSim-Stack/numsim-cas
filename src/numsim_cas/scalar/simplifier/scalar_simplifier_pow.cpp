@@ -28,16 +28,10 @@ mul_pow::mul_pow(expr_holder_t lhs, expr_holder_t rhs)
       m_lhs_node{base::m_lhs.template get<scalar_mul>()} {}
 
 // pow(scalar_mul, -rhs)
-mul_pow::expr_holder_t mul_pow::dispatch(scalar_negative const &rhs) {
-  auto pos{m_lhs_node.symbol_map().find(rhs.expr())};
+mul_pow::expr_holder_t
+mul_pow::dispatch([[maybe_unused]] scalar_negative const &rhs) {
   auto mul_expr{make_expression<scalar_mul>(m_lhs_node)};
   auto &mul{mul_expr.template get<scalar_mul>()};
-  // x*y*z / x --> y*z
-  if (pos != m_lhs_node.symbol_map().end()) {
-    mul.symbol_map().erase(rhs.expr());
-    return mul_expr;
-  }
-
   // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pos(z,base*rhs)
   const auto pows{get_all<scalar_pow>(m_lhs_node)};
   if (!pows.empty()) {

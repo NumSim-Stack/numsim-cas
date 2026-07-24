@@ -193,11 +193,6 @@ scalar_pow_mul::dispatch([[maybe_unused]] scalar const &rhs) {
     return pow(m_lhs_node.expr_lhs(), rhs_expr);
   }
 
-  // pow(expr, -expr_p) * expr_p --> expr
-  if (is_same<scalar_negative>(power) &&
-      power.get<scalar_negative>().expr() == m_rhs) {
-    return m_lhs_node.expr_lhs();
-  }
   return get_default();
 }
 

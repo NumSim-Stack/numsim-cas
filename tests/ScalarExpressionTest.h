@@ -372,17 +372,15 @@ TEST_F(ScalarFixture, POW_Simplification) {
   EXPECT_PRINT(pow(pow(x, -_2), -_2), "pow(x,4)");
   EXPECT_PRINT(pow(pow(x, -_2), _2), "pow(x,-4)");
 
-  // --- Negative base: sign extraction is parity-dependent (round-5 review:
-  // (-x)^2 = x^2, and for symbolic p the sign cannot be extracted at all) ---
+  // --- Negative base: sign pull-out only for integer exponents (#344).
+  // pow(-x, 2) is +x^2; symbolic exponents stay structural.
   EXPECT_PRINT(pow(-x, _2), "pow(x,2)");
   EXPECT_PRINT(pow(-x, _3), "-pow(x,3)");
   EXPECT_PRINT(pow(-x, y), "pow(-x,y)");
 
-  // --- Division cancellation: pow(x, -x) → 1 ---
-  EXPECT_PRINT(pow(x, -x), "1");
-
-  // --- Mul factor cancel: pow(x*y, -y) → x ---
-  EXPECT_PRINT(pow(x * y, -y), "x");
+  // --- No division folds: pow(x, -x) is x^(-x), not x/x (#344) ---
+  EXPECT_PRINT(pow(x, -x), "pow(x,-x)");
+  EXPECT_PRINT(pow(x * y, -y), "pow(x*y,-y)");
 
   // --- Mul-pow extraction: pow(x*pow(y,a), b) → pow(x,b)*pow(y,a*b) ---
   EXPECT_PRINT(pow(x * pow(y, _2), _3), "pow(y,6)*pow(x,3)");
