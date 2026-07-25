@@ -106,10 +106,9 @@ public:
       a.insert(positive_semidefinite{}); // PD ⇒ PSD, mirrors
                                          // assume_positive_definite()
       // PD ⇒ symmetric, via the same helper assume_positive_definite()
-      // uses. Mechanically a no-op today because space_for_rank above
-      // already wrote a qualifying space tag at both supported ranks
-      // (rank-2 Symmetric ⇒ ProjKind::Sym early-return; rank-4
-      // MinorMajor ⇒ holds_alternative early-return). The call exists
+      // uses. Mechanically a no-op today: rank-2 already carries
+      // Symmetric, and the helper's rank()!=2 gate skips rank 4 (whose
+      // tag is Major since #351). The call exists
       // so that any future drift in detail::set_symmetric_unless_more_specific
       // (e.g. it grows a sibling-field write that we'd otherwise miss)
       // tracks automatically. Pairs with the helper in tensor_assume.h.

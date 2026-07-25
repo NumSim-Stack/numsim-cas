@@ -1802,7 +1802,8 @@ TEST(Rank4IdentityTag, InvOfNegatedIdentity) {
   auto r = ev.apply(inv(-I4));
   // (0,1,0,1) flattens to ((0*3+1)*3+0)*3+1 = 10
   EXPECT_NEAR(r->raw_data()[10], -1.0, 1e-12);
-  EXPECT_NEAR(r->raw_data()[0], -1.0, 1e-12); // (0,0,0,0)}
+  EXPECT_NEAR(r->raw_data()[0], -1.0, 1e-12); // (0,0,0,0)
+}
 
 } // namespace numsim::cas
 
