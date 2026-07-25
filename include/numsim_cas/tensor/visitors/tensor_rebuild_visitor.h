@@ -50,6 +50,9 @@ public:
   // argument, so it survives child substitution (#93/#352).
   static bool same_projector_contraction(tensor_holder_t const &a,
                                          tensor_holder_t const &b) {
+    if (a.get().rank() != b.get().rank() || a.get().dim() != b.get().dim()) {
+      return false; // review on #352: never restore across a shape change
+    }
     auto ia = as_projector_contraction(a);
     auto ib = as_projector_contraction(b);
     return ia && ib && *ia->proj == *ib->proj;
