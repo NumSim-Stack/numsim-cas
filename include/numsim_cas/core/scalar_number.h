@@ -96,7 +96,7 @@ public:
                                           scalar_number const &exp);
 
 private:
-  explicit scalar_number(variant_t vv) : v_(std::move(vv)) {
+  explicit scalar_number(variant_t vv) : v_(vv) {
     if (auto *r = std::get_if<rational_t>(&v_)) {
       if (r->den == 1)
         v_ = r->num;

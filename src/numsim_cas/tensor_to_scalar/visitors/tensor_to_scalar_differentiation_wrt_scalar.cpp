@@ -218,7 +218,7 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
   if (!dA.is_valid() || is_same<tensor_zero>(dA)) {
     return;
   }
-  m_result = trace(std::move(dA));
+  m_result = trace(dA);
 }
 
 // dot(A) = A:A. d/ds = 2 * (A : dA/ds).
@@ -237,8 +237,8 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
   sequence idx_a(rank), idx_b(rank);
   std::iota(idx_a.begin(), idx_a.end(), std::size_t{0});
   std::iota(idx_b.begin(), idx_b.end(), std::size_t{0});
-  auto contraction = dot_product(visitable.expr(), std::move(idx_a),
-                                 std::move(dA), std::move(idx_b));
+  auto contraction =
+      dot_product(visitable.expr(), std::move(idx_a), dA, std::move(idx_b));
   m_result =
       wrap_scalar(make_expression<scalar_constant>(2)) * std::move(contraction);
 }
@@ -254,8 +254,8 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
   sequence idx_a(rank), idx_b(rank);
   std::iota(idx_a.begin(), idx_a.end(), std::size_t{0});
   std::iota(idx_b.begin(), idx_b.end(), std::size_t{0});
-  auto contraction = dot_product(visitable.expr(), std::move(idx_a),
-                                 std::move(dA), std::move(idx_b));
+  auto contraction =
+      dot_product(visitable.expr(), std::move(idx_a), dA, std::move(idx_b));
   auto inv_norm = pow(m_expr, -wrap_scalar(get_scalar_one()));
   m_result = std::move(contraction) * inv_norm;
 }
@@ -268,8 +268,7 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
     return;
   }
   auto invAT = inv(trans(visitable.expr()));
-  auto contracted =
-      dot_product(invAT, sequence{1, 2}, std::move(dA), sequence{1, 2});
+  auto contracted = dot_product(invAT, sequence{1, 2}, dA, sequence{1, 2});
   m_result = m_expr * std::move(contracted);
 }
 
@@ -282,8 +281,7 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
     return;
   }
   auto Ei = eigen_decomposition(visitable.expr()).basis(visitable.index());
-  m_result =
-      dot_product(std::move(Ei), sequence{1, 2}, std::move(dB), sequence{1, 2});
+  m_result = dot_product(Ei, sequence{1, 2}, dB, sequence{1, 2});
 }
 
 // [f; λ_M]: d/ds = Σ_{distinct k in M} mult_k [f; λ_{M∪{k}}] dλ_k/ds
@@ -330,14 +328,13 @@ void tensor_to_scalar_differentiation_wrt_scalar::operator()(
   if (dA.is_valid() && !is_same<tensor_zero>(dA)) {
     auto s_l = seq_lhs;
     auto s_r = seq_rhs;
-    sum = dot_product(std::move(dA), std::move(s_l), visitable.expr_rhs(),
-                      std::move(s_r));
+    sum = dot_product(dA, std::move(s_l), visitable.expr_rhs(), std::move(s_r));
   }
   if (dB.is_valid() && !is_same<tensor_zero>(dB)) {
     auto s_l = seq_lhs;
     auto s_r = seq_rhs;
-    auto term = dot_product(visitable.expr_lhs(), std::move(s_l), std::move(dB),
-                            std::move(s_r));
+    auto term =
+        dot_product(visitable.expr_lhs(), std::move(s_l), dB, std::move(s_r));
     if (sum.is_valid()) {
       sum += term;
     } else {

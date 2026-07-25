@@ -37,7 +37,7 @@ class parse_error : public cas_error {
 public:
   /// Construct with optional source context. Pass an empty `source` and
   /// `byte_offset = 0` for errors raised outside the parser.
-  parse_error(std::string message, std::size_t byte_offset,
+  parse_error(std::string const &message, std::size_t byte_offset,
               std::string_view source);
 
   /// Byte offset into the source where the error was detected, clamped

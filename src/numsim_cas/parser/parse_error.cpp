@@ -63,7 +63,7 @@ std::string format_message(std::string_view body, std::string_view source,
 
 } // namespace
 
-parse_error::parse_error(std::string message, std::size_t byte_offset,
+parse_error::parse_error(std::string const &message, std::size_t byte_offset,
                          std::string_view source)
     : cas_error(format_message(message, source, byte_offset)) {
   if (!source.empty()) {

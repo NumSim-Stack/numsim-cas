@@ -30,4 +30,4 @@ jobs:
       - name: Run clang-tidy
         run: |
           find src -name '*.cpp' -print0 \
-          | xargs -0 clang-tidy-18 -p build
+          | xargs -0 clang-tidy-18 -p build --warnings-as-errors='*'
