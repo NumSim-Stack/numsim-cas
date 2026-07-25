@@ -45,8 +45,15 @@ public:
     if (auto expr_neg{is_same_r<negative_type>(m_lhs)}) {
       if (auto val = Traits::try_numeric(m_rhs)) {
         if (auto n = pow_integer_exponent(*val)) {
-          auto p{make_expression<pow_type>(expr_neg->get().expr(),
-                                           std::move(m_rhs))};
+          // Recurse through pow() so nested bases keep canonicalizing
+          // (pow(-pow(x,2),2) must reach pow(x,4); review on #344).
+          // Numeric bases stay structural: pow(2,-1) must keep printing
+          // as a division, not fold to the rational 1/2.
+          auto inner{expr_neg->get().expr()};
+          auto p{Traits::try_numeric(inner)
+                     ? make_expression<pow_type>(std::move(inner),
+                                                 std::move(m_rhs))
+                     : pow(std::move(inner), std::move(m_rhs))};
           return (*n % 2 == 0) ? p : -p;
         }
       }
