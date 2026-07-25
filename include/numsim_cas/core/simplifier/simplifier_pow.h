@@ -137,6 +137,7 @@ public:
       for (const auto &expr : pows) {
         const auto &pow_expr{expr.template get<typename Traits::pow_type>()};
         mul.symbol_map().erase(expr);
+        mul.invalidate_hash();
         auto pow_n{pow(pow_expr.expr_lhs(), pow_expr.expr_rhs() * this->m_rhs)};
         if (!result.is_valid()) {
           result = std::move(pow_n);
@@ -168,6 +169,7 @@ public:
       for (const auto &expr : pows) {
         const auto &pow_expr{expr.template get<typename Traits::pow_type>()};
         mul.symbol_map().erase(expr);
+        mul.invalidate_hash();
         auto pow_n{pow(pow_expr.expr_lhs(), pow_expr.expr_rhs() * this->m_rhs)};
         if (!result.is_valid()) {
           result = std::move(pow_n);

@@ -40,6 +40,7 @@ mul_pow::dispatch([[maybe_unused]] scalar_negative const &rhs) {
     for (const auto &expr : pows) {
       const auto &pow_expr{expr.get<scalar_pow>()};
       mul.symbol_map().erase(expr);
+      mul.invalidate_hash();
       auto pow_n{pow(pow_expr.expr_lhs(), pow_expr.expr_rhs() * m_rhs)};
       if (!result.is_valid()) {
         result = std::move(pow_n);
@@ -65,6 +66,7 @@ mul_pow::expr_holder_t mul_pow::dispatch([[maybe_unused]] Expr const &rhs) {
     for (const auto &expr : pows) {
       const auto &pow_expr{expr.get<scalar_pow>()};
       mul.symbol_map().erase(expr);
+      mul.invalidate_hash();
       auto pow_n{pow(pow_expr.expr_lhs(), pow_expr.expr_rhs() * m_rhs)};
       if (!result.is_valid()) {
         result = std::move(pow_n);
