@@ -2193,6 +2193,11 @@ TEST(ParserDepthGuard, DeepNestingRaisesParseError) {
   for (int i = 0; i < 100; ++i)
     ok2 += "^1";
   EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok2, syms));
+  // independent shallow carets are not one recursion chain (round-2 review)
+  std::string ok3 = "x0^2";
+  for (int i = 1; i < 600; ++i)
+    ok3 += "*x" + std::to_string(i) + "^2";
+  EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok3, syms));
 }
 
 #endif // NUMSIM_CAS_PARSER_ENABLED

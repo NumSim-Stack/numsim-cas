@@ -52,9 +52,16 @@ void check_nesting_depth(std::string_view source) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' ||
            c == '\f';
   };
+  const auto breaks_power_chain = [](char c) {
+    // power_tail recursion accumulates only within one ^-chain; any
+    // other operator/bracket starts a fresh chain, so independent
+    // shallow carets (x1^2*x2^2*...) must not count together
+    return c == '+' || c == '-' || c == '*' || c == '/' || c == '(' ||
+           c == ')' || c == '[' || c == ']' || c == '{' || c == '}' || c == ',';
+  };
   std::size_t depth = 0;
   std::size_t minus_run = 0;
-  std::size_t caret_count = 0;
+  std::size_t caret_run = 0;
   for (std::size_t i = 0; i < source.size(); ++i) {
     const char c = source[i];
     if (c == '(' || c == '[' || c == '{') {
@@ -66,11 +73,14 @@ void check_nesting_depth(std::string_view source) {
         --depth;
       }
     } else if (c == '^') {
-      // every ^ contributes one right-recursion level regardless of
-      // position (review on #355: 50k carets overflowed the stack)
-      if (++caret_count > max_depth) {
+      // each ^ in a chain adds one right-recursion level (review on
+      // #355: 50k chained carets overflowed the stack)
+      if (++caret_run > max_depth) {
         throw syntax_error("expression nesting too deep", i, source);
       }
+    }
+    if (breaks_power_chain(c)) {
+      caret_run = 0;
     }
     if (c == '-') {
       if (++minus_run > max_depth) {
