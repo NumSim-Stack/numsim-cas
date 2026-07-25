@@ -1066,6 +1066,58 @@ TEST(NAryCoeffEquality, MutatedCopyDropsStaleCachedHash) {
   EXPECT_EQ(to_string(sin(b) - sin(2.0 * x + y)), "0");
 }
 
+// Round-2 review on #339/#340: remaining stale-hash/collapse holes in the
+// sub, Pythagorean, and t2s wrapper-cancel paths; pow-add fallback throw;
+// mul-coefficient default in the sub dispatcher.
+TEST(RoundTwoReview, SubCancelInvalidatesAndCollapses) {
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto a = x + y + z;
+  (void)a.get().hash_value();
+  auto b = a - x;
+  EXPECT_TRUE(*b == *(y + z));
+  EXPECT_EQ(to_string(sin(b) - sin(y + z)), "0");
+}
+
+TEST(RoundTwoReview, PythagoreanBranchHygiene) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto p = pow(cos(x), 2.0) + y;
+  (void)p.get().hash_value();
+  auto q = p + pow(sin(x), 2.0); // 1 + y
+  EXPECT_TRUE(*q == *(y + 1.0));
+  auto r = (pow(cos(x), 2.0) + y + (-1.0)) + pow(sin(x), 2.0); // y
+  EXPECT_TRUE(*r == *y);
+}
+
+TEST(RoundTwoReview, PowAddFallbackMerges) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  expression_holder<scalar_expression> e;
+  EXPECT_NO_THROW(e = (pow(x, 2.0) + y) + pow(x, 2.0));
+  EXPECT_TRUE(*e == *(2.0 * pow(x, 2.0) + y));
+}
+
+TEST(RoundTwoReview, MulCoefficientDefaultIsOne) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto r = (x * y) * pow(x, -1.0); // degenerate mul{y}
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  ev.set(y, 3.0);
+  EXPECT_DOUBLE_EQ(ev.apply(r - y), 0.0); // was -3
+  EXPECT_DOUBLE_EQ(ev.apply(r + y), 6.0);
+}
+
+TEST(RoundTwoReview, T2sWrapperCancelCollapses) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [a] = make_scalar_variable("a");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto e1 = (trace(A) + w(a)) + w(-a);
+  EXPECT_TRUE(*e1 == *trace(A));
+  EXPECT_FALSE(is_same<tensor_to_scalar_add>(e1));
+  auto e2 = (trace(A) + w(a)) - w(a);
+  EXPECT_TRUE(*e2 == *trace(A));
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

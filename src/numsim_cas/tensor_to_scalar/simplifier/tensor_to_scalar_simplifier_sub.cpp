@@ -1,4 +1,5 @@
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/core/simplifier/simplifier_common.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_sub.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
@@ -25,24 +26,6 @@ NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
   }
 NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
 #undef NUMSIM_LOOP_OVER
-
-// --- n_ary_sub::dispatch(T) generic template body ---
-// Defined here so that operator- (from tensor_to_scalar_operators.h) is
-// visible.
-template <typename T> n_ary_sub::expr_holder_t n_ary_sub::dispatch(T const &) {
-  auto expr_add{make_expression<tensor_to_scalar_add>(this->lhs)};
-  auto &add{expr_add.template get<tensor_to_scalar_add>()};
-  // Direct match: (sum with expr) - expr → combine
-  auto pos{add.symbol_map().find(this->m_rhs)};
-  if (pos != add.symbol_map().end()) {
-    auto combined{pos->second - this->m_rhs};
-    add.symbol_map().erase(pos);
-    add.push_back(std::move(combined));
-    return expr_add;
-  }
-  add.push_back(-this->m_rhs);
-  return expr_add;
-}
 
 // --- n_ary_sub virtual function bodies ---
 #define NUMSIM_LOOP_OVER(T)                                                    \
@@ -77,7 +60,8 @@ n_ary_sub::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
     if (!val || *val != scalar_number{0}) {
       add.push_back(std::move(wrapper));
     }
-    return expr_add;
+    // round-2 review: mirror of the add-side collapse
+    return detail::finalize_add<Traits>(std::move(expr_add));
   }
   add.push_back(-m_rhs);
   return expr_add;

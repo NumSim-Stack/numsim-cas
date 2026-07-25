@@ -338,7 +338,9 @@ public:
     if (lhs.symbol_map().size() == 1) {
       auto pos{lhs.symbol_map().find(base::m_rhs)};
       if (lhs.symbol_map().end() != pos) {
-        const auto value{get_coefficient<Traits>(lhs, 0) - 1};
+        // an invalid mul coefficient means 1, not 0 (round-2 review:
+        // ((x*y)*pow(x,-1)) - y evaluated to -3 via the 0 default)
+        const auto value{get_coefficient<Traits>(lhs, 1) - 1};
         if (value == 0) {
           return Traits::zero();
         }

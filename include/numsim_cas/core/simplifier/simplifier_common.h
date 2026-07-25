@@ -30,6 +30,9 @@ template <typename Traits>
 [[nodiscard]] expression_holder<typename Traits::expression_type>
 finalize_add(expression_holder<typename Traits::expression_type> expr) {
   auto &add = expr.template get<typename Traits::add_type>();
+  // callers reach here after erase/mutation on a copied node; the copied
+  // cached hash is stale either way (round-2 review on #339)
+  add.invalidate_hash();
   if (add.symbol_map().empty()) {
     return add.coeff().is_valid() ? add.coeff() : Traits::zero();
   }

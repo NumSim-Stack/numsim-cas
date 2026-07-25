@@ -48,7 +48,9 @@ public:
   // Generic fallback: find in hash_map, combine or push_back
   // (symbol_type is void for t2s, so the base symbol dispatch is disabled)
   // Body defined in .cpp to keep operator+ ADL in that TU.
-  template <typename T> expr_holder_t dispatch(T const &);
+  // NOTE: no own catch-all template - the core constrained dispatch
+  // templates win overload resolution anyway (#370; round-2 review
+  // proved the local copies were never instantiated).
 
 // Virtual function bodies defined in .cpp to keep operator+ ADL in that TU.
 #define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;

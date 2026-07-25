@@ -64,14 +64,15 @@ n_ary_add::expr_holder_t n_ary_add::dispatch(scalar_pow const &rhs) {
       if (value != 0) {
         add.set_coeff(scalar_traits::make_constant(value));
       }
-      return add_expr;
+      // round-2 review: the mutated copy kept a stale hash, and a
+      // coefficient that cancelled to 0 left a bare single-child add
+      return detail::finalize_add<scalar_traits>(std::move(add_expr));
     }
   }
-  // No Pythagorean match: push RHS into existing add
-  auto add_expr{make_expression<scalar_add>(lhs)};
-  auto &add{add_expr.template get<scalar_add>()};
-  add.push_back(m_rhs);
-  return add_expr;
+  // No Pythagorean match: fall through to the catch-all, which merges
+  // like terms and duplicates instead of throwing (round-2 review:
+  // (pow(x,2)+y) + pow(x,2) hit the duplicate-child guard here)
+  return algo::dispatch(rhs);
 }
 
 // ------------------------------------------------------------
