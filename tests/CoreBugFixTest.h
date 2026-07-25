@@ -1634,10 +1634,28 @@ TEST(MulDuplicateFactor, FunctionFactorIntoProduct) {
   EXPECT_NO_THROW(e2 = log(x) * (log(x) * y));
   EXPECT_NEAR(ev.apply(e2), std::log(2.0) * std::log(2.0) * 3.0, 1e-15);
 
-  // chained collision: pow result meets an existing pow factor
+  // sin(x) and pow(sin(x),2) are distinct exact keys, so the product keeps
+  // both factors (value-correct; pow-base folding is epic #379's scope)
   expression_holder<scalar_expression> e3;
   EXPECT_NO_THROW(e3 = sin(x) * (pow(sin(x), 2.0) * y));
   EXPECT_NEAR(ev.apply(e3), std::pow(std::sin(2.0), 3.0) * 3.0, 1e-12);
+}
+
+// Review on #346: the duplicate-factor fold must work in both operand
+// orders and through the mul*mul factor chain.
+TEST(MulDuplicateFactor, MirroredOrdersFold) {
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  ev.set(y, 3.0);
+  ev.set(z, 5.0);
+  expression_holder<scalar_expression> a, b, c;
+  EXPECT_NO_THROW(a = (sin(x) * y) * sin(x));
+  EXPECT_NEAR(ev.apply(a), std::sin(2.0) * std::sin(2.0) * 3.0, 1e-15);
+  EXPECT_NO_THROW(b = (sin(x) * y) * (sin(x) * z));
+  EXPECT_NEAR(ev.apply(b), std::sin(2.0) * std::sin(2.0) * 15.0, 1e-14);
+  EXPECT_NO_THROW(c = (sin(x) * y) * (sin(x) * y));
+  EXPECT_NEAR(ev.apply(c), std::pow(std::sin(2.0) * 3.0, 2.0), 1e-13);
 }
 
 } // namespace numsim::cas
