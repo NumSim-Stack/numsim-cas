@@ -1775,7 +1775,23 @@ TEST(HashCombineDouble, NumericallyEqualConstantsHashEqual) {
   // fractional constants distinct
   auto h1 = make_expression<scalar_constant>(0.5);
   auto h2 = make_expression<scalar_constant>(0.9);
-  EXPECT_NE(h1.get().hash_value(), h2.get().hash_value());}
+  EXPECT_NE(h1.get().hash_value(), h2.get().hash_value());
+}
+
+// Review on #361: the int64 cast in the value-normalizing hash ran before
+// its range guard - UB for NaN, inf, and huge doubles.
+TEST(HashCombineDouble, HugeAndNonFiniteConstantsHashSafely) {
+  auto big = make_expression<scalar_constant>(1e300);
+  auto nan = make_expression<scalar_constant>(
+      std::numeric_limits<double>::quiet_NaN());
+  auto inf =
+      make_expression<scalar_constant>(std::numeric_limits<double>::infinity());
+  // must be UB-free under -fsanitize=float-cast-overflow (CI leg, #356)
+  (void)big.get().hash_value();
+  (void)nan.get().hash_value();
+  (void)inf.get().hash_value();
+  EXPECT_NE(big.get().hash_value(), inf.get().hash_value());
+}
 
 } // namespace numsim::cas
 

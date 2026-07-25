@@ -114,8 +114,10 @@ inline void hash_combine(std::size_t &seed, scalar_number const &value) {
       [&](auto const &x) {
         using T = std::decay_t<decltype(x)>;
         if constexpr (std::is_same_v<T, double>) {
-          if (x == static_cast<double>(static_cast<std::int64_t>(x)) &&
-              x >= -9.2e18 && x <= 9.2e18) {
+          // guard BEFORE casting: the int64 cast is UB for NaN/inf and
+          // |x| >= 2^63 (review on #361)
+          if (x >= -9.2e18 && x <= 9.2e18 &&
+              x == static_cast<double>(static_cast<std::int64_t>(x))) {
             hash_combine(seed, static_cast<std::int64_t>(x));
             return;
           }
