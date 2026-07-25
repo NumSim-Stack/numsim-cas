@@ -50,12 +50,16 @@ public:
   // argument, so it survives child substitution (#93/#352).
   static bool same_projector_contraction(tensor_holder_t const &a,
                                          tensor_holder_t const &b) {
-    if (a.get().rank() != b.get().rank() || a.get().dim() != b.get().dim()) {
-      return false; // review on #352: never restore across a shape change
-    }
     auto ia = as_projector_contraction(a);
     auto ib = as_projector_contraction(b);
-    return ia && ib && *ia->proj == *ib->proj;
+    if (!(ia && ib && *ia->proj == *ib->proj)) {
+      return false;
+    }
+    // round-2 review: the wrapper's dim() comes from the projector LHS, so
+    // node-level shape checks are inert - compare the actual arguments
+    // (a dim-changing substitution reached a heap overflow at evaluation)
+    return ia->argument.get().rank() == ib->argument.get().rank() &&
+           ia->argument.get().dim() == ib->argument.get().dim();
   }
 
   // Leaf nodes: return as-is

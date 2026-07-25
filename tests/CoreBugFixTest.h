@@ -1829,6 +1829,15 @@ TEST(SubstitutionSpace, OperatorDerivedTagSurvives) {
   EXPECT_EQ(to_string(sym(h)), "0{2}");
 }
 
+// Round-2 review on #352: the shape guard must compare the projector
+// ARGUMENTS (the wrapper's dim() reports the projector's).
+TEST(RoundTwoReview, DimChangingSubstitutionDropsTag) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [E] = make_tensor_variable(std::tuple{"E", std::size_t{2}, 2});
+  auto s = substitute(sym(A), A, E); // dim 3 projector : dim 2 argument
+  EXPECT_FALSE(is_symmetric(s)); // stale tag restored -> heap overflow at eval
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
