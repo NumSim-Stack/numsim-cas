@@ -2170,11 +2170,29 @@ TEST(ParserDepthGuard, DeepNestingRaisesParseError) {
   EXPECT_THROW((void)numsim::cas::parser::parse(minuses, syms),
                numsim::cas::parser::parse_error);
 
+  // review on #355: caret chains and PEGTL-space-separated minus runs
+  // are recursion drivers too
+  std::string carets = "1";
+  for (int i = 0; i < 20000; ++i)
+    carets += "^1";
+  EXPECT_THROW((void)numsim::cas::parser::parse(carets, syms),
+               numsim::cas::parser::parse_error);
+  std::string vminus;
+  for (int i = 0; i < 20000; ++i)
+    vminus += "-\v";
+  vminus += "1";
+  EXPECT_THROW((void)numsim::cas::parser::parse(vminus, syms),
+               numsim::cas::parser::parse_error);
+
   // moderate nesting still parses
   std::string ok(200, '(');
   ok += "1";
   ok += std::string(200, ')');
   EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok, syms));
+  std::string ok2 = "1";
+  for (int i = 0; i < 100; ++i)
+    ok2 += "^1";
+  EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok2, syms));
 }
 
 #endif // NUMSIM_CAS_PARSER_ENABLED

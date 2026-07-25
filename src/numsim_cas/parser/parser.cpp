@@ -46,8 +46,15 @@ syntax_error translate_pegtl_error(pegtl::parse_error const &e,
 // runs (whitespace does not reset a run: "- - -x" recurses per minus).
 void check_nesting_depth(std::string_view source) {
   constexpr std::size_t max_depth = 512;
+  const auto is_space = [](char c) {
+    // must cover PEGTL's full space set or a whitespace variant resets
+    // the run and bypasses the guard (review on #355)
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' ||
+           c == '\f';
+  };
   std::size_t depth = 0;
   std::size_t minus_run = 0;
+  std::size_t caret_count = 0;
   for (std::size_t i = 0; i < source.size(); ++i) {
     const char c = source[i];
     if (c == '(' || c == '[' || c == '{') {
@@ -58,12 +65,18 @@ void check_nesting_depth(std::string_view source) {
       if (depth > 0) {
         --depth;
       }
+    } else if (c == '^') {
+      // every ^ contributes one right-recursion level regardless of
+      // position (review on #355: 50k carets overflowed the stack)
+      if (++caret_count > max_depth) {
+        throw syntax_error("expression nesting too deep", i, source);
+      }
     }
     if (c == '-') {
       if (++minus_run > max_depth) {
         throw syntax_error("expression nesting too deep", i, source);
       }
-    } else if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+    } else if (!is_space(c)) {
       minus_run = 0;
     }
   }
