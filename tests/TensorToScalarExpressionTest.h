@@ -937,4 +937,22 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_NE(s.find("x"), std::string::npos) << s;
 }
 
+// Review on #354: chained wrapper collisions must fold, not throw.
+TYPED_TEST(TensorToScalarExpressionTest, ChainedWrapperCollisionFolds) {
+  auto &X = this->X;
+  auto &x = this->x;
+  using numsim::cas::trace;
+  auto w = [](auto e) {
+    return numsim::cas::make_expression<
+        numsim::cas::tensor_to_scalar_scalar_wrapper>(e);
+  };
+  // build a mul already holding w(x) and w(x*x); multiplying by w(x) makes
+  // w(x)*w(x) -> w(x^2) collide with the stored w(x*x)
+  auto m = (trace(X) * w(x)) * w(x * x);
+  numsim::cas::expression_holder<numsim::cas::tensor_to_scalar_expression> e;
+  EXPECT_NO_THROW(e = w(x) * m);
+  auto const s = numsim::cas::to_string(e);
+  EXPECT_NE(s.find("pow("), std::string::npos) << s;
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H

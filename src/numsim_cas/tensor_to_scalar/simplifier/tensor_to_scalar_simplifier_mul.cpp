@@ -101,14 +101,19 @@ static void push_or_combine(tensor_to_scalar_mul &mul,
                             mul_base::expr_holder_t const &child) {
   if (try_fold_numeric_pow(mul, child))
     return;
-  auto pos = mul.symbol_map().find(child);
-  if (pos != mul.symbol_map().end()) {
-    auto combined = pos->second * child;
+  // Loop: the combined factor can collide with yet another existing child
+  // (w(x)*w(x) -> w(x^2) meeting a stored w(x^2)); a single-shot combine
+  // then threw on duplicate insertion (review on #354/#346).
+  auto entry = child;
+  while (true) {
+    auto pos = mul.symbol_map().find(entry);
+    if (pos == mul.symbol_map().end())
+      break;
+    auto combined = pos->second * entry;
     mul.symbol_map().erase(pos);
-    mul.push_back(std::move(combined));
-    return;
+    entry = std::move(combined);
   }
-  mul.push_back(child);
+  mul.push_back(std::move(entry));
 }
 
 // --- mul_base ---
