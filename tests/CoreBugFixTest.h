@@ -1676,7 +1676,6 @@ TEST(PowDistributeGuard, FractionalSameExponentDoesNotMerge) {
   // integer exponent still merges
   EXPECT_EQ(to_string(pow(x, 2.0) * pow(y, 2.0)), "pow(x*y,2)");
 }
-<<<<<<< HEAD
 
 // Round-2 review on #345: pow-split canonical form and the mul producer.
 TEST(RoundTwoReview, PowSplitCollapsesSingleChildMul) {
@@ -1693,8 +1692,6 @@ TEST(RoundTwoReview, MulPowEraseProducesCanonicalRemainder) {
   EXPECT_TRUE(is_same<scalar>(r));
   EXPECT_EQ(to_string(sin(r) - sin(y)), "0"); // no stale hash either
 }
-=======
->>>>>>> 88df476 (Review fix on #349: guard INT64_MIN in the rational cross-cancel)
 
 // #349 — scalar_number int64 arithmetic must demote to double instead of
 // wrapping (UB / silent corruption).

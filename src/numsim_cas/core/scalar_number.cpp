@@ -507,8 +507,11 @@ std::optional<scalar_number> pow(scalar_number const &base,
 
   // Compute |n| via repeated squaring
   bool negative = n < 0;
-  std::uint64_t abs_n =
-      negative ? static_cast<std::uint64_t>(-n) : static_cast<std::uint64_t>(n);
+  // 0u - unsigned(n) computes |n| without the signed negation that is UB
+  // for INT64_MIN (round-2 review)
+  std::uint64_t abs_n = negative
+                            ? std::uint64_t{0} - static_cast<std::uint64_t>(n)
+                            : static_cast<std::uint64_t>(n);
 
   scalar_number result{1};
   scalar_number b = base;
