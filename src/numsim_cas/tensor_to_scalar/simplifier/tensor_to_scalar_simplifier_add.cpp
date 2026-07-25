@@ -16,20 +16,43 @@ namespace simplifier {
 template <typename T> n_ary_add::expr_holder_t n_ary_add::dispatch(T const &) {
   auto expr_add{make_expression<tensor_to_scalar_add>(this->lhs)};
   auto &add{expr_add.template get<tensor_to_scalar_add>()};
+  // Collapse degenerate post-mutation states; cancellation must not leave
+  // a literal zero child or a stale cached hash (review on #339).
+  auto finish = [&]() -> expr_holder_t {
+    add.invalidate_hash();
+    if (add.size() == 0) {
+      return add.coeff().is_valid() ? add.coeff()
+                                    : make_expression<tensor_to_scalar_zero>();
+    }
+    if (add.size() == 1 && !add.coeff().is_valid()) {
+      return add.symbol_map().begin()->second;
+    }
+    return expr_add;
+  };
   // Direct or like-term match: (sum with c*expr) + expr → combine
   auto pos{add.find_like(this->m_rhs)};
+  if (pos == add.symbol_map().end() &&
+      is_same<tensor_to_scalar_mul>(this->m_rhs)) {
+    // (sum with expr) + c*expr: probe the bare child too
+    auto const &rhs_mul{this->m_rhs.template get<tensor_to_scalar_mul>()};
+    if (rhs_mul.size() == 1) {
+      pos = add.find_like(rhs_mul.symbol_map().begin()->second);
+    }
+  }
   if (pos != add.symbol_map().end()) {
     auto combined{pos->second + this->m_rhs};
     add.symbol_map().erase(pos);
-    add.merge_or_insert(std::move(combined));
-    return expr_add;
+    if (!is_same<tensor_to_scalar_zero>(combined)) {
+      add.merge_or_insert(std::move(combined));
+    }
+    return finish();
   }
   // Reverse-negative: (sum with -expr) + expr → cancel
   auto neg_rhs{make_expression<tensor_to_scalar_negative>(this->m_rhs)};
   auto pos_neg{add.symbol_map().find(neg_rhs)};
   if (pos_neg != add.symbol_map().end()) {
     add.symbol_map().erase(pos_neg);
-    return expr_add;
+    return finish();
   }
   add.push_back(this->m_rhs);
   return expr_add;

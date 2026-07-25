@@ -341,24 +341,52 @@ public:
     return add_expr;
   }
 
-  // x+y+z + x --> 2*x+y+z  (symbol domains only)
+  // Zero-filter + degenerate collapse after in-place mutation: a
+  // cancellation must not leave a literal zero child, a single-child add,
+  // or a stale cached hash (review findings on #339/#340).
+  expr_holder_t merge_and_finish(expr_holder_t expr_add,
+                                 typename Traits::add_type &add,
+                                 expr_holder_t combined) {
+    if (!is_same<typename Traits::zero_type>(combined)) {
+      add.merge_or_insert(std::move(combined));
+    }
+    add.invalidate_hash();
+    if (add.size() == 0) {
+      return add.coeff().is_valid() ? add.coeff() : Traits::zero();
+    }
+    if (add.size() == 1 && !add.coeff().is_valid()) {
+      return add.symbol_map().begin()->second;
+    }
+    return expr_add;
+  }
+
+  // x+y+z + x --> 2*x+y+z; x+y+... + c*x --> (1+c)*x+y+...
+  // (symbol domains only; this template deduces every non-specialized rhs)
   template <typename SymbolType = typename Traits::symbol_type>
   requires(!std::is_void_v<SymbolType>)
   expr_holder_t dispatch(SymbolType const &) {
+    using mul_type = typename Traits::mul_type;
     auto expr_add{make_expression<typename Traits::add_type>(lhs)};
     auto &add{expr_add.template get<typename Traits::add_type>()};
     auto pos{add.find_like(base::m_rhs)};
     if (pos == add.symbol_map().end()) {
-      // c*x lives in a different hash run than x: retry with a bare mul{x}
-      auto probe{make_expression<typename Traits::mul_type>()};
-      probe.template get<typename Traits::mul_type>().push_back(base::m_rhs);
-      pos = add.find_like(probe);
+      if (is_same<mul_type>(base::m_rhs)) {
+        // stored bare x vs incoming c*x: probe the bare child (review #339)
+        auto const &rm{base::m_rhs.template get<mul_type>()};
+        if (rm.size() == 1) {
+          pos = add.find_like(rm.symbol_map().begin()->second);
+        }
+      } else {
+        // stored c*x vs incoming bare x: retry with a bare mul{x}
+        auto probe{make_expression<mul_type>()};
+        probe.template get<mul_type>().push_back(base::m_rhs);
+        pos = add.find_like(probe);
+      }
     }
     if (pos != add.symbol_map().end()) {
       auto expr{pos->second + base::m_rhs};
       add.symbol_map().erase(pos);
-      add.merge_or_insert(std::move(expr));
-      return expr_add;
+      return merge_and_finish(std::move(expr_add), add, std::move(expr));
     }
     add.push_back(base::m_rhs);
     return expr_add;
@@ -379,6 +407,13 @@ public:
       auto expr{make_expression<typename Traits::add_type>(lhs)};
       auto &add{expr.template get<typename Traits::add_type>()};
       add.symbol_map().erase(rhs.expr());
+      add.invalidate_hash();
+      if (add.size() == 0) {
+        return add.coeff().is_valid() ? add.coeff() : Traits::zero();
+      }
+      if (add.size() == 1 && !add.coeff().is_valid()) {
+        return add.symbol_map().begin()->second;
+      }
       return expr;
     }
 

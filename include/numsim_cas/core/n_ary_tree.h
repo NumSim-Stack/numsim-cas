@@ -23,11 +23,16 @@ bool nary_coeff_equal(Holder const &lhs, Holder const &rhs) {
 }
 
 // Invalid orders before valid; both valid compare as expressions.
+// Equality short-circuits first: expression < is promotion-rank-sensitive
+// (int 2 orders before double 2.0) while == is value-based, and the two
+// must agree on equivalence for map lookups.
 template <typename Holder>
 bool nary_coeff_less(Holder const &lhs, Holder const &rhs) {
   if (lhs.is_valid() != rhs.is_valid())
     return !lhs.is_valid();
-  return lhs.is_valid() && lhs < rhs;
+  if (!lhs.is_valid() || lhs == rhs)
+    return false;
+  return lhs < rhs;
 }
 
 } // namespace detail
@@ -70,6 +75,10 @@ public:
   inline void push_back(expression_holder<expr_t> &&expr) {
     insert_hash(std::move(expr));
   }
+
+  // Copies carry the source's cached hash; any mutation must drop it or
+  // == fast-rejects on the stale value and cancellation silently fails.
+  inline void invalidate_hash() noexcept { this->m_hash_value = 0; }
 
   // Insert `entry`, combining with any colliding map entry first.
   // After combination, `+` may algebraically simplify to an expression with a
@@ -236,6 +245,7 @@ private:
       throw internal_error(
           "n_ary_tree::insert_hash: duplicate child insertion");
     }
+    invalidate_hash();
     m_symbol_map[expr] = expr;
   }
 
@@ -244,6 +254,7 @@ private:
       throw internal_error(
           "n_ary_tree::insert_hash: duplicate child insertion");
     }
+    invalidate_hash();
     m_symbol_map[expr] = std::move(expr);
   }
 };

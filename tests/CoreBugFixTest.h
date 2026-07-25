@@ -1028,6 +1028,44 @@ TEST(NAryCoeffEquality, HalfCoefficientsMerge) {
   EXPECT_EQ(to_string(2.0 * x + (-2.0) * x), "0");
 }
 
+// Review findings on #339 (PR #386): ordering/equality consistency, zero
+// children, reverse-direction like-term probe, stale cached hashes.
+TEST(NAryCoeffEquality, IntAndDoubleCoefficientSpellingsAreEquivalent) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto a = (x + y) + x; // int-coefficient 2*x
+  auto c = 2.0 * x + y; // double-coefficient 2*x
+  EXPECT_TRUE(*a == *c);
+  EXPECT_FALSE(*a < *c); // < equivalence must match ==
+  EXPECT_FALSE(*c < *a);
+  EXPECT_EQ(to_string(a - c), "0");
+}
+
+TEST(NAryCoeffEquality, CancellationLeavesNoZeroChild) {
+  auto [A, B] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                     std::tuple{"B", std::size_t{3}, 2});
+  auto e = (2.0 * trace(A) + trace(B)) + (-2.0) * trace(A);
+  EXPECT_EQ(to_string(e), to_string(trace(B)));
+  EXPECT_TRUE(*e == *trace(B));
+}
+
+TEST(NAryCoeffEquality, ReverseDirectionLikeTermMerge) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  EXPECT_EQ(to_string((x + y) + 2.0 * x), "3*x+y");
+  auto [A, B] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                     std::tuple{"B", std::size_t{3}, 2});
+  auto e = (trace(A) + trace(B)) + 2.0 * trace(A);
+  EXPECT_EQ(to_string(e), to_string(3.0 * trace(A) + trace(B)));
+}
+
+TEST(NAryCoeffEquality, MutatedCopyDropsStaleCachedHash) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto a = x + y;
+  (void)a.get().hash_value(); // force the cache before merging
+  auto b = a + x;             // 2*x+y built by mutating a copy of a
+  EXPECT_TRUE(*b == *(2.0 * x + y));
+  EXPECT_EQ(to_string(sin(b) - sin(2.0 * x + y)), "0");
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
