@@ -383,8 +383,8 @@ TEST_F(ScalarFixture, POW_Simplification) {
   EXPECT_PRINT(pow(x * y, -y), "pow(x*y,-y)");
 
   // --- Mul-pow extraction: pow(x*pow(y,a), b) → pow(x,b)*pow(y,a*b) ---
-  EXPECT_PRINT(pow(x * pow(y, _2), _3), "pow(y,6)*pow(x,3)");
-  EXPECT_PRINT(pow(x * pow(y, z), _2), "pow(y,2*z)*pow(x,2)");
+  EXPECT_PRINT(pow(x * pow(y, _2), _3), "pow(x,3)*pow(y,6)");
+  EXPECT_PRINT(pow(x * pow(y, z), _2), "pow(x,2)*pow(y,2*z)");
 }
 
 TEST_F(ScalarFixture, ADD_CombineSameSymbol) {

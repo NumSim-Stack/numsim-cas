@@ -48,6 +48,14 @@ mul_pow::dispatch([[maybe_unused]] scalar_negative const &rhs) {
         result = result * std::move(pow_n);
       }
     }
+    if (mul.symbol_map().empty()) {
+      return (mul.coeff().is_valid() ? pow(mul.coeff(), m_rhs)
+                                     : get_scalar_one()) *
+             result;
+    }
+    if (mul.symbol_map().size() == 1 && !mul.coeff().is_valid()) {
+      return pow(mul.symbol_map().begin()->second, m_rhs) * result;
+    }
     return pow(mul_expr, m_rhs) * result;
   }
 
@@ -73,6 +81,14 @@ mul_pow::expr_holder_t mul_pow::dispatch([[maybe_unused]] Expr const &rhs) {
       } else {
         result = result * std::move(pow_n);
       }
+    }
+    if (mul.symbol_map().empty()) {
+      return (mul.coeff().is_valid() ? pow(mul.coeff(), m_rhs)
+                                     : get_scalar_one()) *
+             result;
+    }
+    if (mul.symbol_map().size() == 1 && !mul.coeff().is_valid()) {
+      return pow(mul.symbol_map().begin()->second, m_rhs) * result;
     }
     return pow(mul_expr, m_rhs) * result;
   }

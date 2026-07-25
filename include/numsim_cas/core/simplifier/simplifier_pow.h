@@ -151,6 +151,11 @@ public:
           return pow(mul.coeff(), this->m_rhs) * result;
         return result;
       }
+      // single remaining child: pow(mul{y}, n) is non-canonical and never
+      // cancels against pow(y, n) (round-2 review on #345)
+      if (mul.symbol_map().size() == 1 && !mul.coeff().is_valid()) {
+        return pow(mul.symbol_map().begin()->second, this->m_rhs) * result;
+      }
       return pow(mul_expr, this->m_rhs) * result;
     }
 
@@ -182,6 +187,11 @@ public:
         if (mul.coeff().is_valid())
           return pow(mul.coeff(), this->m_rhs) * result;
         return result;
+      }
+      // single remaining child: pow(mul{y}, n) is non-canonical and never
+      // cancels against pow(y, n) (round-2 review on #345)
+      if (mul.symbol_map().size() == 1 && !mul.coeff().is_valid()) {
+        return pow(mul.symbol_map().begin()->second, this->m_rhs) * result;
       }
       return pow(mul_expr, this->m_rhs) * result;
     }
