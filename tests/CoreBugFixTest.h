@@ -1879,7 +1879,8 @@ TEST(TensorPowContract, DiffOfNegativePowerThrows) {
       make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
   // was a silent 0{4} (#350); inv(pow(X, 2)) is the supported spelling
   EXPECT_THROW((void)diff(pow(X, -2), X), not_implemented_error);
-  EXPECT_NO_THROW((void)diff(inv(pow(X, 2)), X));}
+  EXPECT_NO_THROW((void)diff(inv(pow(X, 2)), X));
+}
 
 // Review on #350: the rank gate must also hold at evaluation (rebuilt
 // trees bypass the factory), and the factory gate must see negation-
@@ -1900,6 +1901,20 @@ TEST(TensorPowContract, EvaluatorRankGateAndWrappedExponent) {
   auto half = make_expression<scalar_constant>(0.5);
   EXPECT_THROW((void)pow(X, make_expression<scalar_negative>(std::move(half))),
                invalid_expression_error);
+}
+
+// Round-2 review on #350: the factory gate strips any negation depth.
+TEST(RoundTwoReview, DoubleNegatedFractionalExponentRejected) {
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  auto inner =
+      make_expression<scalar_negative>(make_expression<scalar_constant>(0.5));
+  EXPECT_THROW((void)pow(X, make_expression<scalar_negative>(std::move(inner))),
+               invalid_expression_error);
+  // negated integers still accepted
+  auto neg2 =
+      make_expression<scalar_negative>(make_expression<scalar_constant>(2));
+  EXPECT_NO_THROW((void)pow(X, std::move(neg2)));
 }
 
 } // namespace numsim::cas

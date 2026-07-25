@@ -265,7 +265,7 @@ public:
     }
     auto base_data = apply(visitable.expr_lhs());
     const auto exp_val = m_scalar_eval.apply(visitable.expr_rhs());
-    if (exp_val != std::round(exp_val) || exp_val < -1e9 || exp_val > 1e9) {
+    if (exp_val != std::round(exp_val) || exp_val < -1e6 || exp_val > 1e6) {
       // silently truncating pow(A, 0.5) to the identity was #350; the
       // range check keeps the int cast below defined for huge values
       throw evaluation_error(
