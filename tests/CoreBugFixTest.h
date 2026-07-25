@@ -1168,7 +1168,20 @@ TEST(HashIdentitySweep, TensorAddSpaceJoinSurvivesMerge) {
   auto sb = sym(B);
   EXPECT_TRUE(is_symmetric(sa + sb));
   // like-term merge path keeps the join
-  EXPECT_TRUE(is_symmetric((sa + sb) + 2.0 * sa));}
+  EXPECT_TRUE(is_symmetric((sa + sb) + 2.0 * sa));
+}
+
+// Review on #340: tensor-side zero-child filter, degenerate collapse, and
+// the reverse-direction like-term probe.
+TEST(HashIdentitySweep, TensorCancellationAndReverseProbe) {
+  auto [X, Y] = make_tensor_variable(std::tuple{"X", std::size_t{3}, 2},
+                                     std::tuple{"Y", std::size_t{3}, 2});
+  auto e = (2.0 * X + Y) + (-2.0) * X;
+  EXPECT_EQ(to_string(e), "Y");
+  EXPECT_TRUE(*e == *Y);
+  EXPECT_EQ(to_string((X + Y) + 2.0 * X), "3*X+Y"); // reverse probe
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

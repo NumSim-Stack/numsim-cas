@@ -46,11 +46,24 @@ n_ary_add::dispatch([[maybe_unused]] Expr const &rhs) {
   auto expr_add{make_expression<tensor_add>(m_lhs_node)};
   auto &add{expr_add.template get<tensor_add>()};
   auto pos{add.find_like(m_rhs)};
+  if (pos == add.symbol_map().end() && is_same<tensor_scalar_mul>(m_rhs)) {
+    // stored bare T vs incoming c*T: probe the inner tensor (review #340)
+    pos = add.find_like(m_rhs.template get<tensor_scalar_mul>().expr_rhs());
+  }
   if (pos != add.symbol_map().end()) {
     auto combined{pos->second + m_rhs};
     add.symbol_map().erase(pos);
-    add.merge_or_insert(std::move(combined));
+    if (!is_same<tensor_zero>(combined)) {
+      add.merge_or_insert(std::move(combined));
+    }
+    add.invalidate_hash();
     add.recompute_space();
+    if (add.size() == 0) {
+      return tensor_traits::zero(m_lhs);
+    }
+    if (add.size() == 1 && !add.coeff().is_valid()) {
+      return add.symbol_map().begin()->second;
+    }
     return expr_add;
   }
   add.push_back(m_rhs);
@@ -74,6 +87,11 @@ n_ary_add::dispatch(tensor_negative const &rhs) {
     auto expr{make_expression<tensor_add>(m_lhs_node)};
     auto &add{expr.template get<tensor_add>()};
     add.symbol_map().erase(expr_rhs);
+    add.invalidate_hash();
+    add.recompute_space();
+    if (add.size() == 1 && !add.coeff().is_valid()) {
+      return add.symbol_map().begin()->second;
+    }
     return expr;
   }
   return get_default();
