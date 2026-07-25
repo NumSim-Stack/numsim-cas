@@ -197,6 +197,12 @@ scalar_number::variant_t rat_sub(rational_t a, rational_t b) {
 }
 
 scalar_number::variant_t rat_mul(rational_t a, rational_t b) {
+  // INT64_MIN cannot be abs'd for the gcd cross-cancel; it can arrive via
+  // int->rational promotion, which skips normalization (review on #349)
+  constexpr auto mn = std::numeric_limits<std::int64_t>::min();
+  if (a.num == mn || b.num == mn || a.den == mn || b.den == mn) {
+    return rat_to_double(a) * rat_to_double(b);
+  }
   // Cross-cancel before multiplying to keep intermediates small
   auto g1 = std::gcd(std::abs(a.num), std::abs(b.den));
   auto g2 = std::gcd(std::abs(b.num), std::abs(a.den));

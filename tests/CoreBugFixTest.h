@@ -1676,6 +1676,7 @@ TEST(PowDistributeGuard, FractionalSameExponentDoesNotMerge) {
   // integer exponent still merges
   EXPECT_EQ(to_string(pow(x, 2.0) * pow(y, 2.0)), "pow(x*y,2)");
 }
+<<<<<<< HEAD
 
 // Round-2 review on #345: pow-split canonical form and the mul producer.
 TEST(RoundTwoReview, PowSplitCollapsesSingleChildMul) {
@@ -1692,6 +1693,8 @@ TEST(RoundTwoReview, MulPowEraseProducesCanonicalRemainder) {
   EXPECT_TRUE(is_same<scalar>(r));
   EXPECT_EQ(to_string(sin(r) - sin(y)), "0"); // no stale hash either
 }
+=======
+>>>>>>> 88df476 (Review fix on #349: guard INT64_MIN in the rational cross-cancel)
 
 // #349 — scalar_number int64 arithmetic must demote to double instead of
 // wrapping (UB / silent corruption).
@@ -1738,6 +1741,20 @@ TEST(ScalarNumberOverflow, ExactArithmeticUnchanged) {
   EXPECT_EQ(r->den, 2);
   auto b = scalar_number(std::int64_t{2}) * scalar_number(std::int64_t{3});
   EXPECT_EQ(b, scalar_number(std::int64_t{6}));
+}
+
+// Review on #349: INT64_MIN reaches the rational cross-cancel via the
+// int->rational promotion, which skips normalization.
+TEST(ScalarNumberOverflow, Int64MinTimesRational) {
+  constexpr auto mn = std::numeric_limits<std::int64_t>::min();
+  auto p = scalar_number(mn) * scalar_number(1, 2); // was std::abs(mn) UB
+  auto q = scalar_number(1, 2) * scalar_number(mn);
+  auto d = scalar_number(mn) / scalar_number(1, 2);
+  auto const *pd = std::get_if<double>(&p.raw());
+  ASSERT_NE(pd, nullptr);
+  EXPECT_NEAR(*pd, static_cast<double>(mn) / 2.0, 1e3);
+  EXPECT_TRUE(std::get_if<double>(&q.raw()) != nullptr);
+  EXPECT_TRUE(std::get_if<double>(&d.raw()) != nullptr);
 }
 
 } // namespace numsim::cas
