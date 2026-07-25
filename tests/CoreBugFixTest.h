@@ -1835,7 +1835,13 @@ TEST(RoundTwoReview, DimChangingSubstitutionDropsTag) {
   auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
   auto [E] = make_tensor_variable(std::tuple{"E", std::size_t{2}, 2});
   auto s = substitute(sym(A), A, E); // dim 3 projector : dim 2 argument
-  EXPECT_FALSE(is_symmetric(s)); // stale tag restored -> heap overflow at eval
+  EXPECT_FALSE(is_symmetric(s));
+  // round-3 review: the overflow lived in the projector short-circuit,
+  // not the tag - evaluation must throw, not over-read the buffer
+  tensor_evaluator<double> ev;
+  auto data = std::make_shared<tensor_data<double, 2, 2>>();
+  ev.set(E, data);
+  EXPECT_THROW((void)ev.apply(s), evaluation_error);
 }
 
 } // namespace numsim::cas
