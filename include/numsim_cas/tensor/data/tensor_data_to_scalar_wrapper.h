@@ -69,6 +69,17 @@ public:
         m_rhs_indices(rhs_indices) {}
 
   template <std::size_t Dim, std::size_t Rank> ValueType evaluate_imp() {
+    // The dispatch picks Dim/Rank from the LHS; a mixed-rank/dim node
+    // (constructible through the weak dot_product precondition, #360)
+    // would type-pun the RHS cast into silent garbage (review on #353).
+    if (m_lhs.rank() != m_rhs.rank() || m_lhs.dim() != m_rhs.dim()) {
+      throw evaluation_error(
+          "tensor_data_dcontract_wrapper: operand rank/dim mismatch");
+    }
+    if (m_lhs_indices.size() != Rank || m_rhs_indices.size() != Rank) {
+      throw evaluation_error(
+          "tensor_data_dcontract_wrapper: sequence size != operand rank");
+    }
     if constexpr (Rank == 2) {
       using Tensor = tensor_data<ValueType, Dim, Rank>;
       auto const &l = static_cast<const Tensor &>(m_lhs).data();
