@@ -48,7 +48,10 @@ template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
   }
   // Non-integer constant exponents have no matrix-power meaning here;
   // isotropic tensor functions (#227) cover fractional powers (#350).
-  if (is_same<scalar_constant>(expr_rhs)) {
+  if (is_same<scalar_constant>(expr_rhs) ||
+      (is_same<scalar_negative>(expr_rhs) &&
+       is_same<scalar_constant>(
+           expr_rhs.template get<scalar_negative>().expr()))) {
     if (!try_int_constant(expr_rhs)) {
       throw invalid_expression_error(
           "pow: tensor exponent must be an integer constant");

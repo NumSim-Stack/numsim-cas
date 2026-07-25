@@ -257,12 +257,19 @@ public:
   // ─── Tensor functions (tmech wrappers) ─────────────────────
 
   void operator()(tensor_pow const &visitable) override {
+    if (visitable.rank() != 2) {
+      // the repeated single-index contraction is rank-2-only; a rebuilt
+      // tree can bypass the factory gate (review on #350: substitution
+      // recreated a rank-4 pow and corrupted the heap)
+      throw evaluation_error("tensor_pow: rank-2 operand required");
+    }
     auto base_data = apply(visitable.expr_lhs());
     const auto exp_val = m_scalar_eval.apply(visitable.expr_rhs());
-    if (exp_val != std::round(exp_val)) {
-      // silently truncating pow(A, 0.5) to the identity was #350
+    if (exp_val != std::round(exp_val) || exp_val < -1e9 || exp_val > 1e9) {
+      // silently truncating pow(A, 0.5) to the identity was #350; the
+      // range check keeps the int cast below defined for huge values
       throw evaluation_error(
-          "tensor_pow: exponent must evaluate to an integer");
+          "tensor_pow: exponent must evaluate to a moderate integer");
     }
     const auto n = static_cast<int>(exp_val);
     const auto d = visitable.dim();

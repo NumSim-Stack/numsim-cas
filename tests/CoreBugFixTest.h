@@ -1881,6 +1881,27 @@ TEST(TensorPowContract, DiffOfNegativePowerThrows) {
   EXPECT_THROW((void)diff(pow(X, -2), X), not_implemented_error);
   EXPECT_NO_THROW((void)diff(inv(pow(X, 2)), X));}
 
+// Review on #350: the rank gate must also hold at evaluation (rebuilt
+// trees bypass the factory), and the factory gate must see negation-
+// wrapped constants.
+TEST(TensorPowContract, EvaluatorRankGateAndWrappedExponent) {
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  auto [C] =
+      make_tensor_variable(std::tuple{"C", std::size_t{3}, std::size_t{4}});
+  // substitution recreates the node without the factory gate; evaluation
+  // must throw instead of corrupting the heap
+  auto p4 = substitute(pow(X, 2), X, C);
+  tensor_evaluator<double> ev;
+  auto data = std::make_shared<tensor_data<double, 3, 4>>();
+  ev.set(C, data);
+  EXPECT_THROW((void)ev.apply(p4), evaluation_error);
+  // negation-wrapped fractional constants are rejected at the factory
+  auto half = make_expression<scalar_constant>(0.5);
+  EXPECT_THROW((void)pow(X, make_expression<scalar_negative>(std::move(half))),
+               invalid_expression_error);
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
