@@ -2198,6 +2198,26 @@ TEST(ParserDepthGuard, DeepNestingRaisesParseError) {
   for (int i = 1; i < 600; ++i)
     ok3 += "*x" + std::to_string(i) + "^2";
   EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok3, syms));
+
+  // round-2 bypasses: bracketed exponents continue the ^-chain, and
+  // compound payloads must sum along the path
+  std::string bracket_carets = "1";
+  for (int i = 0; i < 14000; ++i)
+    bracket_carets += "^(1)";
+  EXPECT_THROW((void)numsim::cas::parser::parse(bracket_carets, syms),
+               numsim::cas::parser::parse_error);
+  std::string compound;
+  for (int i = 0; i < 200; ++i)
+    compound += std::string(300, '-') + "(";
+  compound += "1";
+  compound += std::string(200, ')');
+  EXPECT_THROW((void)numsim::cas::parser::parse(compound, syms),
+               numsim::cas::parser::parse_error);
+  // shallow bracketed exponents stay legal
+  std::string ok4 = "1";
+  for (int i = 0; i < 100; ++i)
+    ok4 += "^(1)";
+  EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok4, syms));
 }
 
 #endif // NUMSIM_CAS_PARSER_ENABLED
