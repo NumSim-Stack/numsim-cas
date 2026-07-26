@@ -423,7 +423,12 @@ public:
       return base::m_lhs - rhs.expr();
     }
 
-    return base::get_default();
+    // non-cancelling -t: insert into a copy — get_default would nest the
+    // whole lhs add as a single child (round-9 review)
+    auto add_expr{make_expression<typename Traits::add_type>(lhs)};
+    auto &add{add_expr.template get<typename Traits::add_type>()};
+    insert_signed<Traits>(add, base::m_rhs);
+    return detail::finalize_add<Traits>(std::move(add_expr));
   }
 
 protected:
@@ -560,7 +565,7 @@ public:
     auto &add{add_expr.template get<typename Traits::add_type>()};
     // (-x) + (y - x): the map may already hold -x, so merge instead of a
     // raw push_back (which asserts on duplicates)
-    add.merge_or_insert(base::m_lhs);
+    insert_signed<Traits>(add, base::m_lhs);
     return detail::finalize_add<Traits>(std::move(add_expr));
   }
 

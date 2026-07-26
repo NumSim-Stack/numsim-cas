@@ -48,7 +48,12 @@ constexpr inline void merge_add(n_ary_tree<Derived> const &lhs,
   using expr_t = typename Derived::expr_t;
 
   if (lhs.coeff().is_valid() && rhs.coeff().is_valid()) {
-    result.set_coeff(lhs.coeff() + rhs.coeff());
+    // cancelled coefficients must be dropped, not stored as a literal
+    // zero ((2+x)+(y-2) printed "0+x+y", round-9 review)
+    auto coeff{lhs.coeff() + rhs.coeff()};
+    if (!is_zero(coeff)) {
+      result.set_coeff(std::move(coeff));
+    }
   } else {
     if (lhs.coeff().is_valid()) {
       result.set_coeff(lhs.coeff());

@@ -3,6 +3,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/functions.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_std.h>
@@ -32,12 +33,30 @@ protected:
 #undef NUMSIM_ADD_OVR
 
   // rhs is negative
-  auto get_default() {
+  expr_holder_t get_default() {
+    // copy an add lhs (pushing it wholesale would nest, round-9 review);
+    // signed insert so X-(-X) combines instead of hitting the dup assert
     auto add_new{
-        make_expression<tensor_add>(m_lhs.get().dim(), m_lhs.get().rank())};
+        is_same<tensor_add>(m_lhs)
+            ? make_expression<tensor_add>(m_lhs.template get<tensor_add>())
+            : make_expression<tensor_add>(m_lhs.get().dim(),
+                                          m_lhs.get().rank())};
     auto &add{add_new.template get<tensor_add>()};
-    add.push_back(m_lhs);
-    add.push_back(-m_rhs);
+    if (!is_same<tensor_add>(m_lhs)) {
+      add.push_back(m_lhs);
+    }
+    add_insert_signed(add, -m_rhs, [](expr_holder_t const &e) {
+      return is_same<tensor_zero>(e);
+    });
+    add.invalidate_hash();
+    add.recompute_space();
+    if (add.size() == 0) {
+      return make_expression<tensor_zero>(m_lhs.get().dim(),
+                                          m_lhs.get().rank());
+    }
+    if (add.size() == 1 && !add.coeff().is_valid()) {
+      return add.symbol_map().begin()->second;
+    }
     return add_new;
   }
 

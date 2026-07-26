@@ -54,7 +54,11 @@ n_ary_add::dispatch([[maybe_unused]] Expr const &rhs) {
     auto combined{pos->second + m_rhs};
     add.symbol_map().erase(pos);
     if (!is_same<tensor_zero>(combined)) {
-      add.merge_or_insert(std::move(combined));
+      // signed insert: the combined term may exactly negate another child
+      // ((5A-2A)+(-3A) left a {2A,-(2A)} pair, round-9 review)
+      add_insert_signed(add, std::move(combined), [](expr_holder_t const &e) {
+        return is_same<tensor_zero>(e);
+      });
     }
     add.invalidate_hash();
     add.recompute_space();
@@ -104,7 +108,22 @@ n_ary_add::dispatch(tensor_negative const &rhs) {
     }
     return expr;
   }
-  return get_default();
+  // non-cancelling -t: insert into a copy — get_default would nest the
+  // whole lhs add as a single child (round-9 review)
+  auto expr{make_expression<tensor_add>(m_lhs_node)};
+  auto &add{expr.template get<tensor_add>()};
+  add_insert_signed(add, m_rhs, [](expr_holder_t const &e) {
+    return is_same<tensor_zero>(e);
+  });
+  add.invalidate_hash();
+  add.recompute_space();
+  if (add.size() == 0) {
+    return tensor_traits::zero(m_lhs);
+  }
+  if (add.size() == 1 && !add.coeff().is_valid()) {
+    return add.symbol_map().begin()->second;
+  }
+  return expr;
 }
 
 // ------------------------------------------------------------

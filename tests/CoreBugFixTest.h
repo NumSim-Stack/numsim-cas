@@ -1485,6 +1485,45 @@ TEST(RoundEightReview, TensorMergeAddZeroFiltered) {
   EXPECT_TRUE(is_same<tensor_zero>(e3)) << to_string(e3);
 }
 
+// Round-9 review: nested adds from the negative fall-through, one
+// unconverted tensor insert, and a literal zero coefficient.
+
+// R9-1: add + (-t) with a non-cancelling t fell to get_default, which
+// nested the whole lhs add as a single child; buried terms then defeated
+// merge cancellation.
+TEST(RoundNineReview, AddNegativeStaysFlat) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto e = (x + 5.0 * y) + (-y);
+  // flat children: the exact 5*y child stays reachable for cancellation
+  auto e2 = e + (-(5.0 * y));
+  EXPECT_TRUE(*e2 == *(x - y)) << to_string(e2);
+  auto [A, B, C] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                        std::tuple{"B", std::size_t{3}, 2},
+                                        std::tuple{"C", std::size_t{3}, 2});
+  auto t = (A + B) + ((C - A) - B);
+  EXPECT_TRUE(*t == *C) << to_string(t);
+  EXPECT_TRUE(is_same<tensor_zero>(t - C)) << to_string(t - C);
+}
+
+// R9-2: the tensor n-ary fallback still plain-inserted the combined term;
+// (5A-2A)+(-3A) held an exact {2A, -(2A)} pair instead of collapsing.
+TEST(RoundNineReview, TensorCombinedInsertIsSigned) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto e = (5.0 * A + (-(2.0 * A))) + (-3.0) * A;
+  EXPECT_TRUE(is_same<tensor_zero>(e)) << to_string(e);
+}
+
+// R9-3: merge_add stored a cancelled coefficient as a literal zero —
+// (2+x)+(y-2) printed "0+x+y" and compared unequal to x+y.
+TEST(RoundNineReview, MergeAddDropsCancelledCoeff) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto e = (2.0 + x) + (y - 2.0);
+  EXPECT_TRUE(*e == *(x + y)) << to_string(e);
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto t = (2.0 + trace(A)) + (det(A) - 2.0);
+  EXPECT_TRUE(*t == *(trace(A) + det(A))) << to_string(t);
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

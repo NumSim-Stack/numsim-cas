@@ -4,6 +4,7 @@
 #include <numsim_cas/core/domain_traits.h>
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/scalar_number.h>
+#include <numsim_cas/functions.h>
 
 namespace numsim::cas::detail {
 
@@ -42,6 +43,18 @@ finalize_add(expression_holder<typename Traits::expression_type> expr) {
     return add.symbol_map().begin()->second;
   }
   return expr;
+}
+
+// merge_or_insert with exact-negation combining and zero filtering:
+// dispatcher-side child insertion must never leave a {t, -t} pair or a
+// literal zero child (round-8/9 reviews).
+template <typename Traits>
+inline void insert_signed(typename Traits::add_type &add,
+                          typename Traits::expr_holder_t entry) {
+  add_insert_signed(add, std::move(entry),
+                    [](typename Traits::expr_holder_t const &e) {
+                      return is_same<typename Traits::zero_type>(e);
+                    });
 }
 
 // Fold a numeric delta into the coefficient of `expr` (an add node).

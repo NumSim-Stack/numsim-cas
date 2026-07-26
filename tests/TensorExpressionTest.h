@@ -438,8 +438,9 @@ TYPED_TEST(TensorExpressionTest, AddNaryPlusNegativeCancellation) {
   EXPECT_PRINT((X + Y) + (-X), "Y");
   EXPECT_PRINT((X + Y) + (-Y), "X");
   EXPECT_PRINT((X + Y + Z) + (-Y), "X+Z");
-  // negative not in sum → default add (hash-ordered output)
-  EXPECT_PRINT((X + Y) + (-Z), "-Z+X+Y");
+  // negative not in sum → flat insert into the copy (round-9: the old
+  // fallback nested the whole lhs add, which printed as "-Z+X+Y")
+  EXPECT_PRINT((X + Y) + (-Z), "X+Y-Z");
 }
 
 // n_ary_add: merge two adds: (X+Y) + (Y+Z) → X+2*Y+Z

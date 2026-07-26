@@ -41,6 +41,18 @@ public:
       return Traits::make_constant(result);
     }
 
+    if (is_same<add_type>(m_lhs)) {
+      // copy children — pushing the whole add would nest it (round-9)
+      auto add_expr{make_expression<add_type>(m_lhs.template get<add_type>())};
+      if (rhs_val) {
+        return fold_constant_into_add_coeff<Traits>(std::move(add_expr),
+                                                    -(*rhs_val));
+      }
+      auto &add{add_expr.template get<add_type>()};
+      insert_signed<Traits>(add, -m_rhs);
+      return finalize_add<Traits>(std::move(add_expr));
+    }
+
     auto add_new{make_expression<add_type>()};
     auto &add{add_new.template get<add_type>()};
     if (lhs_val) {
@@ -54,7 +66,7 @@ public:
     } else {
       // -m_rhs may collapse onto m_lhs (z - (-z)); a raw push_back
       // would hit the no-duplicates assert
-      add.merge_or_insert(-m_rhs);
+      insert_signed<Traits>(add, -m_rhs);
     }
     return finalize_add<Traits>(std::move(add_new));
   }
@@ -99,7 +111,7 @@ public:
   expr_holder_t dispatch(typename Traits::add_type const &rhs) {
     auto add_expr{make_expression<typename Traits::add_type>(rhs)};
     auto &add{add_expr.template get<typename Traits::add_type>()};
-    add.merge_or_insert(lhs.expr());
+    insert_signed<Traits>(add, lhs.expr());
     return make_expression<typename Traits::negative_type>(std::move(add_expr));
   }
 
@@ -145,7 +157,7 @@ public:
   // call operator- on an invalid holder and throw. Mirrors the guard
   // pattern in n_ary_sub_dispatch::dispatch(add_type) from PR #98.
   //
-  // Children are negated and pushed via merge_or_insert (not push_back)
+  // Children are negated and inserted via insert_signed (not push_back)
   // so a `-child` that collides with another entry in the result is
   // combined rather than throwing duplicate-child internal_error.
   //
@@ -163,7 +175,7 @@ public:
       add.set_coeff(base::m_lhs);
     }
     for (auto &child : rhs.symbol_map() | std::views::values) {
-      add.merge_or_insert(-child);
+      insert_signed<Traits>(add, -child);
     }
     return finalize_add<Traits>(std::move(add_expr));
   }
@@ -258,15 +270,15 @@ public:
         used_expr.insert(pos->second);
         auto combined = child - pos->second;
         if (!is_same<typename Traits::zero_type>(combined))
-          add.merge_or_insert(std::move(combined));
+          insert_signed<Traits>(add, std::move(combined));
       } else {
-        add.merge_or_insert(child);
+        insert_signed<Traits>(add, child);
       }
     }
     if (used_expr.size() != rhs.size()) {
       for (auto &child : rhs.symbol_map() | std::views::values) {
         if (!used_expr.count(child)) {
-          add.merge_or_insert(-child);
+          insert_signed<Traits>(add, -child);
         }
       }
     }
@@ -289,10 +301,10 @@ public:
       auto combined{pos->second - base::m_rhs};
       add.symbol_map().erase(pos);
       if (!is_same<typename Traits::zero_type>(combined))
-        add.merge_or_insert(std::move(combined));
+        insert_signed<Traits>(add, std::move(combined));
       return finalize_add<Traits>(std::move(expr_add));
     }
-    add.merge_or_insert(-base::m_rhs);
+    insert_signed<Traits>(add, -base::m_rhs);
     return finalize_add<Traits>(std::move(expr_add));
   }
 
