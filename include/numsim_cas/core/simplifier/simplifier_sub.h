@@ -203,28 +203,16 @@ public:
                          typename Traits::constant_type const &) {
     auto rhs_val = Traits::try_numeric(base::m_rhs);
     if (rhs_val) {
-      auto add_expr{make_expression<typename Traits::add_type>(lhs)};
-      auto &add{add_expr.template get<typename Traits::add_type>()};
-      const auto value{get_coefficient<Traits>(lhs, 0) - *rhs_val};
-      add.coeff().free();
-      if (value != 0) {
-        add.set_coeff(Traits::make_constant(value));
-      }
-      return add_expr;
+      return fold_constant_into_add_coeff<Traits>(
+          make_expression<typename Traits::add_type>(lhs), -(*rhs_val));
     }
     return base::get_default();
   }
 
   // (coeff + terms) - 1
   expr_holder_t dispatch([[maybe_unused]] typename Traits::one_type const &) {
-    auto add_expr{make_expression<typename Traits::add_type>(lhs)};
-    auto &add{add_expr.template get<typename Traits::add_type>()};
-    const auto value{get_coefficient<Traits>(add, 0) - 1};
-    add.coeff().free();
-    if (value != 0) {
-      add.set_coeff(Traits::make_constant(value));
-    }
-    return add_expr;
+    return fold_constant_into_add_coeff<Traits>(
+        make_expression<typename Traits::add_type>(lhs), scalar_number{-1});
   }
 
   // (c_l + a + b + c) - (c_r + a + d) = (c_l - c_r) + b + c - d

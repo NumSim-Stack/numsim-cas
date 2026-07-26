@@ -1334,6 +1334,67 @@ TEST(RoundFiveReview, T2sAliasedWrapperCancellation) {
   EXPECT_NE(to_string(e2), "tr(A)"); // value must not be silently lost
 }
 
+// Round-6 review: mirrors the round-5 fixes stopped short of.
+
+// R6-1: the value==0 degenerate collapse was missing from the
+// (add ± constant/one/negative) mirror sites — (x+5)-5 stayed a
+// single-child add that printed "x" but did not compare equal to x.
+TEST(RoundSixReview, AddSubConstantCollapseMirrors) {
+  auto [x] = make_scalar_variable("x");
+  auto e1 = (x + 5.0) - 5.0;
+  EXPECT_TRUE(*e1 == *x);
+  EXPECT_FALSE(is_same<scalar_add>(e1));
+  auto e2 = (x - 5.0) + 5.0;
+  EXPECT_TRUE(*e2 == *x);
+  auto e3 = (x - 1.0) + get_scalar_one();
+  EXPECT_TRUE(*e3 == *x);
+  auto neg5 =
+      make_expression<scalar_negative>(make_expression<scalar_constant>(5));
+  auto e4 = (x + 5.0) + neg5;
+  EXPECT_TRUE(*e4 == *x);
+  EXPECT_EQ(to_string(x - ((x + 5.0) - 5.0)), "0");
+  EXPECT_EQ(to_string(((x + 5.0) - 5.0) * pow(x, -1.0)), "1");
+}
+
+// R6-2: a symbolic t2s add coefficient (wrapper(s)) was silently deleted
+// by every get_coefficient + coeff().free() fold site.
+TEST(RoundSixReview, T2sSymbolicCoeffSurvivesConstantFold) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [s] = make_scalar_variable("s");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto c5 = make_expression<scalar_constant>(5);
+  auto c2 = make_expression<scalar_constant>(2);
+  auto base = w(s) - (trace(A) + det(A)); // coeff = wrapper(s)
+  auto has_s = [](auto const &e) {
+    return to_string(e).find('s') != std::string::npos;
+  };
+  EXPECT_TRUE(has_s(base));
+  EXPECT_TRUE(has_s(base + w(c5))); // was "5-tr(A)-det(A)"
+  EXPECT_TRUE(has_s(base - w(c2))); // was "-2-tr(A)-det(A)"
+  EXPECT_TRUE(has_s(base + (-w(c5))));
+  auto t2s_one = make_expression<tensor_to_scalar_one>();
+  EXPECT_TRUE(has_s(t2s_one + base)); // was "1-tr(A)-det(A)"
+}
+
+// R6-3: the t2s sub-side wrapper merge pushed a numeric result as a child
+// instead of folding it into the coeff — equal values compared unequal.
+TEST(RoundSixReview, T2sSubWrapperMergeFoldsToCoeff) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [a] = make_scalar_variable("a");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto c2 = make_expression<scalar_constant>(2);
+  auto e1 = (trace(A) + w(a + 3.0)) - w(a + 1.0);
+  auto e2 = trace(A) + w(c2);
+  auto e3 = (trace(A) + w(a + 3.0)) + (-w(a + 1.0));
+  EXPECT_TRUE(*e1 == *e2);
+  EXPECT_TRUE(*e1 == *e3);
+  EXPECT_EQ(to_string(e1 - w(c2)), "tr(A)");
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

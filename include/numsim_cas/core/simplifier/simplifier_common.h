@@ -1,7 +1,9 @@
 #ifndef NUMSIM_CAS_CORE_SIMPLIFIER_COMMON_H
 #define NUMSIM_CAS_CORE_SIMPLIFIER_COMMON_H
 
+#include <numsim_cas/core/domain_traits.h>
 #include <numsim_cas/core/expression_holder.h>
+#include <numsim_cas/core/scalar_number.h>
 
 namespace numsim::cas::detail {
 
@@ -40,6 +42,30 @@ finalize_add(expression_holder<typename Traits::expression_type> expr) {
     return add.symbol_map().begin()->second;
   }
   return expr;
+}
+
+// Fold a numeric delta into the coefficient of `expr` (an add node).
+// A valid-but-non-numeric coefficient (symbolic, t2s) is combined as an
+// expression — get_coefficient reports 0 for it, and the old free()/
+// set_coeff pattern silently deleted it (round-6 review).
+template <typename Traits>
+[[nodiscard]] expression_holder<typename Traits::expression_type>
+fold_constant_into_add_coeff(
+    expression_holder<typename Traits::expression_type> expr,
+    scalar_number const &delta) {
+  auto &add = expr.template get<typename Traits::add_type>();
+  if (add.coeff().is_valid() && !Traits::try_numeric(add.coeff())) {
+    auto sym = add.coeff();
+    add.coeff().free();
+    add.set_coeff(sym + Traits::make_constant(delta));
+    return finalize_add<Traits>(std::move(expr));
+  }
+  const auto value{get_coefficient<Traits>(add, 0) + delta};
+  add.coeff().free();
+  if (value != 0) {
+    add.set_coeff(Traits::make_constant(value));
+  }
+  return finalize_add<Traits>(std::move(expr));
 }
 
 } // namespace numsim::cas::detail

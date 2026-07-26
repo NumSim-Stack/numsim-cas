@@ -196,16 +196,8 @@ public:
                          typename Traits::add_type const &rhs) {
     auto lhs_val = Traits::try_numeric(base::m_lhs);
     if (lhs_val) {
-      const auto value{get_coefficient<Traits>(rhs, 0) + *lhs_val};
-      auto add_expr{make_expression<typename Traits::add_type>(rhs)};
-      auto &add{add_expr.template get<typename Traits::add_type>()};
-      add.coeff().free();
-      if (value != 0) {
-        add.set_coeff(Traits::make_constant(value));
-      } else if (add.size() == 1) {
-        return add.symbol_map().begin()->second;
-      }
-      return add_expr;
+      return fold_constant_into_add_coeff<Traits>(
+          make_expression<typename Traits::add_type>(rhs), *lhs_val);
     }
     return base::get_default();
   }
@@ -268,16 +260,8 @@ public:
   // 1 + (coeff + x)
   expr_holder_t dispatch([[maybe_unused]]
                          typename Traits::add_type const &rhs) {
-    const auto value{get_coefficient<Traits>(rhs, 0) + 1};
-    auto add_expr{make_expression<typename Traits::add_type>(rhs)};
-    auto &add{add_expr.template get<typename Traits::add_type>()};
-    add.coeff().free();
-    if (value != 0) {
-      add.set_coeff(Traits::make_constant(value));
-    } else if (add.size() == 1) {
-      return add.symbol_map().begin()->second;
-    }
-    return add_expr;
+    return fold_constant_into_add_coeff<Traits>(
+        make_expression<typename Traits::add_type>(rhs), scalar_number{1});
   }
 
   // 1 + 1
@@ -322,28 +306,16 @@ public:
                          typename Traits::constant_type const &) {
     auto rhs_val = Traits::try_numeric(base::m_rhs);
     if (rhs_val) {
-      auto add_expr{make_expression<typename Traits::add_type>(lhs)};
-      auto &add{add_expr.template get<typename Traits::add_type>()};
-      const auto value{get_coefficient<Traits>(lhs, 0) + *rhs_val};
-      add.coeff().free();
-      if (value != 0) {
-        add.set_coeff(Traits::make_constant(value));
-      }
-      return add_expr;
+      return fold_constant_into_add_coeff<Traits>(
+          make_expression<typename Traits::add_type>(lhs), *rhs_val);
     }
     return base::get_default();
   }
 
   // (coeff + terms) + 1
   expr_holder_t dispatch([[maybe_unused]] typename Traits::one_type const &) {
-    auto add_expr{make_expression<typename Traits::add_type>(lhs)};
-    auto &add{add_expr.template get<typename Traits::add_type>()};
-    const auto value{get_coefficient<Traits>(add, 0) + 1};
-    add.coeff().free();
-    if (value != 0) {
-      add.set_coeff(Traits::make_constant(value));
-    }
-    return add_expr;
+    return fold_constant_into_add_coeff<Traits>(
+        make_expression<typename Traits::add_type>(lhs), scalar_number{1});
   }
 
   // Zero-filter + degenerate collapse after in-place mutation: a
@@ -425,14 +397,8 @@ public:
 
     auto inner_val = Traits::try_numeric(rhs.expr());
     if (inner_val) {
-      auto add_expr{make_expression<typename Traits::add_type>(lhs)};
-      auto &add{add_expr.template get<typename Traits::add_type>()};
-      const auto value{get_coefficient<Traits>(lhs, 0) - *inner_val};
-      add.coeff().free();
-      if (value != 0) {
-        add.set_coeff(Traits::make_constant(value));
-      }
-      return add_expr;
+      return fold_constant_into_add_coeff<Traits>(
+          make_expression<typename Traits::add_type>(lhs), -(*inner_val));
     }
 
     // add + (-add): route through subtraction, which cancels childwise
@@ -569,18 +535,13 @@ public:
   // -expr + (coeff + terms)
   expr_holder_t dispatch([[maybe_unused]]
                          typename Traits::add_type const &rhs) {
-    auto add_expr{make_expression<typename Traits::add_type>(rhs)};
-    auto &add{add_expr.template get<typename Traits::add_type>()};
-
     auto inner_val = Traits::try_numeric(lhs.expr());
     if (inner_val) {
-      const auto value{get_coefficient<Traits>(rhs, 0) - *inner_val};
-      add.coeff().free();
-      if (value != 0) {
-        add.set_coeff(Traits::make_constant(value));
-      }
-      return add_expr;
+      return fold_constant_into_add_coeff<Traits>(
+          make_expression<typename Traits::add_type>(rhs), -(*inner_val));
     }
+    auto add_expr{make_expression<typename Traits::add_type>(rhs)};
+    auto &add{add_expr.template get<typename Traits::add_type>()};
     // (-x) + (y - x): the map may already hold -x, so merge instead of a
     // raw push_back (which asserts on duplicates)
     add.merge_or_insert(base::m_lhs);
