@@ -325,7 +325,11 @@ public:
                                  typename Traits::add_type &add,
                                  expr_holder_t combined) {
     if (!is_same<typename Traits::zero_type>(combined)) {
-      add.merge_or_insert(std::move(combined));
+      // signed insert: the combined term may exactly negate an existing
+      // child; a plain insert would leave a {t,-t} pair (round-8 review)
+      add_insert_signed(add, std::move(combined), [](expr_holder_t const &e) {
+        return is_same<typename Traits::zero_type>(e);
+      });
     }
     add.invalidate_hash();
     if (add.size() == 0) {

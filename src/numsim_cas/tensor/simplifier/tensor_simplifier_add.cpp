@@ -74,8 +74,18 @@ n_ary_add::dispatch([[maybe_unused]] Expr const &rhs) {
 n_ary_add::dispatch(tensor_add const &rhs) {
   auto expr{make_expression<tensor_add>(rhs.dim(), rhs.rank())};
   auto &add{expr.template get<tensor_add>()};
-  merge_add(m_lhs_node, rhs, add);
+  // zero filter + collapse: childwise combines may fully cancel
+  // ((A+B)+(C-A) left a literal 0{2} child, round-8 review)
+  merge_add(m_lhs_node, rhs, add,
+            [](expr_holder_t const &e) { return is_same<tensor_zero>(e); });
+  add.invalidate_hash();
   add.recompute_space();
+  if (add.size() == 0) {
+    return tensor_traits::zero(m_lhs);
+  }
+  if (add.size() == 1 && !add.coeff().is_valid()) {
+    return add.symbol_map().begin()->second;
+  }
   return expr;
 }
 

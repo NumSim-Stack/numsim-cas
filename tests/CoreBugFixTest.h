@@ -1446,6 +1446,45 @@ TEST(RoundSevenReview, AddCancelsAgainstNegativeChild) {
   EXPECT_TRUE(*f == *(trace(A) + w(c4))) << to_string(f);
 }
 
+// Round-8 review: regressions from the round-7 negation probe.
+
+// R8-1: merge_add consumed the same rhs child twice when the lhs held an
+// exact {t,-t} pair — 5x neg-matched -(5x), then -(5x) direct-matched it
+// again, turning y-5x into y-10x. Also kills the enabler: signed inserts
+// keep {t,-t} from coexisting at all.
+TEST(RoundEightReview, MergeAddNoDoubleConsume) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto f = (2.0 * x + (-(5.0 * x))) + 3.0 * x;
+  EXPECT_TRUE(is_same<scalar_zero>(f)) << to_string(f);
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, 0.0);
+  EXPECT_DOUBLE_EQ(ev.apply(f + (y - 5.0 * x)), -5.0);
+  // an add manually holding the exact pair must still merge correctly
+  auto pair_add = make_expression<scalar_add>();
+  auto &pa = pair_add.get<scalar_add>();
+  pa.push_back(5.0 * x);
+  pa.push_back(-(5.0 * x));
+  auto g = pair_add + (y - 5.0 * x);
+  EXPECT_DOUBLE_EQ(ev.apply(g), -5.0) << to_string(g); // was -10
+}
+
+// R8-2: the tensor add-merge got round-7's cancellation power without the
+// zero filter — (A+B)+(C-A) held a literal 0{2} child.
+TEST(RoundEightReview, TensorMergeAddZeroFiltered) {
+  auto [A, B, C] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                        std::tuple{"B", std::size_t{3}, 2},
+                                        std::tuple{"C", std::size_t{3}, 2});
+  auto e1 = (A + B) + (C - A);
+  EXPECT_TRUE(*e1 == *(B + C)) << to_string(e1);
+  EXPECT_EQ(to_string(e1).find("0{2}"), std::string::npos) << to_string(e1);
+  auto e2 = e1 - (B + C);
+  EXPECT_TRUE(is_same<tensor_zero>(e2)) << to_string(e2);
+  // full cancellation collapses to the zero singleton, not an empty add
+  auto e3 = (A + B) + ((-A) + (-B));
+  EXPECT_TRUE(is_same<tensor_zero>(e3)) << to_string(e3);
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
