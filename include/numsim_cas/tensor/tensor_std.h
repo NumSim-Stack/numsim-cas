@@ -39,6 +39,27 @@ namespace numsim::cas {
 
 template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
 [[nodiscard]] auto pow(ExprLHS &&expr_lhs, ExprRHS &&expr_rhs) {
+  // Matrix powers are rank-2 only; the evaluator's repeated contraction
+  // and the diff kernels are meaningless for other ranks (#350).
+  if (expr_lhs.get().rank() != 2) {
+    throw invalid_expression_error(
+        "pow: tensor operand must be rank 2 (got rank " +
+        std::to_string(expr_lhs.get().rank()) + ")");
+  }
+  // Non-integer constant exponents have no matrix-power meaning here;
+  // isotropic tensor functions (#227) cover fractional powers (#350).
+  {
+    // strip any depth of negation before the literal check, matching
+    // try_int_constant's own recursion (round-2 review on #350)
+    expression_holder<scalar_expression> probe{expr_rhs};
+    while (is_same<scalar_negative>(probe)) {
+      probe = probe.template get<scalar_negative>().expr();
+    }
+    if (is_same<scalar_constant>(probe) && !try_int_constant(expr_rhs)) {
+      throw invalid_expression_error(
+          "pow: tensor exponent must be an integer constant");
+    }
+  }
   // pow(0, n) → 0
   if (is_same<tensor_zero>(expr_lhs))
     return make_expression<tensor_zero>(expr_lhs.get().dim(),
