@@ -385,6 +385,14 @@ private:
   template <typename Op>
   void eval_projector_unary(inner_product_wrapper const &visitable) {
     auto rhs_data = apply(visitable.expr_rhs());
+    // round-3 review: the wrapper's dim() is the projector's; a
+    // dim-changing substitution produced an operand whose buffer this
+    // shortcut then over-read (ASan heap-buffer-overflow)
+    if (rhs_data->dim() != visitable.dim() ||
+        rhs_data->rank() != visitable.rank()) {
+      throw evaluation_error(
+          "projector contraction: operand dim/rank mismatch");
+    }
     m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
     tensor_data_unary_wrapper<Op, ValueType> op(*m_result, *rhs_data);
     op.evaluate(visitable.dim(), visitable.rank());

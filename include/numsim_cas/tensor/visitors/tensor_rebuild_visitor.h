@@ -4,6 +4,7 @@
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/operators.h>
 #include <numsim_cas/eigen_decomposition.h>
+#include <numsim_cas/tensor/projector_algebra.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
@@ -25,10 +26,14 @@ public:
       expr.get<tensor_visitable_t>().accept(*this);
       // #93 — reconstructions below build fresh nodes (variadic ctors)
       // that drop post-construction space(). Restore from source, but not
-      // over a self-computed space (e.g. tensor_add's child-join).
+      // over a self-computed space (e.g. tensor_add's child-join), and only
+      // for structurally unchanged rebuilds: a subclass that swapped
+      // children (substitution) must not inherit the source's space (#352).
       if (m_result.is_valid() && !m_result.get().space()) {
-        if (auto const &sp = expr.get().space())
-          m_result.data()->set_space(*sp);
+        if (auto const &sp = expr.get().space()) {
+          if (m_result == expr || same_projector_contraction(expr, m_result))
+            m_result.data()->set_space(*sp);
+        }
       }
       return std::move(m_result);
     }
@@ -40,6 +45,22 @@ public:
   }
 
   virtual t2s_holder_t apply_t2s(t2s_holder_t const &expr) { return expr; }
+
+  // skew(X)/sym(X)/...: the space comes from the projector, not the
+  // argument, so it survives child substitution (#93/#352).
+  static bool same_projector_contraction(tensor_holder_t const &a,
+                                         tensor_holder_t const &b) {
+    auto ia = as_projector_contraction(a);
+    auto ib = as_projector_contraction(b);
+    if (!(ia && ib && *ia->proj == *ib->proj)) {
+      return false;
+    }
+    // round-2 review: the wrapper's dim() comes from the projector LHS, so
+    // node-level shape checks are inert - compare the actual arguments
+    // (a dim-changing substitution reached a heap overflow at evaluation)
+    return ia->argument.get().rank() == ib->argument.get().rank() &&
+           ia->argument.get().dim() == ib->argument.get().dim();
+  }
 
   // Leaf nodes: return as-is
   void operator()(tensor const &) override { m_result = m_current; }
