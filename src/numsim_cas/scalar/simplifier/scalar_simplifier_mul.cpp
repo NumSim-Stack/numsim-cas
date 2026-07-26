@@ -95,6 +95,22 @@ n_ary_mul::dispatch([[maybe_unused]] scalar_pow const &rhs) {
   return expr_mul;
 }
 
+n_ary_mul::expr_holder_t n_ary_mul::push_or_combine_child() {
+  auto expr_mul{make_expression<scalar_mul>(m_lhs_node)};
+  auto &mul{expr_mul.template get<scalar_mul>()};
+  // an identical factor may already exist (sin(z)*x * sin(z)); a raw
+  // push_back would hit the no-duplicates assert — combine to a pow
+  auto pos{m_lhs_node.symbol_map().find(m_rhs)};
+  if (pos != m_lhs_node.symbol_map().end() && pos->second == m_rhs) {
+    auto combined{pos->second * m_rhs};
+    mul.symbol_map().erase(m_rhs);
+    mul.invalidate_hash();
+    return std::move(expr_mul) * combined;
+  }
+  mul.push_back(m_rhs);
+  return expr_mul;
+}
+
 // (x*y*z)*(x*y*z)
 n_ary_mul::expr_holder_t
 n_ary_mul::dispatch([[maybe_unused]] scalar_mul const &rhs) {

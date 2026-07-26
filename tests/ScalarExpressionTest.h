@@ -372,9 +372,11 @@ TEST_F(ScalarFixture, POW_Simplification) {
   EXPECT_PRINT(pow(pow(x, -_2), -_2), "pow(x,4)");
   EXPECT_PRINT(pow(pow(x, -_2), _2), "pow(x,-4)");
 
-  // --- Negative base extraction: pow(-x, p) → -pow(x, p) ---
-  EXPECT_PRINT(pow(-x, _2), "-pow(x,2)");
-  EXPECT_PRINT(pow(-x, y), "-pow(x,y)");
+  // --- Negative base: sign extraction is parity-dependent (round-5 review:
+  // (-x)^2 = x^2, and for symbolic p the sign cannot be extracted at all) ---
+  EXPECT_PRINT(pow(-x, _2), "pow(x,2)");
+  EXPECT_PRINT(pow(-x, _3), "-pow(x,3)");
+  EXPECT_PRINT(pow(-x, y), "pow(-x,y)");
 
   // --- Division cancellation: pow(x, -x) → 1 ---
   EXPECT_PRINT(pow(x, -x), "1");

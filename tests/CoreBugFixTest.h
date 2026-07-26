@@ -1182,6 +1182,158 @@ TEST(HashIdentitySweep, TensorCancellationAndReverseProbe) {
   EXPECT_EQ(to_string((X + Y) + 2.0 * X), "3*X+Y"); // reverse probe
 }
 
+// Round-5 review: whole-stack cross-check + randomized property sweep.
+// Remaining raw-hash identity holes, a constant-dropping add path, the
+// rank-lexicographic sign test in sub, and fraction-printing defects.
+
+// Sweep bug A: constant + (coeff+x) silently dropped the constant when the
+// coefficients cancelled (returned rhs with its old coeff intact).
+TEST(RoundFiveReview, ConstantPlusAddCancellingCoeff) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto e = 5.0 + (x - 5.0);
+  EXPECT_TRUE(*e == *x);
+  auto e2 = 5.0 + (x + y - 5.0);
+  EXPECT_TRUE(*e2 == *(x + y));
+  auto e3 = get_scalar_one() + (x - 1.0);
+  EXPECT_TRUE(*e3 == *x);
+}
+
+// R5-6: mul+symbol / symbol+mul used a raw map find; hash(x+2)==hash(x)
+// falsely folded 2*(x+2) + x into 3*(x+2).
+TEST(RoundFiveReview, MulAddNoAliasedCoeffFold) {
+  auto [x, z] = make_scalar_variable("x", "z");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  EXPECT_DOUBLE_EQ(ev.apply(2.0 * (x + 2.0) + x), 7.0); // was 9
+  EXPECT_DOUBLE_EQ(ev.apply(x + 2.0 * (x + 2.0)), 7.0); // was 9
+  EXPECT_EQ(to_string(z + (-1.0) * z), "0");            // was 0*z
+}
+
+// R5-3: (-x) + (y - x) hit the no-duplicates assert in push_back.
+TEST(RoundFiveReview, NegativePlusAddContainingSameNegative) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  expression_holder<scalar_expression> e;
+  EXPECT_NO_THROW(e = (-x) + (y - x));
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, 5.0);
+  EXPECT_DOUBLE_EQ(ev.apply(e), 3.0);
+}
+
+// R5-1 + R5-2/sweep bug B: c1*expr - c2*expr merged on raw hash equality
+// (falsely matching different children), and classified the sign of the
+// result with rank-lexicographic operator< instead of numeric_less.
+TEST(RoundFiveReview, MulSubDeepEqualityAndSign) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, 2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(2.0 * (x + 2.0) - 5.0 * (x + 9.0)), -44.0);
+  EXPECT_DOUBLE_EQ(ev.apply(2.0 * y - 2.5 * y), -1.0); // was +1
+  EXPECT_DOUBLE_EQ(ev.apply(2.5 * y - 2.0 * y), 1.0);
+}
+
+// R5-1 latent + R5-2 in symbol - c*expr: same two defects.
+TEST(RoundFiveReview, SymbolMinusScaledAddNoFalseMerge) {
+  auto [x] = make_scalar_variable("x");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  EXPECT_DOUBLE_EQ(ev.apply(x - 5.0 * (x + 2.0)), -14.0); // was -12
+  EXPECT_EQ(to_string(x - 2.0 * x), "-x");
+  EXPECT_DOUBLE_EQ(ev.apply(x - 2.5 * x), -1.5); // was +1.5
+}
+
+// Sweep bug C companion (scalar side): add + (-aliased_child) erased the
+// wrong map entry because hash(sin(y+2))==hash(sin(y+5)).
+TEST(RoundFiveReview, AddMinusAliasedFunctionChild) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto e = (x + sin(y + 2.0)) + (-sin(y + 5.0));
+  EXPECT_NE(to_string(e), "x");
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.0);
+  ev.set(y, 0.0);
+  EXPECT_DOUBLE_EQ(ev.apply(e), std::sin(2.0) - std::sin(5.0));
+}
+
+// R5-4: tensor pow/mul folds compared raw hashes; hash(c*T)==hash(T) and
+// hash(pow(T,c))==hash(T) made A*pow(2A,2) fold to pow(A,3).
+TEST(RoundFiveReview, TensorPowMulDeepBaseComparison) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  EXPECT_NE(to_string(A * pow(2.0 * A, 2)), "pow(A,3)");
+  EXPECT_NE(to_string(pow(2.0 * A, 2) * A), "pow(A,3)");
+  EXPECT_NE(to_string(pow(A, 2) * pow(2.0 * A, 3)), "pow(A,5)");
+  EXPECT_EQ(to_string(A * pow(A, 2)), "pow(A,3)");
+  EXPECT_EQ(to_string(pow(A, 2) * A), "pow(A,3)");
+  EXPECT_EQ(to_string(pow(A, 2) * pow(A, 3)), "pow(A,5)");
+}
+
+// R5-5: fraction printing — trailing "*" before "/", glued denominator
+// factors, missing "1" numerator, and rank-lexicographic classification of
+// negative double exponents.
+TEST(RoundFiveReview, ScalarFractionPrinting) {
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  EXPECT_EQ(to_string(2.0 * pow(x, -1.0)), "2/x"); // was "2*/x"
+  auto s = to_string(z * pow(x, -2.0) * pow(y, -1.0));
+  EXPECT_TRUE(s == "z/(pow(x,2)*y)" || s == "z/(y*pow(x,2))") << s;
+  auto s2 = to_string(pow(x, -2.0) * pow(y, -1.0));
+  EXPECT_TRUE(s2 == "1/(pow(x,2)*y)" || s2 == "1/(y*pow(x,2))") << s2;
+  EXPECT_EQ(to_string(y * pow(x, -2.5)), "y/pow(x,2.5)");
+}
+
+TEST(RoundFiveReview, T2sFractionPrinting) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto s = to_string(pow(trace(A), -1.0) * pow(det(A), -1.0));
+  EXPECT_NE(s.find("1/"), std::string::npos) << s;
+  EXPECT_EQ(s.find("*/"), std::string::npos) << s;
+}
+
+// Round-5 differential fuzzer: pow(-b, p) extracted the sign for every
+// exponent; (-b)^2 = b^2, and for symbolic p no extraction is valid.
+TEST(RoundFiveReview, PowNegativeBaseParity) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.5);
+  EXPECT_DOUBLE_EQ(ev.apply(pow(-x, 2.0)), 6.25); // was -6.25
+  EXPECT_DOUBLE_EQ(ev.apply(pow(-x, 3.0)), -15.625);
+  EXPECT_EQ(to_string(pow(-x, 2.0)), "pow(x,2)");
+  EXPECT_EQ(to_string(pow(-x, 3.0)), "-pow(x,3)");
+  EXPECT_EQ(to_string(pow(-x, y)), "pow(-x,y)");
+}
+
+// Round-5 differential fuzzer: exact-duplicate children reached raw
+// push_back through the sub default and two mul fallbacks and hit the
+// no-duplicates assert.
+TEST(RoundFiveReview, DuplicateChildMergesInsteadOfThrow) {
+  auto [x, z] = make_scalar_variable("x", "z");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(z, 2.0);
+  expression_holder<scalar_expression> e;
+  EXPECT_NO_THROW(e = z - (-1.0) * z);
+  EXPECT_EQ(to_string(e), "2*z");
+  EXPECT_NO_THROW(e = sin(x) * (-(0.5 * sin(x) * z)));
+  EXPECT_DOUBLE_EQ(ev.apply(e), -std::sin(1.0) * std::sin(1.0));
+  auto A = sin(z) * sin(x + 1.0);
+  auto B = sin(z) * sin(x + 2.0);
+  EXPECT_NO_THROW(e = A * B); // shared sin(z) factor
+  EXPECT_DOUBLE_EQ(ev.apply(e), std::sin(2.0) * std::sin(2.0) * std::sin(2.0) *
+                                    std::sin(3.0));
+}
+
+// Sweep bug C: hash(w(a+3))==hash(w(a+1)) — cancelling against a negative
+// wrapper erased the aliased child and lost both constants.
+TEST(RoundFiveReview, T2sAliasedWrapperCancellation) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [a] = make_scalar_variable("a");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto e = (trace(A) + w(a + 3.0)) + (-w(a + 1.0));
+  EXPECT_EQ(to_string(e), "2+tr(A)");
+  auto e2 = (trace(A) + w(a + 3.0)) - w(a + 1.0);
+  EXPECT_NE(to_string(e2), "tr(A)"); // value must not be silently lost
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

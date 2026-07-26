@@ -52,9 +52,11 @@ public:
     if (rhs_val) {
       add.set_coeff(negate_constant(m_rhs));
     } else {
-      add.push_back(-m_rhs);
+      // -m_rhs may collapse onto m_lhs (z - (-z)); a raw push_back
+      // would hit the no-duplicates assert
+      add.merge_or_insert(-m_rhs);
     }
-    return add_new;
+    return finalize_add<Traits>(std::move(add_new));
   }
 
   template <typename Expr> expr_holder_t dispatch(Expr const &) {
@@ -336,8 +338,8 @@ public:
   requires(!std::is_void_v<SymbolType>)
   expr_holder_t dispatch(SymbolType const &) {
     if (lhs.symbol_map().size() == 1) {
-      auto pos{lhs.symbol_map().find(base::m_rhs)};
-      if (lhs.symbol_map().end() != pos) {
+      // deep-compare: a map find would alias e.g. child x+2 against x
+      if (lhs.symbol_map().begin()->second == base::m_rhs) {
         // an invalid mul coefficient means 1, not 0 (round-2 review:
         // ((x*y)*pow(x,-1)) - y evaluated to -3 via the 0 default)
         const auto value{get_coefficient<Traits>(lhs, 1) - 1};
@@ -358,18 +360,18 @@ public:
 
   /// c1*expr - c2*expr --> (c1-c2)*expr
   expr_holder_t dispatch(typename Traits::mul_type const &rhs) {
-    const auto &hash_rhs{rhs.hash_value()};
-    const auto &hash_lhs{lhs.hash_value()};
-    if (hash_rhs == hash_lhs) {
-      const auto fac_lhs{get_coefficient<Traits>(lhs, 1.0)};
-      const auto fac_rhs{get_coefficient<Traits>(rhs, 1.0)};
+    // hashes are coefficient-blind; like_term_of confirms the children match
+    if (lhs.like_term_of(rhs)) {
+      const auto fac_lhs{get_coefficient<Traits>(lhs, 1)};
+      const auto fac_rhs{get_coefficient<Traits>(rhs, 1)};
       const auto result{fac_lhs - fac_rhs};
       if (result == scalar_number{0})
         return Traits::zero();
       const auto abs_result{result.abs()};
+      const bool is_negative{numeric_less(result, scalar_number{0})};
       if (abs_result == scalar_number{1} && lhs.size() == 1) {
         auto child = lhs.symbol_map().begin()->second;
-        if (result < 0)
+        if (is_negative)
           return make_expression<typename Traits::negative_type>(
               std::move(child));
         return child;
@@ -377,7 +379,7 @@ public:
       auto expr{make_expression<typename Traits::mul_type>(lhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
       mul.set_coeff(Traits::make_constant(abs_result));
-      if (result < 0) {
+      if (is_negative) {
         return make_expression<typename Traits::negative_type>(std::move(expr));
       }
       return expr;
@@ -420,18 +422,27 @@ public:
 
   // x - 3*x --> -(2*x)
   expr_holder_t dispatch(typename Traits::mul_type const &rhs) {
-    const auto &hash_rhs{rhs.hash_value()};
-    const auto &hash_lhs{lhs.hash_value()};
-    if (hash_rhs == hash_lhs) {
+    // c*x is a like term of x only when its single child deep-equals x
+    // (hash-based checks alias x against x+2 and never match cross-type)
+    if (rhs.size() == 1 && rhs.symbol_map().begin()->second == base::m_lhs) {
+      const auto value{scalar_number{1} - get_coefficient<Traits>(rhs, 1)};
+      if (value == scalar_number{0}) {
+        return Traits::zero();
+      }
+      const auto abs_value{value.abs()};
+      const bool is_negative{numeric_less(value, scalar_number{0})};
+      if (abs_value == scalar_number{1} && rhs.size() == 1) {
+        if (is_negative)
+          return make_expression<typename Traits::negative_type>(base::m_lhs);
+        return base::m_lhs;
+      }
       auto expr{make_expression<typename Traits::mul_type>(rhs)};
       auto &mul{expr.template get<typename Traits::mul_type>()};
-      const auto value{1.0 - get_coefficient<Traits>(rhs, 1.0)};
-      mul.set_coeff(Traits::make_constant(value.abs()));
-      if (value < 0) {
+      mul.set_coeff(Traits::make_constant(abs_value));
+      if (is_negative) {
         return make_expression<typename Traits::negative_type>(std::move(expr));
-      } else {
-        return expr;
       }
+      return expr;
     }
     return get_default();
   }

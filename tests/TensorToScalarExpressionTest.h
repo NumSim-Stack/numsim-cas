@@ -269,8 +269,9 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_PowSimplification) {
   // pow of pow with different base expressions
   EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(nX, 2), 3), "pow(norm(X),6)");
 
-  // --- Negative base extraction: pow(-expr, p) → -pow(expr, p) ---
-  EXPECT_PRINT(numsim::cas::pow(-trX, 2), "-pow(tr(X),2)");
+  // --- Negative base: sign extraction is parity-dependent (round-5 review:
+  // (-tr(X))^2 = tr(X)^2; only odd integer exponents keep the sign) ---
+  EXPECT_PRINT(numsim::cas::pow(-trX, 2), "pow(tr(X),2)");
   EXPECT_PRINT(numsim::cas::pow(-trX, _3), "-pow(tr(X),3)");
 
   // --- Division cancellation: pow(expr, -expr) → 1 ---

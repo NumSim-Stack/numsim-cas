@@ -1,11 +1,29 @@
 #ifndef SIMPLIFIER_POW_H
 #define SIMPLIFIER_POW_H
 
+#include <cmath>
+#include <cstdint>
+#include <variant>
+
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/domain_traits.h>
+#include <numsim_cas/core/scalar_number.h>
 
 namespace numsim::cas {
 namespace detail {
+
+// -1: not a (representable) integer, 0: even, 1: odd
+inline int integer_parity(scalar_number const &n) {
+  if (auto const *i = std::get_if<std::int64_t>(&n.raw())) {
+    return static_cast<int>(*i & 1);
+  }
+  if (auto const *d = std::get_if<double>(&n.raw())) {
+    if (*d == std::floor(*d) && std::fabs(*d) < 9.0e15) {
+      return static_cast<int>(static_cast<std::int64_t>(*d) & 1);
+    }
+  }
+  return -1;
+}
 
 //==============================================================================
 // pow_dispatch<Traits, Derived> — Base algorithm for pow(A, B)
@@ -34,18 +52,31 @@ public:
       // expr*x / x --> expr; for x /= 0
       if (is_same<mul_type>(m_lhs)) {
         const auto &map{m_lhs.template get<mul_type>().symbol_map()};
+        // map keys compare by hash; confirm deep equality before erasing
         auto pos{map.find(expr)};
-        if (pos != map.end()) {
+        if (pos != map.end() && pos->second == expr) {
           auto copy{make_expression<mul_type>(m_lhs.template get<mul_type>())};
-          copy.template get<mul_type>().symbol_map().erase(expr);
+          auto &mul{copy.template get<mul_type>()};
+          mul.symbol_map().erase(expr);
+          mul.invalidate_hash();
           return copy;
         }
       }
     }
-    // pow(-expr, power) --> -pow(expr, power)
+    // pow(-expr, p): the sign survives only for odd integer p; even integer
+    // p absorbs it; unknown/non-integer p must keep the negative base.
     if (auto expr_neg{is_same_r<negative_type>(m_lhs)}) {
-      return -make_expression<pow_type>(expr_neg->get().expr(),
-                                        std::move(m_rhs));
+      if (auto num = Traits::try_numeric(m_rhs)) {
+        const int parity = integer_parity(*num);
+        if (parity == 0) {
+          return make_expression<pow_type>(expr_neg->get().expr(),
+                                           std::move(m_rhs));
+        }
+        if (parity == 1) {
+          return -make_expression<pow_type>(expr_neg->get().expr(),
+                                            std::move(m_rhs));
+        }
+      }
     }
     return make_expression<pow_type>(std::move(m_lhs), std::move(m_rhs));
   }
@@ -108,12 +139,14 @@ public:
 
   // pow(mul, -rhs)
   expr_holder_t dispatch(typename Traits::negative_type const &rhs) {
+    // map keys compare by hash; confirm deep equality before erasing
     auto pos{lhs.symbol_map().find(rhs.expr())};
     auto mul_expr{make_expression<typename Traits::mul_type>(lhs)};
     auto &mul{mul_expr.template get<typename Traits::mul_type>()};
     // x*y*z / x --> y*z
-    if (pos != lhs.symbol_map().end()) {
+    if (pos != lhs.symbol_map().end() && pos->second == rhs.expr()) {
       mul.symbol_map().erase(rhs.expr());
+      mul.invalidate_hash();
       return mul_expr;
     }
 

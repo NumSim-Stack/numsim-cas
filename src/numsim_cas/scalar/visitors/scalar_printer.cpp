@@ -85,7 +85,7 @@ void scalar_printer<Stream>::operator()(scalar_mul const &visitable) {
   bool first = true;
   if (visitable.coeff().is_valid()) {
     apply(visitable.coeff(), precedence);
-    m_out << "*";
+    first = false;
   }
   for (auto &child : sorted_map | std::views::values) {
     if (!first)
@@ -93,20 +93,31 @@ void scalar_printer<Stream>::operator()(scalar_mul const &visitable) {
     apply(child, precedence);
     first = false;
   }
+  if (first) {
+    // all children went to the denominator: print "1/..."
+    m_out << "1";
+  }
 
   if (!denom.empty()) {
     m_out << "/";
-    for (auto &entry : denom) {
-      if (entry.pos_exponent != scalar_number{1}) {
+    const bool multi = denom.size() > 1;
+    if (multi)
+      m_out << "(";
+    for (std::size_t i = 0; i < denom.size(); ++i) {
+      if (i > 0)
+        m_out << "*";
+      if (denom[i].pos_exponent != scalar_number{1}) {
         m_out << "pow(";
-        apply(entry.base);
+        apply(denom[i].base);
         m_out << ",";
-        m_out << entry.pos_exponent;
+        m_out << denom[i].pos_exponent;
         m_out << ")";
       } else {
-        apply(entry.base, Precedence::Division_RHS);
+        apply(denom[i].base, Precedence::Division_RHS);
       }
     }
+    if (multi)
+      m_out << ")";
   }
   end(precedence, parent_precedence);
 }
