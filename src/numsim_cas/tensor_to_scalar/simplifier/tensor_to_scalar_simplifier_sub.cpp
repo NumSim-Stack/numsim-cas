@@ -113,16 +113,17 @@ sub_base::expr_holder_t sub_base::dispatch(tensor_to_scalar_add const &) {
   return _rhs.accept(visitor);
 }
 
-// 0 - expr
+// 0 - expr (operator- so -0/-(-x)/-wrapper normalize, round-7 review)
 sub_base::expr_holder_t sub_base::dispatch(tensor_to_scalar_zero const &) {
-  return make_expression<tensor_to_scalar_negative>(std::move(m_rhs));
+  return -std::move(m_rhs);
 }
 
 // -expr_lhs - expr_rhs --> -(expr_lhs+expr_rhs)
+// operator-, not a raw negative node: the sum may collapse to zero and
+// neg(zero) defeats every zero-singleton filter.
 sub_base::expr_holder_t
 sub_base::dispatch(tensor_to_scalar_negative const &lhs) {
-  return make_expression<tensor_to_scalar_negative>(lhs.expr() +
-                                                    std::move(m_rhs));
+  return -(lhs.expr() + std::move(m_rhs));
 }
 
 sub_base::expr_holder_t

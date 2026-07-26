@@ -39,16 +39,16 @@ sub_base::expr_holder_t sub_base::dispatch(scalar_one const &) {
   return _rhs.accept(visitor);
 }
 
-// 0 - expr
+// 0 - expr (operator- so -0/-(-x) normalize, round-7 review)
 sub_base::expr_holder_t sub_base::dispatch(scalar_zero const &) {
-  if (is_same<scalar_zero>(m_rhs))
-    return get_scalar_zero();
-  return make_expression<scalar_negative>(std::move(m_rhs));
+  return -std::move(m_rhs);
 }
 
 // - expr_lhs - expr_rhs --> -(expr_lhs+expr_rhs)
+// operator-, not a raw negative node: the sum may collapse to zero
+// ((-x)-(-x)) and neg(zero) defeats every zero-singleton filter.
 sub_base::expr_holder_t sub_base::dispatch(scalar_negative const &lhs) {
-  return make_expression<scalar_negative>(lhs.expr() + std::move(m_rhs));
+  return -(lhs.expr() + std::move(m_rhs));
 }
 
 } // namespace simplifier

@@ -1395,6 +1395,57 @@ TEST(RoundSixReview, T2sSubWrapperMergeFoldsToCoeff) {
   EXPECT_EQ(to_string(e1 - w(c2)), "tr(A)");
 }
 
+// Round-7 review: negative(zero) minting, negative-wrapper duals, and
+// missing negation-pair cancellation in add merges.
+
+// R7-1: -e1 - e2 built a raw negative node; a fully-cancelling sum minted
+// negative(zero), defeating every zero-singleton filter.
+TEST(RoundSevenReview, NegativeLhsSubNormalizesZero) {
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto e1 = (-x) - (-x);
+  EXPECT_TRUE(is_same<scalar_zero>(e1)) << to_string(e1);
+  auto e2 = (z - y) - (x - y);
+  EXPECT_TRUE(*e2 == *(z - x)) << to_string(e2);
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto t = (-trace(A)) - (-trace(A));
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(t)) << to_string(t);
+}
+
+// R7-2: -w(a) and w(-a) are the same value; neg_fn now normalizes so both
+// build routes agree and round-trip cancellation works.
+TEST(RoundSevenReview, T2sNegativeWrapperNormalized) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [a] = make_scalar_variable("a");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto base = trace(A) + det(A);
+  auto e1 = base + (-w(a));
+  auto e2 = base - w(a);
+  EXPECT_TRUE(*e1 == *e2) << to_string(e1) << " vs " << to_string(e2);
+  auto e3 = (base - w(a)) + w(a);
+  EXPECT_TRUE(*e3 == *base) << to_string(e3);
+}
+
+// R7-4: negation pairs share no hash, so (3-x)+x and (3+x)+(1-x) never
+// cancelled; find_like now retries with the exact negation.
+TEST(RoundSevenReview, AddCancelsAgainstNegativeChild) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  EXPECT_EQ(to_string((3.0 - x) + x), "3");
+  EXPECT_EQ(to_string((3.0 + x) + (1.0 - x)), "4");
+  auto e = (y - x) + (x + 2.0);
+  EXPECT_TRUE(*e == *(y + 2.0)) << to_string(e);
+  // t2s merged-wrapper interiors reduce through the same path
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [a] = make_scalar_variable("a");
+  auto w = [](auto ex) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(ex);
+  };
+  auto f = (trace(A) + w(a + 3.0)) + w(1.0 - a);
+  auto c4 = make_expression<scalar_constant>(4);
+  EXPECT_TRUE(*f == *(trace(A) + w(c4))) << to_string(f);
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

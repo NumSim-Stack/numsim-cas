@@ -360,6 +360,15 @@ public:
         pos = add.find_like(probe);
       }
     }
+    if (pos == add.symbol_map().end()) {
+      // negation pairs share no hash: (3-x)+x needs a -x probe; only an
+      // exact -x cancels — like-terms of -x would nest adds (round-7)
+      auto neg_probe{-base::m_rhs};
+      pos = add.find_like(neg_probe);
+      if (pos != add.symbol_map().end() && !(pos->second == neg_probe)) {
+        pos = add.symbol_map().end();
+      }
+    }
     if (pos != add.symbol_map().end()) {
       auto expr{pos->second + base::m_rhs};
       add.symbol_map().erase(pos);
@@ -369,12 +378,15 @@ public:
     return expr_add;
   }
 
-  // merge two add expressions
+  // merge two add expressions; zero-filter + collapse since childwise
+  // combines may fully cancel ((3+x)+(1-x) -> 4), round-7 review
   expr_holder_t dispatch(typename Traits::add_type const &rhs) {
     auto expr{make_expression<typename Traits::add_type>()};
     auto &add{expr.template get<typename Traits::add_type>()};
-    merge_add(lhs, rhs, add);
-    return expr;
+    merge_add(lhs, rhs, add, [](expr_holder_t const &e) {
+      return is_same<typename Traits::zero_type>(e);
+    });
+    return finalize_add<Traits>(std::move(expr));
   }
 
   // (coeff + terms) + (-expr)
