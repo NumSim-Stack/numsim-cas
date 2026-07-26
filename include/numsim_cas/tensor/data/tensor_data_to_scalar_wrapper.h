@@ -4,6 +4,7 @@
 #include "spectral_decomposition_cache.h"
 #include "tensor_data.h"
 #include <numsim_cas/core/cas_error.h>
+#include <numsim_cas/tensor/sequence.h>
 
 #include <algorithm>
 #include <array>
@@ -58,18 +59,47 @@ class tensor_data_dcontract_wrapper final
     : public tensor_data_eval_up_unary<tensor_data_dcontract_wrapper<ValueType>,
                                        ValueType> {
 public:
+  // #353 — the contraction sequences are part of the node semantics:
+  // {1,2}/{2,1} is A_ij*B_ji (A : B^T), not A : B.
   tensor_data_dcontract_wrapper(tensor_data_base<ValueType> const &lhs,
-                                tensor_data_base<ValueType> const &rhs)
-      : m_lhs(lhs), m_rhs(rhs) {}
+                                tensor_data_base<ValueType> const &rhs,
+                                sequence const &lhs_indices,
+                                sequence const &rhs_indices)
+      : m_lhs(lhs), m_rhs(rhs), m_lhs_indices(lhs_indices),
+        m_rhs_indices(rhs_indices) {}
 
   template <std::size_t Dim, std::size_t Rank> ValueType evaluate_imp() {
+    // The dispatch picks Dim/Rank from the LHS; a mixed-rank/dim node
+    // (constructible through the weak dot_product precondition, #360)
+    // would type-pun the RHS cast into silent garbage (review on #353).
+    if (m_lhs.rank() != m_rhs.rank() || m_lhs.dim() != m_rhs.dim()) {
+      throw evaluation_error(
+          "tensor_data_dcontract_wrapper: operand rank/dim mismatch");
+    }
+    if (m_lhs_indices.size() != Rank || m_rhs_indices.size() != Rank) {
+      throw evaluation_error(
+          "tensor_data_dcontract_wrapper: sequence size != operand rank");
+    }
     if constexpr (Rank == 2) {
       using Tensor = tensor_data<ValueType, Dim, Rank>;
       auto const &l = static_cast<const Tensor &>(m_lhs).data();
       auto const &r = static_cast<const Tensor &>(m_rhs).data();
-      return static_cast<ValueType>(tmech::dcontract(l, r));
+      const bool straight{m_lhs_indices == m_rhs_indices};
+      if (straight) {
+        // {1,2}/{1,2} = A_ij B_ij; {2,1}/{2,1} = A_ji B_ji = same sum
+        return static_cast<ValueType>(tmech::dcontract(l, r));
+      }
+      // {1,2}/{2,1} (either orientation) = A_ij B_ji
+      return static_cast<ValueType>(tmech::dcontract(l, tmech::trans(r)));
+    } else if constexpr (Rank == 1) {
+      using Tensor = tensor_data<ValueType, Dim, Rank>;
+      auto const &l = static_cast<const Tensor &>(m_lhs).data();
+      auto const &r = static_cast<const Tensor &>(m_rhs).data();
+      return static_cast<ValueType>(tmech::dot(l, r));
     } else {
-      throw evaluation_error("tensor_data_dcontract_wrapper: requires rank 2");
+      throw evaluation_error(
+          "tensor_data_dcontract_wrapper: rank > 2 contraction not "
+          "implemented (#353 follow-up in #383)");
     }
   }
 
@@ -86,6 +116,8 @@ public:
 private:
   tensor_data_base<ValueType> const &m_lhs;
   tensor_data_base<ValueType> const &m_rhs;
+  sequence m_lhs_indices;
+  sequence m_rhs_indices;
 };
 
 // ─── Eigenvalue wrapper: dispatches runtime (dim,rank), computes the
