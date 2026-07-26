@@ -186,7 +186,6 @@ scalar_pow_mul::scalar_pow_mul(expr_holder_t lhs, expr_holder_t rhs)
 
 scalar_pow_mul::expr_holder_t
 scalar_pow_mul::dispatch([[maybe_unused]] scalar const &rhs) {
-  const auto &power{m_lhs_node.expr_rhs()};
   const auto &pow_base{m_lhs_node.expr_lhs()};
   if (pow_base == m_rhs) {
     const auto rhs_expr{m_lhs_node.expr_rhs() + get_scalar_one()};
