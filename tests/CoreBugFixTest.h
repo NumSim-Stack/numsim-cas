@@ -1693,6 +1693,67 @@ TEST(RoundTwoReview, MulPowEraseProducesCanonicalRemainder) {
   EXPECT_EQ(to_string(sin(r) - sin(y)), "0"); // no stale hash either
 }
 
+// #349 — scalar_number int64 arithmetic must demote to double instead of
+// wrapping (UB / silent corruption).
+TEST(ScalarNumberOverflow, PowDoesNotWrap) {
+  auto p = pow(make_scalar_constant(10), make_scalar_constant(30));
+  scalar_evaluator<double> ev;
+  EXPECT_NEAR(ev.apply(p), 1e30, 1e16); // was 5076944270305263616 (mod 2^64)
+}
+
+TEST(ScalarNumberOverflow, RationalAddLargeMagnitudes) {
+  const auto big = std::int64_t{1} << 40;
+  auto a = scalar_number(rational_t{big + 1, big});
+  auto b = scalar_number(rational_t{big + 3, big + 2});
+  auto s = a + b; // cross-products overflow int64; must not be UB
+  double val = std::visit(
+      [](auto const &v) -> double {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, double>)
+          return v;
+        else if constexpr (std::is_same_v<T, std::int64_t>)
+          return static_cast<double>(v);
+        else if constexpr (std::is_same_v<T, rational_t>)
+          return static_cast<double>(v.num) / static_cast<double>(v.den);
+        else
+          return 0.0;
+      },
+      s.raw());
+  EXPECT_NEAR(val, 2.0, 1e-9);
+}
+
+TEST(ScalarNumberOverflow, RationalDivByZeroIsInf) {
+  auto q = scalar_number(1, 2) / scalar_number(std::int64_t{0});
+  auto const *d = std::get_if<double>(&q.raw());
+  ASSERT_NE(d, nullptr); // not a stored 1/0 rational
+  EXPECT_TRUE(std::isinf(*d));
+  EXPECT_GT(*d, 0.0);
+}
+
+TEST(ScalarNumberOverflow, ExactArithmeticUnchanged) {
+  auto a = scalar_number(1, 3) + scalar_number(1, 6); // = 1/2 exact
+  auto const *r = std::get_if<rational_t>(&a.raw());
+  ASSERT_NE(r, nullptr);
+  EXPECT_EQ(r->num, 1);
+  EXPECT_EQ(r->den, 2);
+  auto b = scalar_number(std::int64_t{2}) * scalar_number(std::int64_t{3});
+  EXPECT_EQ(b, scalar_number(std::int64_t{6}));
+}
+
+// Review on #349: INT64_MIN reaches the rational cross-cancel via the
+// int->rational promotion, which skips normalization.
+TEST(ScalarNumberOverflow, Int64MinTimesRational) {
+  constexpr auto mn = std::numeric_limits<std::int64_t>::min();
+  auto p = scalar_number(mn) * scalar_number(1, 2); // was std::abs(mn) UB
+  auto q = scalar_number(1, 2) * scalar_number(mn);
+  auto d = scalar_number(mn) / scalar_number(1, 2);
+  auto const *pd = std::get_if<double>(&p.raw());
+  ASSERT_NE(pd, nullptr);
+  EXPECT_NEAR(*pd, static_cast<double>(mn) / 2.0, 1e3);
+  EXPECT_TRUE(std::get_if<double>(&q.raw()) != nullptr);
+  EXPECT_TRUE(std::get_if<double>(&d.raw()) != nullptr);
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
