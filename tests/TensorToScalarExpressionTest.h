@@ -921,4 +921,38 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_EQ(d.get().dim(), X.get().dim());
 }
 
+// #354 — a symbolic scalar_wrapper multiplied into an existing t2s mul must
+// survive as a factor (it was silently dropped and the coefficient reset).
+TYPED_TEST(TensorToScalarExpressionTest,
+           SymbolicWrapperFactorSurvivesMulMerge) {
+  auto &X = this->X;
+  auto &x = this->x;
+  using numsim::cas::det;
+  using numsim::cas::trace;
+  auto f = trace(X) * det(X); // tensor_to_scalar_mul
+  auto w = numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_scalar_wrapper>(x);
+  auto e = w * f; // wrapper-first: hits constant_mul::dispatch(mul)
+  auto const s = numsim::cas::to_string(e);
+  EXPECT_NE(s.find("x"), std::string::npos) << s;
+}
+
+// Review on #354: chained wrapper collisions must fold, not throw.
+TYPED_TEST(TensorToScalarExpressionTest, ChainedWrapperCollisionFolds) {
+  auto &X = this->X;
+  auto &x = this->x;
+  using numsim::cas::trace;
+  auto w = [](auto e) {
+    return numsim::cas::make_expression<
+        numsim::cas::tensor_to_scalar_scalar_wrapper>(e);
+  };
+  // build a mul already holding w(x) and w(x*x); multiplying by w(x) makes
+  // w(x)*w(x) -> w(x^2) collide with the stored w(x*x)
+  auto m = (trace(X) * w(x)) * w(x * x);
+  numsim::cas::expression_holder<numsim::cas::tensor_to_scalar_expression> e;
+  EXPECT_NO_THROW(e = w(x) * m);
+  auto const s = numsim::cas::to_string(e);
+  EXPECT_NE(s.find("pow("), std::string::npos) << s;
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H
