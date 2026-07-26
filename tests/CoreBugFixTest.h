@@ -1754,6 +1754,45 @@ TEST(ScalarNumberOverflow, Int64MinTimesRational) {
   EXPECT_TRUE(std::get_if<double>(&d.raw()) != nullptr);
 }
 
+// #361 — hash_combine(double) hashed via static_cast<size_t>: UB for
+// negatives, and every fraction in (0,1) collided with 0.
+TEST(HashCombineDouble, BitPatternNoTruncation) {
+  std::size_t a = 0, b = 0, c = 0, d = 0, e = 0;
+  hash_combine(a, 0.5);
+  hash_combine(b, 0.9);
+  EXPECT_NE(a, b);
+  hash_combine(c, -2.5); // UB-free under -fsanitize=float-cast-overflow
+  hash_combine(d, 0.0);
+  hash_combine(e, -0.0);
+  EXPECT_EQ(d, e); // ±0 normalize together
+}
+
+TEST(HashCombineDouble, NumericallyEqualConstantsHashEqual) {
+  auto ci = make_scalar_constant(2);
+  auto cd = make_expression<scalar_constant>(2.0);
+  EXPECT_EQ(ci.get().hash_value(), cd.get().hash_value());
+  EXPECT_EQ(to_string(ci * cd), "4"); // folding across alternatives intact
+  // fractional constants distinct
+  auto h1 = make_expression<scalar_constant>(0.5);
+  auto h2 = make_expression<scalar_constant>(0.9);
+  EXPECT_NE(h1.get().hash_value(), h2.get().hash_value());
+}
+
+// Review on #361: the int64 cast in the value-normalizing hash ran before
+// its range guard - UB for NaN, inf, and huge doubles.
+TEST(HashCombineDouble, HugeAndNonFiniteConstantsHashSafely) {
+  auto big = make_expression<scalar_constant>(1e300);
+  auto nan = make_expression<scalar_constant>(
+      std::numeric_limits<double>::quiet_NaN());
+  auto inf =
+      make_expression<scalar_constant>(std::numeric_limits<double>::infinity());
+  // must be UB-free under -fsanitize=float-cast-overflow (CI leg, #356)
+  (void)big.get().hash_value();
+  (void)nan.get().hash_value();
+  (void)inf.get().hash_value();
+  EXPECT_NE(big.get().hash_value(), inf.get().hash_value());
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
