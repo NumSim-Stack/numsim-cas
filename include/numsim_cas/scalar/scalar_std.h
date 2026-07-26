@@ -14,6 +14,7 @@
 #include <numsim_cas/scalar/scalar_atan.h>
 #include <numsim_cas/scalar/scalar_binary_simplify_fwd.h>
 #include <numsim_cas/scalar/scalar_constant.h>
+#include <numsim_cas/scalar/scalar_constant_recognition.h>
 #include <numsim_cas/scalar/scalar_cos.h>
 #include <numsim_cas/scalar/scalar_eq.h>
 #include <numsim_cas/scalar/scalar_exp.h>
@@ -75,22 +76,15 @@ template <scalar_expr_holder L, scalar_expr_holder R>
   assert(expr_rhs.is_valid());
   assert(expr_lhs.is_valid());
 
-  if (is_same<scalar_one>(expr_lhs) ||
-      (is_same<scalar_constant>(expr_lhs) &&
-       expr_lhs.template get<scalar_constant>().value() == 1)) {
+  if (is_constant_one(expr_lhs)) {
     return get_scalar_one();
   }
 
   if (is_same<scalar_zero>(expr_rhs))
     return get_scalar_one();
 
-  if (is_same<scalar_one>(expr_rhs))
+  if (is_constant_one(expr_rhs))
     return std::forward<L>(expr_lhs);
-
-  if (is_same<scalar_constant>(expr_rhs) &&
-      expr_rhs.template get<scalar_constant>().value() == 1) {
-    return std::forward<L>(expr_lhs);
-  }
 
   // Constant folding: pow(numeric, numeric) → numeric
   {
@@ -159,9 +153,7 @@ template <scalar_expr_holder E> [[nodiscard]] auto asin(E &&e) {
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto acos(E &&e) {
-  if (is_same<scalar_one>(e) ||
-      (is_same<scalar_constant>(e) &&
-       e.template get<scalar_constant>().value() == scalar_number{1}))
+  if (is_constant_one(e))
     return get_scalar_zero();
   return make_expression<scalar_acos>(std::forward<E>(e));
 }
@@ -191,9 +183,7 @@ template <scalar_expr_holder E> [[nodiscard]] auto abs(E &&e) {
 template <scalar_expr_holder E> [[nodiscard]] auto sqrt(E &&e) {
   if (is_same<scalar_zero>(e))
     return get_scalar_zero();
-  if (is_same<scalar_one>(e) ||
-      (is_same<scalar_constant>(e) &&
-       e.template get<scalar_constant>().value() == scalar_number{1}))
+  if (is_constant_one(e))
     return get_scalar_one();
   if (is_same<scalar_pow>(e)) {
     auto const &p = e.template get<scalar_pow>();
@@ -224,9 +214,7 @@ template <scalar_expr_holder E> [[nodiscard]] auto sign(E &&e) {
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto log(E &&e) {
-  if (is_same<scalar_one>(e) ||
-      (is_same<scalar_constant>(e) &&
-       e.template get<scalar_constant>().value() == scalar_number{1}))
+  if (is_constant_one(e))
     return get_scalar_zero();
   if (is_same<scalar_exp>(e))
     return e.template get<scalar_exp>().expr();
@@ -593,9 +581,7 @@ template <scalar_expr_holder E> [[nodiscard]] auto asinh(E const &e) {
 
 template <scalar_expr_holder E> [[nodiscard]] auto acosh(E const &e) {
   // acosh(1) = 0 — covers scalar_one and scalar_constant{1}.
-  if (is_same<scalar_one>(e) ||
-      (is_same<scalar_constant>(e) &&
-       e.template get<scalar_constant>().value() == scalar_number{1}))
+  if (is_constant_one(e))
     return get_scalar_zero();
   expression_holder<scalar_expression> one = get_scalar_one();
   return log(e + sqrt(pow(e, 2) - std::move(one)));

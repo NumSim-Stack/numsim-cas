@@ -3,6 +3,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/scalar/scalar_constant.h>
+#include <numsim_cas/scalar/scalar_constant_recognition.h>
 #include <numsim_cas/scalar/scalar_one.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_zero.h>
@@ -44,17 +45,13 @@ template <tensor_expr_holder ExprLHS, scalar_expr_holder ExprRHS>
     return make_expression<tensor_zero>(expr_lhs.get().dim(),
                                         expr_lhs.get().rank());
   // pow(A, 0) → identity
-  if (is_same<scalar_zero>(expr_rhs) ||
-      (is_same<scalar_constant>(expr_rhs) &&
-       expr_rhs.template get<scalar_constant>().value() == scalar_number{0})) {
+  if (is_constant_zero(expr_rhs)) {
     return make_expression<identity_tensor>(expr_lhs.get().dim(),
                                             std::size_t{2});
   }
 
   // pow(A, 1) → A
-  if (is_same<scalar_one>(expr_rhs) ||
-      (is_same<scalar_constant>(expr_rhs) &&
-       expr_rhs.template get<scalar_constant>().value() == scalar_number{1})) {
+  if (is_constant_one(expr_rhs)) {
     return std::forward<ExprLHS>(expr_lhs);
   }
 
