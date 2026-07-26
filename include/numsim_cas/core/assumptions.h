@@ -42,9 +42,11 @@ struct unkown {};
 // Properties of a tensor's VALUES (not projector-space classifications):
 // rotations, definiteness. Stored separately from the projector-space
 // tracking on tensor_expression — see tensor_algebra_assumption_manager.
-struct orthogonal {};            // R^T R = I
+struct orthogonal {};            // R^T R = I (chirality unspecified: det = ±1)
 struct positive_definite {};     // x^T A x > 0 for all x != 0
 struct positive_semidefinite {}; // x^T A x >= 0
+struct proper_rotation {};       // orthogonal with det = +1 (a rotation)
+struct improper_rotation {};     // orthogonal with det = -1 (a reflection)
 
 // A unified “assumption” sum type for numbers
 using numeric_assumption =
@@ -53,7 +55,8 @@ using numeric_assumption =
 
 // A unified “assumption” sum type for tensor algebra properties.
 using tensor_algebra_assumption =
-    std::variant<orthogonal, positive_definite, positive_semidefinite>;
+    std::variant<orthogonal, positive_definite, positive_semidefinite,
+                 proper_rotation, improper_rotation>;
 
 // // A unified “assumption” sum type for tensor space
 // using tensor_space =

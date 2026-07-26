@@ -246,15 +246,50 @@ TEST(TensorAlgebraFold, InvUnannotatedDoesNotFireFold) {
       << "inv(unannotated rank-2) should build tensor_inv as before";
 }
 
-TEST(TensorAlgebraFold, DetOrthogonalFoldsToOne) {
-  // det(R) = 1 for proper rotations (the dominant continuum-mechanics
-  // case). The annotation doesn't distinguish improper rotations (det =
-  // -1); TODO(#269) a chirality sub-tag could refine this.
+TEST(TensorAlgebraFold, DetProperRotationFoldsToOne) {
+  // det(R) = +1 for a proper rotation (#269).
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_proper_rotation(R);
+  auto d = det(R);
+  EXPECT_TRUE(is_same<tensor_to_scalar_one>(d))
+      << "det(proper rotation) should fold to tensor_to_scalar_one";
+}
+
+TEST(TensorAlgebraFold, DetImproperRotationFoldsToNegOne) {
+  // det(R) = -1 for an improper rotation / reflection (#269).
+  auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
+  assume_improper_rotation(R);
+  auto d = det(R);
+  auto neg_one = -make_expression<tensor_to_scalar_one>();
+  EXPECT_EQ(d.get().hash_value(), neg_one.get().hash_value())
+      << "det(improper rotation) should fold to -1";
+  EXPECT_FALSE(is_same<tensor_det>(d));
+}
+
+TEST(TensorAlgebraFold, DetBareOrthogonalDoesNotFold) {
+  // A bare `orthogonal` annotation leaves chirality unspecified, so det is
+  // ±1 and MUST NOT fold — folding to +1 would be silently wrong for a
+  // reflection (#269).
   auto R = std::get<0>(make_tensor_variable(std::tuple{"R", 3, 2}));
   assume_orthogonal(R);
   auto d = det(R);
-  EXPECT_TRUE(is_same<tensor_to_scalar_one>(d))
-      << "det(orthogonal) should fold to tensor_to_scalar_one";
+  EXPECT_TRUE(is_same<tensor_det>(d))
+      << "det(bare orthogonal) must not fold — chirality unknown";
+}
+
+TEST(TensorAlgebraFold, RotationChiralityImpliesOrthogonal) {
+  // proper/improper both satisfy RᵀR = I, so is_orthogonal (which chirality-
+  // agnostic folds like inv(R) → trans(R) key on) is true for both (#269).
+  auto P = std::get<0>(make_tensor_variable(std::tuple{"P", 3, 2}));
+  auto I = std::get<0>(make_tensor_variable(std::tuple{"Im", 3, 2}));
+  assume_proper_rotation(P);
+  assume_improper_rotation(I);
+  EXPECT_TRUE(is_orthogonal(P));
+  EXPECT_TRUE(is_orthogonal(I));
+  EXPECT_TRUE(is_proper_rotation(P));
+  EXPECT_FALSE(is_proper_rotation(I));
+  EXPECT_TRUE(is_improper_rotation(I));
+  EXPECT_FALSE(is_improper_rotation(P));
 }
 
 TEST(TensorAlgebraFold, DetUnannotatedDoesNotFireFold) {
