@@ -14,6 +14,7 @@
 #include "ScalarSubstitutionTest.h"
 #include "SolveTest.h"
 #include "TensorAlgebraAssumeTest.h"
+#include "TensorAnnotationMatrixTest.h"
 #include "TensorDifferentiationTest.h"
 #include "TensorEvaluatorTest.h"
 #include "TensorExpressionTest.h"
