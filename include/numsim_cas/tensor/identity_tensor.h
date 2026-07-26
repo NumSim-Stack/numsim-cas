@@ -106,10 +106,9 @@ public:
       a.insert(positive_semidefinite{}); // PD ⇒ PSD, mirrors
                                          // assume_positive_definite()
       // PD ⇒ symmetric, via the same helper assume_positive_definite()
-      // uses. Mechanically a no-op today because space_for_rank above
-      // already wrote a qualifying space tag at both supported ranks
-      // (rank-2 Symmetric ⇒ ProjKind::Sym early-return; rank-4
-      // MinorMajor ⇒ holds_alternative early-return). The call exists
+      // uses. Mechanically a no-op today: rank-2 already carries
+      // Symmetric, and the helper's rank()!=2 gate skips rank 4 (whose
+      // tag is Major since #351). The call exists
       // so that any future drift in detail::set_symmetric_unless_more_specific
       // (e.g. it grows a sibling-field write that we'd otherwise miss)
       // tracks automatically. Pairs with the helper in tensor_assume.h.
@@ -154,16 +153,16 @@ public:
 
 private:
   // Closed-form structural classification by rank. Rank-2 is Kronecker δ_ij
-  // (Symmetric). Rank-4 minor identity is δ_ik·δ_jl (MinorMajor — fully
-  // symmetric at rank-4). Higher ranks return nullopt; the variant has no
-  // general "all-pairs-minor" alternative and higher-rank identity is
-  // rarely queried. Open decision tracked in
-  // docs/sympy-assumption-redesign.md.
+  // (Symmetric). Rank-4 identity δ_ik·δ_jl has MAJOR symmetry only:
+  // swapping (ij)<->(kl) gives δ_ki·δ_lj = δ_ik·δ_jl, but swapping i<->j
+  // gives δ_jk·δ_il ≠ δ_ik·δ_jl (the minor-symmetric identity is P_sym,
+  // a different tensor). The former MinorMajor tag routed inv() through
+  // the symmetric Voigt path, evaluating inv(-I4) wrongly (#351).
   static std::optional<tensor_space> space_for_rank(std::size_t rank) noexcept {
     if (rank == 2)
       return tensor_space{Symmetric{}, AnyTraceTag{}};
     if (rank == 4)
-      return tensor_space{MinorMajor{}, AnyTraceTag{}};
+      return tensor_space{Major{}, AnyTraceTag{}};
     return std::nullopt;
   }
 };
