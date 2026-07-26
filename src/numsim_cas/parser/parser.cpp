@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace numsim::cas::parser {
 
@@ -40,9 +41,72 @@ syntax_error translate_pegtl_error(pegtl::parse_error const &e,
   return syntax_error(std::move(msg), byte, source);
 }
 
+// #355 — PEGTL parses by C++ recursion; deeply nested input overflows the
+// stack (SIGSEGV at ~10-20k frames) instead of raising parse_error. A cheap
+// pre-scan bounds every recursion driver: bracket nesting and unary-minus
+// runs (whitespace does not reset a run: "- - -x" recurses per minus).
+void check_nesting_depth(std::string_view source) {
+  constexpr std::size_t max_depth = 512;
+  const auto is_space = [](char c) {
+    // must cover PEGTL's full space set or a whitespace variant resets
+    // the run and bypasses the guard (review on #355)
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' ||
+           c == '\f';
+  };
+  // Cumulative recursion budget along the current parse path (round-2
+  // review): brackets, unary-minus runs, and ^-chains all contribute, and
+  // runs at ENCLOSING bracket levels stay on the stack while inside -
+  // independent counters let compound payloads (300 minuses per level x
+  // 200 levels) or bracketed exponents (1^(1)^(1)...) multiply past any
+  // per-feature cap. A ^-chain survives its bracketed exponent
+  // (x^(y)^z is one chain), so the caret run is restored on close.
+  std::size_t base = 0;      // cost contributed by enclosing levels
+  std::size_t minus_run = 0; // current level
+  std::size_t caret_run = 0; // current level
+  std::vector<std::pair<std::size_t, std::size_t>> saved;
+  const auto cost = [&]() { return base + minus_run + caret_run; };
+  for (std::size_t i = 0; i < source.size(); ++i) {
+    const char c = source[i];
+    if (c == '(' || c == '[' || c == '{') {
+      saved.emplace_back(minus_run, caret_run);
+      base += minus_run + caret_run + 1;
+      minus_run = 0;
+      caret_run = 0;
+      if (base > max_depth) {
+        throw syntax_error("expression nesting too deep", i, source);
+      }
+    } else if (c == ')' || c == ']' || c == '}') {
+      if (!saved.empty()) {
+        auto [m, k] = saved.back();
+        saved.pop_back();
+        base -= m + k + 1;
+        minus_run = 0; // the unary chain's operand just completed
+        caret_run = k; // the ^-chain continues past its exponent
+      }
+    } else if (c == '^') {
+      ++caret_run;
+      if (cost() > max_depth) {
+        throw syntax_error("expression nesting too deep", i, source);
+      }
+    } else if (c == '+' || c == '*' || c == '/' || c == ',') {
+      minus_run = 0;
+      caret_run = 0;
+    } else if (c == '-') {
+      caret_run = 0; // a binary/unary minus ends any ^-chain
+      ++minus_run;
+      if (cost() > max_depth) {
+        throw syntax_error("expression nesting too deep", i, source);
+      }
+    } else if (!is_space(c)) {
+      minus_run = 0; // operand characters end a unary-minus chain
+    }
+  }
+}
+
 } // namespace
 
 parsed_expression parse(std::string_view source, symbol_table &syms) {
+  check_nesting_depth(source);
   // Make a copy into a std::string-backed input — PEGTL's
   // memory_input takes ownership of the source view (it doesn't
   // copy) so callers must keep the string alive across the parse.
