@@ -70,7 +70,19 @@ n_ary_add::dispatch([[maybe_unused]] Expr const &rhs) {
     }
     return expr_add;
   }
-  add.push_back(m_rhs);
+  // miss path: an exact -rhs child must still cancel (round-10 review;
+  // ((A+B)-C)+C kept a {C,-C} pair via raw push_back)
+  add_insert_signed(add, m_rhs, [](expr_holder_t const &e) {
+    return is_same<tensor_zero>(e);
+  });
+  add.invalidate_hash();
+  add.recompute_space();
+  if (add.size() == 0) {
+    return tensor_traits::zero(m_lhs);
+  }
+  if (add.size() == 1 && !add.coeff().is_valid()) {
+    return add.symbol_map().begin()->second;
+  }
   return expr_add;
 }
 

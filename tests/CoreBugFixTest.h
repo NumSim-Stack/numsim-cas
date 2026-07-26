@@ -1524,6 +1524,22 @@ TEST(RoundNineReview, MergeAddDropsCancelledCoeff) {
   EXPECT_TRUE(*t == *(trace(A) + det(A))) << to_string(t);
 }
 
+// Round-10 review: the tensor n-ary add fallback was the last insertion
+// path without the exact-negation probe — ((A+B)-C)+C kept {C,-C}.
+TEST(RoundTenReview, TensorAddCancelsExactNegativeChild) {
+  auto [A, B, C] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                        std::tuple{"B", std::size_t{3}, 2},
+                                        std::tuple{"C", std::size_t{3}, 2});
+  auto e1 = ((A + B) - C) + C;
+  EXPECT_TRUE(*e1 == *(A + B)) << to_string(e1);
+  auto e2 = (A - C) + C;
+  EXPECT_TRUE(*e2 == *A) << to_string(e2);
+  auto e3 = ((A + B) - 2.0 * C) + 2.0 * C;
+  EXPECT_TRUE(*e3 == *(A + B)) << to_string(e3);
+  auto e4 = ((A + B) - trans(C)) + trans(C);
+  EXPECT_TRUE(*e4 == *(A + B)) << to_string(e4);
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
