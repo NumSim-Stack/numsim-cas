@@ -97,6 +97,13 @@ public:
 
   bool operator<(expression const &rhs) const noexcept;
 
+  // Like-term relation for n-ary merging: equal up to the n-ary coefficient
+  // (2*x is a like term of 3*x and of x). Default: plain equality.
+  [[nodiscard]] virtual bool
+  like_term_of(expression const &rhs) const noexcept {
+    return *this == rhs;
+  }
+
 protected:
   // each concrete node compares against same dynamic type here
   virtual bool equals_same_type(expression const &rhs) const noexcept = 0;

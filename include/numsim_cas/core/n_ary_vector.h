@@ -3,6 +3,7 @@
 
 #include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/hash_functions.h>
+#include <numsim_cas/core/n_ary_tree.h>
 #include <numsim_cas/numsim_cas_forward.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
 #include <vector>
@@ -139,7 +140,7 @@ bool operator<(n_ary_vector<BaseLHS> const &lhs,
     if (rhs.data()[i] < lhs.data()[i])
       return false;
   }
-  return false;
+  return detail::nary_coeff_less(lhs.coeff(), rhs.coeff());
 }
 
 template <typename BaseLHS, typename BaseRHS>
@@ -156,6 +157,8 @@ bool operator==(n_ary_vector<BaseLHS> const &lhs,
   if (lhs.id() != rhs.id())
     return false;
   if (lhs.size() != rhs.size())
+    return false;
+  if (!detail::nary_coeff_equal(lhs.coeff(), rhs.coeff()))
     return false;
   for (std::size_t i = 0; i < lhs.data().size(); ++i) {
     if (lhs.data()[i] != rhs.data()[i])

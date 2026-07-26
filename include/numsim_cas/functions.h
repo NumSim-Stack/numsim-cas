@@ -29,7 +29,7 @@ constexpr inline void merge_add(n_ary_tree<Derived> const &lhs,
 
   expr_set<expression_holder<expr_t>> used_expr;
   for (auto &child : lhs.symbol_map() | std::views::values) {
-    auto pos{rhs.symbol_map().find(child)};
+    auto pos{rhs.find_like(child)};
     if (pos != rhs.symbol_map().end()) {
       used_expr.insert(pos->second);
       result.merge_or_insert(child + pos->second);

@@ -8,9 +8,34 @@
 #include <numsim_cas/numsim_cas_forward.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
 #include <ranges>
+#include <utility>
 #include <vector>
 
 namespace numsim::cas {
+namespace detail {
+
+// Coefficient comparison treating an invalid holder as "no coefficient".
+template <typename Holder>
+bool nary_coeff_equal(Holder const &lhs, Holder const &rhs) {
+  if (lhs.is_valid() != rhs.is_valid())
+    return false;
+  return !lhs.is_valid() || lhs == rhs;
+}
+
+// Invalid orders before valid; both valid compare as expressions.
+// Equality short-circuits first: expression < is promotion-rank-sensitive
+// (int 2 orders before double 2.0) while == is value-based, and the two
+// must agree on equivalence for map lookups.
+template <typename Holder>
+bool nary_coeff_less(Holder const &lhs, Holder const &rhs) {
+  if (lhs.is_valid() != rhs.is_valid())
+    return !lhs.is_valid();
+  if (!lhs.is_valid() || lhs == rhs)
+    return false;
+  return lhs < rhs;
+}
+
+} // namespace detail
 
 template <typename Base> class n_ary_tree : public Base {
 public:
@@ -51,6 +76,10 @@ public:
     insert_hash(std::move(expr));
   }
 
+  // Copies carry the source's cached hash; any mutation must drop it or
+  // == fast-rejects on the stale value and cancellation silently fails.
+  inline void invalidate_hash() noexcept { this->m_hash_value = 0; }
+
   // Insert `entry`, combining with any colliding map entry first.
   // After combination, `+` may algebraically simplify to an expression with a
   // different key (cos(x)^2 + sin(x)^2 -> 1, x + (-x) -> 0, projector
@@ -64,7 +93,7 @@ public:
   // that catches the exception and continues using the tree.
   inline void merge_or_insert(expression_holder<expr_t> entry) {
     while (true) {
-      auto it = m_symbol_map.find(entry);
+      auto it = find_like(entry);
       if (it == m_symbol_map.end())
         break;
       auto combined = it->second + entry;
@@ -72,6 +101,59 @@ public:
       entry = std::move(combined);
     }
     insert_hash(std::move(entry));
+  }
+
+  // Find an entry that combines with `entry` under + (exact or like term).
+  // Like terms share the coefficient-blind hash, so only the equal-hash run
+  // around lower_bound needs scanning.
+  [[nodiscard]] auto find_like(expression_holder<expr_t> const &entry) {
+    auto cit = std::as_const(*this).find_like(entry);
+    return m_symbol_map.erase(cit, cit); // no-op const_iterator -> iterator
+  }
+
+  [[nodiscard]] auto find_like(expression_holder<expr_t> const &entry) const {
+    const auto h = entry.get().hash_value();
+    const auto pos = m_symbol_map.lower_bound(entry);
+    for (auto it = pos;
+         it != m_symbol_map.end() && it->second.get().hash_value() == h; ++it) {
+      if (is_like(it->second, entry))
+        return it;
+    }
+    for (auto it = pos; it != m_symbol_map.begin();) {
+      --it;
+      if (it->second.get().hash_value() != h)
+        break;
+      if (is_like(it->second, entry))
+        return it;
+    }
+    return m_symbol_map.end();
+  }
+
+  [[nodiscard]] static bool is_like(expression_holder<expr_t> const &a,
+                                    expression_holder<expr_t> const &b) {
+    return a.get().like_term_of(b.get()) || b.get().like_term_of(a.get());
+  }
+
+  // Same children, coefficient may differ; cross-type: c*T (single child)
+  // is a like term of T. Only sound for add-side merging.
+  [[nodiscard]] bool
+  like_term_of(expression const &rhs) const noexcept override {
+    if (this->hash_value() != rhs.hash_value())
+      return false;
+    if (rhs.id() == this->id()) {
+      assert(dynamic_cast<n_ary_tree const *>(&rhs) != nullptr);
+      auto const &r = static_cast<n_ary_tree const &>(rhs);
+      if (r.size() != size())
+        return false;
+      auto it_l = m_symbol_map.begin();
+      auto it_r = r.m_symbol_map.begin();
+      for (; it_l != m_symbol_map.end(); ++it_l, ++it_r) {
+        if (it_l->second != it_r->second)
+          return false;
+      }
+      return true;
+    }
+    return size() == 1 && m_symbol_map.begin()->second.get() == rhs;
   }
 
   inline void reserve([[maybe_unused]] std::size_t size) noexcept {
@@ -163,6 +245,7 @@ private:
       throw internal_error(
           "n_ary_tree::insert_hash: duplicate child insertion");
     }
+    invalidate_hash();
     m_symbol_map[expr] = expr;
   }
 
@@ -171,6 +254,7 @@ private:
       throw internal_error(
           "n_ary_tree::insert_hash: duplicate child insertion");
     }
+    invalidate_hash();
     m_symbol_map[expr] = std::move(expr);
   }
 };
@@ -209,7 +293,7 @@ bool operator<(n_ary_tree<BaseLHS> const &lhs, n_ary_tree<BaseRHS> const &rhs) {
     if (rit->second < lit->second)
       return false;
   }
-  return false;
+  return detail::nary_coeff_less(lhs.coeff(), rhs.coeff());
 }
 
 template <typename BaseLHS, typename BaseRHS>
@@ -225,6 +309,8 @@ bool operator==(n_ary_tree<BaseLHS> const &lhs,
   if (lhs.id() != rhs.id())
     return false;
   if (lhs.size() != rhs.size())
+    return false;
+  if (!detail::nary_coeff_equal(lhs.coeff(), rhs.coeff()))
     return false;
   auto it_l = lhs.symbol_map().begin();
   auto it_r = rhs.symbol_map().begin();

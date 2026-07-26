@@ -37,7 +37,15 @@ struct scalar_pretty_printer {
       return expr;
     }};
 
-    return get_expr(lhs) < get_expr(rhs);
+    // Pretty order first (x before x^2); full comparison as tiebreak so
+    // distinct children (x vs 2*x, x+2 vs x+5) are never deduped away.
+    auto const le = get_expr(lhs);
+    auto const re = get_expr(rhs);
+    if (le < re)
+      return true;
+    if (re < le)
+      return false;
+    return lhs < rhs;
   }
 };
 } // namespace detail

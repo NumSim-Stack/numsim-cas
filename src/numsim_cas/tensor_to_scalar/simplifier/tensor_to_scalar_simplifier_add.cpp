@@ -1,4 +1,5 @@
 #include <numsim_cas/core/operators.h>
+#include <numsim_cas/core/simplifier/simplifier_common.h>
 #include <numsim_cas/functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_add.h>
@@ -9,31 +10,6 @@
 namespace numsim::cas {
 namespace tensor_to_scalar_detail {
 namespace simplifier {
-
-// --- n_ary_add::dispatch(T) template body ---
-// Defined here so that operator+ (from tensor_to_scalar_operators.h) is
-// visible.
-template <typename T> n_ary_add::expr_holder_t n_ary_add::dispatch(T const &) {
-  auto expr_add{make_expression<tensor_to_scalar_add>(this->lhs)};
-  auto &add{expr_add.template get<tensor_to_scalar_add>()};
-  // Direct match: (sum with expr) + expr → combine
-  auto pos{add.symbol_map().find(this->m_rhs)};
-  if (pos != add.symbol_map().end()) {
-    auto combined{pos->second + this->m_rhs};
-    add.symbol_map().erase(pos);
-    add.push_back(std::move(combined));
-    return expr_add;
-  }
-  // Reverse-negative: (sum with -expr) + expr → cancel
-  auto neg_rhs{make_expression<tensor_to_scalar_negative>(this->m_rhs)};
-  auto pos_neg{add.symbol_map().find(neg_rhs)};
-  if (pos_neg != add.symbol_map().end()) {
-    add.symbol_map().erase(pos_neg);
-    return expr_add;
-  }
-  add.push_back(this->m_rhs);
-  return expr_add;
-}
 
 // --- add_default_visitor virtual function bodies ---
 // Defined here so that operator+ (from tensor_to_scalar_operators.h) is visible
@@ -88,7 +64,9 @@ n_ary_add::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
     if (!val || *val != scalar_number{0}) {
       add.push_back(std::move(wrapper));
     }
-    return expr_add;
+    // round-2 review: a cancelled wrapper left an uncollapsed
+    // single-child add with a stale cached hash
+    return detail::finalize_add<Traits>(std::move(expr_add));
   }
   add.push_back(m_rhs);
   return expr_add;

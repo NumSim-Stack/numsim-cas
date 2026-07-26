@@ -976,6 +976,148 @@ TEST(InnerProductHash, ContractionIndicesAffectHash) {
   EXPECT_NE(e1.get().hash_value(), e2.get().hash_value());
 }
 
+// #339 — n_ary equality must compare the coefficient. The coefficient-blind
+// hash stays (like-term map keying), but == is semantic identity.
+TEST(NAryCoeffEquality, AddCoefficientDistinguishes) {
+  auto [x] = make_scalar_variable("x");
+  EXPECT_FALSE(*(x + 2.0) == *(x + 5.0));
+  EXPECT_FALSE(*(2.0 * x) == *(3.0 * x));
+  EXPECT_FALSE(*sin(x + 2.0) == *sin(x + 5.0));
+  EXPECT_TRUE(*(x + 2.0) == *(2.0 + x));
+  EXPECT_TRUE(*(2.0 * x) == *(x * 2.0));
+}
+
+TEST(NAryCoeffEquality, NoFalseIdentityFolds) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  EXPECT_DOUBLE_EQ(ev.apply((x + 2.0) * (x + 5.0)), 18.0);
+  EXPECT_DOUBLE_EQ(ev.apply((x + 2.0) + (-(x + 5.0))), -3.0);
+  EXPECT_NE(to_string(sin(x + 2.0) + sin(x + 5.0)), "2*sin(5+x)");
+  EXPECT_NE(to_string(eq(2.0 * x, 3.0 * x)), "1");
+  // substitution must not match a subtree differing only in coefficient
+  EXPECT_EQ(to_string(substitute(x + 5.0, x + 2.0, y)), to_string(x + 5.0));
+}
+
+TEST(NAryCoeffEquality, PrinterKeepsDistinctChildren) {
+  auto [x] = make_scalar_variable("x");
+  // both factors share the coefficient-blind hash; print must keep both
+  auto m = (x + 2.0) * (x + 5.0);
+  auto const s = to_string(m);
+  EXPECT_NE(s.find("2+x"), std::string::npos);
+  EXPECT_NE(s.find("5+x"), std::string::npos);
+}
+
+TEST(NAryCoeffEquality, LikeTermMergesPreserved) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  EXPECT_EQ(to_string(2.0 * x + 3.0 * x), "5*x");
+  EXPECT_EQ(to_string(x + 2.0 * x), "3*x");
+  EXPECT_EQ(to_string(((x + y) + x) + x), "3*x+y"); // #347
+  EXPECT_EQ(to_string((y + 2.0 * x) + 3.0 * x), "5*x+y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, 10.0);
+  EXPECT_DOUBLE_EQ(ev.apply(((x + y) + x) + x), 13.0);
+}
+
+TEST(NAryCoeffEquality, HalfCoefficientsMerge) {
+  auto [x] = make_scalar_variable("x");
+  // (c1*T)+(c2*T) with c1+c2 == 1 collapses back to T
+  EXPECT_EQ(to_string(0.5 * x + 0.5 * x), "x");
+  // and with c1+c2 == 0 to zero
+  EXPECT_EQ(to_string(2.0 * x + (-2.0) * x), "0");
+}
+
+// Review findings on #339 (PR #386): ordering/equality consistency, zero
+// children, reverse-direction like-term probe, stale cached hashes.
+TEST(NAryCoeffEquality, IntAndDoubleCoefficientSpellingsAreEquivalent) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto a = (x + y) + x; // int-coefficient 2*x
+  auto c = 2.0 * x + y; // double-coefficient 2*x
+  EXPECT_TRUE(*a == *c);
+  EXPECT_FALSE(*a < *c); // < equivalence must match ==
+  EXPECT_FALSE(*c < *a);
+  EXPECT_EQ(to_string(a - c), "0");
+}
+
+TEST(NAryCoeffEquality, CancellationLeavesNoZeroChild) {
+  auto [A, B] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                     std::tuple{"B", std::size_t{3}, 2});
+  auto e = (2.0 * trace(A) + trace(B)) + (-2.0) * trace(A);
+  EXPECT_EQ(to_string(e), to_string(trace(B)));
+  EXPECT_TRUE(*e == *trace(B));
+}
+
+TEST(NAryCoeffEquality, ReverseDirectionLikeTermMerge) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  EXPECT_EQ(to_string((x + y) + 2.0 * x), "3*x+y");
+  auto [A, B] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                     std::tuple{"B", std::size_t{3}, 2});
+  auto e = (trace(A) + trace(B)) + 2.0 * trace(A);
+  EXPECT_EQ(to_string(e), to_string(3.0 * trace(A) + trace(B)));
+}
+
+TEST(NAryCoeffEquality, MutatedCopyDropsStaleCachedHash) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto a = x + y;
+  (void)a.get().hash_value(); // force the cache before merging
+  auto b = a + x;             // 2*x+y built by mutating a copy of a
+  EXPECT_TRUE(*b == *(2.0 * x + y));
+  EXPECT_EQ(to_string(sin(b) - sin(2.0 * x + y)), "0");
+}
+
+// Round-2 review on #339/#340: remaining stale-hash/collapse holes in the
+// sub, Pythagorean, and t2s wrapper-cancel paths; pow-add fallback throw;
+// mul-coefficient default in the sub dispatcher.
+TEST(RoundTwoReview, SubCancelInvalidatesAndCollapses) {
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto a = x + y + z;
+  (void)a.get().hash_value();
+  auto b = a - x;
+  EXPECT_TRUE(*b == *(y + z));
+  EXPECT_EQ(to_string(sin(b) - sin(y + z)), "0");
+}
+
+TEST(RoundTwoReview, PythagoreanBranchHygiene) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto p = pow(cos(x), 2.0) + y;
+  (void)p.get().hash_value();
+  auto q = p + pow(sin(x), 2.0); // 1 + y
+  EXPECT_TRUE(*q == *(y + 1.0));
+  auto r = (pow(cos(x), 2.0) + y + (-1.0)) + pow(sin(x), 2.0); // y
+  EXPECT_TRUE(*r == *y);
+}
+
+TEST(RoundTwoReview, PowAddFallbackMerges) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  expression_holder<scalar_expression> e;
+  EXPECT_NO_THROW(e = (pow(x, 2.0) + y) + pow(x, 2.0));
+  EXPECT_TRUE(*e == *(2.0 * pow(x, 2.0) + y));
+}
+
+TEST(RoundTwoReview, MulCoefficientDefaultIsOne) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto r = (x * y) * pow(x, -1.0); // degenerate mul{y}
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.0);
+  ev.set(y, 3.0);
+  EXPECT_DOUBLE_EQ(ev.apply(r - y), 0.0); // was -3
+  EXPECT_DOUBLE_EQ(ev.apply(r + y), 6.0);
+}
+
+TEST(RoundTwoReview, T2sWrapperCancelCollapses) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [a] = make_scalar_variable("a");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto e1 = (trace(A) + w(a)) + w(-a);
+  EXPECT_TRUE(*e1 == *trace(A));
+  EXPECT_FALSE(is_same<tensor_to_scalar_add>(e1));
+  auto e2 = (trace(A) + w(a)) - w(a);
+  EXPECT_TRUE(*e2 == *trace(A));
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

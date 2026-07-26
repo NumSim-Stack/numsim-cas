@@ -64,7 +64,9 @@ public:
 
   // Generic fallback: find in hash_map, combine or push_back -rhs
   // Body defined in .cpp to keep operator- ADL in that TU.
-  template <typename T> expr_holder_t dispatch(T const &);
+  // NOTE: no own catch-all template - the core constrained dispatch
+  // templates win overload resolution anyway (#370; round-2 review
+  // proved the local copies were never instantiated).
 
 #define NUMSIM_LOOP_OVER(T) expr_holder_t operator()(T const &n) override;
   NUMSIM_CAS_TENSOR_TO_SCALAR_NODE_LIST(NUMSIM_LOOP_OVER, NUMSIM_LOOP_OVER)
