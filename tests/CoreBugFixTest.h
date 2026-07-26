@@ -1540,6 +1540,22 @@ TEST(RoundTenReview, TensorAddCancelsExactNegativeChild) {
   EXPECT_TRUE(*e4 == *(A + B)) << to_string(e4);
 }
 
+// Round-11 review: tensor non-add + add nested the rhs add as one child
+// (the swap-to-n-ary dispatch was guarded on a non-void mul_type), so
+// A+(B+C) and (A+B)+C were different trees.
+TEST(RoundElevenReview, TensorAddRhsFlattens) {
+  auto [A, B, C] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                        std::tuple{"B", std::size_t{3}, 2},
+                                        std::tuple{"C", std::size_t{3}, 2});
+  EXPECT_TRUE(*(A + (B + C)) == *((A + B) + C));
+  EXPECT_TRUE(*(2.0 * C + (A + B)) == *((A + B) + 2.0 * C));
+  EXPECT_TRUE(*(trans(C) + (A + B)) == *((A + B) + trans(C)));
+  EXPECT_TRUE(*((-C) + (A + B)) == *((A + B) - C));
+  EXPECT_TRUE(is_same<tensor_zero>((A + (B + C)) - (A + B + C)));
+  auto e = (A + (B + C)) + B;
+  EXPECT_TRUE(*e == *(A + 2.0 * B + C)) << to_string(e);
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

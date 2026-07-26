@@ -146,13 +146,11 @@ public:
     return get_default();
   }
 
-  // non-add + add --> swap so add is LHS (triggers n_ary_add_dispatch)
+  // non-add + add --> swap so add is LHS (triggers the n-ary dispatcher).
+  // Unconditional: the void-mul guard sent tensor A+(B+C) to get_default,
+  // which nested the rhs add as a single child (round-11 review).
   expr_holder_t dispatch(typename Traits::add_type const &) {
-    if constexpr (!std::is_void_v<typename Traits::mul_type>) {
-      return m_rhs + m_lhs;
-    } else {
-      return get_default();
-    }
+    return m_rhs + m_lhs;
   }
 
 protected:

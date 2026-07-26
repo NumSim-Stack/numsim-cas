@@ -61,6 +61,13 @@ public:
     return get_default();
   }
 
+  // non-add + add --> swap so add is LHS (round-11 review: get_default
+  // nested the rhs add as a single child, so A+(B+C) != (A+B)+C).
+  // n_ary_add overrides this with the real merge, so no swap loop.
+  [[nodiscard]] expr_holder_t dispatch(tensor_add const &) {
+    return algo::m_rhs + algo::m_lhs;
+  }
+
   template <typename Expr> [[nodiscard]] expr_holder_t dispatch(Expr const &) {
     return get_default();
   }
