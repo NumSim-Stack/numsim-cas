@@ -83,6 +83,19 @@ inline expression_holder<tensor_expression> tag_invoke(add_fn, L &&lhs,
         result.data()->set_space({Skew{}, AnyTraceTag{}});
       return result;
     }
+    // trans(A) + A and A + trans(A) are symmetric in any dimension: the
+    // symmetric part 2*sym(A). Mirror of the skew branch above (and of the
+    // sub operator's skew rule). The skew branch matched trans(A) + (-A)
+    // above, so a match here means a genuine plus. Closes #390.
+    if (is_trans_of(lhs, rhs) || is_trans_of(rhs, lhs)) {
+      auto &_lhs{lhs.template get<tensor_visitable_t>()};
+      simplifier::tensor_detail::add_base visitor(std::forward<L>(lhs),
+                                                  std::forward<R>(rhs));
+      auto result = _lhs.accept(visitor);
+      if (result.is_valid())
+        result.data()->set_space({Symmetric{}, AnyTraceTag{}});
+      return result;
+    }
   }
 
   auto &_lhs{lhs.template get<tensor_visitable_t>()};
@@ -166,6 +179,22 @@ tag_invoke(mul_fn, L &&lhs, [[maybe_unused]] R &&rhs) {
       return make_expression<identity_tensor>(lhs.get().dim(), std::size_t{2});
     if (is_trans_of(lhs, rhs) && is_orthogonal(rhs))
       return make_expression<identity_tensor>(rhs.get().dim(), std::size_t{2});
+    // Gram form: trans(X)*X and X*trans(X) are symmetric and positive
+    // semidefinite for any X (x . (F^T F) . x = ||F x||^2 >= 0). Orthogonal X
+    // already returned I above; X invertibility is unknown, so PSD only (not
+    // PD). Closes #389.
+    if (is_trans_of(lhs, rhs) || is_trans_of(rhs, lhs)) {
+      auto &_lhs{lhs.template get<tensor_visitable_t>()};
+      tensor_detail::simplifier::mul_base visitor(std::forward<L>(lhs),
+                                                  std::forward<R>(rhs));
+      auto result = _lhs.accept(visitor);
+      if (result.is_valid()) {
+        result.data()->set_space({Symmetric{}, AnyTraceTag{}});
+        result.data()->tensor_algebra_assumptions().insert(
+            positive_semidefinite{});
+      }
+      return result;
+    }
   }
   auto &_lhs{lhs.template get<tensor_visitable_t>()};
   tensor_detail::simplifier::mul_base visitor(std::forward<L>(lhs),
