@@ -186,18 +186,12 @@ scalar_pow_mul::scalar_pow_mul(expr_holder_t lhs, expr_holder_t rhs)
 
 scalar_pow_mul::expr_holder_t
 scalar_pow_mul::dispatch([[maybe_unused]] scalar const &rhs) {
-  const auto &power{m_lhs_node.expr_rhs()};
   const auto &pow_base{m_lhs_node.expr_lhs()};
   if (pow_base == m_rhs) {
     const auto rhs_expr{m_lhs_node.expr_rhs() + get_scalar_one()};
     return pow(m_lhs_node.expr_lhs(), rhs_expr);
   }
 
-  // pow(expr, -expr_p) * expr_p --> expr
-  if (is_same<scalar_negative>(power) &&
-      power.get<scalar_negative>().expr() == m_rhs) {
-    return m_lhs_node.expr_lhs();
-  }
   return get_default();
 }
 

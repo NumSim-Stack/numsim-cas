@@ -1556,6 +1556,39 @@ TEST(RoundElevenReview, TensorAddRhsFlattens) {
   EXPECT_TRUE(*e == *(A + 2.0 * B + C)) << to_string(e);
 }
 
+// #344 — pow simplifier applied division-style rules to pow(a, -b) and
+// pulled signs out of pow(-e, p) for every exponent. Locked via evaluation.
+TEST(PowDivisionConfusion, NegativeBaseEvenOddSymbolic) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 3.0);
+  ev.set(y, 2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(pow(-x, 2.0)), 9.0);   // was −9
+  EXPECT_DOUBLE_EQ(ev.apply(pow(-x, 3.0)), -27.0); // odd pull-out stays
+  EXPECT_EQ(to_string(pow(-x, y)), "pow(-x,y)");   // symbolic: structural
+}
+
+TEST(PowDivisionConfusion, NegativeExponentIsNotDivision) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 6.0);
+  ev.set(y, 2.0);
+  EXPECT_NEAR(ev.apply(pow(x, -x)), std::pow(6.0, -6.0), 1e-15);
+  EXPECT_NEAR(ev.apply(pow(x, -y) * y), 2.0 * std::pow(6.0, -2.0), 1e-15);
+  EXPECT_NEAR(ev.apply(pow(x * y, -y)), std::pow(12.0, -2.0), 1e-15);
+  // exponent-addition cancellation still works
+  EXPECT_EQ(to_string(pow(x, -1.0) * x), "1");
+}
+
+// Review on #344: the sign pull-out must recurse through pow() so nested
+// bases keep canonicalizing.
+TEST(PowDivisionConfusion, SignPullOutCanonicalizesNestedBase) {
+  auto [x] = make_scalar_variable("x");
+  EXPECT_EQ(to_string(pow(-pow(x, 2.0), 2.0)), "pow(x,4)");
+  EXPECT_EQ(to_string(pow(-pow(x, 2.0), 3.0)), "-pow(x,6)");
+  EXPECT_EQ(to_string(pow(-pow(x, 2.0), 2.0) - pow(x, 4.0)), "0");
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
