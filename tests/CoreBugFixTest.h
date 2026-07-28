@@ -1117,6 +1117,444 @@ TEST(RoundTwoReview, T2sWrapperCancelCollapses) {
   auto e2 = (trace(A) + w(a)) - w(a);
   EXPECT_TRUE(*e2 == *trace(A));
 }
+// #340 — raw hash_value() comparisons replaced by deep equality / explicit
+// like-term folds. hash(c*X)==hash(X) and hash(pow(X,c))==hash(X) stay by
+// design; they must never merge without a deep check.
+TEST(HashIdentitySweep, TensorAddNoFalseMerges) {
+  auto [X] = make_tensor_variable(std::tuple{"X", 3, 2});
+  EXPECT_EQ(to_string(X + pow(X, 2)), "X+pow(X,2)");
+  EXPECT_EQ(to_string(X + 2.0 * X), "3*X");
+  EXPECT_EQ(to_string(2.0 * X + 3.0 * X), "5*X");
+  EXPECT_NE(to_string(X + (-pow(X, 2))), "0{2}");
+  EXPECT_NE(to_string((-X) + 2.0 * pow(X, 2)), "pow(X,2)");
+}
+
+TEST(HashIdentitySweep, TensorMulNoFalsePow) {
+  auto [X] = make_tensor_variable(std::tuple{"X", 3, 2});
+  // X*(2X) and (2X)*X: the scalar factor must survive
+  EXPECT_EQ(to_string(X * (2.0 * X)).find("pow(2*X"), std::string::npos);
+  auto s1 = to_string(X * (2.0 * X));
+  auto s2 = to_string((2.0 * X) * X);
+  EXPECT_NE(s1.find("2"), std::string::npos);
+  EXPECT_NE(s2.find("2"), std::string::npos);
+  // exact same operand still folds to pow
+  EXPECT_EQ(to_string(X * X), "pow(X,2)");
+}
+
+TEST(HashIdentitySweep, ProjectorMergeRequiresSameArgument) {
+  auto [X] = make_tensor_variable(std::tuple{"X", 3, 2});
+  auto e = vol(pow(X, 2)) + dev(X);
+  EXPECT_NE(to_string(e), "sym(pow(X,2))");
+  EXPECT_NE(to_string(e), "sym(X)");
+  // same argument keeps merging
+  EXPECT_EQ(to_string(vol(X) + dev(X)), "sym(X)");
+  EXPECT_EQ(to_string(sym(X) + skew(X)), "X");
+}
+
+TEST(HashIdentitySweep, ScalarSubMaxMinDeepEquality) {
+  auto [x] = make_scalar_variable("x");
+  EXPECT_NE(to_string(sin(x + 2.0) - sin(x + 5.0)), "0");
+  EXPECT_NE(to_string(max(2.0 * x, 3.0 * x)), "2*x");
+  EXPECT_NE(to_string(min(2.0 * x, 3.0 * x)), "2*x");
+  // exact duplicates still fold
+  EXPECT_EQ(to_string(max(x, x)), "x");
+  EXPECT_EQ(to_string(sin(x + 2.0) - sin(x + 2.0)), "0");
+}
+
+TEST(HashIdentitySweep, TensorAddSpaceJoinSurvivesMerge) {
+  auto [A] = make_tensor_variable(std::tuple{"A", 3, 2});
+  auto [B] = make_tensor_variable(std::tuple{"B", 3, 2});
+  auto sa = sym(A);
+  auto sb = sym(B);
+  EXPECT_TRUE(is_symmetric(sa + sb));
+  // like-term merge path keeps the join
+  EXPECT_TRUE(is_symmetric((sa + sb) + 2.0 * sa));
+}
+
+// Review on #340: tensor-side zero-child filter, degenerate collapse, and
+// the reverse-direction like-term probe.
+TEST(HashIdentitySweep, TensorCancellationAndReverseProbe) {
+  auto [X, Y] = make_tensor_variable(std::tuple{"X", std::size_t{3}, 2},
+                                     std::tuple{"Y", std::size_t{3}, 2});
+  auto e = (2.0 * X + Y) + (-2.0) * X;
+  EXPECT_EQ(to_string(e), "Y");
+  EXPECT_TRUE(*e == *Y);
+  EXPECT_EQ(to_string((X + Y) + 2.0 * X), "3*X+Y"); // reverse probe
+}
+
+// Round-5 review: whole-stack cross-check + randomized property sweep.
+// Remaining raw-hash identity holes, a constant-dropping add path, the
+// rank-lexicographic sign test in sub, and fraction-printing defects.
+
+// Sweep bug A: constant + (coeff+x) silently dropped the constant when the
+// coefficients cancelled (returned rhs with its old coeff intact).
+TEST(RoundFiveReview, ConstantPlusAddCancellingCoeff) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto e = 5.0 + (x - 5.0);
+  EXPECT_TRUE(*e == *x);
+  auto e2 = 5.0 + (x + y - 5.0);
+  EXPECT_TRUE(*e2 == *(x + y));
+  auto e3 = get_scalar_one() + (x - 1.0);
+  EXPECT_TRUE(*e3 == *x);
+}
+
+// R5-6: mul+symbol / symbol+mul used a raw map find; hash(x+2)==hash(x)
+// falsely folded 2*(x+2) + x into 3*(x+2).
+TEST(RoundFiveReview, MulAddNoAliasedCoeffFold) {
+  auto [x, z] = make_scalar_variable("x", "z");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  EXPECT_DOUBLE_EQ(ev.apply(2.0 * (x + 2.0) + x), 7.0); // was 9
+  EXPECT_DOUBLE_EQ(ev.apply(x + 2.0 * (x + 2.0)), 7.0); // was 9
+  EXPECT_EQ(to_string(z + (-1.0) * z), "0");            // was 0*z
+}
+
+// R5-3: (-x) + (y - x) hit the no-duplicates assert in push_back.
+TEST(RoundFiveReview, NegativePlusAddContainingSameNegative) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  expression_holder<scalar_expression> e;
+  EXPECT_NO_THROW(e = (-x) + (y - x));
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, 5.0);
+  EXPECT_DOUBLE_EQ(ev.apply(e), 3.0);
+}
+
+// R5-1 + R5-2/sweep bug B: c1*expr - c2*expr merged on raw hash equality
+// (falsely matching different children), and classified the sign of the
+// result with rank-lexicographic operator< instead of numeric_less.
+TEST(RoundFiveReview, MulSubDeepEqualityAndSign) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, 2.0);
+  EXPECT_DOUBLE_EQ(ev.apply(2.0 * (x + 2.0) - 5.0 * (x + 9.0)), -44.0);
+  EXPECT_DOUBLE_EQ(ev.apply(2.0 * y - 2.5 * y), -1.0); // was +1
+  EXPECT_DOUBLE_EQ(ev.apply(2.5 * y - 2.0 * y), 1.0);
+}
+
+// R5-1 latent + R5-2 in symbol - c*expr: same two defects.
+TEST(RoundFiveReview, SymbolMinusScaledAddNoFalseMerge) {
+  auto [x] = make_scalar_variable("x");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  EXPECT_DOUBLE_EQ(ev.apply(x - 5.0 * (x + 2.0)), -14.0); // was -12
+  EXPECT_EQ(to_string(x - 2.0 * x), "-x");
+  EXPECT_DOUBLE_EQ(ev.apply(x - 2.5 * x), -1.5); // was +1.5
+}
+
+// Sweep bug C companion (scalar side): add + (-aliased_child) erased the
+// wrong map entry because hash(sin(y+2))==hash(sin(y+5)).
+TEST(RoundFiveReview, AddMinusAliasedFunctionChild) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto e = (x + sin(y + 2.0)) + (-sin(y + 5.0));
+  EXPECT_NE(to_string(e), "x");
+  scalar_evaluator<double> ev;
+  ev.set(x, 0.0);
+  ev.set(y, 0.0);
+  EXPECT_DOUBLE_EQ(ev.apply(e), std::sin(2.0) - std::sin(5.0));
+}
+
+// R5-4: tensor pow/mul folds compared raw hashes; hash(c*T)==hash(T) and
+// hash(pow(T,c))==hash(T) made A*pow(2A,2) fold to pow(A,3).
+TEST(RoundFiveReview, TensorPowMulDeepBaseComparison) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  EXPECT_NE(to_string(A * pow(2.0 * A, 2)), "pow(A,3)");
+  EXPECT_NE(to_string(pow(2.0 * A, 2) * A), "pow(A,3)");
+  EXPECT_NE(to_string(pow(A, 2) * pow(2.0 * A, 3)), "pow(A,5)");
+  EXPECT_EQ(to_string(A * pow(A, 2)), "pow(A,3)");
+  EXPECT_EQ(to_string(pow(A, 2) * A), "pow(A,3)");
+  EXPECT_EQ(to_string(pow(A, 2) * pow(A, 3)), "pow(A,5)");
+}
+
+// R5-5: fraction printing — trailing "*" before "/", glued denominator
+// factors, missing "1" numerator, and rank-lexicographic classification of
+// negative double exponents.
+TEST(RoundFiveReview, ScalarFractionPrinting) {
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  EXPECT_EQ(to_string(2.0 * pow(x, -1.0)), "2/x"); // was "2*/x"
+  auto s = to_string(z * pow(x, -2.0) * pow(y, -1.0));
+  EXPECT_TRUE(s == "z/(pow(x,2)*y)" || s == "z/(y*pow(x,2))") << s;
+  auto s2 = to_string(pow(x, -2.0) * pow(y, -1.0));
+  EXPECT_TRUE(s2 == "1/(pow(x,2)*y)" || s2 == "1/(y*pow(x,2))") << s2;
+  EXPECT_EQ(to_string(y * pow(x, -2.5)), "y/pow(x,2.5)");
+}
+
+TEST(RoundFiveReview, T2sFractionPrinting) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto s = to_string(pow(trace(A), -1.0) * pow(det(A), -1.0));
+  EXPECT_NE(s.find("1/"), std::string::npos) << s;
+  EXPECT_EQ(s.find("*/"), std::string::npos) << s;
+}
+
+// Round-5 differential fuzzer: pow(-b, p) extracted the sign for every
+// exponent; (-b)^2 = b^2, and for symbolic p no extraction is valid.
+TEST(RoundFiveReview, PowNegativeBaseParity) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 2.5);
+  EXPECT_DOUBLE_EQ(ev.apply(pow(-x, 2.0)), 6.25); // was -6.25
+  EXPECT_DOUBLE_EQ(ev.apply(pow(-x, 3.0)), -15.625);
+  EXPECT_EQ(to_string(pow(-x, 2.0)), "pow(x,2)");
+  EXPECT_EQ(to_string(pow(-x, 3.0)), "-pow(x,3)");
+  EXPECT_EQ(to_string(pow(-x, y)), "pow(-x,y)");
+}
+
+// Round-5 differential fuzzer: exact-duplicate children reached raw
+// push_back through the sub default and two mul fallbacks and hit the
+// no-duplicates assert.
+TEST(RoundFiveReview, DuplicateChildMergesInsteadOfThrow) {
+  auto [x, z] = make_scalar_variable("x", "z");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(z, 2.0);
+  expression_holder<scalar_expression> e;
+  EXPECT_NO_THROW(e = z - (-1.0) * z);
+  EXPECT_EQ(to_string(e), "2*z");
+  EXPECT_NO_THROW(e = sin(x) * (-(0.5 * sin(x) * z)));
+  EXPECT_DOUBLE_EQ(ev.apply(e), -std::sin(1.0) * std::sin(1.0));
+  auto A = sin(z) * sin(x + 1.0);
+  auto B = sin(z) * sin(x + 2.0);
+  EXPECT_NO_THROW(e = A * B); // shared sin(z) factor
+  EXPECT_DOUBLE_EQ(ev.apply(e), std::sin(2.0) * std::sin(2.0) * std::sin(2.0) *
+                                    std::sin(3.0));
+}
+
+// Sweep bug C: hash(w(a+3))==hash(w(a+1)) — cancelling against a negative
+// wrapper erased the aliased child and lost both constants.
+TEST(RoundFiveReview, T2sAliasedWrapperCancellation) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [a] = make_scalar_variable("a");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto e = (trace(A) + w(a + 3.0)) + (-w(a + 1.0));
+  EXPECT_EQ(to_string(e), "2+tr(A)");
+  auto e2 = (trace(A) + w(a + 3.0)) - w(a + 1.0);
+  EXPECT_NE(to_string(e2), "tr(A)"); // value must not be silently lost
+}
+
+// Round-6 review: mirrors the round-5 fixes stopped short of.
+
+// R6-1: the value==0 degenerate collapse was missing from the
+// (add ± constant/one/negative) mirror sites — (x+5)-5 stayed a
+// single-child add that printed "x" but did not compare equal to x.
+TEST(RoundSixReview, AddSubConstantCollapseMirrors) {
+  auto [x] = make_scalar_variable("x");
+  auto e1 = (x + 5.0) - 5.0;
+  EXPECT_TRUE(*e1 == *x);
+  EXPECT_FALSE(is_same<scalar_add>(e1));
+  auto e2 = (x - 5.0) + 5.0;
+  EXPECT_TRUE(*e2 == *x);
+  auto e3 = (x - 1.0) + get_scalar_one();
+  EXPECT_TRUE(*e3 == *x);
+  auto neg5 =
+      make_expression<scalar_negative>(make_expression<scalar_constant>(5));
+  auto e4 = (x + 5.0) + neg5;
+  EXPECT_TRUE(*e4 == *x);
+  EXPECT_EQ(to_string(x - ((x + 5.0) - 5.0)), "0");
+  EXPECT_EQ(to_string(((x + 5.0) - 5.0) * pow(x, -1.0)), "1");
+}
+
+// R6-2: a symbolic t2s add coefficient (wrapper(s)) was silently deleted
+// by every get_coefficient + coeff().free() fold site.
+TEST(RoundSixReview, T2sSymbolicCoeffSurvivesConstantFold) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [s] = make_scalar_variable("s");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto c5 = make_expression<scalar_constant>(5);
+  auto c2 = make_expression<scalar_constant>(2);
+  auto base = w(s) - (trace(A) + det(A)); // coeff = wrapper(s)
+  auto has_s = [](auto const &e) {
+    return to_string(e).find('s') != std::string::npos;
+  };
+  EXPECT_TRUE(has_s(base));
+  EXPECT_TRUE(has_s(base + w(c5))); // was "5-tr(A)-det(A)"
+  EXPECT_TRUE(has_s(base - w(c2))); // was "-2-tr(A)-det(A)"
+  EXPECT_TRUE(has_s(base + (-w(c5))));
+  auto t2s_one = make_expression<tensor_to_scalar_one>();
+  EXPECT_TRUE(has_s(t2s_one + base)); // was "1-tr(A)-det(A)"
+}
+
+// R6-3: the t2s sub-side wrapper merge pushed a numeric result as a child
+// instead of folding it into the coeff — equal values compared unequal.
+TEST(RoundSixReview, T2sSubWrapperMergeFoldsToCoeff) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [a] = make_scalar_variable("a");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto c2 = make_expression<scalar_constant>(2);
+  auto e1 = (trace(A) + w(a + 3.0)) - w(a + 1.0);
+  auto e2 = trace(A) + w(c2);
+  auto e3 = (trace(A) + w(a + 3.0)) + (-w(a + 1.0));
+  EXPECT_TRUE(*e1 == *e2);
+  EXPECT_TRUE(*e1 == *e3);
+  EXPECT_EQ(to_string(e1 - w(c2)), "tr(A)");
+}
+
+// Round-7 review: negative(zero) minting, negative-wrapper duals, and
+// missing negation-pair cancellation in add merges.
+
+// R7-1: -e1 - e2 built a raw negative node; a fully-cancelling sum minted
+// negative(zero), defeating every zero-singleton filter.
+TEST(RoundSevenReview, NegativeLhsSubNormalizesZero) {
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto e1 = (-x) - (-x);
+  EXPECT_TRUE(is_same<scalar_zero>(e1)) << to_string(e1);
+  auto e2 = (z - y) - (x - y);
+  EXPECT_TRUE(*e2 == *(z - x)) << to_string(e2);
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto t = (-trace(A)) - (-trace(A));
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(t)) << to_string(t);
+}
+
+// R7-2: -w(a) and w(-a) are the same value; neg_fn now normalizes so both
+// build routes agree and round-trip cancellation works.
+TEST(RoundSevenReview, T2sNegativeWrapperNormalized) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [a] = make_scalar_variable("a");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto base = trace(A) + det(A);
+  auto e1 = base + (-w(a));
+  auto e2 = base - w(a);
+  EXPECT_TRUE(*e1 == *e2) << to_string(e1) << " vs " << to_string(e2);
+  auto e3 = (base - w(a)) + w(a);
+  EXPECT_TRUE(*e3 == *base) << to_string(e3);
+}
+
+// R7-4: negation pairs share no hash, so (3-x)+x and (3+x)+(1-x) never
+// cancelled; find_like now retries with the exact negation.
+TEST(RoundSevenReview, AddCancelsAgainstNegativeChild) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  EXPECT_EQ(to_string((3.0 - x) + x), "3");
+  EXPECT_EQ(to_string((3.0 + x) + (1.0 - x)), "4");
+  auto e = (y - x) + (x + 2.0);
+  EXPECT_TRUE(*e == *(y + 2.0)) << to_string(e);
+  // t2s merged-wrapper interiors reduce through the same path
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [a] = make_scalar_variable("a");
+  auto w = [](auto ex) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(ex);
+  };
+  auto f = (trace(A) + w(a + 3.0)) + w(1.0 - a);
+  auto c4 = make_expression<scalar_constant>(4);
+  EXPECT_TRUE(*f == *(trace(A) + w(c4))) << to_string(f);
+}
+
+// Round-8 review: regressions from the round-7 negation probe.
+
+// R8-1: merge_add consumed the same rhs child twice when the lhs held an
+// exact {t,-t} pair — 5x neg-matched -(5x), then -(5x) direct-matched it
+// again, turning y-5x into y-10x. Also kills the enabler: signed inserts
+// keep {t,-t} from coexisting at all.
+TEST(RoundEightReview, MergeAddNoDoubleConsume) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto f = (2.0 * x + (-(5.0 * x))) + 3.0 * x;
+  EXPECT_TRUE(is_same<scalar_zero>(f)) << to_string(f);
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, 0.0);
+  EXPECT_DOUBLE_EQ(ev.apply(f + (y - 5.0 * x)), -5.0);
+  // an add manually holding the exact pair must still merge correctly
+  auto pair_add = make_expression<scalar_add>();
+  auto &pa = pair_add.get<scalar_add>();
+  pa.push_back(5.0 * x);
+  pa.push_back(-(5.0 * x));
+  auto g = pair_add + (y - 5.0 * x);
+  EXPECT_DOUBLE_EQ(ev.apply(g), -5.0) << to_string(g); // was -10
+}
+
+// R8-2: the tensor add-merge got round-7's cancellation power without the
+// zero filter — (A+B)+(C-A) held a literal 0{2} child.
+TEST(RoundEightReview, TensorMergeAddZeroFiltered) {
+  auto [A, B, C] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                        std::tuple{"B", std::size_t{3}, 2},
+                                        std::tuple{"C", std::size_t{3}, 2});
+  auto e1 = (A + B) + (C - A);
+  EXPECT_TRUE(*e1 == *(B + C)) << to_string(e1);
+  EXPECT_EQ(to_string(e1).find("0{2}"), std::string::npos) << to_string(e1);
+  auto e2 = e1 - (B + C);
+  EXPECT_TRUE(is_same<tensor_zero>(e2)) << to_string(e2);
+  // full cancellation collapses to the zero singleton, not an empty add
+  auto e3 = (A + B) + ((-A) + (-B));
+  EXPECT_TRUE(is_same<tensor_zero>(e3)) << to_string(e3);
+}
+
+// Round-9 review: nested adds from the negative fall-through, one
+// unconverted tensor insert, and a literal zero coefficient.
+
+// R9-1: add + (-t) with a non-cancelling t fell to get_default, which
+// nested the whole lhs add as a single child; buried terms then defeated
+// merge cancellation.
+TEST(RoundNineReview, AddNegativeStaysFlat) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto e = (x + 5.0 * y) + (-y);
+  // flat children: the exact 5*y child stays reachable for cancellation
+  auto e2 = e + (-(5.0 * y));
+  EXPECT_TRUE(*e2 == *(x - y)) << to_string(e2);
+  auto [A, B, C] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                        std::tuple{"B", std::size_t{3}, 2},
+                                        std::tuple{"C", std::size_t{3}, 2});
+  auto t = (A + B) + ((C - A) - B);
+  EXPECT_TRUE(*t == *C) << to_string(t);
+  EXPECT_TRUE(is_same<tensor_zero>(t - C)) << to_string(t - C);
+}
+
+// R9-2: the tensor n-ary fallback still plain-inserted the combined term;
+// (5A-2A)+(-3A) held an exact {2A, -(2A)} pair instead of collapsing.
+TEST(RoundNineReview, TensorCombinedInsertIsSigned) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto e = (5.0 * A + (-(2.0 * A))) + (-3.0) * A;
+  EXPECT_TRUE(is_same<tensor_zero>(e)) << to_string(e);
+}
+
+// R9-3: merge_add stored a cancelled coefficient as a literal zero —
+// (2+x)+(y-2) printed "0+x+y" and compared unequal to x+y.
+TEST(RoundNineReview, MergeAddDropsCancelledCoeff) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto e = (2.0 + x) + (y - 2.0);
+  EXPECT_TRUE(*e == *(x + y)) << to_string(e);
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto t = (2.0 + trace(A)) + (det(A) - 2.0);
+  EXPECT_TRUE(*t == *(trace(A) + det(A))) << to_string(t);
+}
+
+// Round-10 review: the tensor n-ary add fallback was the last insertion
+// path without the exact-negation probe — ((A+B)-C)+C kept {C,-C}.
+TEST(RoundTenReview, TensorAddCancelsExactNegativeChild) {
+  auto [A, B, C] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                        std::tuple{"B", std::size_t{3}, 2},
+                                        std::tuple{"C", std::size_t{3}, 2});
+  auto e1 = ((A + B) - C) + C;
+  EXPECT_TRUE(*e1 == *(A + B)) << to_string(e1);
+  auto e2 = (A - C) + C;
+  EXPECT_TRUE(*e2 == *A) << to_string(e2);
+  auto e3 = ((A + B) - 2.0 * C) + 2.0 * C;
+  EXPECT_TRUE(*e3 == *(A + B)) << to_string(e3);
+  auto e4 = ((A + B) - trans(C)) + trans(C);
+  EXPECT_TRUE(*e4 == *(A + B)) << to_string(e4);
+}
+
+// Round-11 review: tensor non-add + add nested the rhs add as one child
+// (the swap-to-n-ary dispatch was guarded on a non-void mul_type), so
+// A+(B+C) and (A+B)+C were different trees.
+TEST(RoundElevenReview, TensorAddRhsFlattens) {
+  auto [A, B, C] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2},
+                                        std::tuple{"B", std::size_t{3}, 2},
+                                        std::tuple{"C", std::size_t{3}, 2});
+  EXPECT_TRUE(*(A + (B + C)) == *((A + B) + C));
+  EXPECT_TRUE(*(2.0 * C + (A + B)) == *((A + B) + 2.0 * C));
+  EXPECT_TRUE(*(trans(C) + (A + B)) == *((A + B) + trans(C)));
+  EXPECT_TRUE(*((-C) + (A + B)) == *((A + B) - C));
+  EXPECT_TRUE(is_same<tensor_zero>((A + (B + C)) - (A + B + C)));
+  auto e = (A + (B + C)) + B;
+  EXPECT_TRUE(*e == *(A + 2.0 * B + C)) << to_string(e);
+}
 
 } // namespace numsim::cas
 

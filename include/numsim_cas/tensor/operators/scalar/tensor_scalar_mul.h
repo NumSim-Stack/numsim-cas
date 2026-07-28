@@ -38,6 +38,18 @@ public:
       hash_combine(base::m_hash_value, this->m_rhs.get().hash_value());
     }
   }
+
+  // c*T is a like term of T and of any c'*T (add-side merging, #340)
+  [[nodiscard]] bool
+  like_term_of(expression const &rhs) const noexcept override {
+    if (this->hash_value() != rhs.hash_value())
+      return false;
+    if (rhs.id() == this->id()) {
+      auto const &r = static_cast<tensor_scalar_mul const &>(rhs);
+      return this->expr_rhs() == r.expr_rhs();
+    }
+    return this->expr_rhs().get() == rhs;
+  }
 };
 
 } // namespace numsim::cas

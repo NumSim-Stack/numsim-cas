@@ -1,5 +1,6 @@
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/tag_invoke.h>
+#include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_positivity_propagation.h>
@@ -18,6 +19,13 @@ tag_invoke(detail::neg_fn, std::type_identity<tensor_to_scalar_expression>,
   // -(-x) = x — preserves x's existing assumptions automatically.
   if (is_same<tensor_to_scalar_negative>(e)) {
     return e.get<tensor_to_scalar_negative>().expr();
+  }
+
+  // -w(s) = w(-s): a negative wrapper and a wrapped negative are the same
+  // value; normalize to one shape so identity checks agree (round-7 review).
+  if (is_same<tensor_to_scalar_scalar_wrapper>(e)) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(
+        -e.get<tensor_to_scalar_scalar_wrapper>().expr());
   }
 
   // #260 — capture operand sign before building the node, then flip it.

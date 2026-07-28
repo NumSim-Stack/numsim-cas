@@ -149,6 +149,10 @@ public:
       apply(child, precedence);
       first = false;
     }
+    if (first) {
+      // all children went to the denominator: print "1/..."
+      m_out << "1";
+    }
 
     if (!denom.empty()) {
       // scalar-like bases first for consistent ordering

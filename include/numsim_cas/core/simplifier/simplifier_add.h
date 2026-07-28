@@ -4,6 +4,7 @@
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/core/domain_traits.h>
 #include <numsim_cas/core/scalar_number.h>
+#include <numsim_cas/core/simplifier/simplifier_common.h>
 #include <numsim_cas/functions.h>
 #include <ranges>
 #include <set>
@@ -145,13 +146,11 @@ public:
     return get_default();
   }
 
-  // non-add + add --> swap so add is LHS (triggers n_ary_add_dispatch)
+  // non-add + add --> swap so add is LHS (triggers the n-ary dispatcher).
+  // Unconditional: the void-mul guard sent tensor A+(B+C) to get_default,
+  // which nested the rhs add as a single child (round-11 review).
   expr_holder_t dispatch(typename Traits::add_type const &) {
-    if constexpr (!std::is_void_v<typename Traits::mul_type>) {
-      return m_rhs + m_lhs;
-    } else {
-      return get_default();
-    }
+    return m_rhs + m_lhs;
   }
 
 protected:
@@ -195,14 +194,8 @@ public:
                          typename Traits::add_type const &rhs) {
     auto lhs_val = Traits::try_numeric(base::m_lhs);
     if (lhs_val) {
-      const auto value{get_coefficient<Traits>(rhs, 0) + *lhs_val};
-      if (value != 0) {
-        auto add_expr{make_expression<typename Traits::add_type>(rhs)};
-        auto &add{add_expr.template get<typename Traits::add_type>()};
-        add.set_coeff(Traits::make_constant(value));
-        return add_expr;
-      }
-      return base::m_rhs;
+      return fold_constant_into_add_coeff<Traits>(
+          make_expression<typename Traits::add_type>(rhs), *lhs_val);
     }
     return base::get_default();
   }
@@ -265,14 +258,8 @@ public:
   // 1 + (coeff + x)
   expr_holder_t dispatch([[maybe_unused]]
                          typename Traits::add_type const &rhs) {
-    const auto value{get_coefficient<Traits>(rhs, 0) + 1};
-    if (value != 0) {
-      auto add_expr{make_expression<typename Traits::add_type>(rhs)};
-      auto &add{add_expr.template get<typename Traits::add_type>()};
-      add.set_coeff(Traits::make_constant(value));
-      return add_expr;
-    }
-    return base::m_rhs;
+    return fold_constant_into_add_coeff<Traits>(
+        make_expression<typename Traits::add_type>(rhs), scalar_number{1});
   }
 
   // 1 + 1
@@ -317,28 +304,16 @@ public:
                          typename Traits::constant_type const &) {
     auto rhs_val = Traits::try_numeric(base::m_rhs);
     if (rhs_val) {
-      auto add_expr{make_expression<typename Traits::add_type>(lhs)};
-      auto &add{add_expr.template get<typename Traits::add_type>()};
-      const auto value{get_coefficient<Traits>(lhs, 0) + *rhs_val};
-      add.coeff().free();
-      if (value != 0) {
-        add.set_coeff(Traits::make_constant(value));
-      }
-      return add_expr;
+      return fold_constant_into_add_coeff<Traits>(
+          make_expression<typename Traits::add_type>(lhs), *rhs_val);
     }
     return base::get_default();
   }
 
   // (coeff + terms) + 1
   expr_holder_t dispatch([[maybe_unused]] typename Traits::one_type const &) {
-    auto add_expr{make_expression<typename Traits::add_type>(lhs)};
-    auto &add{add_expr.template get<typename Traits::add_type>()};
-    const auto value{get_coefficient<Traits>(add, 0) + 1};
-    add.coeff().free();
-    if (value != 0) {
-      add.set_coeff(Traits::make_constant(value));
-    }
-    return add_expr;
+    return fold_constant_into_add_coeff<Traits>(
+        make_expression<typename Traits::add_type>(lhs), scalar_number{1});
   }
 
   // Zero-filter + degenerate collapse after in-place mutation: a
@@ -348,7 +323,11 @@ public:
                                  typename Traits::add_type &add,
                                  expr_holder_t combined) {
     if (!is_same<typename Traits::zero_type>(combined)) {
-      add.merge_or_insert(std::move(combined));
+      // signed insert: the combined term may exactly negate an existing
+      // child; a plain insert would leave a {t,-t} pair (round-8 review)
+      add_insert_signed(add, std::move(combined), [](expr_holder_t const &e) {
+        return is_same<typename Traits::zero_type>(e);
+      });
     }
     add.invalidate_hash();
     if (add.size() == 0) {
@@ -383,6 +362,15 @@ public:
         pos = add.find_like(probe);
       }
     }
+    if (pos == add.symbol_map().end()) {
+      // negation pairs share no hash: (3-x)+x needs a -x probe; only an
+      // exact -x cancels — like-terms of -x would nest adds (round-7)
+      auto neg_probe{-base::m_rhs};
+      pos = add.find_like(neg_probe);
+      if (pos != add.symbol_map().end() && !(pos->second == neg_probe)) {
+        pos = add.symbol_map().end();
+      }
+    }
     if (pos != add.symbol_map().end()) {
       auto expr{pos->second + base::m_rhs};
       add.symbol_map().erase(pos);
@@ -392,18 +380,22 @@ public:
     return expr_add;
   }
 
-  // merge two add expressions
+  // merge two add expressions; zero-filter + collapse since childwise
+  // combines may fully cancel ((3+x)+(1-x) -> 4), round-7 review
   expr_holder_t dispatch(typename Traits::add_type const &rhs) {
     auto expr{make_expression<typename Traits::add_type>()};
     auto &add{expr.template get<typename Traits::add_type>()};
-    merge_add(lhs, rhs, add);
-    return expr;
+    merge_add(lhs, rhs, add, [](expr_holder_t const &e) {
+      return is_same<typename Traits::zero_type>(e);
+    });
+    return finalize_add<Traits>(std::move(expr));
   }
 
   // (coeff + terms) + (-expr)
   expr_holder_t dispatch(typename Traits::negative_type const &rhs) {
+    // map keys compare by hash; confirm deep equality before cancelling
     const auto pos{lhs.symbol_map().find(rhs.expr())};
-    if (pos != lhs.symbol_map().end()) {
+    if (pos != lhs.symbol_map().end() && pos->second == rhs.expr()) {
       auto expr{make_expression<typename Traits::add_type>(lhs)};
       auto &add{expr.template get<typename Traits::add_type>()};
       add.symbol_map().erase(rhs.expr());
@@ -419,17 +411,22 @@ public:
 
     auto inner_val = Traits::try_numeric(rhs.expr());
     if (inner_val) {
-      auto add_expr{make_expression<typename Traits::add_type>(lhs)};
-      auto &add{add_expr.template get<typename Traits::add_type>()};
-      const auto value{get_coefficient<Traits>(lhs, 0) - *inner_val};
-      add.coeff().free();
-      if (value != 0) {
-        add.set_coeff(Traits::make_constant(value));
-      }
-      return add_expr;
+      return fold_constant_into_add_coeff<Traits>(
+          make_expression<typename Traits::add_type>(lhs), -(*inner_val));
     }
 
-    return base::get_default();
+    // add + (-add): route through subtraction, which cancels childwise
+    // with deep comparison (map keys alone alias e.g. a against 1+a)
+    if (is_same<typename Traits::add_type>(rhs.expr())) {
+      return base::m_lhs - rhs.expr();
+    }
+
+    // non-cancelling -t: insert into a copy — get_default would nest the
+    // whole lhs add as a single child (round-9 review)
+    auto add_expr{make_expression<typename Traits::add_type>(lhs)};
+    auto &add{add_expr.template get<typename Traits::add_type>()};
+    insert_signed<Traits>(add, base::m_rhs);
+    return detail::finalize_add<Traits>(std::move(add_expr));
   }
 
 protected:
@@ -461,12 +458,10 @@ public:
   template <typename SymbolType = typename Traits::symbol_type>
   requires(!std::is_void_v<SymbolType>)
   expr_holder_t dispatch(SymbolType const &) {
-    const auto pos{lhs.symbol_map().find(base::m_rhs)};
-    if (pos != lhs.symbol_map().end() && lhs.symbol_map().size() == 1) {
-      auto expr{make_expression<typename Traits::mul_type>(lhs)};
-      auto &mul{expr.template get<typename Traits::mul_type>()};
-      mul.set_coeff(Traits::make_constant(get_coefficient<Traits>(lhs, 1) + 1));
-      return expr;
+    // deep single-child check: a map find would alias child x+2 against x
+    if (lhs.size() == 1 && lhs.symbol_map().begin()->second == base::m_rhs) {
+      return base::scaled_copy(
+          lhs, Traits::make_constant(get_coefficient<Traits>(lhs, 1) + 1));
     }
     return get_default();
   }
@@ -518,12 +513,10 @@ public:
 
   // x + c*x --> (c+1)*x
   expr_holder_t dispatch(typename Traits::mul_type const &rhs) {
-    const auto pos{rhs.symbol_map().find(base::m_lhs)};
-    if (pos != rhs.symbol_map().end() && rhs.symbol_map().size() == 1) {
-      auto expr{make_expression<typename Traits::mul_type>(rhs)};
-      auto &mul{expr.template get<typename Traits::mul_type>()};
-      mul.set_coeff(Traits::make_constant(get_coefficient<Traits>(rhs, 1) + 1));
-      return expr;
+    // deep single-child check: a map find would alias child x+2 against x
+    if (rhs.size() == 1 && rhs.symbol_map().begin()->second == base::m_lhs) {
+      return base::scaled_copy(
+          rhs, Traits::make_constant(get_coefficient<Traits>(rhs, 1) + 1));
     }
     return get_default();
   }
@@ -561,20 +554,17 @@ public:
   // -expr + (coeff + terms)
   expr_holder_t dispatch([[maybe_unused]]
                          typename Traits::add_type const &rhs) {
-    auto add_expr{make_expression<typename Traits::add_type>(rhs)};
-    auto &add{add_expr.template get<typename Traits::add_type>()};
-
     auto inner_val = Traits::try_numeric(lhs.expr());
     if (inner_val) {
-      const auto value{get_coefficient<Traits>(rhs, 0) - *inner_val};
-      add.coeff().free();
-      if (value != 0) {
-        add.set_coeff(Traits::make_constant(value));
-      }
-      return add_expr;
+      return fold_constant_into_add_coeff<Traits>(
+          make_expression<typename Traits::add_type>(rhs), -(*inner_val));
     }
-    add.push_back(base::m_lhs);
-    return add_expr;
+    auto add_expr{make_expression<typename Traits::add_type>(rhs)};
+    auto &add{add_expr.template get<typename Traits::add_type>()};
+    // (-x) + (y - x): the map may already hold -x, so merge instead of a
+    // raw push_back (which asserts on duplicates)
+    insert_signed<Traits>(add, base::m_lhs);
+    return detail::finalize_add<Traits>(std::move(add_expr));
   }
 
   // -expr + c

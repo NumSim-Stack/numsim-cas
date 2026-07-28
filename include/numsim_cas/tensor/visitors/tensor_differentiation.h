@@ -67,7 +67,7 @@ public:
   // --- Simple nodes defined in header ---
 
   void operator()(tensor const &visitable) override {
-    if (visitable.hash_value() == m_arg.get().hash_value()) {
+    if (visitable == m_arg.get()) {
       if (m_rank_arg == 2) {
         if (auto const &sp = m_arg.get().space()) {
           auto kind = classify_space(*sp);

@@ -28,8 +28,9 @@ auto partition_mul_fractions(HashMap const &hash_map)
   for (auto const &[key, child] : hash_map) {
     if (auto pow_expr = is_same_r<pow_type>(child)) {
       auto const &exponent = pow_expr->get().expr_rhs();
+      // numeric_less, not operator< (which is rank-lexicographic order)
       if (auto num = Traits::try_numeric(exponent);
-          num && *num < scalar_number{0}) {
+          num && numeric_less(*num, scalar_number{0})) {
         denominator.push_back({pow_expr->get().expr_lhs(), -(*num)});
         continue;
       }

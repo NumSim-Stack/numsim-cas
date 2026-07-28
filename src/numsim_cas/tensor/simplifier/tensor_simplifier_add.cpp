@@ -9,6 +9,30 @@ namespace numsim::cas {
 namespace simplifier {
 namespace tensor_detail {
 
+[[nodiscard]] expression_holder<tensor_expression>
+try_merge_scalar_mul(expression_holder<tensor_expression> const &a,
+                     expression_holder<tensor_expression> const &b) {
+  using expr_holder_t = expression_holder<tensor_expression>;
+  const bool a_mul{is_same<tensor_scalar_mul>(a)};
+  const bool b_mul{is_same<tensor_scalar_mul>(b)};
+  if (a_mul && b_mul) {
+    auto const &am{a.get<tensor_scalar_mul>()};
+    auto const &bm{b.get<tensor_scalar_mul>()};
+    if (am.expr_rhs() == bm.expr_rhs()) {
+      return (am.expr_lhs() + bm.expr_lhs()) * am.expr_rhs();
+    }
+    return expr_holder_t{};
+  }
+  if (a_mul || b_mul) {
+    auto const &m{(a_mul ? a : b).get<tensor_scalar_mul>()};
+    auto const &other{a_mul ? b : a};
+    if (m.expr_rhs() == other) {
+      return (m.expr_lhs() + 1) * m.expr_rhs();
+    }
+  }
+  return expr_holder_t{};
+}
+
 // ------------------------------------------------------------
 // n_ary_add
 // ------------------------------------------------------------
@@ -21,13 +45,44 @@ template <typename Expr>
 n_ary_add::dispatch([[maybe_unused]] Expr const &rhs) {
   auto expr_add{make_expression<tensor_add>(m_lhs_node)};
   auto &add{expr_add.template get<tensor_add>()};
-  auto pos{m_lhs_node.symbol_map().find(m_rhs)};
-  if (pos != m_lhs_node.symbol_map().end()) {
-    add.symbol_map().erase(m_rhs);
-    add.push_back(pos->second + m_rhs);
+  auto pos{add.find_like(m_rhs)};
+  if (pos == add.symbol_map().end() && is_same<tensor_scalar_mul>(m_rhs)) {
+    // stored bare T vs incoming c*T: probe the inner tensor (review #340)
+    pos = add.find_like(m_rhs.template get<tensor_scalar_mul>().expr_rhs());
+  }
+  if (pos != add.symbol_map().end()) {
+    auto combined{pos->second + m_rhs};
+    add.symbol_map().erase(pos);
+    if (!is_same<tensor_zero>(combined)) {
+      // signed insert: the combined term may exactly negate another child
+      // ((5A-2A)+(-3A) left a {2A,-(2A)} pair, round-9 review)
+      add_insert_signed(add, std::move(combined), [](expr_holder_t const &e) {
+        return is_same<tensor_zero>(e);
+      });
+    }
+    add.invalidate_hash();
+    add.recompute_space();
+    if (add.size() == 0) {
+      return tensor_traits::zero(m_lhs);
+    }
+    if (add.size() == 1 && !add.coeff().is_valid()) {
+      return add.symbol_map().begin()->second;
+    }
     return expr_add;
   }
-  add.push_back(m_rhs);
+  // miss path: an exact -rhs child must still cancel (round-10 review;
+  // ((A+B)-C)+C kept a {C,-C} pair via raw push_back)
+  add_insert_signed(add, m_rhs, [](expr_holder_t const &e) {
+    return is_same<tensor_zero>(e);
+  });
+  add.invalidate_hash();
+  add.recompute_space();
+  if (add.size() == 0) {
+    return tensor_traits::zero(m_lhs);
+  }
+  if (add.size() == 1 && !add.coeff().is_valid()) {
+    return add.symbol_map().begin()->second;
+  }
   return expr_add;
 }
 
@@ -35,7 +90,18 @@ n_ary_add::dispatch([[maybe_unused]] Expr const &rhs) {
 n_ary_add::dispatch(tensor_add const &rhs) {
   auto expr{make_expression<tensor_add>(rhs.dim(), rhs.rank())};
   auto &add{expr.template get<tensor_add>()};
-  merge_add(m_lhs_node, rhs, add);
+  // zero filter + collapse: childwise combines may fully cancel
+  // ((A+B)+(C-A) left a literal 0{2} child, round-8 review)
+  merge_add(m_lhs_node, rhs, add,
+            [](expr_holder_t const &e) { return is_same<tensor_zero>(e); });
+  add.invalidate_hash();
+  add.recompute_space();
+  if (add.size() == 0) {
+    return tensor_traits::zero(m_lhs);
+  }
+  if (add.size() == 1 && !add.coeff().is_valid()) {
+    return add.symbol_map().begin()->second;
+  }
   return expr;
 }
 
@@ -47,9 +113,29 @@ n_ary_add::dispatch(tensor_negative const &rhs) {
     auto expr{make_expression<tensor_add>(m_lhs_node)};
     auto &add{expr.template get<tensor_add>()};
     add.symbol_map().erase(expr_rhs);
+    add.invalidate_hash();
+    add.recompute_space();
+    if (add.size() == 1 && !add.coeff().is_valid()) {
+      return add.symbol_map().begin()->second;
+    }
     return expr;
   }
-  return get_default();
+  // non-cancelling -t: insert into a copy — get_default would nest the
+  // whole lhs add as a single child (round-9 review)
+  auto expr{make_expression<tensor_add>(m_lhs_node)};
+  auto &add{expr.template get<tensor_add>()};
+  add_insert_signed(add, m_rhs, [](expr_holder_t const &e) {
+    return is_same<tensor_zero>(e);
+  });
+  add.invalidate_hash();
+  add.recompute_space();
+  if (add.size() == 0) {
+    return tensor_traits::zero(m_lhs);
+  }
+  if (add.size() == 1 && !add.coeff().is_valid()) {
+    return add.symbol_map().begin()->second;
+  }
+  return expr;
 }
 
 // ------------------------------------------------------------
@@ -61,7 +147,7 @@ symbol_add::symbol_add(expr_holder_t lhs, expr_holder_t rhs)
 
 [[nodiscard]] symbol_add::expr_holder_t
 symbol_add::dispatch(tensor const &rhs) {
-  if (&m_lhs_node == &rhs) {
+  if (m_lhs_node == rhs) {
     return make_expression<tensor_scalar_mul>(
         make_expression<scalar_constant>(2), m_rhs);
   }
@@ -87,8 +173,7 @@ tensor_scalar_mul_add::dispatch(Expr const & /*rhs*/) {
 
 [[nodiscard]] tensor_scalar_mul_add::expr_holder_t
 tensor_scalar_mul_add::dispatch(tensor_scalar_mul const &rhs) {
-  if (m_lhs_node.expr_rhs().get().hash_value() ==
-      rhs.expr_rhs().get().hash_value()) {
+  if (m_lhs_node.expr_rhs() == rhs.expr_rhs()) {
     return (m_lhs_node.expr_lhs() + rhs.expr_lhs()) * rhs.expr_rhs();
   }
   return get_default();
@@ -97,8 +182,7 @@ tensor_scalar_mul_add::dispatch(tensor_scalar_mul const &rhs) {
 // (s*T) + (-T) → (s-1)*T
 [[nodiscard]] tensor_scalar_mul_add::expr_holder_t
 tensor_scalar_mul_add::dispatch(tensor_negative const &rhs) {
-  if (m_lhs_node.expr_rhs().get().hash_value() ==
-      rhs.expr().get().hash_value()) {
+  if (m_lhs_node.expr_rhs() == rhs.expr()) {
     return (m_lhs_node.expr_lhs() - 1) * m_lhs_node.expr_rhs();
   }
   return get_default();
@@ -119,8 +203,7 @@ add_negative::dispatch(tensor_negative const &rhs) {
 // (-T) + (s*T) → (s-1)*T
 [[nodiscard]] add_negative::expr_holder_t
 add_negative::dispatch(tensor_scalar_mul const &rhs) {
-  if (m_lhs_node.expr().get().hash_value() ==
-      rhs.expr_rhs().get().hash_value()) {
+  if (m_lhs_node.expr() == rhs.expr_rhs()) {
     return (rhs.expr_lhs() - 1) * rhs.expr_rhs();
   }
   return get_default();
@@ -171,8 +254,7 @@ add_base::dispatch(inner_product_wrapper const &) {
     auto k_lhs = classify(*lhs_info->proj);
     auto k_rhs = classify(*rhs_info->proj);
     if (k_lhs != ProjKind::Other && k_rhs != ProjKind::Other &&
-        lhs_info->argument.get().hash_value() ==
-            rhs_info->argument.get().hash_value()) {
+        lhs_info->argument == rhs_info->argument) {
       auto combined = addition_rule(k_lhs, k_rhs);
       if (combined)
         return apply_projection(*combined, lhs_info->argument);

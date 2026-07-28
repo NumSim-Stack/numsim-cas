@@ -38,7 +38,7 @@ public:
 
 protected:
   expr_holder_t get_default() {
-    if (m_lhs.get().hash_value() == m_rhs.get().hash_value()) {
+    if (m_lhs == m_rhs) {
       return pow(std::move(m_lhs), 2);
     }
     auto mul_new{

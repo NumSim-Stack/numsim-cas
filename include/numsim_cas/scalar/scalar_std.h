@@ -471,7 +471,7 @@ template <scalar_expr_holder L, scalar_expr_holder R>
   assert(lhs.is_valid());
   assert(rhs.is_valid());
   // max(x, x) → x
-  if (lhs.get().hash_value() == rhs.get().hash_value())
+  if (lhs == rhs)
     return std::forward<L>(lhs);
   // Constant folding
   auto lval = detail::try_extract_scalar_number(lhs);
@@ -498,7 +498,7 @@ template <scalar_expr_holder L, scalar_expr_holder R>
   assert(lhs.is_valid());
   assert(rhs.is_valid());
   // min(x, x) → x
-  if (lhs.get().hash_value() == rhs.get().hash_value())
+  if (lhs == rhs)
     return std::forward<L>(lhs);
   // Constant folding
   auto lval = detail::try_extract_scalar_number(lhs);

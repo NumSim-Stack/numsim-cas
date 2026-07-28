@@ -61,8 +61,21 @@ n_ary_add::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
     auto wrapper =
         make_expression<tensor_to_scalar_scalar_wrapper>(std::move(merged));
     auto val = Traits::try_numeric(wrapper);
-    if (!val || *val != scalar_number{0}) {
+    if (!val) {
       add.push_back(std::move(wrapper));
+    } else if (*val != scalar_number{0}) {
+      // numeric result belongs in the coeff (canonical form), not a child
+      if (add.coeff().is_valid()) {
+        auto new_coeff = add.coeff() + wrapper;
+        auto cval = Traits::try_numeric(new_coeff);
+        if (cval && *cval == scalar_number{0}) {
+          add.coeff().free();
+        } else {
+          add.set_coeff(std::move(new_coeff));
+        }
+      } else {
+        add.set_coeff(std::move(wrapper));
+      }
     }
     // round-2 review: a cancelled wrapper left an uncollapsed
     // single-child add with a stale cached hash
@@ -70,6 +83,19 @@ n_ary_add::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
   }
   add.push_back(m_rhs);
   return expr_add;
+}
+
+// ------------------------------------------------------------
+// n_ary_add — negative scalar_wrapper normalization (round-5 sweep)
+// ------------------------------------------------------------
+n_ary_add::expr_holder_t
+n_ary_add::dispatch(tensor_to_scalar_negative const &rhs) {
+  if (is_same<tensor_to_scalar_scalar_wrapper>(rhs.expr())) {
+    auto &w = rhs.expr().template get<tensor_to_scalar_scalar_wrapper>();
+    m_rhs = make_expression<tensor_to_scalar_scalar_wrapper>(-w.expr());
+    return dispatch(m_rhs.template get<tensor_to_scalar_scalar_wrapper>());
+  }
+  return algo::dispatch(rhs);
 }
 
 // ------------------------------------------------------------

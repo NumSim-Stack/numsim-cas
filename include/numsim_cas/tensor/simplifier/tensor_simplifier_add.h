@@ -15,6 +15,14 @@ using tensor_traits = domain_traits<tensor_expression>;
 namespace simplifier {
 namespace tensor_detail {
 
+// Deep-compared like-term fold: (c1*T)+(c2*T) -> (c1+c2)*T, T+(c*T) -> (1+c)*T.
+// hash(c*T)==hash(T) by design, so hash equality alone must never merge.
+// Defined in tensor_simplifier_add.cpp where the scalar/tensor operators
+// are visible.
+[[nodiscard]] expression_holder<tensor_expression>
+try_merge_scalar_mul(expression_holder<tensor_expression> const &a,
+                     expression_holder<tensor_expression> const &b);
+
 // Tensor-specific add base: inherits generic add_dispatch for members/zero
 // dispatch, but overrides get_default() and other dispatches that require
 // tensor-specific handling (mul_type is void, add_type needs dim/rank).
@@ -28,10 +36,15 @@ public:
   using algo::algo;
 
   [[nodiscard]] expr_holder_t get_default() {
-    if (algo::m_lhs.get().hash_value() == algo::m_rhs.get().hash_value()) {
+    if (algo::m_lhs == algo::m_rhs) {
       auto constant{make_expression<scalar_constant>(2)};
       return make_expression<tensor_scalar_mul>(std::move(constant),
                                                 std::move(algo::m_rhs));
+    }
+    // Like terms: (c1*T)+(c2*T) → (c1+c2)*T, T+(c*T) → (1+c)*T
+    if (auto merged = try_merge_scalar_mul(algo::m_lhs, algo::m_rhs);
+        merged.is_valid()) {
+      return merged;
     }
     auto add_new{make_expression<tensor_add>(algo::m_lhs.get().dim(),
                                              algo::m_rhs.get().rank())};
@@ -42,10 +55,17 @@ public:
   }
 
   [[nodiscard]] expr_holder_t dispatch(tensor_negative const &expr) {
-    if (algo::m_lhs.get().hash_value() == expr.expr().get().hash_value()) {
+    if (algo::m_lhs == expr.expr()) {
       return tensor_traits::zero(algo::m_lhs);
     }
     return get_default();
+  }
+
+  // non-add + add --> swap so add is LHS (round-11 review: get_default
+  // nested the rhs add as a single child, so A+(B+C) != (A+B)+C).
+  // n_ary_add overrides this with the real merge, so no swap loop.
+  [[nodiscard]] expr_holder_t dispatch(tensor_add const &) {
+    return algo::m_rhs + algo::m_lhs;
   }
 
   template <typename Expr> [[nodiscard]] expr_holder_t dispatch(Expr const &) {

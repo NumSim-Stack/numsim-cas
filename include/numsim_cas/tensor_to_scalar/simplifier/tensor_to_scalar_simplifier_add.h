@@ -45,6 +45,10 @@ public:
   // domain-specific: scalar_wrapper dispatch (numeric → base, else find/merge)
   expr_holder_t dispatch(tensor_to_scalar_scalar_wrapper const &rhs);
 
+  // domain-specific: -wrapper(s) normalizes to wrapper(-s) so it merges
+  // with the scalar_wrapper path instead of hash-based child cancellation
+  expr_holder_t dispatch(tensor_to_scalar_negative const &rhs);
+
   // Generic fallback: find in hash_map, combine or push_back
   // (symbol_type is void for t2s, so the base symbol dispatch is disabled)
   // Body defined in .cpp to keep operator+ ADL in that TU.

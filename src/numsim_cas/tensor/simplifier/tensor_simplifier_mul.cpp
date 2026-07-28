@@ -13,7 +13,8 @@ tensor_pow_mul::tensor_pow_mul(expr_holder_t lhs, expr_holder_t rhs)
 
 tensor_pow_mul::expr_holder_t
 tensor_pow_mul::dispatch([[maybe_unused]] tensor const &rhs) {
-  if (m_lhs_node.expr_lhs().get().hash_value() == rhs.hash_value()) {
+  // hash(c*T)==hash(T) by design, so compare the base expression deeply
+  if (m_lhs_node.expr_lhs() == m_rhs) {
     const auto rhs_expr{m_lhs_node.expr_rhs() + get_scalar_one()};
     return make_expression<tensor_pow>(m_lhs_node.expr_lhs(), rhs_expr);
   }
@@ -22,7 +23,8 @@ tensor_pow_mul::dispatch([[maybe_unused]] tensor const &rhs) {
 
 tensor_pow_mul::expr_holder_t
 tensor_pow_mul::dispatch([[maybe_unused]] tensor_pow const &rhs) {
-  if (m_lhs_node.hash_value() == rhs.hash_value()) {
+  // pow hashes alias their base's hash; deep-compare the bases
+  if (m_lhs_node.expr_lhs() == rhs.expr_lhs()) {
     const auto rhs_expr{m_lhs_node.expr_rhs() + rhs.expr_rhs()};
     return make_expression<tensor_pow>(m_lhs_node.expr_lhs(), rhs_expr);
   }
@@ -58,7 +60,8 @@ symbol_mul::expr_holder_t symbol_mul::dispatch(tensor const &rhs) {
 
 /// X * pow(X,expr) --> pow(X,expr+1)
 symbol_mul::expr_holder_t symbol_mul::dispatch(tensor_pow const &rhs) {
-  if (m_lhs_node.hash_value() == rhs.expr_lhs().get().hash_value()) {
+  // hash(pow(c*X,e))==hash(X) can alias; deep-compare the pow base
+  if (m_lhs == rhs.expr_lhs()) {
     return pow(m_lhs, rhs.expr_rhs() + get_scalar_one());
   }
   return get_default();

@@ -57,8 +57,22 @@ n_ary_sub::dispatch(tensor_to_scalar_scalar_wrapper const &rhs) {
     auto wrapper =
         make_expression<tensor_to_scalar_scalar_wrapper>(std::move(merged));
     auto val = Traits::try_numeric(wrapper);
-    if (!val || *val != scalar_number{0}) {
+    if (!val) {
       add.push_back(std::move(wrapper));
+    } else if (*val != scalar_number{0}) {
+      // numeric result belongs in the coeff (canonical form), not a child
+      // (round-6 review: mirror of the add-side fold)
+      if (add.coeff().is_valid()) {
+        auto new_coeff = add.coeff() + wrapper;
+        auto cval = Traits::try_numeric(new_coeff);
+        if (cval && *cval == scalar_number{0}) {
+          add.coeff().free();
+        } else {
+          add.set_coeff(std::move(new_coeff));
+        }
+      } else {
+        add.set_coeff(std::move(wrapper));
+      }
     }
     // round-2 review: mirror of the add-side collapse
     return detail::finalize_add<Traits>(std::move(expr_add));
@@ -99,16 +113,17 @@ sub_base::expr_holder_t sub_base::dispatch(tensor_to_scalar_add const &) {
   return _rhs.accept(visitor);
 }
 
-// 0 - expr
+// 0 - expr (operator- so -0/-(-x)/-wrapper normalize, round-7 review)
 sub_base::expr_holder_t sub_base::dispatch(tensor_to_scalar_zero const &) {
-  return make_expression<tensor_to_scalar_negative>(std::move(m_rhs));
+  return -std::move(m_rhs);
 }
 
 // -expr_lhs - expr_rhs --> -(expr_lhs+expr_rhs)
+// operator-, not a raw negative node: the sum may collapse to zero and
+// neg(zero) defeats every zero-singleton filter.
 sub_base::expr_holder_t
 sub_base::dispatch(tensor_to_scalar_negative const &lhs) {
-  return make_expression<tensor_to_scalar_negative>(lhs.expr() +
-                                                    std::move(m_rhs));
+  return -(lhs.expr() + std::move(m_rhs));
 }
 
 sub_base::expr_holder_t
