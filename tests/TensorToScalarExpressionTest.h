@@ -3,6 +3,7 @@
 
 #include "cas_test_helpers.h"
 #include "numsim_cas/numsim_cas.h"
+#include "numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_function_rules.h"
 #include "gtest/gtest.h"
 
 namespace {
@@ -553,6 +554,100 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceSimplification) {
 
   // normal case unchanged
   EXPECT_PRINT(trace(X), "tr(X)");
+}
+
+//
+// #420 transpose gaps — trace and the Frobenius norm are transpose-invariant.
+//
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceNormTransGaps) {
+  auto &X = this->X;
+  using numsim::cas::norm;
+  using numsim::cas::trace;
+  using numsim::cas::trans;
+  EXPECT_PRINT(trace(trans(X)), "tr(X)");
+  EXPECT_PRINT(norm(trans(X)), "norm(X)");
+}
+
+//
+// Rule contract (#420): each t2s fold rule fires on its pattern and declines
+// (nullopt) otherwise. Chirality and outer-product rules are exercised by the
+// end-to-end det tests.
+//
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_FunctionRulesUnitCoverage) {
+  namespace r = numsim::cas::t2s_rules;
+  using numsim::cas::inv;
+  using numsim::cas::trans;
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Zero = this->_Zero;
+  auto &One = this->_One;
+  auto &_2 = this->_2;
+
+  // dot
+  EXPECT_TRUE(r::try_dot_product_zero(Zero, X));
+  EXPECT_FALSE(r::try_dot_product_zero(X, Y));
+  EXPECT_TRUE(r::try_dot_zero(Zero));
+  EXPECT_FALSE(r::try_dot_zero(X));
+
+  // trace
+  EXPECT_TRUE(r::try_trace_zero(Zero));
+  EXPECT_FALSE(r::try_trace_zero(X));
+  EXPECT_TRUE(r::try_trace_identity(One));
+  EXPECT_FALSE(r::try_trace_identity(X));
+  EXPECT_TRUE(r::try_trace_scalar_mul(_2 * X));
+  EXPECT_FALSE(r::try_trace_scalar_mul(X));
+  EXPECT_TRUE(r::try_trace_add(X + Y));
+  EXPECT_FALSE(r::try_trace_add(X));
+
+  // norm
+  EXPECT_TRUE(r::try_norm_zero(Zero));
+  EXPECT_FALSE(r::try_norm_zero(X));
+  EXPECT_TRUE(r::try_norm_scalar_mul(_2 * X));
+  EXPECT_FALSE(r::try_norm_scalar_mul(X));
+
+  // det
+  EXPECT_TRUE(r::try_det_zero(Zero));
+  EXPECT_FALSE(r::try_det_zero(X));
+  EXPECT_TRUE(r::try_det_identity(One));
+  EXPECT_FALSE(r::try_det_identity(X));
+  EXPECT_TRUE(r::try_det_inv(inv(X)));
+  EXPECT_FALSE(r::try_det_inv(X));
+  EXPECT_TRUE(r::try_det_scalar_mul(_2 * X));
+  EXPECT_FALSE(r::try_det_scalar_mul(X));
+  EXPECT_TRUE(r::try_det_mul(X * Y));
+  EXPECT_FALSE(r::try_det_mul(X));
+
+  // transpose-keyed rules (trans is degenerate at dim 1)
+  EXPECT_FALSE(r::try_trace_of_trans(X));
+  EXPECT_FALSE(r::try_norm_of_trans(X));
+  EXPECT_FALSE(r::try_det_trans(X));
+  if constexpr (TestFixture::Dim >= 2) {
+    EXPECT_TRUE(r::try_trace_of_trans(trans(X)));
+    EXPECT_TRUE(r::try_norm_of_trans(trans(X)));
+    EXPECT_TRUE(r::try_det_trans(trans(X)));
+  }
+
+  // exp / sqrt — t2s math folds; arguments are t2s scalars, not tensors.
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+  auto trX = numsim::cas::trace(X); // a t2s expr, not zero/one/log/wrapper
+  auto logtr = numsim::cas::log(trX);
+  auto wrap1 = numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_scalar_wrapper>(
+      numsim::cas::get_scalar_one());
+  EXPECT_TRUE(r::try_exp_zero(t2s_zero));
+  EXPECT_FALSE(r::try_exp_zero(trX));
+  EXPECT_TRUE(r::try_exp_of_log(logtr));
+  EXPECT_FALSE(r::try_exp_of_log(trX));
+  EXPECT_TRUE(r::try_sqrt_zero(t2s_zero));
+  EXPECT_FALSE(r::try_sqrt_zero(trX));
+  EXPECT_TRUE(r::try_sqrt_one(t2s_one));
+  EXPECT_FALSE(r::try_sqrt_one(trX));
+  EXPECT_TRUE(r::try_sqrt_wrapper_one(wrap1));
+  EXPECT_FALSE(r::try_sqrt_wrapper_one(trX));
 }
 
 // ---------- det() simplification ----------
