@@ -126,10 +126,6 @@ template <scalar_expr_holder E> [[nodiscard]] auto sin(E &&e) {
     return *r;
   if (auto r = scalar_rules::try_sin_odd(e))
     return *r;
-  if (auto r = scalar_rules::try_sin_of_acos(e))
-    return *r;
-  if (auto r = scalar_rules::try_sin_of_atan(e))
-    return *r;
   return make_expression<scalar_sin>(std::forward<E>(e));
 }
 
@@ -140,10 +136,6 @@ template <scalar_expr_holder E> [[nodiscard]] auto cos(E &&e) {
     return *r;
   if (auto r = scalar_rules::try_cos_even(e))
     return *r;
-  if (auto r = scalar_rules::try_cos_of_asin(e))
-    return *r;
-  if (auto r = scalar_rules::try_cos_of_atan(e))
-    return *r;
   return make_expression<scalar_cos>(std::forward<E>(e));
 }
 
@@ -153,8 +145,6 @@ template <scalar_expr_holder E> [[nodiscard]] auto tan(E &&e) {
   if (auto r = scalar_rules::try_tan_inverse(e))
     return *r;
   if (auto r = scalar_rules::try_tan_odd(e))
-    return *r;
-  if (auto r = scalar_rules::try_tan_of_asin(e))
     return *r;
   return make_expression<scalar_tan>(std::forward<E>(e));
 }

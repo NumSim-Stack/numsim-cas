@@ -3,6 +3,7 @@
 
 #include "cas_test_helpers.h"
 #include "numsim_cas/numsim_cas.h"
+#include "numsim_cas/scalar/simplifier/scalar_function_simplifier.h"
 #include "gtest/gtest.h"
 
 #include <cmath>
@@ -615,35 +616,144 @@ TEST_F(ScalarFixture, TrigParitySimplification) {
 }
 
 //
-// Mixed inverse-trig folds (#417 gaps) — branch-safe on the inner
-// inverse function's whole domain. Compare against the exact rewrite so
-// the assertion is independent of print formatting.
+// Mixed inverse-trig folds (#417) are node-expanding, so they are NOT
+// applied at construction — the expression stays symbolic.
 //
-TEST_F(ScalarFixture, MixedInverseTrigSimplification) {
+TEST_F(ScalarFixture, MixedInverseTrigStaysSymbolicAtConstruction) {
   using namespace numsim::cas;
-  EXPECT_SAME_PRINT(cos(asin(x)), sqrt(get_scalar_one() - pow(x, 2)));
-  EXPECT_SAME_PRINT(sin(acos(x)), sqrt(get_scalar_one() - pow(x, 2)));
-  EXPECT_SAME_PRINT(tan(asin(x)), x / sqrt(get_scalar_one() - pow(x, 2)));
-  EXPECT_SAME_PRINT(sin(atan(x)), x / sqrt(get_scalar_one() + pow(x, 2)));
-  EXPECT_SAME_PRINT(cos(atan(x)),
-                    get_scalar_one() / sqrt(get_scalar_one() + pow(x, 2)));
+  EXPECT_PRINT(cos(asin(x)), "cos(asin(x))");
+  EXPECT_PRINT(sin(acos(x)), "sin(acos(x))");
+  EXPECT_PRINT(tan(asin(x)), "tan(asin(x))");
+  EXPECT_PRINT(sin(atan(x)), "sin(atan(x))");
+  EXPECT_PRINT(cos(atan(x)), "cos(atan(x))");
 }
 
 //
-// Rule contract (#417): rules fire on their pattern, decline (nullopt)
-// otherwise, and the migrated folds still fire AT CONSTRUCTION.
+// The opt-in scalar_function_simplifier pass applies them on demand.
+// Compared against the exact rewrite so the assertion is print-independent.
 //
-TEST_F(ScalarFixture, FunctionRuleContract) {
+TEST_F(ScalarFixture, MixedInverseTrigFoldsUnderOptInPass) {
   using namespace numsim::cas;
-  EXPECT_TRUE(scalar_rules::try_sin_zero(_zero).has_value());
-  EXPECT_FALSE(scalar_rules::try_sin_zero(x).has_value());
-  EXPECT_TRUE(scalar_rules::try_tan_odd(-x).has_value());
-  EXPECT_FALSE(scalar_rules::try_tan_odd(x).has_value());
-  EXPECT_TRUE(scalar_rules::try_cos_of_asin(asin(x)).has_value());
-  EXPECT_FALSE(scalar_rules::try_cos_of_asin(x).has_value());
-  // lock-in: folds reachable at construction, not only via direct rule call
+  scalar_function_simplifier pass;
+  EXPECT_SAME_PRINT(pass.apply(cos(asin(x))),
+                    sqrt(get_scalar_one() - pow(x, 2)));
+  EXPECT_SAME_PRINT(pass.apply(sin(acos(x))),
+                    sqrt(get_scalar_one() - pow(x, 2)));
+  EXPECT_SAME_PRINT(pass.apply(tan(asin(x))),
+                    x / sqrt(get_scalar_one() - pow(x, 2)));
+  EXPECT_SAME_PRINT(pass.apply(sin(atan(x))),
+                    x / sqrt(get_scalar_one() + pow(x, 2)));
+  EXPECT_SAME_PRINT(pass.apply(cos(atan(x))),
+                    get_scalar_one() / sqrt(get_scalar_one() + pow(x, 2)));
+  // reaches nested occurrences; leaves non-matching functions alone
+  EXPECT_SAME_PRINT(pass.apply(y + cos(asin(x))),
+                    y + sqrt(get_scalar_one() - pow(x, 2)));
+  EXPECT_PRINT(pass.apply(sin(x)), "sin(x)");
+}
+
+//
+// Rule contract (#417): every rule fires on its pattern and declines
+// (nullopt) otherwise — the individually-testable payoff of the contract.
+//
+TEST_F(ScalarFixture, FunctionRulesUnitCoverage) {
+  using namespace numsim::cas;
+  namespace r = numsim::cas::scalar_rules;
+  auto px = make_expression<scalar>("rpx");
+  assume(px, positive{});
+  auto nx = make_expression<scalar>("rnx");
+  assume(nx, negative{});
+  auto asinx = asin(x), acosx = acos(x), atanx = atan(x);
+
+  // sin / cos / tan
+  EXPECT_TRUE(r::try_sin_zero(_zero));
+  EXPECT_FALSE(r::try_sin_zero(x));
+  EXPECT_TRUE(r::try_sin_inverse(asinx));
+  EXPECT_FALSE(r::try_sin_inverse(x));
+  EXPECT_TRUE(r::try_sin_odd(-x));
+  EXPECT_FALSE(r::try_sin_odd(x));
+  EXPECT_TRUE(r::try_cos_zero(_zero));
+  EXPECT_FALSE(r::try_cos_zero(x));
+  EXPECT_TRUE(r::try_cos_inverse(acosx));
+  EXPECT_FALSE(r::try_cos_inverse(x));
+  EXPECT_TRUE(r::try_cos_even(-x));
+  EXPECT_FALSE(r::try_cos_even(x));
+  EXPECT_TRUE(r::try_tan_zero(_zero));
+  EXPECT_FALSE(r::try_tan_zero(x));
+  EXPECT_TRUE(r::try_tan_inverse(atanx));
+  EXPECT_FALSE(r::try_tan_inverse(x));
+  EXPECT_TRUE(r::try_tan_odd(-x));
+  EXPECT_FALSE(r::try_tan_odd(x));
+
+  // inverse trig
+  EXPECT_TRUE(r::try_asin_zero(_zero));
+  EXPECT_FALSE(r::try_asin_zero(x));
+  EXPECT_TRUE(r::try_asin_odd(-x));
+  EXPECT_FALSE(r::try_asin_odd(x));
+  EXPECT_TRUE(r::try_acos_one(_one));
+  EXPECT_FALSE(r::try_acos_one(x));
+  EXPECT_TRUE(r::try_atan_zero(_zero));
+  EXPECT_FALSE(r::try_atan_zero(x));
+  EXPECT_TRUE(r::try_atan_odd(-x));
+  EXPECT_FALSE(r::try_atan_odd(x));
+
+  // exp / log
+  EXPECT_TRUE(r::try_exp_zero(_zero));
+  EXPECT_FALSE(r::try_exp_zero(x));
+  EXPECT_TRUE(r::try_exp_of_log(log(x)));
+  EXPECT_FALSE(r::try_exp_of_log(x));
+  EXPECT_TRUE(r::try_log_one(_one));
+  EXPECT_FALSE(r::try_log_one(x));
+  EXPECT_TRUE(r::try_log_of_exp(exp(x)));
+  EXPECT_FALSE(r::try_log_of_exp(x));
+  EXPECT_TRUE(r::try_log_of_sqrt(sqrt(x)));
+  EXPECT_FALSE(r::try_log_of_sqrt(x));
+  EXPECT_TRUE(r::try_log_of_pow(pow(px, _2)));
+  EXPECT_FALSE(r::try_log_of_pow(pow(x, _2)));
+
+  // sqrt
+  EXPECT_TRUE(r::try_sqrt_zero(_zero));
+  EXPECT_FALSE(r::try_sqrt_zero(x));
+  EXPECT_TRUE(r::try_sqrt_one(_one));
+  EXPECT_FALSE(r::try_sqrt_one(x));
+  EXPECT_TRUE(r::try_sqrt_of_square(pow(px, _2)));
+  EXPECT_FALSE(r::try_sqrt_of_square(pow(x, _2)));
+  EXPECT_TRUE(r::try_sqrt_of_exp(exp(x)));
+  EXPECT_FALSE(r::try_sqrt_of_exp(x));
+
+  // abs / sign
+  EXPECT_TRUE(r::try_abs_nonneg(px));
+  EXPECT_FALSE(r::try_abs_nonneg(x));
+  EXPECT_TRUE(r::try_abs_nonpos(nx));
+  EXPECT_FALSE(r::try_abs_nonpos(x));
+  EXPECT_TRUE(r::try_sign_zero(_zero));
+  EXPECT_FALSE(r::try_sign_zero(x));
+  EXPECT_TRUE(r::try_sign_positive(px));
+  EXPECT_FALSE(r::try_sign_positive(x));
+  EXPECT_TRUE(r::try_sign_negative(nx));
+  EXPECT_FALSE(r::try_sign_negative(x));
+
+  // opt-in mixed inverse-trig
+  EXPECT_TRUE(r::try_cos_of_asin(asinx));
+  EXPECT_FALSE(r::try_cos_of_asin(x));
+  EXPECT_TRUE(r::try_sin_of_acos(acosx));
+  EXPECT_FALSE(r::try_sin_of_acos(x));
+  EXPECT_TRUE(r::try_tan_of_asin(asinx));
+  EXPECT_FALSE(r::try_tan_of_asin(x));
+  EXPECT_TRUE(r::try_sin_of_atan(atanx));
+  EXPECT_FALSE(r::try_sin_of_atan(x));
+  EXPECT_TRUE(r::try_cos_of_atan(atanx));
+  EXPECT_FALSE(r::try_cos_of_atan(x));
+}
+
+//
+// Lock-in: the construction-canonicalizer rules still fire at construction
+// (via the factory), not only when a rule is called directly.
+//
+TEST_F(ScalarFixture, FunctionRuleConstructionLockIn) {
+  using namespace numsim::cas;
   EXPECT_PRINT(sin(_zero), "0");
   EXPECT_PRINT(tan(-x), "-tan(x)");
+  EXPECT_PRINT(sin(asin(x)), "x");
 }
 
 //

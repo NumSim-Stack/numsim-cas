@@ -5,15 +5,18 @@
 
 #include <numsim_cas/scalar/scalar_expression.h>
 
-// Construction-time fold rules for the scalar unary functions (#417).
+// Fold rules for the scalar unary functions (#417).
 //
 // Rule contract: each rule is a named, group-tagged free function
 //     std::optional<holder> try_<name>(holder const& arg);
-// returning nullopt when it does not fire. The function factories in
-// scalar_std.h drive the applicable rules in sequence at construction
-// (the "hand-sequence while small" form); the same functions are the
-// entries a later registry would enumerate. Rules stay individually
-// unit-testable, unlike the previous inline if-chains.
+// returning nullopt when it does not fire. The same rule bodies serve two
+// drivers with no rewrite:
+//   * construction canonicalizers — driven by the scalar_std.h factories at
+//     construction (always-on), the "hand-sequence while small" form;
+//   * opt-in rewrites (the mixed inverse-trig block below) — driven only by
+//     the scalar_function_simplifier pass, because they expand node count.
+// The catalog is the enumerable list a later registry would consume; rules
+// stay individually unit-testable, unlike the previous inline if-chains.
 //
 // Bodies live in scalar_function_rules.cpp so the operators/factories the
 // rewrites call (operator-, pow, sqrt, ...) are visible via ADL there.
@@ -26,24 +29,16 @@ using holder = expression_holder<scalar_expression>;
 std::optional<holder> try_sin_zero(holder const &e);    // sin(0) → 0
 std::optional<holder> try_sin_inverse(holder const &e); // sin(asin x) → x
 std::optional<holder> try_sin_odd(holder const &e);     // sin(-x) → -sin(x)
-std::optional<holder> try_sin_of_acos(holder const &e); // sin(acos x) → √(1-x²)
-std::optional<holder>
-try_sin_of_atan(holder const &e); // sin(atan x) → x/√(1+x²)
 
 // ── cos [trig] ───────────────────────────────────────────────────────
 std::optional<holder> try_cos_zero(holder const &e);    // cos(0) → 1
 std::optional<holder> try_cos_inverse(holder const &e); // cos(acos x) → x
 std::optional<holder> try_cos_even(holder const &e);    // cos(-x) → cos(x)
-std::optional<holder> try_cos_of_asin(holder const &e); // cos(asin x) → √(1-x²)
-std::optional<holder>
-try_cos_of_atan(holder const &e); // cos(atan x) → 1/√(1+x²)
 
 // ── tan [trig] ───────────────────────────────────────────────────────
 std::optional<holder> try_tan_zero(holder const &e);    // tan(0) → 0
 std::optional<holder> try_tan_inverse(holder const &e); // tan(atan x) → x
 std::optional<holder> try_tan_odd(holder const &e);     // tan(-x) → -tan(x)
-std::optional<holder>
-try_tan_of_asin(holder const &e); // tan(asin x) → x/√(1-x²)
 
 // ── asin/acos/atan [trig-inverse] ────────────────────────────────────
 std::optional<holder> try_asin_zero(holder const &e); // asin(0) → 0
@@ -75,6 +70,19 @@ std::optional<holder> try_abs_nonpos(holder const &e);    // |x| → -x, x≤0
 std::optional<holder> try_sign_zero(holder const &e);     // sign(0) → 0
 std::optional<holder> try_sign_positive(holder const &e); // sign(x) → 1,  x>0
 std::optional<holder> try_sign_negative(holder const &e); // sign(x) → -1, x<0
+
+// ── mixed inverse-trig [opt-in] ──────────────────────────────────────
+// Applied only by the `scalar_function_simplifier` pass, NOT at
+// construction: they are branch-safe identities but *expand* node count
+// (cos(asin x) is simpler as written), so a user must opt in.
+std::optional<holder> try_cos_of_asin(holder const &e); // cos(asin x) → √(1-x²)
+std::optional<holder> try_sin_of_acos(holder const &e); // sin(acos x) → √(1-x²)
+std::optional<holder>
+try_tan_of_asin(holder const &e); // tan(asin x) → x/√(1-x²)
+std::optional<holder>
+try_sin_of_atan(holder const &e); // sin(atan x) → x/√(1+x²)
+std::optional<holder>
+try_cos_of_atan(holder const &e); // cos(atan x) → 1/√(1+x²)
 
 } // namespace numsim::cas::scalar_rules
 
