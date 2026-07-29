@@ -3,6 +3,7 @@
 
 #include "cas_test_helpers.h"
 #include "numsim_cas/numsim_cas.h"
+#include "numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_function_rules.h"
 #include "gtest/gtest.h"
 
 namespace {
@@ -553,6 +554,79 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceSimplification) {
 
   // normal case unchanged
   EXPECT_PRINT(trace(X), "tr(X)");
+}
+
+//
+// #420 transpose gaps — trace and the Frobenius norm are transpose-invariant.
+//
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceNormTransGaps) {
+  auto &X = this->X;
+  using numsim::cas::norm;
+  using numsim::cas::trace;
+  using numsim::cas::trans;
+  EXPECT_PRINT(trace(trans(X)), "tr(X)");
+  EXPECT_PRINT(norm(trans(X)), "norm(X)");
+}
+
+//
+// Rule contract (#420): each t2s fold rule fires on its pattern and declines
+// (nullopt) otherwise. Chirality and outer-product rules are exercised by the
+// end-to-end det tests.
+//
+TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_FunctionRulesUnitCoverage) {
+  namespace r = numsim::cas::t2s_rules;
+  using numsim::cas::inv;
+  using numsim::cas::trans;
+  auto &X = this->X;
+  auto &Y = this->Y;
+  auto &Zero = this->_Zero;
+  auto &One = this->_One;
+  auto &_2 = this->_2;
+
+  // dot
+  EXPECT_TRUE(r::try_dot_product_zero(Zero, X));
+  EXPECT_FALSE(r::try_dot_product_zero(X, Y));
+  EXPECT_TRUE(r::try_dot_zero(Zero));
+  EXPECT_FALSE(r::try_dot_zero(X));
+
+  // trace
+  EXPECT_TRUE(r::try_trace_zero(Zero));
+  EXPECT_FALSE(r::try_trace_zero(X));
+  EXPECT_TRUE(r::try_trace_identity(One));
+  EXPECT_FALSE(r::try_trace_identity(X));
+  EXPECT_TRUE(r::try_trace_scalar_mul(_2 * X));
+  EXPECT_FALSE(r::try_trace_scalar_mul(X));
+  EXPECT_TRUE(r::try_trace_add(X + Y));
+  EXPECT_FALSE(r::try_trace_add(X));
+
+  // norm
+  EXPECT_TRUE(r::try_norm_zero(Zero));
+  EXPECT_FALSE(r::try_norm_zero(X));
+  EXPECT_TRUE(r::try_norm_scalar_mul(_2 * X));
+  EXPECT_FALSE(r::try_norm_scalar_mul(X));
+
+  // det
+  EXPECT_TRUE(r::try_det_zero(Zero));
+  EXPECT_FALSE(r::try_det_zero(X));
+  EXPECT_TRUE(r::try_det_identity(One));
+  EXPECT_FALSE(r::try_det_identity(X));
+  EXPECT_TRUE(r::try_det_inv(inv(X)));
+  EXPECT_FALSE(r::try_det_inv(X));
+  EXPECT_TRUE(r::try_det_scalar_mul(_2 * X));
+  EXPECT_FALSE(r::try_det_scalar_mul(X));
+  EXPECT_TRUE(r::try_det_mul(X * Y));
+  EXPECT_FALSE(r::try_det_mul(X));
+
+  // transpose-keyed rules (trans is degenerate at dim 1)
+  EXPECT_FALSE(r::try_trace_of_trans(X));
+  EXPECT_FALSE(r::try_norm_of_trans(X));
+  EXPECT_FALSE(r::try_det_trans(X));
+  if constexpr (TestFixture::Dim >= 2) {
+    EXPECT_TRUE(r::try_trace_of_trans(trans(X)));
+    EXPECT_TRUE(r::try_norm_of_trans(trans(X)));
+    EXPECT_TRUE(r::try_det_trans(trans(X)));
+  }
 }
 
 // ---------- det() simplification ----------
