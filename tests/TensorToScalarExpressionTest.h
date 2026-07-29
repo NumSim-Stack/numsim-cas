@@ -627,6 +627,27 @@ TYPED_TEST(TensorToScalarExpressionTest,
     EXPECT_TRUE(r::try_norm_of_trans(trans(X)));
     EXPECT_TRUE(r::try_det_trans(trans(X)));
   }
+
+  // exp / sqrt — t2s math folds; arguments are t2s scalars, not tensors.
+  auto t2s_zero =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
+  auto t2s_one =
+      numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>();
+  auto trX = numsim::cas::trace(X); // a t2s expr, not zero/one/log/wrapper
+  auto logtr = numsim::cas::log(trX);
+  auto wrap1 = numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_scalar_wrapper>(
+      numsim::cas::get_scalar_one());
+  EXPECT_TRUE(r::try_exp_zero(t2s_zero));
+  EXPECT_FALSE(r::try_exp_zero(trX));
+  EXPECT_TRUE(r::try_exp_of_log(logtr));
+  EXPECT_FALSE(r::try_exp_of_log(trX));
+  EXPECT_TRUE(r::try_sqrt_zero(t2s_zero));
+  EXPECT_FALSE(r::try_sqrt_zero(trX));
+  EXPECT_TRUE(r::try_sqrt_one(t2s_one));
+  EXPECT_FALSE(r::try_sqrt_one(trX));
+  EXPECT_TRUE(r::try_sqrt_wrapper_one(wrap1));
+  EXPECT_FALSE(r::try_sqrt_wrapper_one(trX));
 }
 
 // ---------- det() simplification ----------
