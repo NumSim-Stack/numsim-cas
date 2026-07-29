@@ -39,6 +39,7 @@
 #include <numsim_cas/scalar/scalar_sqrt.h>
 #include <numsim_cas/scalar/scalar_tan.h>
 #include <numsim_cas/scalar/scalar_zero.h>
+#include <numsim_cas/scalar/simplifier/scalar_function_rules.h>
 
 namespace numsim::cas {
 
@@ -119,116 +120,104 @@ requires std::is_arithmetic_v<std::remove_cvref_t<R>>
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto sin(E &&e) {
-  if (is_same<scalar_zero>(e))
-    return get_scalar_zero();
-  if (is_same<scalar_asin>(e))
-    return e.template get<scalar_asin>().expr();
-  if (is_same<scalar_negative>(e))
-    return -sin(e.template get<scalar_negative>().expr());
+  if (auto r = scalar_rules::try_sin_zero(e))
+    return *r;
+  if (auto r = scalar_rules::try_sin_inverse(e))
+    return *r;
+  if (auto r = scalar_rules::try_sin_odd(e))
+    return *r;
   return make_expression<scalar_sin>(std::forward<E>(e));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto cos(E &&e) {
-  if (is_same<scalar_zero>(e))
-    return get_scalar_one();
-  if (is_same<scalar_acos>(e))
-    return e.template get<scalar_acos>().expr();
-  if (is_same<scalar_negative>(e))
-    return cos(e.template get<scalar_negative>().expr());
+  if (auto r = scalar_rules::try_cos_zero(e))
+    return *r;
+  if (auto r = scalar_rules::try_cos_inverse(e))
+    return *r;
+  if (auto r = scalar_rules::try_cos_even(e))
+    return *r;
   return make_expression<scalar_cos>(std::forward<E>(e));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto tan(E &&e) {
-  if (is_same<scalar_zero>(e))
-    return get_scalar_zero();
-  if (is_same<scalar_atan>(e))
-    return e.template get<scalar_atan>().expr();
+  if (auto r = scalar_rules::try_tan_zero(e))
+    return *r;
+  if (auto r = scalar_rules::try_tan_inverse(e))
+    return *r;
+  if (auto r = scalar_rules::try_tan_odd(e))
+    return *r;
   return make_expression<scalar_tan>(std::forward<E>(e));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto asin(E &&e) {
-  if (is_same<scalar_zero>(e))
-    return get_scalar_zero();
+  if (auto r = scalar_rules::try_asin_zero(e))
+    return *r;
+  if (auto r = scalar_rules::try_asin_odd(e))
+    return *r;
   return make_expression<scalar_asin>(std::forward<E>(e));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto acos(E &&e) {
-  if (is_constant_one(e))
-    return get_scalar_zero();
+  if (auto r = scalar_rules::try_acos_one(e))
+    return *r;
   return make_expression<scalar_acos>(std::forward<E>(e));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto atan(E &&e) {
-  if (is_same<scalar_zero>(e))
-    return get_scalar_zero();
+  if (auto r = scalar_rules::try_atan_zero(e))
+    return *r;
+  if (auto r = scalar_rules::try_atan_odd(e))
+    return *r;
   return make_expression<scalar_atan>(std::forward<E>(e));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto exp(E &&e) {
-  if (is_same<scalar_zero>(e))
-    return get_scalar_one();
-  if (is_same<scalar_log>(e))
-    return e.template get<scalar_log>().expr();
+  if (auto r = scalar_rules::try_exp_zero(e))
+    return *r;
+  if (auto r = scalar_rules::try_exp_of_log(e))
+    return *r;
   return make_expression<scalar_exp>(std::forward<E>(e));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto abs(E &&e) {
-  if (is_positive(e) || is_nonnegative(e))
-    return std::forward<E>(e);
-  if (is_negative(e) || is_nonpositive(e))
-    return -std::forward<E>(e);
+  if (auto r = scalar_rules::try_abs_nonneg(e))
+    return *r;
+  if (auto r = scalar_rules::try_abs_nonpos(e))
+    return *r;
   return make_expression<scalar_abs>(std::forward<E>(e));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto sqrt(E &&e) {
-  if (is_same<scalar_zero>(e))
-    return get_scalar_zero();
-  if (is_constant_one(e))
-    return get_scalar_one();
-  if (is_same<scalar_pow>(e)) {
-    auto const &p = e.template get<scalar_pow>();
-    if (is_same<scalar_constant>(p.expr_rhs()) &&
-        p.expr_rhs().template get<scalar_constant>().value() ==
-            scalar_number{2}) {
-      if (is_nonnegative(p.expr_lhs()) || is_positive(p.expr_lhs()))
-        return p.expr_lhs();
-    }
-  }
-  // sqrt(exp(x)) → exp(x/2)
-  // Implemented via pow(exp(x), 1/2) which triggers pow_base → exp(x * 1/2)
-  if (is_same<scalar_exp>(e)) {
-    auto half = make_expression<scalar_constant>(scalar_number{1, 2});
-    return binary_scalar_pow_simplify(std::forward<E>(e), std::move(half));
-  }
+  if (auto r = scalar_rules::try_sqrt_zero(e))
+    return *r;
+  if (auto r = scalar_rules::try_sqrt_one(e))
+    return *r;
+  if (auto r = scalar_rules::try_sqrt_of_square(e))
+    return *r;
+  if (auto r = scalar_rules::try_sqrt_of_exp(e))
+    return *r;
   return make_expression<scalar_sqrt>(std::forward<E>(e));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto sign(E &&e) {
-  if (is_same<scalar_zero>(e))
-    return get_scalar_zero();
-  if (is_positive(e))
-    return get_scalar_one();
-  if (is_negative(e))
-    return -get_scalar_one();
+  if (auto r = scalar_rules::try_sign_zero(e))
+    return *r;
+  if (auto r = scalar_rules::try_sign_positive(e))
+    return *r;
+  if (auto r = scalar_rules::try_sign_negative(e))
+    return *r;
   return make_expression<scalar_sign>(std::forward<E>(e));
 }
 
 template <scalar_expr_holder E> [[nodiscard]] auto log(E &&e) {
-  if (is_constant_one(e))
-    return get_scalar_zero();
-  if (is_same<scalar_exp>(e))
-    return e.template get<scalar_exp>().expr();
-  // log(sqrt(x)) → log(x)/2
-  if (is_same<scalar_sqrt>(e)) {
-    auto half = make_expression<scalar_constant>(scalar_number{1, 2});
-    return log(e.template get<scalar_sqrt>().expr()) * half;
-  }
-  // log(pow(x, n)) → n * log(x), when x is positive
-  if (is_same<scalar_pow>(e)) {
-    auto const &p = e.template get<scalar_pow>();
-    if (is_positive(p.expr_lhs()))
-      return p.expr_rhs() * log(p.expr_lhs());
-  }
+  if (auto r = scalar_rules::try_log_one(e))
+    return *r;
+  if (auto r = scalar_rules::try_log_of_exp(e))
+    return *r;
+  if (auto r = scalar_rules::try_log_of_sqrt(e))
+    return *r;
+  if (auto r = scalar_rules::try_log_of_pow(e))
+    return *r;
   return make_expression<scalar_log>(std::forward<E>(e));
 }
 
