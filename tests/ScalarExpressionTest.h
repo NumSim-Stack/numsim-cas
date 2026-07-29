@@ -605,6 +605,48 @@ TEST_F(ScalarFixture, Scalar_OddEvenFunctions) {
 }
 
 //
+// Odd-parity of the remaining trig / inverse-trig functions (#417 gaps)
+//
+TEST_F(ScalarFixture, TrigParitySimplification) {
+  using namespace numsim::cas;
+  EXPECT_PRINT(tan(-x), "-tan(x)");
+  EXPECT_PRINT(asin(-x), "-asin(x)");
+  EXPECT_PRINT(atan(-x), "-atan(x)");
+}
+
+//
+// Mixed inverse-trig folds (#417 gaps) — branch-safe on the inner
+// inverse function's whole domain. Compare against the exact rewrite so
+// the assertion is independent of print formatting.
+//
+TEST_F(ScalarFixture, MixedInverseTrigSimplification) {
+  using namespace numsim::cas;
+  EXPECT_SAME_PRINT(cos(asin(x)), sqrt(get_scalar_one() - pow(x, 2)));
+  EXPECT_SAME_PRINT(sin(acos(x)), sqrt(get_scalar_one() - pow(x, 2)));
+  EXPECT_SAME_PRINT(tan(asin(x)), x / sqrt(get_scalar_one() - pow(x, 2)));
+  EXPECT_SAME_PRINT(sin(atan(x)), x / sqrt(get_scalar_one() + pow(x, 2)));
+  EXPECT_SAME_PRINT(cos(atan(x)),
+                    get_scalar_one() / sqrt(get_scalar_one() + pow(x, 2)));
+}
+
+//
+// Rule contract (#417): rules fire on their pattern, decline (nullopt)
+// otherwise, and the migrated folds still fire AT CONSTRUCTION.
+//
+TEST_F(ScalarFixture, FunctionRuleContract) {
+  using namespace numsim::cas;
+  EXPECT_TRUE(scalar_rules::try_sin_zero(_zero).has_value());
+  EXPECT_FALSE(scalar_rules::try_sin_zero(x).has_value());
+  EXPECT_TRUE(scalar_rules::try_tan_odd(-x).has_value());
+  EXPECT_FALSE(scalar_rules::try_tan_odd(x).has_value());
+  EXPECT_TRUE(scalar_rules::try_cos_of_asin(asin(x)).has_value());
+  EXPECT_FALSE(scalar_rules::try_cos_of_asin(x).has_value());
+  // lock-in: folds reachable at construction, not only via direct rule call
+  EXPECT_PRINT(sin(_zero), "0");
+  EXPECT_PRINT(tan(-x), "-tan(x)");
+}
+
+//
 // EXP pow simplification — exp(a)^n → exp(n*a)
 //
 TEST_F(ScalarFixture, Scalar_ExpPowSimplification) {
