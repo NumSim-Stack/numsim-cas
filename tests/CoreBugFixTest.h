@@ -1589,6 +1589,35 @@ TEST(PowDivisionConfusion, SignPullOutCanonicalizesNestedBase) {
   EXPECT_EQ(to_string(pow(-pow(x, 2.0), 2.0) - pow(x, 4.0)), "0");
 }
 
+// #342 — permute_indices_wrapper identity must include the permutation.
+TEST(IndexSequenceIdentity, PermutationsDistinguish) {
+  auto [T] = make_tensor_variable(std::tuple{"T", 3, 3});
+  auto p1 = permute_indices(T, sequence{2, 1, 3});
+  auto p2 = permute_indices(T, sequence{1, 3, 2});
+  EXPECT_FALSE(*p1 == *p2);
+  EXPECT_NE(p1.get().hash_value(), p2.get().hash_value());
+  EXPECT_NE(to_string(p1 - p2), "0{3}");
+  // identical permutation still cancels
+  auto q = permute_indices(T, sequence{2, 1, 3});
+  EXPECT_EQ(to_string(p1 - q), "0{3}");
+}
+
+// #343 — tensor_inner_product_to_scalar identity must include the
+// contraction sequences (A:B is not A:B^T).
+TEST(IndexSequenceIdentity, T2sContractionSequencesDistinguish) {
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", 3, 2}, std::tuple{"B", 3, 2});
+  auto ab = dot_product(A, sequence{1, 2}, B, sequence{1, 2});
+  auto abt = dot_product(A, sequence{1, 2}, B, sequence{2, 1});
+  EXPECT_FALSE(*ab == *abt);
+  EXPECT_NE(ab.get().hash_value(), abt.get().hash_value());
+  EXPECT_NE(to_string(ab - abt), "0");
+  EXPECT_NE(to_string(ab + abt), to_string(2.0 * abt));
+  // identical sequences still cancel
+  auto ab2 = dot_product(A, sequence{1, 2}, B, sequence{1, 2});
+  EXPECT_EQ(to_string(ab - ab2), "0");
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
