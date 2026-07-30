@@ -75,13 +75,25 @@ n_ary_mul::dispatch([[maybe_unused]] scalar_pow const &rhs) {
   auto expr_mul{make_expression<scalar_mul>(m_lhs_node)};
   auto &mul{expr_mul.template get<scalar_mul>()};
 
+  // round-2 review: the erase mutates a copied node - drop the stale
+  // cached hash and collapse a degenerate single-child/empty remainder
+  // before feeding it back into * (a coeffless mul{y} once produced
+  // ((x*y)*pow(x,-1)) - y == -3 downstream)
+  const auto collapse = [&]() -> expr_holder_t {
+    mul.invalidate_hash();
+    if (mul.symbol_map().empty()) {
+      return mul.coeff().is_valid() ? mul.coeff() : get_scalar_one();
+    }
+    if (mul.symbol_map().size() == 1 && !mul.coeff().is_valid()) {
+      return mul.symbol_map().begin()->second;
+    }
+    return expr_mul;
+  };
+
   const auto &smap{m_lhs_node.symbol_map()};
   if (smap.contains(rhs.expr_lhs())) {
     mul.symbol_map().erase(rhs.expr_lhs());
-    mul.invalidate_hash();
-    expr_mul = std::move(expr_mul) *
-               pow(rhs.expr_lhs(), rhs.expr_rhs() + get_scalar_one());
-    return expr_mul;
+    return collapse() * pow(rhs.expr_lhs(), rhs.expr_rhs() + get_scalar_one());
   }
 
   const auto pows{get_all<scalar_pow>(m_lhs_node)};
@@ -89,9 +101,7 @@ n_ary_mul::dispatch([[maybe_unused]] scalar_pow const &rhs) {
     if (auto pow{simplify_scalar_pow_pow_mul(expr.template get<scalar_pow>(),
                                              rhs)}) {
       mul.symbol_map().erase(expr);
-      mul.invalidate_hash();
-      expr_mul = std::move(expr_mul) * std::move(*pow);
-      return expr_mul;
+      return collapse() * std::move(*pow);
     }
   }
 
@@ -189,7 +199,10 @@ scalar_pow_mul::dispatch([[maybe_unused]] scalar_pow const &rhs) {
     return pow(m_lhs_node.expr_lhs(), rhs_expr);
   }
 
-  if (m_lhs_node.expr_rhs() == rhs.expr_rhs()) {
+  // x^a * y^a --> (x*y)^a only for integer a (#345; mirrors
+  // simplify_scalar_pow_pow_mul's guard)
+  if (m_lhs_node.expr_rhs() == rhs.expr_rhs() &&
+      is_integer_exponent(m_lhs_node.expr_rhs())) {
     const auto lhs_expr{m_lhs_node.expr_lhs() * rhs.expr_lhs()};
     return pow(lhs_expr, m_lhs_node.expr_rhs());
   }

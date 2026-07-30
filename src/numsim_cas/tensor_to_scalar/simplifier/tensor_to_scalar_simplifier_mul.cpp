@@ -1,3 +1,4 @@
+#include <cmath>
 #include <numsim_cas/core/operators.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_mul.h>
@@ -62,8 +63,20 @@ static bool try_fold_numeric_pow(tensor_to_scalar_mul &mul,
     auto const &existing = it->second.template get<tensor_to_scalar_pow>();
     auto existing_base_val = t2s_traits::try_numeric(existing.expr_lhs());
     auto existing_exp_val = t2s_traits::try_numeric(existing.expr_rhs());
+    // (c1^e)*(c2^e) --> (c1*c2)^e: sound for integer e or nonneg bases (#345)
+    auto is_int = [](scalar_number const &v) {
+      if (std::get_if<std::int64_t>(&v.raw()))
+        return true;
+      auto const *d = std::get_if<double>(&v.raw());
+      return d && *d == std::round(*d);
+    };
+    auto nonneg = [](scalar_number const &v) {
+      return !numeric_less(v, scalar_number{0});
+    };
     if (existing_base_val && existing_exp_val &&
-        *existing_exp_val == *child_exp_val) {
+        *existing_exp_val == *child_exp_val &&
+        (is_int(*child_exp_val) ||
+         (nonneg(*child_base_val) && nonneg(*existing_base_val)))) {
       auto combined_base =
           t2s_traits::make_constant(*existing_base_val * *child_base_val);
       auto combined = make_expression<tensor_to_scalar_pow>(

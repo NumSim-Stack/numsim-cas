@@ -280,7 +280,7 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_PowSimplification) {
 
   // --- Mul-pow extraction: pow(a*pow(b,c), d) → pow(a,d)*pow(b,c*d) ---
   EXPECT_PRINT(numsim::cas::pow(trX * numsim::cas::pow(nX, 2), 3),
-               "pow(norm(X),6)*pow(tr(X),3)");
+               "pow(tr(X),3)*pow(norm(X),6)");
 
   // --- Interplay with existing mul simplifier ---
   // tr(X)*tr(X) creates pow(tr(X),2), then pow(pow(tr(X),2),3) simplifies

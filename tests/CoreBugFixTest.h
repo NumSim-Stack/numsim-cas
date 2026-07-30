@@ -1658,6 +1658,41 @@ TEST(MulDuplicateFactor, MirroredOrdersFold) {
   EXPECT_NEAR(ev.apply(c), std::pow(std::sin(2.0) * 3.0, 2.0), 1e-13);
 }
 
+// #345 — pow distributes/merges over products only for integer exponents.
+TEST(PowDistributeGuard, FractionalExponentDoesNotDistribute) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  scalar_evaluator<double> ev;
+  ev.set(x, 1.0);
+  ev.set(y, -2.0);
+  auto e = pow(x * pow(y, 2.0), 0.5); // ((1)·4)^0.5 = 2, NOT y·sqrt(x) = −2
+  EXPECT_DOUBLE_EQ(ev.apply(e), 2.0);
+  // integer exponent still distributes
+  EXPECT_EQ(to_string(pow(x * pow(y, 2.0), 3.0)), "pow(x,3)*pow(y,6)");
+}
+
+TEST(PowDistributeGuard, FractionalSameExponentDoesNotMerge) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  EXPECT_NE(to_string(pow(x, 0.5) * pow(y, 0.5)), "pow(x*y,1/2)");
+  // integer exponent still merges
+  EXPECT_EQ(to_string(pow(x, 2.0) * pow(y, 2.0)), "pow(x*y,2)");
+}
+
+// Round-2 review on #345: pow-split canonical form and the mul producer.
+TEST(RoundTwoReview, PowSplitCollapsesSingleChildMul) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto e = pow(pow(x, 2.0) * y, 2.0); // was pow(mul{y},2)*pow(x,4)
+  EXPECT_TRUE(*e == *(pow(x, 4.0) * pow(y, 2.0)));
+  EXPECT_EQ(to_string(e - pow(x, 4.0) * pow(y, 2.0)), "0");
+}
+
+TEST(RoundTwoReview, MulPowEraseProducesCanonicalRemainder) {
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto r = (x * y) * pow(x, -1.0); // must be the bare symbol y
+  EXPECT_TRUE(*r == *y);
+  EXPECT_TRUE(is_same<scalar>(r));
+  EXPECT_EQ(to_string(sin(r) - sin(y)), "0"); // no stale hash either
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H
