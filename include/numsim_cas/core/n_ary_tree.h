@@ -103,6 +103,21 @@ public:
     insert_hash(std::move(entry));
   }
 
+  // Mul-side sibling of merge_or_insert: combine colliding factors with *
+  // (x present twice -> pow via the exponent-addition rule). Exact keys only;
+  // mul factor maps have no coefficient-bearing like terms.
+  inline void merge_or_insert_mul(expression_holder<expr_t> entry) {
+    while (true) {
+      auto it = m_symbol_map.find(entry);
+      if (it == m_symbol_map.end())
+        break;
+      auto combined = it->second * entry;
+      m_symbol_map.erase(it);
+      entry = std::move(combined);
+    }
+    insert_hash(std::move(entry));
+  }
+
   // Find an entry that combines with `entry` under + (exact or like term).
   // Like terms share the coefficient-blind hash, so only the equal-hash run
   // around lower_bound needs scanning.

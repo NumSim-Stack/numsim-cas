@@ -98,15 +98,15 @@ public:
 
   template <typename Expr>
   expr_holder_t dispatch([[maybe_unused]] Expr const &rhs) {
-    return push_or_combine_child();
+    auto expr_mul{make_expression<scalar_mul>(m_lhs_node)};
+    auto &mul{expr_mul.template get<scalar_mul>()};
+    // merge duplicates into a pow instead of throwing; covers the
+    // (sin(x)*y)*sin(x) order and the mul*mul factor chain (review #346)
+    mul.merge_or_insert_mul(m_rhs);
+    return expr_mul;
   }
 
 private:
-  // fallback child insertion; combines an identical existing factor into a
-  // pow instead of hitting the no-duplicates assert (defined in .cpp for
-  // operator* ADL visibility)
-  expr_holder_t push_or_combine_child();
-
   using base::m_lhs;
   using base::m_rhs;
   scalar_mul const &m_lhs_node;
