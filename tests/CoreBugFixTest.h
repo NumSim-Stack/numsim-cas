@@ -1446,6 +1446,31 @@ TEST(RoundSevenReview, AddCancelsAgainstNegativeChild) {
   EXPECT_TRUE(*f == *(trace(A) + w(c4))) << to_string(f);
 }
 
+// R7 tensor parity (issue #422): the round-7 fix covered scalar + t2s and
+// missed the tensor domain — 0 - (-A) built negative(negative(A)) (found
+// downstream: numsim-codegen's emitter turned it into invalid `--A`), and
+// a negative-lhs sub whose sum normalizes could re-wrap into the nested
+// shapes round-7 eliminated. Tensor sub_base now routes dispatch(zero) and
+// dispatch(negative) through operator- like the other two domains.
+TEST(RoundSevenReview, TensorSubNormalizesLikeScalarAndT2s) {
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  auto zero = make_expression<tensor_zero>(3, 2);
+  // 0 - (-A) --> A (was negative(negative(A)))
+  auto e1 = zero - (-A);
+  EXPECT_TRUE(*e1 == *A) << to_string(e1);
+  // 0 - 0 --> 0 (previous special case preserved through operator-)
+  auto e0 = zero - make_expression<tensor_zero>(3, 2);
+  EXPECT_TRUE(is_same<tensor_zero>(e0)) << to_string(e0);
+  // (-A) - (-A) --> 0, not negative(zero)
+  auto e2 = (-A) - (-A);
+  EXPECT_TRUE(is_same<tensor_zero>(e2)) << to_string(e2);
+  // (-A) - B --> -(A + B): unchanged for the ordinary case
+  auto e3 = (-A) - B;
+  EXPECT_TRUE(*e3 == *(-(A + B))) << to_string(e3);
+}
+
 // Round-8 review: regressions from the round-7 negation probe.
 
 // R8-1: merge_add consumed the same rhs child twice when the lhs held an
