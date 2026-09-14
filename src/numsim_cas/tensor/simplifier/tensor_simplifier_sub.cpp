@@ -56,13 +56,13 @@ sub_base::expr_holder_t sub_base::dispatch(tensor const &) {
   return _rhs.accept(visitor);
 }
 
-// 0 - expr (operator- folds -0 and -(-x); #422)
+// 0 - expr --> -expr
 sub_base::expr_holder_t sub_base::dispatch(tensor_zero const &) {
   return -std::move(m_rhs);
 }
 
 // - expr_lhs - expr_rhs --> -(expr_lhs+expr_rhs)
-// operator-, not a raw node: the sum may already be zero or negative (#422)
+// operator-, not a raw node: the sum may already be zero or negative
 sub_base::expr_holder_t sub_base::dispatch(tensor_negative const &lhs) {
   auto expr{lhs.expr() + std::move(m_rhs)};
   if (expr.is_valid()) {

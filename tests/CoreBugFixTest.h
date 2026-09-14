@@ -1446,46 +1446,38 @@ TEST(RoundSevenReview, AddCancelsAgainstNegativeChild) {
   EXPECT_TRUE(*f == *(trace(A) + w(c4))) << to_string(f);
 }
 
-// R7 tensor parity (issue #422): tensor sub_base dispatch(zero) and
-// dispatch(negative) route through operator- like scalar + t2s.
 TEST(RoundSevenReview, TensorSubNormalizesLikeScalarAndT2s) {
   auto [A, B] =
       make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
                            std::tuple{"B", std::size_t{3}, std::size_t{2}});
   auto zero = make_expression<tensor_zero>(3, 2);
-  // Operator-level contract (operator- short-circuits these before sub_base).
+  // operator- short-circuits these before sub_base
   auto e1 = zero - (-A);
   EXPECT_TRUE(*e1 == *A) << to_string(e1);
   auto e0 = zero - make_expression<tensor_zero>(3, 2);
   EXPECT_TRUE(is_same<tensor_zero>(e0)) << to_string(e0);
   auto e2 = (-A) - (-A);
   EXPECT_TRUE(is_same<tensor_zero>(e2)) << to_string(e2);
-  // (-A) - B --> -(A + B): unchanged for the ordinary case
   auto e3 = (-A) - B;
   EXPECT_TRUE(*e3 == *(-(A + B))) << to_string(e3);
 
-  // Public path into dispatch(negative) whose sum cancels: was -0
   auto e4 = (-A) - (make_expression<scalar_constant>(-1) * A);
   EXPECT_TRUE(is_same<tensor_zero>(e4)) << to_string(e4);
 
-  // sub_base directly, bypassing the operator- short-circuits
+  // call sub_base directly to reach its zero/negative dispatches
   auto direct = [](expression_holder<tensor_expression> const &lhs,
                    expression_holder<tensor_expression> const &rhs) {
     tensor_detail::simplifier::sub_base visitor(lhs, rhs);
     return lhs.get<tensor_visitable_t>().accept(visitor);
   };
-  // dispatch(zero): 0 - (-A) --> A (was --A)
   auto d1 = direct(zero, -A);
   EXPECT_TRUE(*d1 == *A) << to_string(d1);
-  // dispatch(zero): 0 - 0 --> 0, 0 - B --> -B (unchanged)
   auto d2 = direct(zero, make_expression<tensor_zero>(3, 2));
   EXPECT_TRUE(is_same<tensor_zero>(d2)) << to_string(d2);
   auto d3 = direct(zero, B);
   EXPECT_TRUE(*d3 == *(-B)) << to_string(d3);
-  // dispatch(negative), sum cancels: (-A) - (-A) --> 0 (was -0)
   auto d4 = direct(-A, -A);
   EXPECT_TRUE(is_same<tensor_zero>(d4)) << to_string(d4);
-  // dispatch(negative), sum is negative: -(0) - (-B) --> B (was --B)
   auto d5 = direct(make_expression<tensor_negative>(zero), -B);
   EXPECT_TRUE(*d5 == *B) << to_string(d5);
 }
