@@ -1,6 +1,7 @@
 #ifndef TENSOR_TO_SCALAR_STD_H
 #define TENSOR_TO_SCALAR_STD_H
 
+#include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_function_rules.h>
 #include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_simplifier_pow.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_if_then_else.h>
@@ -100,35 +101,21 @@ template <tensor_to_scalar_expr_holder Expr>
 
 template <tensor_to_scalar_expr_holder Expr>
 [[nodiscard]] auto exp(Expr &&expr) {
-  // exp(0) → 1
-  if (is_same<tensor_to_scalar_zero>(expr))
-    return make_expression<tensor_to_scalar_one>();
-
-  // exp(log(x)) → x (inverse pair)
-  if (is_same<tensor_to_scalar_log>(expr))
-    return expr.template get<tensor_to_scalar_log>().expr();
-
+  if (auto r = t2s_rules::try_exp_zero(expr))
+    return *r;
+  if (auto r = t2s_rules::try_exp_of_log(expr))
+    return *r;
   return make_expression<tensor_to_scalar_exp>(std::forward<Expr>(expr));
 }
 
 template <tensor_to_scalar_expr_holder Expr>
 [[nodiscard]] auto sqrt(Expr &&expr) {
-  // sqrt(0) → 0
-  if (is_same<tensor_to_scalar_zero>(expr))
-    return make_expression<tensor_to_scalar_zero>();
-
-  // sqrt(1) → 1
-  if (is_same<tensor_to_scalar_one>(expr))
-    return make_expression<tensor_to_scalar_one>();
-
-  // sqrt(scalar_wrapper(1)) → 1
-  {
-    using traits = domain_traits<tensor_to_scalar_expression>;
-    auto val = traits::try_numeric(expr);
-    if (val && *val == scalar_number{1})
-      return make_expression<tensor_to_scalar_one>();
-  }
-
+  if (auto r = t2s_rules::try_sqrt_zero(expr))
+    return *r;
+  if (auto r = t2s_rules::try_sqrt_one(expr))
+    return *r;
+  if (auto r = t2s_rules::try_sqrt_wrapper_one(expr))
+    return *r;
   return make_expression<tensor_to_scalar_sqrt>(std::forward<Expr>(expr));
 }
 

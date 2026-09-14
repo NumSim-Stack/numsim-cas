@@ -1,3 +1,4 @@
+#include <numsim_cas/tensor_to_scalar/simplifier/tensor_to_scalar_function_rules.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_functions.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_operators.h>
@@ -20,8 +21,8 @@ expression_holder<tensor_to_scalar_expression> dot_product(
   assert(call_tensor::rank(lhs) == lhs_indices.size() ||
          call_tensor::rank(rhs) == rhs_indices.size());
 
-  if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs))
-    return make_expression<tensor_to_scalar_zero>();
+  if (auto r = t2s_rules::try_dot_product_zero(lhs, rhs))
+    return *r;
 
   return make_expression<tensor_inner_product_to_scalar>(
       lhs, std::move(lhs_indices), rhs, std::move(rhs_indices));
@@ -29,8 +30,8 @@ expression_holder<tensor_to_scalar_expression> dot_product(
 
 expression_holder<tensor_to_scalar_expression>
 dot(expression_holder<tensor_expression> const &expr) {
-  if (is_same<tensor_zero>(expr))
-    return make_expression<tensor_to_scalar_zero>();
+  if (auto r = t2s_rules::try_dot_zero(expr))
+    return *r;
 
   return make_expression<tensor_dot>(expr);
 }
@@ -39,36 +40,16 @@ expression_holder<tensor_to_scalar_expression>
 trace(expression_holder<tensor_expression> const &expr) {
   assert(expr.get().rank() == 2);
 
-  if (is_same<tensor_zero>(expr))
-    return make_expression<tensor_to_scalar_zero>();
-
-  // trace(I) = dim. The asserted rank-2 input means any identity_tensor
-  // reaching here is the rank-2 Kronecker delta (since #188 unified
-  // kronecker_delta into identity_tensor).
-  if (is_same<identity_tensor>(expr)) {
-    auto dim = expr.get().dim();
-    return make_expression<tensor_to_scalar_scalar_wrapper>(
-        make_expression<scalar_constant>(static_cast<int>(dim)));
-  }
-
-  if (is_same<tensor_scalar_mul>(expr)) {
-    auto const &sm = expr.get<tensor_scalar_mul>();
-    return sm.expr_lhs() * trace(sm.expr_rhs());
-  }
-
-  if (is_same<tensor_add>(expr)) {
-    auto const &add = expr.get<tensor_add>();
-    expression_holder<tensor_to_scalar_expression> result;
-    if (add.coeff().is_valid())
-      result = trace(add.coeff());
-    for (auto const &child : add.symbol_map() | std::views::values) {
-      if (result.is_valid())
-        result = result + trace(child);
-      else
-        result = trace(child);
-    }
-    return result;
-  }
+  if (auto r = t2s_rules::try_trace_zero(expr))
+    return *r;
+  if (auto r = t2s_rules::try_trace_identity(expr))
+    return *r;
+  if (auto r = t2s_rules::try_trace_of_trans(expr))
+    return *r;
+  if (auto r = t2s_rules::try_trace_scalar_mul(expr))
+    return *r;
+  if (auto r = t2s_rules::try_trace_add(expr))
+    return *r;
 
   return make_expression<tensor_trace>(expr);
 }
@@ -77,13 +58,12 @@ expression_holder<tensor_to_scalar_expression>
 norm(expression_holder<tensor_expression> const &expr) {
   assert(expr.get().rank() == 2);
 
-  if (is_same<tensor_zero>(expr))
-    return make_expression<tensor_to_scalar_zero>();
-
-  if (is_same<tensor_scalar_mul>(expr)) {
-    auto const &sm = expr.get<tensor_scalar_mul>();
-    return abs(sm.expr_lhs()) * norm(sm.expr_rhs());
-  }
+  if (auto r = t2s_rules::try_norm_zero(expr))
+    return *r;
+  if (auto r = t2s_rules::try_norm_of_trans(expr))
+    return *r;
+  if (auto r = t2s_rules::try_norm_scalar_mul(expr))
+    return *r;
 
   return make_expression<tensor_norm>(expr);
 }
@@ -92,72 +72,22 @@ expression_holder<tensor_to_scalar_expression>
 det(expression_holder<tensor_expression> const &expr) {
   assert(expr.get().rank() == 2);
 
-  if (is_same<tensor_zero>(expr))
-    return make_expression<tensor_to_scalar_zero>();
-
-  // det(I) = 1 at rank 2 (the asserted rank-2 input means any
-  // identity_tensor reaching here is the rank-2 Kronecker delta;
-  // kronecker_delta was unified into identity_tensor by #188).
-  if (is_same<identity_tensor>(expr))
-    return make_expression<tensor_to_scalar_one>();
-
-  // det of an orthogonal tensor is ±1, resolved by chirality (#269):
-  //   proper rotation   → +1
-  //   improper rotation → -1  (reflection)
-  //   bare `orthogonal`  → NO fold — det could be either sign, so folding to
-  //                        +1 would be silently wrong for a reflection.
-  // (proper/improper still imply orthogonal, so inv(R) → trans(R) is
-  //  unaffected.) Closes one half of #246.
-  if (is_proper_rotation(expr))
-    return make_expression<tensor_to_scalar_one>();
-  if (is_improper_rotation(expr))
-    return -make_expression<tensor_to_scalar_one>();
-
-  // det(inv(A)) = 1/det(A). Routes through the t2s div operator which
-  // composes via pow(rhs, -1) — produces canonical pow(det(A), -1).
-  if (is_same<tensor_inv>(expr)) {
-    auto const &inner = expr.get<tensor_inv>().expr();
-    return make_expression<tensor_to_scalar_one>() / det(inner);
-  }
-
-  // det(trans(A)) = det(A). trans() builds permute_indices_wrapper with
-  // sequence{2, 1}; det is rank-2 only (asserted), so any
-  // permute_indices_wrapper reaching here is necessarily the transpose.
-  // Still match on the index sequence so a future caller passing a
-  // non-transpose permutation doesn't get a wrong simplification.
-  if (is_same<permute_indices_wrapper>(expr)) {
-    auto const &perm = expr.get<permute_indices_wrapper>();
-    if (perm.indices() == sequence{2, 1})
-      return det(perm.expr());
-  }
-
-  // det(u ⊗ v) = 0 for dim ≥ 2. The outer product u ⊗ v of two rank-1
-  // tensors is a rank-2 matrix of rank 1 (linear-algebra sense), so its
-  // determinant is zero for any n×n with n ≥ 2. For dim = 1 the matrix
-  // is the 1×1 scalar u₀·v₀ — don't fold.
-  if (is_same<outer_product_wrapper>(expr) && expr.get().dim() >= 2)
-    return make_expression<tensor_to_scalar_zero>();
-
-  if (is_same<tensor_scalar_mul>(expr)) {
-    auto const &sm = expr.get<tensor_scalar_mul>();
-    auto dim = static_cast<int>(sm.expr_rhs().get().dim());
-    auto dim_expr = make_expression<scalar_constant>(dim);
-    return pow(sm.expr_lhs(), std::move(dim_expr)) * det(sm.expr_rhs());
-  }
-
-  if (is_same<tensor_mul>(expr)) {
-    auto const &mul = expr.get<tensor_mul>();
-    expression_holder<tensor_to_scalar_expression> result;
-    if (mul.coeff().is_valid())
-      result = det(mul.coeff());
-    for (auto const &child : mul.data()) {
-      if (result.is_valid())
-        result = result * det(child);
-      else
-        result = det(child);
-    }
-    return result;
-  }
+  if (auto r = t2s_rules::try_det_zero(expr))
+    return *r;
+  if (auto r = t2s_rules::try_det_identity(expr))
+    return *r;
+  if (auto r = t2s_rules::try_det_chirality(expr))
+    return *r;
+  if (auto r = t2s_rules::try_det_inv(expr))
+    return *r;
+  if (auto r = t2s_rules::try_det_trans(expr))
+    return *r;
+  if (auto r = t2s_rules::try_det_outer_product(expr))
+    return *r;
+  if (auto r = t2s_rules::try_det_scalar_mul(expr))
+    return *r;
+  if (auto r = t2s_rules::try_det_mul(expr))
+    return *r;
 
   auto result = make_expression<tensor_det>(expr);
   // Propagate positivity from PD/PSD annotations on the input (#246
