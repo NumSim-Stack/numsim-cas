@@ -56,19 +56,13 @@ sub_base::expr_holder_t sub_base::dispatch(tensor const &) {
   return _rhs.accept(visitor);
 }
 
-// 0 - expr (operator- so -0/-(-x) normalize — round-7 parity, issue #422:
-// the round-7 fix covered scalar + t2s and missed this domain, so
-// 0 - (-A) built negative(negative(A)))
+// 0 - expr (operator- folds -0 and -(-x); #422)
 sub_base::expr_holder_t sub_base::dispatch(tensor_zero const &) {
   return -std::move(m_rhs);
 }
 
 // - expr_lhs - expr_rhs --> -(expr_lhs+expr_rhs)
-// operator-, not a raw negative node (round-7 parity, issue #422): the sum
-// may itself normalize to a negative or to zero, and wrapping either mints
-// the nested-negative / negative(zero) shapes round-7 eliminated. The
-// is_valid guard is tensor-specific (tensor add can yield an invalid
-// holder on full cancellation) and stays.
+// operator-, not a raw node: the sum may already be zero or negative (#422)
 sub_base::expr_holder_t sub_base::dispatch(tensor_negative const &lhs) {
   auto expr{lhs.expr() + std::move(m_rhs)};
   if (expr.is_valid()) {
