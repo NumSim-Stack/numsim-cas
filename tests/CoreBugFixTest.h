@@ -1446,6 +1446,42 @@ TEST(RoundSevenReview, AddCancelsAgainstNegativeChild) {
   EXPECT_TRUE(*f == *(trace(A) + w(c4))) << to_string(f);
 }
 
+TEST(RoundSevenReview, TensorSubNormalizesLikeScalarAndT2s) {
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  auto zero = make_expression<tensor_zero>(3, 2);
+  // operator- short-circuits these before sub_base
+  auto e1 = zero - (-A);
+  EXPECT_TRUE(*e1 == *A) << to_string(e1);
+  auto e0 = zero - make_expression<tensor_zero>(3, 2);
+  EXPECT_TRUE(is_same<tensor_zero>(e0)) << to_string(e0);
+  auto e2 = (-A) - (-A);
+  EXPECT_TRUE(is_same<tensor_zero>(e2)) << to_string(e2);
+  auto e3 = (-A) - B;
+  EXPECT_TRUE(*e3 == *(-(A + B))) << to_string(e3);
+
+  auto e4 = (-A) - (make_expression<scalar_constant>(-1) * A);
+  EXPECT_TRUE(is_same<tensor_zero>(e4)) << to_string(e4);
+
+  // call sub_base directly to reach its zero/negative dispatches
+  auto direct = [](expression_holder<tensor_expression> const &lhs,
+                   expression_holder<tensor_expression> const &rhs) {
+    tensor_detail::simplifier::sub_base visitor(lhs, rhs);
+    return lhs.get<tensor_visitable_t>().accept(visitor);
+  };
+  auto d1 = direct(zero, -A);
+  EXPECT_TRUE(*d1 == *A) << to_string(d1);
+  auto d2 = direct(zero, make_expression<tensor_zero>(3, 2));
+  EXPECT_TRUE(is_same<tensor_zero>(d2)) << to_string(d2);
+  auto d3 = direct(zero, B);
+  EXPECT_TRUE(*d3 == *(-B)) << to_string(d3);
+  auto d4 = direct(-A, -A);
+  EXPECT_TRUE(is_same<tensor_zero>(d4)) << to_string(d4);
+  auto d5 = direct(make_expression<tensor_negative>(zero), -B);
+  EXPECT_TRUE(*d5 == *B) << to_string(d5);
+}
+
 // Round-8 review: regressions from the round-7 negation probe.
 
 // R8-1: merge_add consumed the same rhs child twice when the lhs held an

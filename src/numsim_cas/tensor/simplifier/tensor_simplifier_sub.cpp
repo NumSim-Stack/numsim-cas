@@ -56,18 +56,17 @@ sub_base::expr_holder_t sub_base::dispatch(tensor const &) {
   return _rhs.accept(visitor);
 }
 
-// 0 - expr
+// 0 - expr --> -expr
 sub_base::expr_holder_t sub_base::dispatch(tensor_zero const &) {
-  if (is_same<tensor_zero>(m_rhs))
-    return make_expression<tensor_zero>(m_rhs.get().dim(), m_rhs.get().rank());
-  return make_expression<tensor_negative>(std::move(m_rhs));
+  return -std::move(m_rhs);
 }
 
 // - expr_lhs - expr_rhs --> -(expr_lhs+expr_rhs)
+// operator-, not a raw node: the sum may already be zero or negative
 sub_base::expr_holder_t sub_base::dispatch(tensor_negative const &lhs) {
   auto expr{lhs.expr() + std::move(m_rhs)};
   if (expr.is_valid()) {
-    return make_expression<tensor_negative>(expr);
+    return -std::move(expr);
   }
   return make_expression<tensor_zero>(lhs.dim(), lhs.rank());
 }
