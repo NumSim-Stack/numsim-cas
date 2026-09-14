@@ -606,7 +606,7 @@ TEST_F(ScalarFixture, Scalar_OddEvenFunctions) {
 }
 
 //
-// Odd-parity of the remaining trig / inverse-trig functions (#417 gaps)
+// Odd parity of tan / asin / atan
 //
 TEST_F(ScalarFixture, TrigParitySimplification) {
   using namespace numsim::cas;
@@ -616,8 +616,7 @@ TEST_F(ScalarFixture, TrigParitySimplification) {
 }
 
 //
-// Mixed inverse-trig folds (#417) are node-expanding, so they are NOT
-// applied at construction — the expression stays symbolic.
+// Mixed inverse-trig stays symbolic at construction
 //
 TEST_F(ScalarFixture, MixedInverseTrigStaysSymbolicAtConstruction) {
   using namespace numsim::cas;
@@ -629,8 +628,7 @@ TEST_F(ScalarFixture, MixedInverseTrigStaysSymbolicAtConstruction) {
 }
 
 //
-// The opt-in scalar_function_simplifier pass applies them on demand.
-// Compared against the exact rewrite so the assertion is print-independent.
+// Mixed inverse-trig folds under the opt-in pass
 //
 TEST_F(ScalarFixture, MixedInverseTrigFoldsUnderOptInPass) {
   using namespace numsim::cas;
@@ -652,8 +650,7 @@ TEST_F(ScalarFixture, MixedInverseTrigFoldsUnderOptInPass) {
 }
 
 //
-// Rule contract (#417): every rule fires on its pattern and declines
-// (nullopt) otherwise — the individually-testable payoff of the contract.
+// Every function rule fires on its pattern and declines otherwise
 //
 TEST_F(ScalarFixture, FunctionRulesUnitCoverage) {
   using namespace numsim::cas;
@@ -746,8 +743,7 @@ TEST_F(ScalarFixture, FunctionRulesUnitCoverage) {
 }
 
 //
-// Lock-in: the construction-canonicalizer rules still fire at construction
-// (via the factory), not only when a rule is called directly.
+// Construction rules fire through the factories
 //
 TEST_F(ScalarFixture, FunctionRuleConstructionLockIn) {
   using namespace numsim::cas;

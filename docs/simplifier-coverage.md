@@ -14,16 +14,10 @@
 > as a follow-up. Differentiation, evaluation, printing, and substitution
 > visitors are also out of scope.
 >
-> **Follow-up in progress (#417):** the scalar unary-function folds are being
-> extracted from the `scalar_std.h` factory if-chains into named, group-tagged
-> rules under the uniform contract `std::optional<holder> try_<name>(holder const&)`,
-> cataloged in
-> [`scalar/simplifier/scalar_function_rules.h`](../include/numsim_cas/scalar/simplifier/scalar_function_rules.h)
-> (the enumerable list a later rule registry would consume). The same rule bodies
-> serve two drivers: construction canonicalizers run always-on from the factories,
-> while node-expanding rewrites (mixed inverse-trig) are opt-in, driven only by the
-> [`scalar_function_simplifier`](../include/numsim_cas/scalar/simplifier/scalar_function_simplifier.h)
-> pass.
+> Scalar unary-function folds are named rules in
+> [`scalar/simplifier/scalar_function_rules.h`](../include/numsim_cas/scalar/simplifier/scalar_function_rules.h);
+> the node-expanding mixed inverse-trig rules run only in the opt-in
+> [`scalar_function_simplifier`](../include/numsim_cas/scalar/simplifier/scalar_function_simplifier.h) pass.
 
 ## Layering
 

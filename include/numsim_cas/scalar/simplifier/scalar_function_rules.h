@@ -5,21 +5,8 @@
 
 #include <numsim_cas/scalar/scalar_expression.h>
 
-// Fold rules for the scalar unary functions (#417).
-//
-// Rule contract: each rule is a named, group-tagged free function
-//     std::optional<holder> try_<name>(holder const& arg);
-// returning nullopt when it does not fire. The same rule bodies serve two
-// drivers with no rewrite:
-//   * construction canonicalizers — driven by the scalar_std.h factories at
-//     construction (always-on), the "hand-sequence while small" form;
-//   * opt-in rewrites (the mixed inverse-trig block below) — driven only by
-//     the scalar_function_simplifier pass, because they expand node count.
-// The catalog is the enumerable list a later registry would consume; rules
-// stay individually unit-testable, unlike the previous inline if-chains.
-//
-// Bodies live in scalar_function_rules.cpp so the operators/factories the
-// rewrites call (operator-, pow, sqrt, ...) are visible via ADL there.
+// Fold rules for the scalar unary functions; nullopt means the rule does not
+// fire. Bodies live in the .cpp, where the operators they call resolve.
 
 namespace numsim::cas::scalar_rules {
 
@@ -72,9 +59,7 @@ std::optional<holder> try_sign_positive(holder const &e); // sign(x) → 1,  x>0
 std::optional<holder> try_sign_negative(holder const &e); // sign(x) → -1, x<0
 
 // ── mixed inverse-trig [opt-in] ──────────────────────────────────────
-// Applied only by the `scalar_function_simplifier` pass, NOT at
-// construction: they are branch-safe identities but *expand* node count
-// (cos(asin x) is simpler as written), so a user must opt in.
+// Only applied by scalar_function_simplifier: they expand node count.
 std::optional<holder> try_cos_of_asin(holder const &e); // cos(asin x) → √(1-x²)
 std::optional<holder> try_sin_of_acos(holder const &e); // sin(acos x) → √(1-x²)
 std::optional<holder>

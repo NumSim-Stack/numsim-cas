@@ -5,9 +5,6 @@
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
 
-// Bodies mirror the previous inline folds in scalar_std.h exactly; #417
-// extracts them into named, testable rules without changing behavior.
-
 namespace numsim::cas::scalar_rules {
 
 // ── sin ──────────────────────────────────────────────────────────────
@@ -35,7 +32,6 @@ std::optional<holder> try_sin_of_acos(holder const &e) {
   return {};
 }
 std::optional<holder> try_sin_of_atan(holder const &e) {
-  // sin(atan x) = x/√(1+x²).
   if (is_same<scalar_atan>(e)) {
     auto const &x = e.get<scalar_atan>().expr();
     auto den = sqrt(get_scalar_one() + pow(x, 2));
@@ -69,7 +65,6 @@ std::optional<holder> try_cos_of_asin(holder const &e) {
   return {};
 }
 std::optional<holder> try_cos_of_atan(holder const &e) {
-  // cos(atan x) = 1/√(1+x²).
   if (is_same<scalar_atan>(e)) {
     auto const &x = e.get<scalar_atan>().expr();
     auto den = sqrt(get_scalar_one() + pow(x, 2));
@@ -95,7 +90,6 @@ std::optional<holder> try_tan_odd(holder const &e) {
   return {};
 }
 std::optional<holder> try_tan_of_asin(holder const &e) {
-  // tan(asin x) = x/√(1-x²).
   if (is_same<scalar_asin>(e)) {
     auto const &x = e.get<scalar_asin>().expr();
     auto den = sqrt(get_scalar_one() - pow(x, 2));
@@ -191,8 +185,7 @@ std::optional<holder> try_sqrt_of_square(holder const &e) {
   return {};
 }
 std::optional<holder> try_sqrt_of_exp(holder const &e) {
-  // sqrt(exp x) → exp(x/2), routed through pow(exp x, 1/2) so pow_base
-  // rewrites it to exp(x·1/2) (matches the original scalar_std.h path).
+  // pow(exp x, 1/2): pow_base rewrites it to exp(x/2)
   if (is_same<scalar_exp>(e)) {
     auto half = make_expression<scalar_constant>(scalar_number{1, 2});
     return binary_scalar_pow_simplify(e, std::move(half));

@@ -5,12 +5,8 @@
 
 namespace numsim::cas {
 
-// Opt-in rewrite pass (#417): applies the branch-safe mixed inverse-trig
-// identities (cos(asin x) → √(1-x²), sin(acos x) → √(1-x²), ...) throughout an
-// expression. These expand node count, so they are deliberately NOT applied at
-// construction — run this pass explicitly to opt in. Parallels
-// `tensor_projector_simplifier`. The rewrites themselves are the
-// `scalar_rules::try_*_of_*` contract rules; this pass only drives them.
+// Opt-in pass for the mixed inverse-trig rules (cos(asin x) → √(1-x²), ...),
+// which expand node count and so are not applied at construction.
 class scalar_function_simplifier : public scalar_rebuild_visitor {
 public:
   expr_holder_t apply(expr_holder_t const &expr) override;
