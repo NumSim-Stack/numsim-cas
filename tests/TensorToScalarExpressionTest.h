@@ -569,6 +569,29 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceNormTransGaps) {
 }
 
 //
+// Invariants of a negated argument and the trace of a rank-1 outer product
+//
+TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_NegationAndOuterFolds) {
+  auto &X = this->X;
+  auto Dim = TestFixture::Dim;
+  using numsim::cas::det;
+  using numsim::cas::dot;
+  using numsim::cas::norm;
+  using numsim::cas::otimes;
+  using numsim::cas::trace;
+  EXPECT_SAME_PRINT(trace(-X), -trace(X));
+  EXPECT_SAME_PRINT(norm(-X), norm(X));
+  EXPECT_SAME_PRINT(dot(-X), dot(X));
+  EXPECT_SAME_PRINT(det(-X), Dim % 2 == 0 ? det(X) : -det(X));
+
+  auto [u, v] = numsim::cas::make_tensor_variable(std::tuple{"u", Dim, 1},
+                                                  std::tuple{"v", Dim, 1});
+  EXPECT_SAME_PRINT(trace(otimes(u, v)),
+                    numsim::cas::dot_product(u, numsim::cas::sequence{1}, v,
+                                             numsim::cas::sequence{1}));
+}
+
+//
 // Every t2s rule fires on its pattern and declines otherwise; chirality and
 // outer-product are covered by the end-to-end det tests
 //
@@ -588,6 +611,8 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_FALSE(r::try_dot_product_zero(X, Y));
   EXPECT_TRUE(r::try_dot_zero(Zero));
   EXPECT_FALSE(r::try_dot_zero(X));
+  EXPECT_TRUE(r::try_dot_negative(-X));
+  EXPECT_FALSE(r::try_dot_negative(X));
 
   // trace
   EXPECT_TRUE(r::try_trace_zero(Zero));
@@ -598,12 +623,21 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_FALSE(r::try_trace_scalar_mul(X));
   EXPECT_TRUE(r::try_trace_add(X + Y));
   EXPECT_FALSE(r::try_trace_add(X));
+  EXPECT_TRUE(r::try_trace_negative(-X));
+  EXPECT_FALSE(r::try_trace_negative(X));
+  auto [u, v] =
+      numsim::cas::make_tensor_variable(std::tuple{"u", TestFixture::Dim, 1},
+                                        std::tuple{"v", TestFixture::Dim, 1});
+  EXPECT_TRUE(r::try_trace_outer_product(numsim::cas::otimes(u, v)));
+  EXPECT_FALSE(r::try_trace_outer_product(X));
 
   // norm
   EXPECT_TRUE(r::try_norm_zero(Zero));
   EXPECT_FALSE(r::try_norm_zero(X));
   EXPECT_TRUE(r::try_norm_scalar_mul(_2 * X));
   EXPECT_FALSE(r::try_norm_scalar_mul(X));
+  EXPECT_TRUE(r::try_norm_negative(-X));
+  EXPECT_FALSE(r::try_norm_negative(X));
 
   // det
   EXPECT_TRUE(r::try_det_zero(Zero));
@@ -616,6 +650,8 @@ TYPED_TEST(TensorToScalarExpressionTest,
   EXPECT_FALSE(r::try_det_scalar_mul(X));
   EXPECT_TRUE(r::try_det_mul(X * Y));
   EXPECT_FALSE(r::try_det_mul(X));
+  EXPECT_TRUE(r::try_det_negative(-X));
+  EXPECT_FALSE(r::try_det_negative(X));
 
   // transpose-keyed rules (trans is degenerate at dim 1)
   EXPECT_FALSE(r::try_trace_of_trans(X));
