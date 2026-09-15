@@ -191,28 +191,24 @@ public:
   // tensor_scalar_mul: lhs is scalar, rhs is tensor
   void operator()(tensor_scalar_mul const &v) override { check(v.expr_rhs()); }
 
-  // tensor_to_scalar_with_tensor_mul: lhs is tensor, rhs is T2S - only check
-  // tensor child
+  // The t2s factor can itself contain the tensor needle.
   void operator()(tensor_to_scalar_with_tensor_mul const &v) override {
     check(v.expr_lhs());
+    check_t2s(v.expr_rhs());
   }
 
-  // ─── if_then_else (#135 / #210) ─────────────────────────────────
-  // Cond is scalar (skip — we're matching a tensor needle); then/else
-  // are tensors, so check both.
+  // A scalar condition cannot contain a tensor.
   void operator()(tensor_if_then_else_scalar const &v) override {
     check(v.expr_then());
     if (!m_found)
       check(v.expr_else());
   }
 
-  // ─── if_then_else_t2s (#241) ────────────────────────────────────
-  // Cond is t2s (skip for the same reason as the scalar sibling —
-  // we're matching a tensor needle); then/else are tensors.
+  // A t2s condition can contain the tensor needle.
   void operator()(tensor_if_then_else_t2s const &v) override {
+    check_t2s(v.expr_cond());
     check(v.expr_then());
-    if (!m_found)
-      check(v.expr_else());
+    check(v.expr_else());
   }
 
 private:
@@ -220,6 +216,12 @@ private:
     if (m_found)
       return;
     m_found = apply(expr);
+  }
+
+  void check_t2s(expression_holder<tensor_to_scalar_expression> const &expr) {
+    if (m_found)
+      return;
+    m_found = depends_on_tensor(expr, m_needle);
   }
 
   expr_holder_t m_needle;
@@ -286,6 +288,7 @@ public:
   }
   void operator()(tensor_to_scalar_pow const &v) override {
     check_t2s(v.expr_lhs());
+    check_t2s(v.expr_rhs());
   }
   void operator()(tensor_to_scalar_log const &v) override {
     check_t2s(v.expr());
