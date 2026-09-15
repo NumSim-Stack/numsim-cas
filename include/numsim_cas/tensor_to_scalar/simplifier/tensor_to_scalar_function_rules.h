@@ -6,18 +6,8 @@
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
-// Construction-time fold rules for the t2s functions (#417 / #420).
-//
-// Rule contract: each rule is a named, group-tagged free function
-//     std::optional<t2s_holder> try_<name>(tensor_holder const& arg);
-// returning nullopt when it does not fire. The trace/det/norm/dot functions in
-// tensor_to_scalar_functions.cpp drive the applicable rules in sequence at
-// construction. Bodies live in the matching .cpp because they call the t2s /
-// tensor / scalar operators (operator*, /, pow, abs), which must be visible via
-// ADL there — the same .h-decl / .cpp-def split as scalar_function_rules.
-//
-// These rules are cross-domain: they take a tensor and yield a t2s scalar. The
-// catalog is the enumerable list a later registry would consume.
+// Fold rules for the t2s functions; nullopt means the rule does not fire.
+// Bodies live in the .cpp, where the operators they call resolve.
 namespace numsim::cas::t2s_rules {
 
 using tensor_holder = expression_holder<tensor_expression>;
@@ -64,7 +54,7 @@ std::optional<t2s_holder>
 try_det_mul(tensor_holder const &e); // det(∏Aᵢ) → ∏det(Aᵢ)
 
 // ── exp / sqrt [math] ────────────────────────────────────────────────
-// (t2s log has no construction folds.) Argument is a t2s scalar, not a tensor.
+// Argument is a t2s scalar, not a tensor.
 std::optional<t2s_holder> try_exp_zero(t2s_holder const &e);   // exp(0) → 1
 std::optional<t2s_holder> try_exp_of_log(t2s_holder const &e); // exp(log x) → x
 std::optional<t2s_holder> try_sqrt_zero(t2s_holder const &e); // sqrt(0) → 0

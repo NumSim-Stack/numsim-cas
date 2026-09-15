@@ -13,11 +13,6 @@
 
 #include <ranges>
 
-// Bodies mirror the previous inline folds in tensor_to_scalar_functions.cpp
-// exactly; #420 extracts them into named, testable rules. The two *_of_trans
-// rules are new (transpose-invariance gaps). The det terminal node + its PD/PSD
-// annotation stays in det() — it is not an early-return fold.
-
 namespace numsim::cas::t2s_rules {
 
 // ── dot / dot_product ────────────────────────────────────────────────
@@ -40,8 +35,7 @@ std::optional<t2s_holder> try_trace_zero(tensor_holder const &e) {
   return {};
 }
 std::optional<t2s_holder> try_trace_identity(tensor_holder const &e) {
-  // tr(I) = dim. Rank-2 asserted by the caller, so any identity_tensor here
-  // is the rank-2 Kronecker delta (#188 unified kronecker_delta).
+  // the caller asserts rank 2, so this is the Kronecker delta
   if (is_same<identity_tensor>(e)) {
     auto dim = e.get().dim();
     return make_expression<tensor_to_scalar_scalar_wrapper>(
@@ -50,8 +44,7 @@ std::optional<t2s_holder> try_trace_identity(tensor_holder const &e) {
   return {};
 }
 std::optional<t2s_holder> try_trace_of_trans(tensor_holder const &e) {
-  // tr(Aᵀ) = tr(A). trans() builds permute_indices_wrapper{2,1}; match the
-  // index sequence so a non-transpose permutation is not mis-simplified.
+  // only the {2,1} permutation is a transpose
   if (is_same<permute_indices_wrapper>(e)) {
     auto const &perm = e.get<permute_indices_wrapper>();
     if (perm.indices() == sequence{2, 1})
@@ -90,7 +83,6 @@ std::optional<t2s_holder> try_norm_zero(tensor_holder const &e) {
   return {};
 }
 std::optional<t2s_holder> try_norm_of_trans(tensor_holder const &e) {
-  // ‖Aᵀ‖ = ‖A‖ — the Frobenius norm is transpose-invariant.
   if (is_same<permute_indices_wrapper>(e)) {
     auto const &perm = e.get<permute_indices_wrapper>();
     if (perm.indices() == sequence{2, 1})
@@ -118,8 +110,7 @@ std::optional<t2s_holder> try_det_identity(tensor_holder const &e) {
   return {};
 }
 std::optional<t2s_holder> try_det_chirality(tensor_holder const &e) {
-  // det of an orthogonal tensor is ±1, resolved by chirality (#269):
-  // proper → +1, improper → −1, bare orthogonal → NO fold (sign unknown).
+  // a bare orthogonal tensor has det ±1 with unknown sign: no fold
   if (is_proper_rotation(e))
     return make_expression<tensor_to_scalar_one>();
   if (is_improper_rotation(e))
@@ -127,7 +118,7 @@ std::optional<t2s_holder> try_det_chirality(tensor_holder const &e) {
   return {};
 }
 std::optional<t2s_holder> try_det_inv(tensor_holder const &e) {
-  // det(A⁻¹) = 1/det(A), routed through t2s div → canonical pow(det(A),-1).
+  // t2s division yields the canonical pow(det(A), -1)
   if (is_same<tensor_inv>(e)) {
     auto const &inner = e.get<tensor_inv>().expr();
     return make_expression<tensor_to_scalar_one>() / det(inner);
@@ -143,7 +134,7 @@ std::optional<t2s_holder> try_det_trans(tensor_holder const &e) {
   return {};
 }
 std::optional<t2s_holder> try_det_outer_product(tensor_holder const &e) {
-  // det(u ⊗ v) = 0 for dim ≥ 2 (rank-1 matrix). dim = 1 is the 1×1 scalar.
+  // rank-1 matrix; at dim 1 u⊗v is just a scalar
   if (is_same<outer_product_wrapper>(e) && e.get().dim() >= 2)
     return make_expression<tensor_to_scalar_zero>();
   return {};
@@ -196,7 +187,6 @@ std::optional<t2s_holder> try_sqrt_one(t2s_holder const &e) {
   return {};
 }
 std::optional<t2s_holder> try_sqrt_wrapper_one(t2s_holder const &e) {
-  // sqrt(⟨1⟩) → 1 — a scalar_wrapper numerically equal to 1.
   using traits = domain_traits<tensor_to_scalar_expression>;
   auto val = traits::try_numeric(e);
   if (val && *val == scalar_number{1})

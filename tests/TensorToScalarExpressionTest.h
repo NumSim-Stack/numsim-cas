@@ -557,7 +557,7 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceSimplification) {
 }
 
 //
-// #420 transpose gaps — trace and the Frobenius norm are transpose-invariant.
+// trace and the Frobenius norm are transpose-invariant
 //
 TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceNormTransGaps) {
   auto &X = this->X;
@@ -569,9 +569,8 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_TraceNormTransGaps) {
 }
 
 //
-// Rule contract (#420): each t2s fold rule fires on its pattern and declines
-// (nullopt) otherwise. Chirality and outer-product rules are exercised by the
-// end-to-end det tests.
+// Every t2s rule fires on its pattern and declines otherwise; chirality and
+// outer-product are covered by the end-to-end det tests
 //
 TYPED_TEST(TensorToScalarExpressionTest,
            TensorToScalar_FunctionRulesUnitCoverage) {
@@ -628,7 +627,7 @@ TYPED_TEST(TensorToScalarExpressionTest,
     EXPECT_TRUE(r::try_det_trans(trans(X)));
   }
 
-  // exp / sqrt — t2s math folds; arguments are t2s scalars, not tensors.
+  // exp / sqrt take t2s scalars
   auto t2s_zero =
       numsim::cas::make_expression<numsim::cas::tensor_to_scalar_zero>();
   auto t2s_one =
