@@ -254,6 +254,48 @@ TEST_F(TensorSpacePropagationTest, SkewOfSymPlusVol) {
   EXPECT_PRINT(skew(C + V), "0{2}");
 }
 
+TEST(TensorSpaceJoin, ComparesPermutationPayloads) {
+  tensor_space a{Young{{{1, 2}}}, AnyTraceTag{}};
+  tensor_space b{Young{{{1}, {2}}}, AnyTraceTag{}};
+  EXPECT_FALSE(join_tensor_space(a, b).has_value());
+
+  auto same =
+      join_tensor_space(a, tensor_space{Young{{{1, 2}}}, AnyTraceTag{}});
+  ASSERT_TRUE(same.has_value());
+  ASSERT_TRUE(std::holds_alternative<Young>(same->perm));
+  EXPECT_EQ(std::get<Young>(same->perm).blocks,
+            (std::vector<std::vector<int>>{{1, 2}}));
+}
+
+TEST(TensorSpaceJoin, ComparesTracePayloads) {
+  tensor_space a{General{}, PartialTraceTag{{{1, 2}}}};
+  tensor_space b{General{}, PartialTraceTag{{{3, 4}}}};
+  EXPECT_FALSE(join_tensor_space(a, b).has_value());
+
+  auto same =
+      join_tensor_space(a, tensor_space{General{}, PartialTraceTag{{{1, 2}}}});
+  ASSERT_TRUE(same.has_value());
+  ASSERT_TRUE(std::holds_alternative<PartialTraceTag>(same->trace));
+  EXPECT_EQ(std::get<PartialTraceTag>(same->trace).pairs,
+            (std::vector<std::pair<int, int>>{{1, 2}}));
+
+  // Symmetric perm with different trace payloads still widens to Symmetric
+  auto sym =
+      join_tensor_space(tensor_space{Symmetric{}, PartialTraceTag{{{1, 2}}}},
+                        tensor_space{Symmetric{}, PartialTraceTag{{{2, 1}}}});
+  ASSERT_TRUE(sym.has_value());
+  EXPECT_TRUE(std::holds_alternative<Symmetric>(sym->perm));
+  EXPECT_TRUE(std::holds_alternative<AnyTraceTag>(sym->trace));
+}
+
+TEST_F(TensorSpacePropagationTest, AddOfDifferentYoungSpacesDropsSpace) {
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", dim, 2}, std::tuple{"B", dim, 2});
+  A.data()->set_space({Young{{{1, 2}}}, AnyTraceTag{}});
+  B.data()->set_space({Young{{{1}, {2}}}, AnyTraceTag{}});
+  EXPECT_FALSE((A + B).get().space().has_value());
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // No-propagation: expressions without space assumptions stay unaffected
 // ═══════════════════════════════════════════════════════════════════════════════
