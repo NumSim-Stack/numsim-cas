@@ -160,7 +160,8 @@ public:
     auto rhs_data = m_tensor_eval.apply(v.expr_rhs());
     const auto dim = lhs_data->dim();
     const auto rank = lhs_data->rank();
-    tensor_data_dcontract_wrapper<ValueType> op(*lhs_data, *rhs_data);
+    tensor_data_dcontract_wrapper<ValueType> op(
+        *lhs_data, *rhs_data, v.indices_lhs(), v.indices_rhs());
     m_result = op.evaluate(dim, rank);
   }
 

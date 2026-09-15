@@ -1,6 +1,8 @@
 #ifndef TENSOR_EVALUATOR_H
 #define TENSOR_EVALUATOR_H
 
+#include <cmath>
+
 #include <algorithm>
 #include <cstring>
 #include <map>
@@ -255,8 +257,20 @@ public:
   // ─── Tensor functions (tmech wrappers) ─────────────────────
 
   void operator()(tensor_pow const &visitable) override {
+    if (visitable.rank() != 2) {
+      // the repeated single-index contraction is rank-2-only; a rebuilt
+      // tree can bypass the factory gate (review on #350: substitution
+      // recreated a rank-4 pow and corrupted the heap)
+      throw evaluation_error("tensor_pow: rank-2 operand required");
+    }
     auto base_data = apply(visitable.expr_lhs());
     const auto exp_val = m_scalar_eval.apply(visitable.expr_rhs());
+    if (exp_val != std::round(exp_val) || exp_val < -1e6 || exp_val > 1e6) {
+      // silently truncating pow(A, 0.5) to the identity was #350; the
+      // range check keeps the int cast below defined for huge values
+      throw evaluation_error(
+          "tensor_pow: exponent must evaluate to a moderate integer");
+    }
     const auto n = static_cast<int>(exp_val);
     const auto d = visitable.dim();
     const auto r = visitable.rank();
@@ -283,6 +297,14 @@ public:
                                               lhs_idx, rhs_idx);
       ip.evaluate(d, r, r);
       accumulated = std::move(temp);
+    }
+    if (n < 0) {
+      // A^-n = inv(A^n); without this, pow(X,-1) returned X itself (#350)
+      auto inverted = make_tensor_data<ValueType>(d, r);
+      tensor_data_unary_wrapper<tmech_ops::inv, ValueType> iv(*inverted,
+                                                              *accumulated);
+      iv.evaluate(d, r);
+      accumulated = std::move(inverted);
     }
     m_result = std::move(accumulated);
   }
@@ -385,6 +407,14 @@ private:
   template <typename Op>
   void eval_projector_unary(inner_product_wrapper const &visitable) {
     auto rhs_data = apply(visitable.expr_rhs());
+    // round-3 review: the wrapper's dim() is the projector's; a
+    // dim-changing substitution produced an operand whose buffer this
+    // shortcut then over-read (ASan heap-buffer-overflow)
+    if (rhs_data->dim() != visitable.dim() ||
+        rhs_data->rank() != visitable.rank()) {
+      throw evaluation_error(
+          "projector contraction: operand dim/rank mismatch");
+    }
     m_result = make_tensor_data<ValueType>(visitable.dim(), visitable.rank());
     tensor_data_unary_wrapper<Op, ValueType> op(*m_result, *rhs_data);
     op.evaluate(visitable.dim(), visitable.rank());

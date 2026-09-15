@@ -2149,6 +2149,77 @@ TEST(ParserFunctions, SpectralConstructionErrorsPropagate) {
 
 } // namespace numsim::cas::parser_test
 
+// #355 — deeply nested input must raise parse_error, not overflow the
+// C++ stack (SIGSEGV pre-fix at ~10-20k frames, including the unclosed-
+// paren error path).
+TEST(ParserDepthGuard, DeepNestingRaisesParseError) {
+  numsim::cas::parser::symbol_table syms;
+  std::string deep(20000, '(');
+  deep += "1";
+  deep += std::string(20000, ')');
+  EXPECT_THROW((void)numsim::cas::parser::parse(deep, syms),
+               numsim::cas::parser::parse_error);
+
+  std::string unclosed(20000, '(');
+  unclosed += "1";
+  EXPECT_THROW((void)numsim::cas::parser::parse(unclosed, syms),
+               numsim::cas::parser::parse_error);
+
+  std::string minuses(20000, '-');
+  minuses += "1";
+  EXPECT_THROW((void)numsim::cas::parser::parse(minuses, syms),
+               numsim::cas::parser::parse_error);
+
+  // review on #355: caret chains and PEGTL-space-separated minus runs
+  // are recursion drivers too
+  std::string carets = "1";
+  for (int i = 0; i < 20000; ++i)
+    carets += "^1";
+  EXPECT_THROW((void)numsim::cas::parser::parse(carets, syms),
+               numsim::cas::parser::parse_error);
+  std::string vminus;
+  for (int i = 0; i < 20000; ++i)
+    vminus += "-\v";
+  vminus += "1";
+  EXPECT_THROW((void)numsim::cas::parser::parse(vminus, syms),
+               numsim::cas::parser::parse_error);
+
+  // moderate nesting still parses
+  std::string ok(200, '(');
+  ok += "1";
+  ok += std::string(200, ')');
+  EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok, syms));
+  std::string ok2 = "1";
+  for (int i = 0; i < 100; ++i)
+    ok2 += "^1";
+  EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok2, syms));
+  // independent shallow carets are not one recursion chain (round-2 review)
+  std::string ok3 = "x0^2";
+  for (int i = 1; i < 600; ++i)
+    ok3 += "*x" + std::to_string(i) + "^2";
+  EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok3, syms));
+
+  // round-2 bypasses: bracketed exponents continue the ^-chain, and
+  // compound payloads must sum along the path
+  std::string bracket_carets = "1";
+  for (int i = 0; i < 14000; ++i)
+    bracket_carets += "^(1)";
+  EXPECT_THROW((void)numsim::cas::parser::parse(bracket_carets, syms),
+               numsim::cas::parser::parse_error);
+  std::string compound;
+  for (int i = 0; i < 200; ++i)
+    compound += std::string(300, '-') + "(";
+  compound += "1";
+  compound += std::string(200, ')');
+  EXPECT_THROW((void)numsim::cas::parser::parse(compound, syms),
+               numsim::cas::parser::parse_error);
+  // shallow bracketed exponents stay legal
+  std::string ok4 = "1";
+  for (int i = 0; i < 100; ++i)
+    ok4 += "^(1)";
+  EXPECT_NO_THROW((void)numsim::cas::parser::parse(ok4, syms));
+}
+
 #endif // NUMSIM_CAS_PARSER_ENABLED
 
 #endif // PARSERTEST_H

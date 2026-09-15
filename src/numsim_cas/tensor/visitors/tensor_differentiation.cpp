@@ -43,6 +43,14 @@ void tensor_differentiation::operator()(tensor_pow const &visitable) {
   }
   auto n = static_cast<std::int64_t>(*int_n);
 
+  if (n < 0) {
+    // the product-rule loop below never runs for n < 0 and the invalid
+    // sum silently coerced to zero (#350); rewrite via inv() instead
+    throw not_implemented_error(
+        "tensor_differentiation: negative tensor power - rewrite as "
+        "inv(pow(A, n))");
+  }
+
   // n == 0: pow(A, 0) = I (constant), derivative is zero. The loop
   // below would correctly leave sum invalid and apply()'s fallback
   // would coerce to tensor_zero, but an explicit guard documents the

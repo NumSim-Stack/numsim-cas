@@ -55,6 +55,12 @@ void tensor_differentiation_wrt_scalar::operator()(
   }
   auto n = static_cast<std::int64_t>(*int_n);
 
+  if (n < 0) {
+    throw not_implemented_error(
+        "tensor_differentiation_wrt_scalar: negative tensor power - "
+        "rewrite as inv(pow(A, n))");
+  }
+
   // Build sum: sum_{r=0}^{n-1} (A^r) * (dA/ds) * (A^{n-1-r})
   // For rank-2 A, matrix multiplication is inner_product on the
   // contraction index. A^r and A^{n-1-r} are also rank-2.

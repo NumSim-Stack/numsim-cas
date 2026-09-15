@@ -1729,6 +1729,230 @@ TEST(RoundTwoReview, MulPowEraseProducesCanonicalRemainder) {
   EXPECT_EQ(to_string(sin(r) - sin(y)), "0"); // no stale hash either
 }
 
+// #349 — scalar_number int64 arithmetic must demote to double instead of
+// wrapping (UB / silent corruption).
+TEST(ScalarNumberOverflow, PowDoesNotWrap) {
+  auto p = pow(make_scalar_constant(10), make_scalar_constant(30));
+  scalar_evaluator<double> ev;
+  EXPECT_NEAR(ev.apply(p), 1e30, 1e16); // was 5076944270305263616 (mod 2^64)
+}
+
+TEST(ScalarNumberOverflow, RationalAddLargeMagnitudes) {
+  const auto big = std::int64_t{1} << 40;
+  auto a = scalar_number(rational_t{big + 1, big});
+  auto b = scalar_number(rational_t{big + 3, big + 2});
+  auto s = a + b; // cross-products overflow int64; must not be UB
+  double val = std::visit(
+      [](auto const &v) -> double {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, double>)
+          return v;
+        else if constexpr (std::is_same_v<T, std::int64_t>)
+          return static_cast<double>(v);
+        else if constexpr (std::is_same_v<T, rational_t>)
+          return static_cast<double>(v.num) / static_cast<double>(v.den);
+        else
+          return 0.0;
+      },
+      s.raw());
+  EXPECT_NEAR(val, 2.0, 1e-9);
+}
+
+TEST(ScalarNumberOverflow, RationalDivByZeroIsInf) {
+  auto q = scalar_number(1, 2) / scalar_number(std::int64_t{0});
+  auto const *d = std::get_if<double>(&q.raw());
+  ASSERT_NE(d, nullptr); // not a stored 1/0 rational
+  EXPECT_TRUE(std::isinf(*d));
+  EXPECT_GT(*d, 0.0);
+}
+
+TEST(ScalarNumberOverflow, ExactArithmeticUnchanged) {
+  auto a = scalar_number(1, 3) + scalar_number(1, 6); // = 1/2 exact
+  auto const *r = std::get_if<rational_t>(&a.raw());
+  ASSERT_NE(r, nullptr);
+  EXPECT_EQ(r->num, 1);
+  EXPECT_EQ(r->den, 2);
+  auto b = scalar_number(std::int64_t{2}) * scalar_number(std::int64_t{3});
+  EXPECT_EQ(b, scalar_number(std::int64_t{6}));
+}
+
+// Review on #349: INT64_MIN reaches the rational cross-cancel via the
+// int->rational promotion, which skips normalization.
+TEST(ScalarNumberOverflow, Int64MinTimesRational) {
+  constexpr auto mn = std::numeric_limits<std::int64_t>::min();
+  auto p = scalar_number(mn) * scalar_number(1, 2); // was std::abs(mn) UB
+  auto q = scalar_number(1, 2) * scalar_number(mn);
+  auto d = scalar_number(mn) / scalar_number(1, 2);
+  auto const *pd = std::get_if<double>(&p.raw());
+  ASSERT_NE(pd, nullptr);
+  EXPECT_NEAR(*pd, static_cast<double>(mn) / 2.0, 1e3);
+  EXPECT_TRUE(std::get_if<double>(&q.raw()) != nullptr);
+  EXPECT_TRUE(std::get_if<double>(&d.raw()) != nullptr);
+}
+
+// #361 — hash_combine(double) hashed via static_cast<size_t>: UB for
+// negatives, and every fraction in (0,1) collided with 0.
+TEST(HashCombineDouble, BitPatternNoTruncation) {
+  std::size_t a = 0, b = 0, c = 0, d = 0, e = 0;
+  hash_combine(a, 0.5);
+  hash_combine(b, 0.9);
+  EXPECT_NE(a, b);
+  hash_combine(c, -2.5); // UB-free under -fsanitize=float-cast-overflow
+  hash_combine(d, 0.0);
+  hash_combine(e, -0.0);
+  EXPECT_EQ(d, e); // ±0 normalize together
+}
+
+TEST(HashCombineDouble, NumericallyEqualConstantsHashEqual) {
+  auto ci = make_scalar_constant(2);
+  auto cd = make_expression<scalar_constant>(2.0);
+  EXPECT_EQ(ci.get().hash_value(), cd.get().hash_value());
+  EXPECT_EQ(to_string(ci * cd), "4"); // folding across alternatives intact
+  // fractional constants distinct
+  auto h1 = make_expression<scalar_constant>(0.5);
+  auto h2 = make_expression<scalar_constant>(0.9);
+  EXPECT_NE(h1.get().hash_value(), h2.get().hash_value());
+}
+
+// Review on #361: the int64 cast in the value-normalizing hash ran before
+// its range guard - UB for NaN, inf, and huge doubles.
+TEST(HashCombineDouble, HugeAndNonFiniteConstantsHashSafely) {
+  auto big = make_expression<scalar_constant>(1e300);
+  auto nan = make_expression<scalar_constant>(
+      std::numeric_limits<double>::quiet_NaN());
+  auto inf =
+      make_expression<scalar_constant>(std::numeric_limits<double>::infinity());
+  // must be UB-free under -fsanitize=float-cast-overflow (CI leg, #356)
+  (void)big.get().hash_value();
+  (void)nan.get().hash_value();
+  (void)inf.get().hash_value();
+  EXPECT_NE(big.get().hash_value(), inf.get().hash_value());
+}
+
+// #351 — rank-4 identity is major-symmetric only; the MinorMajor tag routed
+// inv() through the symmetric Voigt path, evaluating inv(-I4) to -0.25 at
+// component (0,1,0,1) instead of -1 (the inverse of -I4 is -I4).
+TEST(Rank4IdentityTag, InvOfNegatedIdentity) {
+  auto I4 = make_expression<identity_tensor>(std::size_t{3}, std::size_t{4});
+  tensor_evaluator<double> ev;
+  auto r = ev.apply(inv(-I4));
+  // (0,1,0,1) flattens to ((0*3+1)*3+0)*3+1 = 10
+  EXPECT_NEAR(r->raw_data()[10], -1.0, 1e-12);
+  EXPECT_NEAR(r->raw_data()[0], -1.0, 1e-12); // (0,0,0,0)
+}
+
+// #352 — substitution must not inherit the source's space annotation when
+// the structure changed: substitute(trans(A)-A, trans(A), C) is C-A,
+// which is NOT skew for general C.
+TEST(SubstitutionSpace, ChangedStructureDropsStaleTag) {
+  auto [A, C] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"C", std::size_t{3}, std::size_t{2}});
+  auto f = substitute(trans(A) - A, trans(A), C); // C - A, general
+  EXPECT_NE(to_string(sym(f)), "0{2}");
+  EXPECT_NE(to_string(skew(f)), to_string(f));
+}
+
+TEST(SubstitutionSpace, OperatorDerivedTagSurvives) {
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  // skew(X) is skew for any X: substituting the argument keeps the tag
+  auto s = substitute(skew(A), A, B);
+  EXPECT_TRUE(is_skew_annotated(s));
+  // structurally skew trans(C)-C is re-derived by construction
+  auto h = substitute(trans(A) - A, A, B);
+  EXPECT_EQ(to_string(sym(h)), "0{2}");
+}
+
+// Round-2 review on #352: the shape guard must compare the projector
+// ARGUMENTS (the wrapper's dim() reports the projector's).
+TEST(RoundTwoReview, DimChangingSubstitutionDropsTag) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [E] = make_tensor_variable(std::tuple{"E", std::size_t{2}, 2});
+  auto s = substitute(sym(A), A, E); // dim 3 projector : dim 2 argument
+  EXPECT_FALSE(is_symmetric(s));
+  // round-3 review: the overflow lived in the projector short-circuit,
+  // not the tag - evaluation must throw, not over-read the buffer
+  tensor_evaluator<double> ev;
+  auto data = std::make_shared<tensor_data<double, 2, 2>>();
+  ev.set(E, data);
+  EXPECT_THROW((void)ev.apply(s), evaluation_error);
+}
+
+// #350 — tensor_pow contract: rank-2 only, integer exponents, negative
+// exponents invert, diff of negative powers no longer silently zero.
+TEST(TensorPowContract, RankAndExponentGates) {
+  auto [C] =
+      make_tensor_variable(std::tuple{"C", std::size_t{3}, std::size_t{4}});
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  EXPECT_THROW((void)pow(C, 2), invalid_expression_error);
+  EXPECT_THROW((void)pow(C, 0), invalid_expression_error);
+  EXPECT_THROW((void)pow(X, make_expression<scalar_constant>(0.5)),
+               invalid_expression_error);
+  EXPECT_NO_THROW((void)pow(X, 3));
+  EXPECT_NO_THROW((void)pow(X, -2));
+}
+
+TEST(TensorPowContract, NegativeExponentEvaluatesInverse) {
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  tensor_evaluator<double> ev;
+  auto data = std::make_shared<tensor_data<double, 3, 2>>();
+  data->data()(0, 0) = 2.0;
+  data->data()(1, 1) = 4.0;
+  data->data()(2, 2) = 5.0;
+  ev.set(X, data);
+  auto r1 = ev.apply(pow(X, -1));
+  EXPECT_NEAR(r1->raw_data()[0], 0.5, 1e-12); // was 2.0 (#350)
+  auto r2 = ev.apply(pow(X, -2));
+  EXPECT_NEAR(r2->raw_data()[0], 0.25, 1e-12);
+}
+
+TEST(TensorPowContract, DiffOfNegativePowerThrows) {
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  // was a silent 0{4} (#350); inv(pow(X, 2)) is the supported spelling
+  EXPECT_THROW((void)diff(pow(X, -2), X), not_implemented_error);
+  EXPECT_NO_THROW((void)diff(inv(pow(X, 2)), X));
+}
+
+// Review on #350: the rank gate must also hold at evaluation (rebuilt
+// trees bypass the factory), and the factory gate must see negation-
+// wrapped constants.
+TEST(TensorPowContract, EvaluatorRankGateAndWrappedExponent) {
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  auto [C] =
+      make_tensor_variable(std::tuple{"C", std::size_t{3}, std::size_t{4}});
+  // substitution recreates the node without the factory gate; evaluation
+  // must throw instead of corrupting the heap
+  auto p4 = substitute(pow(X, 2), X, C);
+  tensor_evaluator<double> ev;
+  auto data = std::make_shared<tensor_data<double, 3, 4>>();
+  ev.set(C, data);
+  EXPECT_THROW((void)ev.apply(p4), evaluation_error);
+  // negation-wrapped fractional constants are rejected at the factory
+  auto half = make_expression<scalar_constant>(0.5);
+  EXPECT_THROW((void)pow(X, make_expression<scalar_negative>(std::move(half))),
+               invalid_expression_error);
+}
+
+// Round-2 review on #350: the factory gate strips any negation depth.
+TEST(RoundTwoReview, DoubleNegatedFractionalExponentRejected) {
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  auto inner =
+      make_expression<scalar_negative>(make_expression<scalar_constant>(0.5));
+  EXPECT_THROW((void)pow(X, make_expression<scalar_negative>(std::move(inner))),
+               invalid_expression_error);
+  // negated integers still accepted
+  auto neg2 =
+      make_expression<scalar_negative>(make_expression<scalar_constant>(2));
+  EXPECT_NO_THROW((void)pow(X, std::move(neg2)));
+}
+
 } // namespace numsim::cas
 
 #endif // COREBUGFIXTEST_H

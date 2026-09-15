@@ -96,7 +96,7 @@ public:
                                           scalar_number const &exp);
 
 private:
-  explicit scalar_number(variant_t vv) : v_(std::move(vv)) {
+  explicit scalar_number(variant_t vv) : v_(vv) {
     if (auto *r = std::get_if<rational_t>(&v_)) {
       if (r->den == 1)
         v_ = r->num;
@@ -105,6 +105,27 @@ private:
 
   variant_t v_;
 };
+
+// Value-normalizing hash: numerically equal constants must hash equal
+// across variant alternatives (int64 2 vs double 2.0 vs rational 2/1),
+// while doubles otherwise hash by bit pattern (#361).
+inline void hash_combine(std::size_t &seed, scalar_number const &value) {
+  std::visit(
+      [&](auto const &x) {
+        using T = std::decay_t<decltype(x)>;
+        if constexpr (std::is_same_v<T, double>) {
+          // guard BEFORE casting: the int64 cast is UB for NaN/inf and
+          // |x| >= 2^63 (review on #361)
+          if (x >= -9.2e18 && x <= 9.2e18 &&
+              x == static_cast<double>(static_cast<std::int64_t>(x))) {
+            hash_combine(seed, static_cast<std::int64_t>(x));
+            return;
+          }
+        }
+        hash_combine(seed, x);
+      },
+      value.raw());
+}
 
 } // namespace numsim::cas
 

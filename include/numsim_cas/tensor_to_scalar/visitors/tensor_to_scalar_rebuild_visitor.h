@@ -19,7 +19,7 @@ public:
   using scalar_holder_t = expression_holder<scalar_expression>;
   using tensor_holder_t = expression_holder<tensor_expression>;
 
-  virtual ~tensor_to_scalar_rebuild_visitor() = default;
+  ~tensor_to_scalar_rebuild_visitor() override = default;
 
   virtual t2s_holder_t apply(t2s_holder_t const &expr) {
     if (expr.is_valid()) {

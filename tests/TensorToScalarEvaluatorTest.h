@@ -482,4 +482,35 @@ TEST(T2sEval, SpectralCacheInterleavedTensors) {
 
 } // namespace numsim::cas
 
+// #353 — the evaluator must honor the stored contraction sequences.
+TEST(T2sContractionSequences, TransposedRank2AndRank1Dot) {
+  using namespace numsim::cas;
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  tensor_to_scalar_evaluator<double> ev;
+  const std::array<double, 9> av{1, 2, 3, 4, 5, 6, 7, 8, 9};
+  const std::array<double, 9> bv{2, 3, 1, 0.5, -1, 4, 2, 2, -3};
+  ev.set(A, make_test_data<3, 2>({1, 2, 3, 4, 5, 6, 7, 8, 9}));
+  ev.set(B, make_test_data<3, 2>({2, 3, 1, 0.5, -1, 4, 2, 2, -3}));
+  double sum_plain = 0.0, sum_trans = 0.0;
+  for (std::size_t i = 0; i < 3; ++i)
+    for (std::size_t j = 0; j < 3; ++j) {
+      sum_plain += av[i * 3 + j] * bv[i * 3 + j];
+      sum_trans += av[i * 3 + j] * bv[j * 3 + i];
+    }
+  auto plain = dot_product(A, sequence{1, 2}, B, sequence{1, 2});
+  auto transp = dot_product(A, sequence{1, 2}, B, sequence{2, 1});
+  EXPECT_NEAR(ev.apply(plain), sum_plain, 1e-12);
+  EXPECT_NEAR(ev.apply(transp), sum_trans, 1e-12); // was sum_plain (#353)
+
+  auto [u, v] =
+      make_tensor_variable(std::tuple{"u", std::size_t{3}, std::size_t{1}},
+                           std::tuple{"v", std::size_t{3}, std::size_t{1}});
+  ev.set(u, make_test_data<3, 1>({1, 2, 3}));
+  ev.set(v, make_test_data<3, 1>({4, 3, 2}));
+  auto d = dot_product(u, sequence{1}, v, sequence{1});
+  EXPECT_NEAR(ev.apply(d), 4.0 + 6.0 + 6.0, 1e-12); // threw pre-#353
+}
+
 #endif // TENSORTOSCALAREVALUATORTEST_H
