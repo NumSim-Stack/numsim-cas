@@ -38,7 +38,7 @@ syntax_error translate_pegtl_error(pegtl::parse_error const &e,
   // returns a string_view from message() which can't directly
   // construct a std::string by '='.
   std::string msg(e.message());
-  return syntax_error(std::move(msg), byte, source);
+  return syntax_error(msg, byte, source);
 }
 
 // #355 — PEGTL parses by C++ recursion; deeply nested input overflows the
@@ -150,7 +150,7 @@ parsed_expression parse(std::string_view source, symbol_table &syms) {
               "bracket-list literal '[...]' cannot be a top-level expression",
               source.size(), source);
         } else {
-          return std::move(v);
+          return std::forward<decltype(v)>(v);
         }
       },
       std::move(state.values.front()));

@@ -194,9 +194,10 @@ endif()
 # Sanitizers
 if(NUMSIM_CAS_SANITIZERS)
     target_compile_options(${PROJECT_NAME} PUBLIC
-        -fsanitize=address,undefined -fno-omit-frame-pointer)
+        -fsanitize=address,undefined -fno-sanitize-recover=undefined
+        -fno-omit-frame-pointer)
     target_link_options(${PROJECT_NAME} PUBLIC
-        -fsanitize=address,undefined)
+        -fsanitize=address,undefined -fno-sanitize-recover=undefined)
 endif()
 
 # Optional convenience for Windows
@@ -274,9 +275,10 @@ if(NUMSIM_CAS_BUILD_PARSER)
 
   if(NUMSIM_CAS_SANITIZERS)
     target_compile_options(NumSim_CAS_Parser PUBLIC
-      -fsanitize=address,undefined -fno-omit-frame-pointer)
+      -fsanitize=address,undefined -fno-sanitize-recover=undefined
+      -fno-omit-frame-pointer)
     target_link_options(NumSim_CAS_Parser PUBLIC
-      -fsanitize=address,undefined)
+      -fsanitize=address,undefined -fno-sanitize-recover=undefined)
   endif()
 
   if(WIN32)

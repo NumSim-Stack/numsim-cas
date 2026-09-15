@@ -12,8 +12,8 @@ public:
   using base = unary_op<tensor_node_base_t<tensor_inv>>;
 
   template <typename Expr>
-  explicit tensor_inv(
-      Expr &&_expr) // NOLINT(bugprone-forwarding-reference-overload)
+  // NOLINTNEXTLINE(bugprone-forwarding-reference-overload)
+  explicit tensor_inv(Expr &&_expr)
       : base(std::forward<Expr>(_expr), _expr.get().dim(), _expr.get().rank()) {
     // ── Rank gate (#292) ──────────────────────────────────────────
     // Mirror the inv() factory's rank gate (tensor_functions.h:467)

@@ -14,7 +14,7 @@ class scalar_rebuild_visitor : public scalar_visitor_const_t {
 public:
   using expr_holder_t = expression_holder<scalar_expression>;
 
-  virtual ~scalar_rebuild_visitor() = default;
+  ~scalar_rebuild_visitor() override = default;
 
   virtual expr_holder_t apply(expr_holder_t const &expr) {
     if (expr.is_valid()) {
