@@ -56,6 +56,7 @@ public:
 
 private:
   bool depends_on_limit_var(t2s_holder_t const &expr) const;
+  bool zero_from_above(t2s_holder_t const &expr) const;
 
   dependency_mode m_mode;
   t2s_holder_t m_limit_var_t2s;

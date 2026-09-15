@@ -57,6 +57,9 @@ public:
   void operator()(scalar_if_then_else const &) override;
 
 private:
+  bool zero_from_above(expr_holder_t const &expr) const;
+  bool zero_from_below(expr_holder_t const &expr) const;
+
   expr_holder_t m_limit_var;
   limit_target m_target;
   limit_result m_result;

@@ -1,12 +1,27 @@
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_limit_visitor.h>
 
 #include <numsim_cas/core/contains_expression.h>
+#include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/visitors/scalar_limit_visitor.h>
 #include <ranges>
 
 namespace numsim::cas {
 
 using dir = limit_result::direction;
+
+namespace {
+
+// A value that does not depend on the limit variable: only its assumptions
+// can give it a sign.
+limit_result constant_sign(tensor_to_scalar_expression const &e) {
+  if (e.assumptions().contains(positive{}))
+    return {dir::finite_positive};
+  if (e.assumptions().contains(negative{}))
+    return {dir::finite_negative};
+  return {dir::unknown};
+}
+
+} // namespace
 
 // ─── Constructors ─────────────────────────────────────────────────
 
@@ -65,10 +80,16 @@ bool tensor_to_scalar_limit_visitor::depends_on_limit_var(
   return depends_on_tensor(expr, m_tensor_var);
 }
 
+bool tensor_to_scalar_limit_visitor::zero_from_above(
+    t2s_holder_t const &expr) const {
+  if (m_mode == dependency_mode::exact_match && expr == m_limit_var_t2s)
+    return m_target.target == limit_target::point::zero_plus;
+  return expr.get().assumptions().contains(positive{});
+}
+
 // ─── T2S functions ────────────────────────────────────────────────
 
-void tensor_to_scalar_limit_visitor::operator()(
-    [[maybe_unused]] tensor_trace const &v) {
+void tensor_to_scalar_limit_visitor::operator()(tensor_trace const &v) {
   // trace depends on tensor child
   if (m_mode == dependency_mode::tensor_dependency) {
     if (contains_expression(v.expr(), m_tensor_var)) {
@@ -77,22 +98,20 @@ void tensor_to_scalar_limit_visitor::operator()(
       return;
     }
   }
-  m_result = {dir::finite_positive};
+  m_result = constant_sign(v);
 }
 
-void tensor_to_scalar_limit_visitor::operator()(
-    [[maybe_unused]] tensor_dot const &v) {
+void tensor_to_scalar_limit_visitor::operator()(tensor_dot const &v) {
   if (m_mode == dependency_mode::tensor_dependency) {
     if (contains_expression(v.expr(), m_tensor_var)) {
       m_result = {dir::unknown};
       return;
     }
   }
-  m_result = {dir::finite_positive};
+  m_result = constant_sign(v);
 }
 
-void tensor_to_scalar_limit_visitor::operator()(
-    [[maybe_unused]] tensor_det const &v) {
+void tensor_to_scalar_limit_visitor::operator()(tensor_det const &v) {
   if (m_mode == dependency_mode::tensor_dependency) {
     if (contains_expression(v.expr(), m_tensor_var)) {
       // det depends on tensor: behavior depends on limit target
@@ -101,11 +120,10 @@ void tensor_to_scalar_limit_visitor::operator()(
       return;
     }
   }
-  m_result = {dir::finite_positive};
+  m_result = constant_sign(v);
 }
 
-void tensor_to_scalar_limit_visitor::operator()(
-    [[maybe_unused]] tensor_norm const &v) {
+void tensor_to_scalar_limit_visitor::operator()(tensor_norm const &v) {
   if (m_mode == dependency_mode::tensor_dependency) {
     if (contains_expression(v.expr(), m_tensor_var)) {
       // norm(F) as F -> infinity => +infinity (polynomial)
@@ -118,11 +136,11 @@ void tensor_to_scalar_limit_visitor::operator()(
       return;
     }
   }
-  m_result = {dir::finite_positive};
+  m_result = constant_sign(v);
 }
 
 void tensor_to_scalar_limit_visitor::operator()(
-    [[maybe_unused]] tensor_to_scalar_eigenvalue const &v) {
+    tensor_to_scalar_eigenvalue const &v) {
   // An eigenvalue's sign and magnitude aren't recoverable from the AST
   // generically (unlike norm/det), so any tensor dependency is unknown.
   if (m_mode == dependency_mode::tensor_dependency &&
@@ -130,11 +148,11 @@ void tensor_to_scalar_limit_visitor::operator()(
     m_result = {dir::unknown};
     return;
   }
-  m_result = {dir::finite_positive};
+  m_result = constant_sign(v);
 }
 
 void tensor_to_scalar_limit_visitor::operator()(
-    [[maybe_unused]] tensor_to_scalar_divided_difference const &v) {
+    tensor_to_scalar_divided_difference const &v) {
   // A divided difference of eigenvalues — like an eigenvalue, not
   // recoverable from the AST; any tensor dependency is unknown.
   if (m_mode == dependency_mode::tensor_dependency &&
@@ -142,7 +160,7 @@ void tensor_to_scalar_limit_visitor::operator()(
     m_result = {dir::unknown};
     return;
   }
-  m_result = {dir::finite_positive};
+  m_result = constant_sign(v);
 }
 
 void tensor_to_scalar_limit_visitor::operator()(
@@ -155,7 +173,7 @@ void tensor_to_scalar_limit_visitor::operator()(
       return;
     }
   }
-  m_result = {dir::finite_positive};
+  m_result = constant_sign(v);
 }
 
 // ─── Arithmetic ───────────────────────────────────────────────────
@@ -188,11 +206,12 @@ void tensor_to_scalar_limit_visitor::operator()(
 }
 
 void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_pow const &v) {
-  m_result = apply_pow(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  m_result = apply_pow(apply(v.expr_lhs()), apply(v.expr_rhs()),
+                       zero_from_above(v.expr_lhs()));
 }
 
 void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_log const &v) {
-  m_result = apply_log(apply(v.expr()));
+  m_result = apply_log(apply(v.expr()), zero_from_above(v.expr()));
 }
 
 void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_exp const &v) {
@@ -217,12 +236,17 @@ void tensor_to_scalar_limit_visitor::operator()(
 }
 
 void tensor_to_scalar_limit_visitor::operator()(
-    tensor_to_scalar_scalar_wrapper const & /*v*/) {
-  // Delegate to scalar limit visitor
-  // Scalar expressions don't depend on tensor variables,
-  // so they should evaluate to finite
-  // Scalar sub-expressions don't depend on tensor or T2S limit variables
-  m_result = {dir::finite_positive};
+    tensor_to_scalar_scalar_wrapper const &v) {
+  // A scalar sub-expression is constant with respect to the limit variable.
+  auto const &e = v.expr();
+  if (is_same<scalar_zero>(e))
+    m_result = {dir::zero};
+  else if (is_positive(e))
+    m_result = {dir::finite_positive};
+  else if (is_negative(e))
+    m_result = {dir::finite_negative};
+  else
+    m_result = {dir::unknown};
 }
 
 // if_then_else (#135 / #210): limit depends on the condition's eventual

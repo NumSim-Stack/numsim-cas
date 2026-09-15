@@ -139,7 +139,8 @@ TEST(ScalarLimit, OtherVariableFinite) {
   auto y = make_expression<scalar>("y");
   scalar_limit_visitor v(x, {pt::zero_plus});
   auto result = v.apply(y);
-  EXPECT_EQ(result.dir, dir::finite_positive);
+  // y is constant in x but may have either sign
+  EXPECT_EQ(result.dir, dir::unknown);
 }
 
 // ─── log(x) as x -> 0+ ────────────────────────────────────────────
@@ -287,6 +288,143 @@ TEST(ScalarLimit, NegationFlips) {
   EXPECT_EQ(result.dir, dir::neg_infinity);
 }
 
+// ─── Signs are reported only when provable ─────────────────────────
+
+struct limit_algebra_probe : limit_algebra {
+  using limit_algebra::apply_log;
+  using limit_algebra::apply_pow;
+  using limit_algebra::apply_reciprocal;
+  using limit_algebra::combine_add;
+  using limit_algebra::combine_mul;
+};
+
+TEST(LimitAlgebra, AddSigns) {
+  using A = limit_algebra_probe;
+  struct row {
+    dir a, b, expected;
+  };
+  for (auto [a, b, expected] : {
+           row{dir::finite_positive, dir::finite_positive,
+               dir::finite_positive},
+           row{dir::finite_negative, dir::finite_negative,
+               dir::finite_negative},
+           row{dir::finite_positive, dir::finite_negative, dir::unknown},
+           row{dir::finite_negative, dir::finite_positive, dir::unknown},
+           row{dir::zero, dir::finite_negative, dir::finite_negative},
+           row{dir::pos_infinity, dir::finite_negative, dir::pos_infinity},
+           row{dir::pos_infinity, dir::neg_infinity, dir::indeterminate},
+       }) {
+    EXPECT_EQ(A::combine_add({a}, {b}).dir, expected)
+        << static_cast<int>(a) << " + " << static_cast<int>(b);
+  }
+}
+
+TEST(LimitAlgebra, MulSigns) {
+  using A = limit_algebra_probe;
+  struct row {
+    dir a, b, expected;
+  };
+  for (auto [a, b, expected] : {
+           row{dir::finite_positive, dir::finite_negative,
+               dir::finite_negative},
+           row{dir::finite_negative, dir::finite_negative,
+               dir::finite_positive},
+           row{dir::finite_negative, dir::pos_infinity, dir::neg_infinity},
+           row{dir::zero, dir::pos_infinity, dir::indeterminate},
+           row{dir::unknown, dir::pos_infinity, dir::unknown},
+       }) {
+    EXPECT_EQ(A::combine_mul({a}, {b}).dir, expected)
+        << static_cast<int>(a) << " * " << static_cast<int>(b);
+  }
+}
+
+TEST(LimitAlgebra, ZeroNeedsApproachSide) {
+  using A = limit_algebra_probe;
+  limit_result zero{dir::zero}, neg{dir::finite_negative};
+  EXPECT_EQ(A::apply_reciprocal(zero, false).dir, dir::unknown);
+  EXPECT_EQ(A::apply_reciprocal(zero, true).dir, dir::pos_infinity);
+  EXPECT_EQ(A::apply_pow(zero, neg, false).dir, dir::unknown);
+  EXPECT_EQ(A::apply_pow(zero, neg, true).dir, dir::pos_infinity);
+  EXPECT_EQ(A::apply_log(zero, false).dir, dir::unknown);
+  EXPECT_EQ(A::apply_log(zero, true).dir, dir::neg_infinity);
+}
+
+TEST(LimitAlgebra, LogAndPowOfFiniteValues) {
+  using A = limit_algebra_probe;
+  // log(c) < 0 for c < 1
+  EXPECT_EQ(A::apply_log({dir::finite_positive}, false).dir, dir::unknown);
+  // 0^0 and inf^0 are indeterminate forms
+  EXPECT_EQ(A::apply_pow({dir::zero}, {dir::zero}, true).dir,
+            dir::indeterminate);
+  EXPECT_EQ(A::apply_pow({dir::pos_infinity}, {dir::zero}, false).dir,
+            dir::indeterminate);
+  EXPECT_EQ(A::apply_pow({dir::finite_positive}, {dir::zero}, false).dir,
+            dir::finite_positive);
+}
+
+TEST(ScalarLimit, OddFunctionsAtZero) {
+  auto x = make_expression<scalar>("x");
+  scalar_limit_visitor v(x, {pt::zero_plus});
+  EXPECT_EQ(v.apply(sin(x)).dir, dir::zero);
+  EXPECT_EQ(v.apply(tan(x)).dir, dir::zero);
+  EXPECT_EQ(v.apply(asin(x)).dir, dir::zero);
+  EXPECT_EQ(v.apply(atan(x)).dir, dir::zero);
+  EXPECT_EQ(v.apply(cos(x)).dir, dir::finite_positive);
+  EXPECT_EQ(v.apply(acos(x)).dir, dir::finite_positive);
+}
+
+TEST(ScalarLimit, ReciprocalOfSinAtZeroIsNotFinite) {
+  auto x = make_expression<scalar>("x");
+  scalar_limit_visitor v(x, {pt::zero_plus});
+  auto r = v.apply(pow(sin(x), make_scalar_constant(-1))).dir;
+  EXPECT_NE(r, dir::finite_positive);
+  EXPECT_NE(r, dir::finite_negative);
+  EXPECT_NE(r, dir::zero);
+}
+
+TEST(ScalarLimit, ZeroFromBelowHasNoLogOrReciprocal) {
+  auto x = make_expression<scalar>("x");
+  scalar_limit_visitor v(x, {pt::zero_minus});
+  EXPECT_EQ(v.apply(log(x)).dir, dir::unknown);
+  EXPECT_EQ(v.apply(pow(x, make_scalar_constant(-1))).dir, dir::unknown);
+}
+
+TEST(ScalarLimit, SignAtZeroFollowsApproachSide) {
+  auto x = make_expression<scalar>("x");
+  scalar_limit_visitor right(x, {pt::zero_plus});
+  scalar_limit_visitor left(x, {pt::zero_minus});
+  EXPECT_EQ(right.apply(sign(x)).dir, dir::finite_positive);
+  EXPECT_EQ(left.apply(sign(x)).dir, dir::finite_negative);
+}
+
+TEST(ScalarLimit, AssumedSignOfOtherSymbols) {
+  auto x = make_expression<scalar>("x");
+  auto [a, b, c, y] = make_scalar_variable("a", "b", "c", "y");
+  a.assumption(negative{});
+  c.assumption(negative{});
+  b.assumption(positive{});
+  scalar_limit_visitor v(x, {pt::pos_infinity});
+  EXPECT_EQ(v.apply(a).dir, dir::finite_negative);
+  EXPECT_EQ(v.apply(b).dir, dir::finite_positive);
+  EXPECT_EQ(v.apply(y).dir, dir::unknown);
+  EXPECT_EQ(v.apply(a + c).dir, dir::finite_negative);
+  EXPECT_EQ(v.apply(a + b).dir, dir::unknown);
+  EXPECT_EQ(v.apply(a * x).dir, dir::neg_infinity);
+}
+
+TEST(ScalarLimit, InverseTrigSigns) {
+  auto x = make_expression<scalar>("x");
+  auto [a] = make_scalar_variable("a");
+  a.assumption(negative{});
+  scalar_limit_visitor v(x, {pt::pos_infinity});
+  EXPECT_EQ(v.apply(atan(a)).dir, dir::finite_negative);
+  EXPECT_EQ(v.apply(asin(a)).dir, dir::finite_negative);
+  EXPECT_EQ(v.apply(acos(a)).dir, dir::finite_positive);
+  // asin is undefined outside [-1, 1]
+  EXPECT_EQ(v.apply(asin(x)).dir, dir::unknown);
+  EXPECT_EQ(v.apply(cos(a)).dir, dir::unknown);
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // T2S limit visitor tests (exact match mode)
 // ═══════════════════════════════════════════════════════════════════
@@ -372,10 +510,10 @@ TEST(T2sLimit, TensorDepNormToPosInfinity) {
 TEST(T2sLimit, TensorDepIndependentExpr) {
   auto F = make_expression<tensor>("F", 3, 2);
   auto G = make_expression<tensor>("G", 3, 2);
-  auto expr = det(G); // independent of F
+  auto expr = det(G); // independent of F, but det(G) may have either sign
   tensor_to_scalar_limit_visitor v(F, {pt::pos_infinity});
   auto result = v.apply(expr);
-  EXPECT_EQ(result.dir, dir::finite_positive);
+  EXPECT_EQ(result.dir, dir::unknown);
 }
 
 TEST(T2sLimit, TensorDepDetIsUnknown) {
@@ -394,6 +532,30 @@ TEST(T2sLimit, TensorDepScalarWrapperFinite) {
   tensor_to_scalar_limit_visitor v(F, {pt::pos_infinity});
   auto result = v.apply(expr);
   EXPECT_EQ(result.dir, dir::finite_positive);
+}
+
+TEST(T2sLimit, ConstantSignsComeFromValuesAndAssumptions) {
+  auto F = make_expression<tensor>("F", 3, 2);
+  auto G = make_expression<tensor>("G", 3, 2);
+  auto P = make_expression<tensor>("P", 3, 2);
+  P.assumption(positive_definite{});
+  tensor_to_scalar_limit_visitor v(F, {pt::pos_infinity});
+  auto neg = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar_constant>(-2.0));
+  EXPECT_EQ(v.apply(neg).dir, dir::finite_negative);
+  EXPECT_EQ(v.apply(trace(G)).dir, dir::unknown);
+  EXPECT_EQ(v.apply(det(P)).dir, dir::finite_positive);
+}
+
+TEST(T2sLimit, ExactMatchReciprocalNeedsApproachSide) {
+  auto F = make_expression<tensor>("F", 3, 2);
+  auto J = det(F);
+  auto inv_J = pow(J, make_scalar_constant(-1));
+  tensor_to_scalar_limit_visitor right(J, {pt::zero_plus});
+  tensor_to_scalar_limit_visitor left(J, {pt::zero_minus});
+  EXPECT_EQ(right.apply(inv_J).dir, dir::pos_infinity);
+  EXPECT_EQ(left.apply(inv_J).dir, dir::unknown);
+  EXPECT_EQ(left.apply(log(J)).dir, dir::unknown);
 }
 
 // ═══════════════════════════════════════════════════════════════════
