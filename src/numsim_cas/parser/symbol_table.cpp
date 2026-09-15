@@ -54,7 +54,7 @@ symbol_table::get_or_declare_tensor(std::string_view name, std::size_t rank,
       0, std::string_view{});
 }
 
-bool symbol_table::has(std::string_view name) const noexcept {
+bool symbol_table::has(std::string_view name) const {
   // unordered_map::find takes string; we materialise a key.
   // C++20 heterogeneous lookup would avoid the allocation but requires
   // a custom hash/equal — not worth the complexity for occasional lookup.

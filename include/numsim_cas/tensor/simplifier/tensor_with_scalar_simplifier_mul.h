@@ -33,13 +33,12 @@ protected:
 #undef NUMSIM_ADD_OVR_FIRST
 #undef NUMSIM_ADD_OVR_NEXT
 
-  expr_holder_tensor_t dispatch(tensor_scalar_mul const &rhs) noexcept;
+  expr_holder_tensor_t dispatch(tensor_scalar_mul const &rhs);
 
   // scalar * 0 → 0
   expr_holder_tensor_t dispatch(tensor_zero const &) noexcept { return m_rhs; }
 
-  template <typename Expr>
-  expr_holder_tensor_t dispatch(Expr const &) noexcept {
+  template <typename Expr> expr_holder_tensor_t dispatch(Expr const &) {
     return make_expression<tensor_scalar_mul>(m_lhs, m_rhs);
   }
 

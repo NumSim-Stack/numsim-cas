@@ -39,7 +39,7 @@ public:
 protected:
   // Fold the index in (mirrors inner_product_wrapper #266): two
   // eigenvalues of the same tensor differ only by index.
-  void update_hash_value() const noexcept override {
+  void update_hash_value() const override {
     this->m_hash_value = 0;
     hash_combine(this->m_hash_value, this->get_id());
     if (this->expr().is_valid())

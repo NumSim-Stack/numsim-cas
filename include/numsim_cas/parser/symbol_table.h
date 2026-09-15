@@ -82,7 +82,7 @@ public:
                         std::size_t dim);
 
   /// True if any declaration exists for the given name.
-  [[nodiscard]] bool has(std::string_view name) const noexcept;
+  [[nodiscard]] bool has(std::string_view name) const;
 
   /// If `name` is a tensor, returns `{rank, dim}`; otherwise `nullopt`.
   /// `nullopt` is also returned for an unknown name or a scalar.

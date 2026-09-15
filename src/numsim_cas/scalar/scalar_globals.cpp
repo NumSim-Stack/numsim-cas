@@ -5,12 +5,12 @@
 
 namespace numsim::cas {
 
-expression_holder<scalar_expression> const &get_scalar_zero() noexcept {
+expression_holder<scalar_expression> const &get_scalar_zero() {
   static auto z = make_expression<scalar_zero>();
   return z;
 }
 
-expression_holder<scalar_expression> const &get_scalar_one() noexcept {
+expression_holder<scalar_expression> const &get_scalar_one() {
   static auto o = make_expression<scalar_one>();
   return o;
 }

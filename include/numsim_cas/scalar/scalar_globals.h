@@ -15,8 +15,8 @@ namespace numsim::cas {
 // dedup a hot-path scalar_constant should use a function-local static
 // inside their TU; see tensor_differentiation.cpp's inv-diff visitor for
 // the precedent.
-const expression_holder<scalar_expression> &get_scalar_zero() noexcept;
-const expression_holder<scalar_expression> &get_scalar_one() noexcept;
+const expression_holder<scalar_expression> &get_scalar_zero();
+const expression_holder<scalar_expression> &get_scalar_one();
 } // namespace numsim::cas
 
 #endif // SCALAR_GLOBALS_H

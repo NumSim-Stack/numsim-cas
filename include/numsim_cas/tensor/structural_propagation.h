@@ -41,7 +41,7 @@ namespace numsim::cas::structural_propagation {
 // preserve_unary will OVERWRITE that tag with the child's. Audit such
 // callers before adoption.
 inline void preserve_unary(tensor_expression &out,
-                           tensor_expression const &child) noexcept {
+                           tensor_expression const &child) {
   if (auto const &sp = child.space())
     out.set_space(*sp);
 }

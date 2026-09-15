@@ -31,8 +31,7 @@ public:
 
 protected:
   template <typename Stream, typename Container>
-  static void print_sequence(Stream &out, Container const &data,
-                             char spacer) noexcept {
+  static void print_sequence(Stream &out, Container const &data, char spacer) {
     bool first{false};
     std::for_each(std::begin(data), std::end(data), [&](auto const &el) {
       if (first)
@@ -44,7 +43,7 @@ protected:
 
   template <typename Stream, typename Container, typename AdditionalCheck>
   static void print_sequence(Stream &out, Container const &data, char spacer,
-                             AdditionalCheck check) noexcept {
+                             AdditionalCheck check) {
     bool first{false};
     std::for_each(std::begin(data), std::end(data), [&](auto const &el) {
       if (first && check(el))

@@ -11,8 +11,8 @@ namespace detail {
 struct scalar_pretty_printer {
   using expr_holder_t = expression_holder<scalar_expression>;
   inline bool operator()(expr_holder_t const &lhs,
-                         expr_holder_t const &rhs) const noexcept {
-    auto get_expr{[](expr_holder_t const &expr) noexcept {
+                         expr_holder_t const &rhs) const {
+    auto get_expr{[](expr_holder_t const &expr) {
       if (is_same<scalar_add>(expr)) {
         const auto &add{expr.get<scalar_add>()};
         if (add.symbol_map().size() == 1) {

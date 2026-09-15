@@ -30,7 +30,7 @@ protected:
   }
 
   template <typename Visitable>
-  void print_unary(std::string_view name, Visitable const &visitable) noexcept {
+  void print_unary(std::string_view name, Visitable const &visitable) {
     this->m_out << name << "\\left(";
     static_cast<Derived &>(*this).apply(visitable.expr());
     this->m_out << "\\right)";

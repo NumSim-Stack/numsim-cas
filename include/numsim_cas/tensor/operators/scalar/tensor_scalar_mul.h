@@ -29,7 +29,7 @@ public:
     structural_propagation::preserve_unary(*this, this->m_rhs.get());
   }
 
-  void update_hash_value() const noexcept override {
+  void update_hash_value() const override {
     if (is_scalar_constant(this->m_lhs)) { // #284: singleton-aware
       base::m_hash_value = this->m_rhs.get().hash_value();
     } else {
@@ -40,8 +40,7 @@ public:
   }
 
   // c*T is a like term of T and of any c'*T (add-side merging, #340)
-  [[nodiscard]] bool
-  like_term_of(expression const &rhs) const noexcept override {
+  [[nodiscard]] bool like_term_of(expression const &rhs) const override {
     if (this->hash_value() != rhs.hash_value())
       return false;
     if (rhs.id() == this->id()) {

@@ -46,12 +46,10 @@ protected:
   // tensor_zero × t2s = tensor_zero. m_lhs is already the tensor_zero.
   expr_holder_tensor_t dispatch(tensor_zero const &) noexcept { return m_lhs; }
 
-  expr_holder_tensor_t
-  dispatch(tensor_to_scalar_with_tensor_mul const &lhs) noexcept;
-  expr_holder_tensor_t dispatch(tensor_scalar_mul const &lhs) noexcept;
+  expr_holder_tensor_t dispatch(tensor_to_scalar_with_tensor_mul const &lhs);
+  expr_holder_tensor_t dispatch(tensor_scalar_mul const &lhs);
 
-  template <typename Expr>
-  expr_holder_tensor_t dispatch(Expr const &) noexcept {
+  template <typename Expr> expr_holder_tensor_t dispatch(Expr const &) {
     return make_expression<tensor_to_scalar_with_tensor_mul>(m_lhs, m_rhs);
   }
 

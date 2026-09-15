@@ -19,8 +19,7 @@ public:
   const make_tensor_data_imp &operator=(make_tensor_data_imp const &) = delete;
 
   template <std::size_t Dim, std::size_t Rank>
-  [[nodiscard]] std::unique_ptr<tensor_data_base<ValueType>>
-  evaluate_imp() noexcept {
+  [[nodiscard]] std::unique_ptr<tensor_data_base<ValueType>> evaluate_imp() {
     return std::make_unique<tensor_data<ValueType, Dim, Rank>>();
   }
 
