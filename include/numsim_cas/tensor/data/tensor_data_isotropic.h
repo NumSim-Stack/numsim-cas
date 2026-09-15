@@ -8,6 +8,7 @@
 #include <limits>
 #include <vector>
 
+#include "spectral_decomposition_cache.h"
 #include "tensor_data.h"
 #include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
@@ -84,25 +85,6 @@ template <typename V> V confluent_dd(isotropic_kind k, std::vector<V> points) {
   return dd_range(k, points.data(), std::size_t{0}, points.size() - 1, rel);
 }
 
-// Decompose sym(in) into ascending eigenvalues and matching eigenvectors.
-template <typename V, std::size_t Dim>
-void decompose_sorted(tmech::tensor<V, Dim, 2> const &in,
-                      std::array<V, Dim> &lam,
-                      std::array<tmech::tensor<V, Dim, 1>, Dim> &vec) {
-  auto decomp = tmech::eigen_decomposition(tmech::sym(in));
-  auto const [eigvals, eigvecs] = decomp.decompose();
-  std::array<std::size_t, Dim> order{};
-  for (std::size_t i = 0; i < Dim; ++i)
-    order[i] = i;
-  std::sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) {
-    return eigvals[a] < eigvals[b];
-  });
-  for (std::size_t i = 0; i < Dim; ++i) {
-    lam[i] = eigvals[order[i]];
-    vec[i] = eigvecs[order[i]];
-  }
-}
-
 } // namespace iso_detail
 
 // f(A) = Σ_i f(λ_i) E_i for a symmetric rank-2 tensor (#227). Basis-invariant,
@@ -121,13 +103,11 @@ public:
     if constexpr (Rank == 2 && (Dim == 2 || Dim == 3)) {
       using Tensor = tensor_data<ValueType, Dim, Rank>;
       auto const &in = static_cast<const Tensor &>(m_input).data();
-      std::array<ValueType, Dim> lam{};
-      std::array<tmech::tensor<ValueType, Dim, 1>, Dim> vec{};
-      iso_detail::decompose_sorted(in, lam, vec);
+      auto const &d = spectral::cached_decompose<ValueType, Dim>(in);
       tmech::tensor<ValueType, Dim, 2> out;
       for (std::size_t i = 0; i < Dim; ++i)
-        out +=
-            iso_detail::apply_f(m_kind, lam[i]) * tmech::otimes(vec[i], vec[i]);
+        out += iso_detail::apply_f(m_kind, d.eigenvalues[i]) *
+               tmech::otimes(d.eigenvectors[i], d.eigenvectors[i]);
       static_cast<Tensor &>(m_result).data() = out;
     } else {
       throw evaluation_error(
@@ -166,9 +146,8 @@ public:
     if constexpr (Rank == 2 && (Dim == 2 || Dim == 3)) {
       using Tensor = tensor_data<ValueType, Dim, Rank>;
       auto const &in = static_cast<const Tensor &>(m_input).data();
-      std::array<ValueType, Dim> lam{};
-      std::array<tmech::tensor<ValueType, Dim, 1>, Dim> vec{};
-      iso_detail::decompose_sorted(in, lam, vec);
+      auto const &lam =
+          spectral::cached_decompose<ValueType, Dim>(in).eigenvalues;
       std::vector<ValueType> points;
       points.reserve(m_indices.size());
       for (std::size_t idx : m_indices) {

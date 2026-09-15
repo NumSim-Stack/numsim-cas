@@ -302,6 +302,43 @@ TEST(IsotropicFn, DividedDifferenceTriplePoint) {
   EXPECT_NEAR(ev.apply(dd2), 0.5, 1e-12);
 }
 
+// ─── Spectral cache ────────────────────────────────────────────────────
+// A slot whose key matches but whose components differ (a hash collision)
+// must miss.
+TEST(SpectralCache, KeyCollisionIsAMiss) {
+  using namespace isofn_detail;
+  T2 A_val{2.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 7.0};
+  T2 B_val{3.0, 1.0, 0.0, 1.0, 4.0, 0.0, 0.0, 0.0, 6.0};
+  spectral::detail::decomposition_slot<double, 3> slot;
+  slot.components = A_val;
+  slot.key = spectral::detail::content_hash(A_val);
+  slot.valid = true;
+  EXPECT_TRUE(slot.hit(slot.key, A_val));
+  EXPECT_FALSE(slot.hit(slot.key, B_val));
+}
+
+// Divided differences and eigenvalues of two tensors, interleaved through the
+// shared single-slot cache, each see their own decomposition.
+TEST(SpectralCache, InterleavedTensorsStayCorrect) {
+  using namespace isofn_detail;
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 3, 2);
+  auto B = make_expression<tensor>("B", 3, 2);
+  ev.set(A, data_from(T2{2.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 7.0}));
+  ev.set(B, data_from(T2{1.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 4.0}));
+  auto ddA = make_expression<tensor_to_scalar_divided_difference>(
+      A, isotropic_kind::log, std::vector<std::size_t>{0, 2});
+  auto ddB = make_expression<tensor_to_scalar_divided_difference>(
+      B, isotropic_kind::log, std::vector<std::size_t>{0, 2});
+  const double expA = (std::log(7.0) - std::log(2.0)) / 5.0;
+  const double expB = (std::log(4.0) - std::log(1.0)) / 3.0;
+  EXPECT_NEAR(ev.apply(ddA), expA, 1e-12);
+  EXPECT_NEAR(ev.apply(ddB), expB, 1e-12);
+  EXPECT_NEAR(ev.apply(eigen_decomposition(A).value(2)), 7.0, 1e-12);
+  EXPECT_NEAR(ev.apply(ddB), expB, 1e-12);
+  EXPECT_NEAR(ev.apply(ddA), expA, 1e-12);
+}
+
 // ─── Printing ──────────────────────────────────────────────────────────
 TEST(IsotropicFn, Printing) {
   auto A = make_expression<tensor>("A", 3, 2);
