@@ -8,11 +8,16 @@
 > **Scope**: visitor-driven simplification in
 > `include/numsim_cas/{core,scalar,tensor,tensor_to_scalar}/simplifier/` only.
 > Construction-time simplifications (e.g. `inv(inv(A)) → A` in `tensor_functions.h`,
-> `sin(asin(x)) → x` in `scalar_std.h`, `trace(0) → 0` in
+> `sin(asin(x)) → x` in `scalar_function_rules.h`, `trace(0) → 0` in
 > `tensor_to_scalar_functions.cpp`, the `is_trans_of` annotations in
 > `tensor_operators.h`) are not in this matrix — they deserve a parallel audit
 > as a follow-up. Differentiation, evaluation, printing, and substitution
 > visitors are also out of scope.
+>
+> Scalar unary-function folds are named rules in
+> [`scalar/simplifier/scalar_function_rules.h`](../include/numsim_cas/scalar/simplifier/scalar_function_rules.h);
+> the node-expanding mixed inverse-trig rules run only in the opt-in
+> [`scalar_function_simplifier`](../include/numsim_cas/scalar/simplifier/scalar_function_simplifier.h) pass.
 
 ## Layering
 
