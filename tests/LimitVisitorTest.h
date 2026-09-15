@@ -94,6 +94,46 @@ TEST(ContainsExpr, DependsOnTensorScalarWrapperFalse) {
   EXPECT_FALSE(depends_on_tensor(expr, F));
 }
 
+TEST(ContainsExpr, DependsOnTensorPowExponent) {
+  auto F = make_expression<tensor>("F", 3, 2);
+  auto G = make_expression<tensor>("G", 3, 2);
+  auto c = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar_constant>(2.0));
+  auto expr = pow(c, trace(F));
+  ASSERT_TRUE(is_same<tensor_to_scalar_pow>(expr)) << to_string(expr);
+  EXPECT_TRUE(depends_on_tensor(expr, F));
+  EXPECT_FALSE(depends_on_tensor(expr, G));
+  EXPECT_TRUE(depends_on_tensor(pow(trace(F), c), F));
+}
+
+// A t2s factor of a tensor can carry the needle.
+TEST(ContainsExpr, TensorContainsThroughT2sFactor) {
+  auto F = make_expression<tensor>("F", 3, 2);
+  auto G = make_expression<tensor>("G", 3, 2);
+  auto H = make_expression<tensor>("H", 3, 2);
+  auto expr = trace(F) * G;
+  ASSERT_TRUE(is_same<tensor_to_scalar_with_tensor_mul>(expr))
+      << to_string(expr);
+  EXPECT_TRUE(contains_expression(expr, F));
+  EXPECT_TRUE(contains_expression(expr, G));
+  EXPECT_FALSE(contains_expression(expr, H));
+  EXPECT_TRUE(depends_on_tensor(trace(expr), F));
+}
+
+// A t2s condition can carry the needle; a scalar condition cannot.
+TEST(ContainsExpr, TensorContainsThroughT2sCondition) {
+  auto F = make_expression<tensor>("F", 3, 2);
+  auto G = make_expression<tensor>("G", 3, 2);
+  auto H = make_expression<tensor>("H", 3, 2);
+  auto K = make_expression<tensor>("K", 3, 2);
+  auto expr = if_then_else(trace(F), G, H);
+  ASSERT_TRUE(is_same<tensor_if_then_else_t2s>(expr)) << to_string(expr);
+  EXPECT_TRUE(contains_expression(expr, F));
+  EXPECT_TRUE(contains_expression(expr, H));
+  EXPECT_FALSE(contains_expression(expr, K));
+  EXPECT_TRUE(depends_on_tensor(det(expr), F));
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Scalar limit visitor tests
 // ═══════════════════════════════════════════════════════════════════
@@ -384,6 +424,15 @@ TEST(T2sLimit, TensorDepDetIsUnknown) {
   tensor_to_scalar_limit_visitor v(F, {pt::pos_infinity});
   auto result = v.apply(expr);
   // det(F) as F -> inf is unknown (det can be anything)
+  EXPECT_EQ(result.dir, dir::unknown);
+}
+
+TEST(T2sLimit, TensorDepThroughT2sFactorIsUnknown) {
+  auto F = make_expression<tensor>("F", 3, 2);
+  auto G = make_expression<tensor>("G", 3, 2);
+  auto expr = trace(trace(F) * G);
+  tensor_to_scalar_limit_visitor v(F, {pt::pos_infinity});
+  auto result = v.apply(expr);
   EXPECT_EQ(result.dir, dir::unknown);
 }
 
