@@ -1871,6 +1871,42 @@ TEST(HashCombineDouble, HugeAndNonFiniteConstantsHashSafely) {
   EXPECT_NE(big.get().hash_value(), inf.get().hash_value());
 }
 
+// Forces update_hash_value() (protected) through a pointer-to-member.
+struct hash_recompute : expression {
+  static void on(expression const &e) {
+    (e.*&hash_recompute::update_hash_value)();
+  }
+};
+
+// Recomputing a node's hash must reproduce the cached value.
+TEST(HashRecompute, IsIdempotentForEveryHashOverride) {
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  auto [x] = make_scalar_variable("x");
+  auto check = [](char const *name, expression const &e) {
+    auto const h = e.hash_value();
+    hash_recompute::on(e);
+    EXPECT_EQ(h, e.hash_value()) << name;
+  };
+  check("inner_product_wrapper",
+        inner_product(A, sequence{2}, B, sequence{1}).get());
+  check("outer_product_wrapper", otimes(A, B).get());
+  check("scalar symbol", make_expression<scalar>("s").get());
+  check("tensor symbol", make_expression<tensor>("T", 3, 2).get());
+  check("scalar_zero", make_expression<scalar_zero>().get());
+  check("scalar_one", make_expression<scalar_one>().get());
+  check("tensor_zero", make_expression<tensor_zero>(3, 2).get());
+  check("tensor_to_scalar_zero",
+        make_expression<tensor_to_scalar_zero>().get());
+  check("tensor_to_scalar_one", make_expression<tensor_to_scalar_one>().get());
+  // representative nodes that already reset
+  check("identity_tensor", make_expression<identity_tensor>(3, 2).get());
+  check("scalar_add", (x + make_expression<scalar>("y")).get());
+  check("tensor_scalar_mul", (x * A).get());
+  check("permute_indices_wrapper", trans(A).get());
+}
+
 // Rank-4 identity is major-symmetric only; a MinorMajor tag sends inv()
 // through the symmetric Voigt path, which gets inv(-I4) wrong.
 TEST(Rank4IdentityTag, InvOfNegatedIdentity) {
