@@ -139,7 +139,8 @@ TEST(ScalarLimit, OtherVariableFinite) {
   auto y = make_expression<scalar>("y");
   scalar_limit_visitor v(x, {pt::zero_plus});
   auto result = v.apply(y);
-  EXPECT_EQ(result.dir, dir::finite_positive);
+  // y is constant in x but may have either sign
+  EXPECT_EQ(result.dir, dir::unknown);
 }
 
 // ─── log(x) as x -> 0+ ────────────────────────────────────────────
@@ -509,10 +510,10 @@ TEST(T2sLimit, TensorDepNormToPosInfinity) {
 TEST(T2sLimit, TensorDepIndependentExpr) {
   auto F = make_expression<tensor>("F", 3, 2);
   auto G = make_expression<tensor>("G", 3, 2);
-  auto expr = det(G); // independent of F
+  auto expr = det(G); // independent of F, but det(G) may have either sign
   tensor_to_scalar_limit_visitor v(F, {pt::pos_infinity});
   auto result = v.apply(expr);
-  EXPECT_EQ(result.dir, dir::finite_positive);
+  EXPECT_EQ(result.dir, dir::unknown);
 }
 
 TEST(T2sLimit, TensorDepDetIsUnknown) {
