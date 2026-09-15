@@ -27,6 +27,11 @@ std::optional<t2s_holder> try_dot_zero(tensor_holder const &e) {
     return make_expression<tensor_to_scalar_zero>();
   return {};
 }
+std::optional<t2s_holder> try_dot_negative(tensor_holder const &e) {
+  if (is_same<tensor_negative>(e))
+    return dot(e.get<tensor_negative>().expr());
+  return {};
+}
 
 // ── trace ────────────────────────────────────────────────────────────
 std::optional<t2s_holder> try_trace_zero(tensor_holder const &e) {
@@ -75,6 +80,20 @@ std::optional<t2s_holder> try_trace_add(tensor_holder const &e) {
   }
   return {};
 }
+std::optional<t2s_holder> try_trace_negative(tensor_holder const &e) {
+  if (is_same<tensor_negative>(e))
+    return -trace(e.get<tensor_negative>().expr());
+  return {};
+}
+std::optional<t2s_holder> try_trace_outer_product(tensor_holder const &e) {
+  if (is_same<outer_product_wrapper>(e)) {
+    auto const &op = e.get<outer_product_wrapper>();
+    if (op.expr_lhs().get().rank() == 1 && op.expr_rhs().get().rank() == 1)
+      return dot_product(op.expr_lhs(), sequence{1}, op.expr_rhs(),
+                         sequence{1});
+  }
+  return {};
+}
 
 // ── norm ─────────────────────────────────────────────────────────────
 std::optional<t2s_holder> try_norm_zero(tensor_holder const &e) {
@@ -95,6 +114,11 @@ std::optional<t2s_holder> try_norm_scalar_mul(tensor_holder const &e) {
     auto const &sm = e.get<tensor_scalar_mul>();
     return abs(sm.expr_lhs()) * norm(sm.expr_rhs());
   }
+  return {};
+}
+std::optional<t2s_holder> try_norm_negative(tensor_holder const &e) {
+  if (is_same<tensor_negative>(e))
+    return norm(e.get<tensor_negative>().expr());
   return {};
 }
 
@@ -161,6 +185,15 @@ std::optional<t2s_holder> try_det_mul(tensor_holder const &e) {
         r = det(child);
     }
     return r;
+  }
+  return {};
+}
+std::optional<t2s_holder> try_det_negative(tensor_holder const &e) {
+  if (is_same<tensor_negative>(e)) {
+    auto const &inner = e.get<tensor_negative>().expr();
+    if (inner.get().dim() % 2 == 0)
+      return det(inner);
+    return -det(inner);
   }
   return {};
 }
