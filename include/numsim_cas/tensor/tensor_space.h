@@ -8,9 +8,13 @@
 namespace numsim::cas {
 
 // Algebraic spaces on rank-2 tensors
-struct Symmetric {}; // sym
-struct Skew {};      // skew
-struct Full {};      // identity on the whole space
+struct Symmetric { // sym
+  bool operator==(Symmetric const &) const = default;
+};
+struct Skew { // skew
+  bool operator==(Skew const &) const = default;
+};
+struct Full {}; // identity on the whole space
 
 // Higher-rank symmetrizers
 struct Sym_r {
@@ -24,28 +28,46 @@ struct Harm_r {
 }; // symmetric, trace-free (SO(d) harmonic)
 
 // Rank-4 elasticity-style
-struct Minor {};      // minor symmetry in (ij) and (kl)
-struct Major {};      // major symmetry (ij) <-> (kl)
-struct MinorMajor {}; // both
+struct Minor { // minor symmetry in (ij) and (kl)
+  bool operator==(Minor const &) const = default;
+};
+struct Major { // major symmetry (ij) <-> (kl)
+  bool operator==(Major const &) const = default;
+};
+struct MinorMajor { // both
+  bool operator==(MinorMajor const &) const = default;
+};
 
 // Directional projectors (onto || or ⟂ to a direction)
 // NOTE: Parallel and Perp remain in projection_tensor.h because they reference
 // expression_holder<tensor_expression>, which is not available here.
 
 // --- Permutation spaces (rank-agnostic) ---
-struct General {}; // no permutation constraint
-struct Young {     // generic Young symmetrizer
+struct General { // no permutation constraint
+  bool operator==(General const &) const = default;
+};
+struct Young { // generic Young symmetrizer
   // e.g. {{1,2},{3}} means sym over (1,2), hold 3 separate
   std::vector<std::vector<int>> blocks; // 1-based positions
+  bool operator==(Young const &) const = default;
 };
 
 // --- Trace spaces (rank-agnostic) ---
-struct AnyTraceTag {};   // no trace constraint
-struct VolumetricTag {}; // tr(.)/d * I
-struct DeviatoricTag {}; // sym(.) - vol(.)
-struct HarmonicTag {};   // fully trace-free (all pairs)
+struct AnyTraceTag { // no trace constraint
+  bool operator==(AnyTraceTag const &) const = default;
+};
+struct VolumetricTag { // tr(.)/d * I
+  bool operator==(VolumetricTag const &) const = default;
+};
+struct DeviatoricTag { // sym(.) - vol(.)
+  bool operator==(DeviatoricTag const &) const = default;
+};
+struct HarmonicTag { // fully trace-free (all pairs)
+  bool operator==(HarmonicTag const &) const = default;
+};
 struct PartialTraceTag { // remove/keep traces on selected pairs
   std::vector<std::pair<int, int>> pairs; // 1-based positions to contract
+  bool operator==(PartialTraceTag const &) const = default;
 };
 
 // Bundle them (rank and dim are on the projector node)
@@ -61,8 +83,8 @@ struct tensor_space {
 /// nullopt.
 inline std::optional<tensor_space> join_tensor_space(tensor_space const &a,
                                                      tensor_space const &b) {
-  // Identical spaces join to themselves
-  if (a.perm.index() == b.perm.index() && a.trace.index() == b.trace.index())
+  // Identical spaces (payloads included) join to themselves
+  if (a.perm == b.perm && a.trace == b.trace)
     return a;
   // Both in the Symmetric family (Sym/Vol/Dev/Harmonic) → widen to Sym
   if (std::holds_alternative<Symmetric>(a.perm) &&
