@@ -6,6 +6,7 @@
 // Build target: numsim_cas_fuzz_test (separate from the main unit tests)
 
 #include "FuzzyTensorDiffTest.h"
+#include "FuzzyHarnessTest.h"
 #include "FuzzyScalarDiffTest.h"
 #include "FuzzyT2sDiffTest.h"
 
