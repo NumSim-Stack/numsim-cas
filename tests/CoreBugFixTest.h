@@ -82,6 +82,41 @@ TEST(CoreBugFix, CoeffConstReturnsConstRef) {
   (void)add_node.coeff(); // suppress unused warning
 }
 
+// Allocating paths must let std::bad_alloc propagate instead of terminating;
+// genuine moves stay noexcept so containers keep their move optimizations.
+TEST(CoreBugFix, AllocatingPathsAreNotNoexcept) {
+  using expr_cref = expression const &;
+  static_assert(
+      !noexcept(std::declval<expr_cref>() == std::declval<expr_cref>()));
+  static_assert(
+      !noexcept(std::declval<expr_cref>() < std::declval<expr_cref>()));
+  static_assert(!noexcept(
+      std::declval<expr_cref>().like_term_of(std::declval<expr_cref>())));
+  static_assert(!noexcept(std::declval<tensor_mul &>().push_back(
+      std::declval<expression_holder<tensor_expression> const &>())));
+  static_assert(!noexcept(get_scalar_zero()));
+
+  static_assert(std::is_nothrow_move_constructible_v<scalar_add>);
+  static_assert(std::is_nothrow_move_constructible_v<tensor_add>);
+  static_assert(std::is_nothrow_move_constructible_v<tensor_to_scalar_mul>);
+  static_assert(std::is_nothrow_move_constructible_v<permute_indices_wrapper>);
+  static_assert(std::is_nothrow_move_assignable_v<std::optional<tensor_space>>);
+
+  // tensor_add's move ctor transfers the space instead of copying it
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  assume_symmetric(A);
+  assume_symmetric(B);
+  auto sum = A + B;
+  ASSERT_TRUE(is_same<tensor_add>(sum));
+  ASSERT_TRUE(sum.get().space().has_value());
+  tensor_add src{sum.get<tensor_add>()};
+  tensor_add moved{std::move(src)};
+  ASSERT_TRUE(moved.space().has_value());
+  EXPECT_TRUE(std::holds_alternative<Symmetric>(moved.space()->perm));
+}
+
 // ---------------------------------------------------------------------------
 // Bug 3.1: expression_holder null access throws
 // ---------------------------------------------------------------------------

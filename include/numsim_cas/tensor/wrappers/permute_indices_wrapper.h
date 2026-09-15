@@ -39,7 +39,8 @@ public:
    * @param data The permute_indices_wrapper object to move from.
    */
   explicit permute_indices_wrapper(permute_indices_wrapper &&data) noexcept
-      : base(static_cast<base>(data)), m_indices(std::move(data.m_indices)) {}
+      : base(static_cast<base &&>(data)), m_indices(std::move(data.m_indices)) {
+  }
 
   /**
    * @brief Retrieves the permutation indices.
@@ -51,7 +52,7 @@ public:
 
   // #342 — the permutation is part of the node's identity: two different
   // permutations of the same tensor must not hash or compare equal.
-  void update_hash_value() const noexcept override {
+  void update_hash_value() const override {
     base::m_hash_value = 0;
     hash_combine(base::m_hash_value, base::get_id());
     hash_combine(base::m_hash_value, this->expr().get().hash_value());

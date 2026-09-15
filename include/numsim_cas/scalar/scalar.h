@@ -30,7 +30,7 @@ public:
   }
 
   const scalar &operator=(scalar &&data) noexcept {
-    this->m_name = data.name();
+    this->m_name = std::move(data.m_name);
     return *this;
   }
 };

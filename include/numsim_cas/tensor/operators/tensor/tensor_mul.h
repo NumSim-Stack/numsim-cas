@@ -19,8 +19,7 @@ public:
   }
   tensor_mul(tensor_mul &&add) noexcept
       : base(static_cast<base &&>(add), add.dim(), add.rank()) {
-    if (auto const &sp = add.space())
-      this->set_space(*sp);
+    this->m_tensor_space = std::move(add.m_tensor_space);
   }
   ~tensor_mul() override = default;
   const tensor_mul &operator=(tensor_mul &&) = delete;

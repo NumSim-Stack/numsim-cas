@@ -50,7 +50,7 @@ public:
   n_ary_tree() noexcept { this->reserve(2); }
 
   template <typename... Args>
-  n_ary_tree(Args &&...args) noexcept : base_t(std::forward<Args>(args)...) {}
+  n_ary_tree(Args &&...args) : base_t(std::forward<Args>(args)...) {}
 
   template <typename... Args>
   n_ary_tree(n_ary_tree &&data, Args &&...args) noexcept
@@ -60,7 +60,7 @@ public:
   }
 
   template <typename... Args>
-  n_ary_tree(n_ary_tree const &data, Args &&...args) noexcept
+  n_ary_tree(n_ary_tree const &data, Args &&...args)
       : base_t(std::forward<Args>(args)...), m_coeff(data.m_coeff),
         m_symbol_map(data.m_symbol_map) {
     this->m_hash_value = data.m_hash_value;
@@ -151,8 +151,7 @@ public:
 
   // Same children, coefficient may differ; cross-type: c*T (single child)
   // is a like term of T. Only sound for add-side merging.
-  [[nodiscard]] bool
-  like_term_of(expression const &rhs) const noexcept override {
+  [[nodiscard]] bool like_term_of(expression const &rhs) const override {
     if (this->hash_value() != rhs.hash_value())
       return false;
     if (rhs.id() == this->id()) {
@@ -222,7 +221,7 @@ public:
                          n_ary_tree<BaseRHS> const &rhs);
 
 protected:
-  void update_hash_value() const noexcept override {
+  void update_hash_value() const override {
     this->m_hash_value = 0;
 
     // otherwise we can not provide the order of the symbols

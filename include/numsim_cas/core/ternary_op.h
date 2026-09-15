@@ -58,7 +58,7 @@ public:
   [[nodiscard]] inline auto &expr_else() noexcept { return m_else; }
 
 protected:
-  void update_hash_value() const noexcept override {
+  void update_hash_value() const override {
     base::m_hash_value =
         update_hash<ternary_op<ThisBase, BaseCond, BaseThen, BaseElse>>()(
             *this);
@@ -70,8 +70,7 @@ protected:
 
 template <typename... Args>
 struct update_hash<numsim::cas::ternary_op<Args...>> {
-  std::size_t
-  operator()(const numsim::cas::ternary_op<Args...> &expr) const noexcept {
+  std::size_t operator()(const numsim::cas::ternary_op<Args...> &expr) const {
     std::size_t seed{0};
     numsim::cas::hash_combine(seed, numsim::cas::ternary_op<Args...>::get_id());
     numsim::cas::hash_combine(seed, expr.expr_cond().get().hash_value());

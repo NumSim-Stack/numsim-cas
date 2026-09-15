@@ -20,8 +20,7 @@ public:
   }
   simple_outer_product(simple_outer_product &&add) noexcept
       : base(static_cast<base &&>(add), add.dim(), add.rank()) {
-    if (auto const &sp = add.space())
-      this->set_space(*sp);
+    this->m_tensor_space = std::move(add.m_tensor_space);
   }
   ~simple_outer_product() override = default;
   const simple_outer_product &operator=(simple_outer_product &&) = delete;
