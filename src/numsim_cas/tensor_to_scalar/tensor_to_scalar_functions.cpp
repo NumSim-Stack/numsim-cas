@@ -32,6 +32,8 @@ expression_holder<tensor_to_scalar_expression>
 dot(expression_holder<tensor_expression> const &expr) {
   if (auto r = t2s_rules::try_dot_zero(expr))
     return *r;
+  if (auto r = t2s_rules::try_dot_negative(expr))
+    return *r;
 
   return make_expression<tensor_dot>(expr);
 }
@@ -50,6 +52,10 @@ trace(expression_holder<tensor_expression> const &expr) {
     return *r;
   if (auto r = t2s_rules::try_trace_add(expr))
     return *r;
+  if (auto r = t2s_rules::try_trace_negative(expr))
+    return *r;
+  if (auto r = t2s_rules::try_trace_outer_product(expr))
+    return *r;
 
   return make_expression<tensor_trace>(expr);
 }
@@ -63,6 +69,8 @@ norm(expression_holder<tensor_expression> const &expr) {
   if (auto r = t2s_rules::try_norm_of_trans(expr))
     return *r;
   if (auto r = t2s_rules::try_norm_scalar_mul(expr))
+    return *r;
+  if (auto r = t2s_rules::try_norm_negative(expr))
     return *r;
 
   return make_expression<tensor_norm>(expr);
@@ -87,6 +95,8 @@ det(expression_holder<tensor_expression> const &expr) {
   if (auto r = t2s_rules::try_det_scalar_mul(expr))
     return *r;
   if (auto r = t2s_rules::try_det_mul(expr))
+    return *r;
+  if (auto r = t2s_rules::try_det_negative(expr))
     return *r;
 
   auto result = make_expression<tensor_det>(expr);

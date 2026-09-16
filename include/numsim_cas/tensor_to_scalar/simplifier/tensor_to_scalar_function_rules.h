@@ -17,6 +17,8 @@ using t2s_holder = expression_holder<tensor_to_scalar_expression>;
 std::optional<t2s_holder> try_dot_product_zero(tensor_holder const &lhs,
                                                tensor_holder const &rhs);
 std::optional<t2s_holder> try_dot_zero(tensor_holder const &e); // dot(0) → 0
+std::optional<t2s_holder>
+try_dot_negative(tensor_holder const &e); // dot(-A) → dot(A)
 
 // ── trace [trace] ────────────────────────────────────────────────────
 std::optional<t2s_holder> try_trace_zero(tensor_holder const &e); // tr(0) → 0
@@ -28,6 +30,10 @@ std::optional<t2s_holder>
 try_trace_scalar_mul(tensor_holder const &e); // tr(s·A) → s·tr(A)
 std::optional<t2s_holder>
 try_trace_add(tensor_holder const &e); // tr(A+B) → tr(A)+tr(B)
+std::optional<t2s_holder>
+try_trace_negative(tensor_holder const &e); // tr(-A) → -tr(A)
+std::optional<t2s_holder>
+try_trace_outer_product(tensor_holder const &e); // tr(u⊗v) → u·v
 
 // ── norm [norm] ──────────────────────────────────────────────────────
 std::optional<t2s_holder> try_norm_zero(tensor_holder const &e); // ‖0‖ → 0
@@ -35,6 +41,8 @@ std::optional<t2s_holder>
 try_norm_of_trans(tensor_holder const &e); // ‖Aᵀ‖ → ‖A‖
 std::optional<t2s_holder>
 try_norm_scalar_mul(tensor_holder const &e); // ‖s·A‖ → |s|·‖A‖
+std::optional<t2s_holder>
+try_norm_negative(tensor_holder const &e); // ‖-A‖ → ‖A‖
 
 // ── det [det] ────────────────────────────────────────────────────────
 std::optional<t2s_holder> try_det_zero(tensor_holder const &e); // det(0) → 0
@@ -52,6 +60,8 @@ std::optional<t2s_holder>
 try_det_scalar_mul(tensor_holder const &e); // det(s·A) → sᵈ·det(A)
 std::optional<t2s_holder>
 try_det_mul(tensor_holder const &e); // det(∏Aᵢ) → ∏det(Aᵢ)
+std::optional<t2s_holder>
+try_det_negative(tensor_holder const &e); // det(-A) → (-1)ᵈ·det(A)
 
 // ── exp / sqrt [math] ────────────────────────────────────────────────
 // Argument is a t2s scalar, not a tensor.
