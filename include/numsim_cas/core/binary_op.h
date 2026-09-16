@@ -121,7 +121,7 @@ public:
                          binary_op<B, L, R> const &rhs);
 
 protected:
-  void update_hash_value() const noexcept override {
+  void update_hash_value() const override {
     base::m_hash_value =
         update_hash<binary_op<ThisBase, BaseLHS, BaseRHS>>()(*this);
   }
@@ -172,8 +172,7 @@ bool operator!=(binary_op<BaseT, BaseLHS, BaseRHS> const &lhs,
 
 template <typename... Args>
 struct update_hash<numsim::cas::binary_op<Args...>> {
-  std::size_t
-  operator()(const numsim::cas::binary_op<Args...> &expr) const noexcept {
+  std::size_t operator()(const numsim::cas::binary_op<Args...> &expr) const {
     std::size_t seed{0};
     numsim::cas::hash_combine(seed, numsim::cas::binary_op<Args...>::get_id());
     numsim::cas::hash_combine(seed, expr.expr_lhs().get().hash_value());

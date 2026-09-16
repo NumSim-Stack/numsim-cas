@@ -114,13 +114,13 @@ public:
   [[nodiscard]] type_id id() const noexcept override { return get_id(); }
 
 protected:
-  bool equals_same_type(expression const &rhs) const noexcept override {
+  bool equals_same_type(expression const &rhs) const override {
     assert(dynamic_cast<Derived const *>(&rhs) != nullptr);
     return static_cast<Derived const &>(*this) ==
            static_cast<Derived const &>(rhs);
   }
 
-  bool less_than_same_type(expression const &rhs) const noexcept override {
+  bool less_than_same_type(expression const &rhs) const override {
     assert(dynamic_cast<Derived const *>(&rhs) != nullptr);
     return static_cast<Derived const &>(*this) <
            static_cast<Derived const &>(rhs);

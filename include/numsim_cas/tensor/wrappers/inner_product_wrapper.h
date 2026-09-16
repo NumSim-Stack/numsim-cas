@@ -56,7 +56,7 @@ public:
   // outer_product_wrapper). Without this, the default binary_op hash
   // ignores them, so two inner_products differing only in their
   // contraction sequences hash-collide (cache aliasing + blind lock-ins).
-  void update_hash_value() const noexcept override {
+  void update_hash_value() const override {
     hash_combine(base::m_hash_value, base::get_id());
     numsim::cas::hash_combine(base::m_hash_value,
                               base::expr_lhs().get().hash_value());

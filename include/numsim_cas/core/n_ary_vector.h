@@ -19,20 +19,21 @@ public:
   using const_iterator =
       typename expr_ordered_map<expr_holder_t>::const_iterator;
 
-  n_ary_vector() noexcept { this->reserve(2); }
+  n_ary_vector() { this->reserve(2); }
 
   template <typename... Args>
-  n_ary_vector(Args &&...args) noexcept : base_t(std::forward<Args>(args)...) {}
+  n_ary_vector(Args &&...args) : base_t(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  n_ary_vector(n_ary_vector &&data, Args &&...args) noexcept
+  n_ary_vector(n_ary_vector &&data, Args &&...args) noexcept(
+      std::is_nothrow_constructible_v<base_t, Args...>)
       : base_t(std::forward<Args>(args)...), m_coeff(std::move(data.m_coeff)),
         m_data(std::move(data.m_data)) {
     this->m_hash_value = data.m_hash_value;
   }
 
   template <typename... Args>
-  n_ary_vector(n_ary_vector const &data, Args &&...args) noexcept
+  n_ary_vector(n_ary_vector const &data, Args &&...args)
       : base_t(std::forward<Args>(args)...), m_coeff(data.m_coeff),
         m_data(data.m_data) {
     this->m_hash_value = data.m_hash_value;
@@ -40,15 +41,13 @@ public:
 
   ~n_ary_vector() override = default;
 
-  inline void push_back(expression_holder<expr_t> const &expr) noexcept {
+  inline void push_back(expression_holder<expr_t> const &expr) {
     insert_hash(expr);
   }
 
-  inline void push_back(expression_holder<expr_t> &&expr) noexcept {
-    insert_hash(expr);
-  }
+  inline void push_back(expression_holder<expr_t> &&expr) { insert_hash(expr); }
 
-  inline void reserve([[maybe_unused]] std::size_t size) noexcept {
+  inline void reserve([[maybe_unused]] std::size_t size) {
     m_data.reserve(size);
   }
 
@@ -103,7 +102,7 @@ private:
   expr_vector<expr_holder_t> m_data;
 
 private:
-  template <typename T> void insert_hash(T const &expr) noexcept {
+  template <typename T> void insert_hash(T const &expr) {
     m_data.emplace_back(expr);
     update_hash_value();
   }

@@ -19,8 +19,7 @@ public:
   }
   tensor_add(tensor_add &&add) noexcept
       : base(static_cast<base &&>(add), add.dim(), add.rank()) {
-    if (auto const &sp = add.space())
-      this->set_space(*sp);
+    this->m_tensor_space = std::move(add.m_tensor_space);
   }
   ~tensor_add() override = default;
   const tensor_add &operator=(tensor_add &&) = delete;

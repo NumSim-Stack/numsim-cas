@@ -14,7 +14,7 @@ namespace simplifier {
 // factors via the existing t2s × t2s mul (which has its own
 // simplifier).
 mul_base::expr_holder_tensor_t
-mul_base::dispatch(tensor_to_scalar_with_tensor_mul const &lhs) noexcept {
+mul_base::dispatch(tensor_to_scalar_with_tensor_mul const &lhs) {
   return lhs.expr_lhs() * (lhs.expr_rhs() * m_rhs);
 }
 
@@ -33,7 +33,7 @@ mul_base::dispatch(tensor_to_scalar_with_tensor_mul const &lhs) noexcept {
 // coefficients.) Misreading this swap would silently corrupt the
 // product — read either site to confirm before changing.
 mul_base::expr_holder_tensor_t
-mul_base::dispatch(tensor_scalar_mul const &lhs) noexcept {
+mul_base::dispatch(tensor_scalar_mul const &lhs) {
   return lhs.expr_lhs() * (lhs.expr_rhs() * m_rhs);
 }
 

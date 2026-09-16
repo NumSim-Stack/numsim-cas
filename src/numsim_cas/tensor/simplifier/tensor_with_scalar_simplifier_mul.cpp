@@ -10,7 +10,7 @@ namespace simplifier {
 // rhs := tensor_expression
 
 mul_base::expr_holder_tensor_t
-mul_base::dispatch(tensor_scalar_mul const &rhs) noexcept {
+mul_base::dispatch(tensor_scalar_mul const &rhs) {
   return make_expression<tensor_scalar_mul>(rhs.expr_lhs() * m_lhs,
                                             rhs.expr_rhs());
 }

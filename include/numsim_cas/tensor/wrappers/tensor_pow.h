@@ -39,7 +39,7 @@ public:
   ~tensor_pow() override = default;
   const tensor_pow &operator=(tensor_pow &&) = delete;
 
-  void update_hash_value() const noexcept override {
+  void update_hash_value() const override {
     if (is_scalar_constant(this->m_rhs)) { // #284: singleton-aware
       base::m_hash_value = this->m_lhs.get().hash_value();
     } else {

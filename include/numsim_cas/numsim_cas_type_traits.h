@@ -40,7 +40,7 @@ struct visitor_derivative {};
 struct scalar_expr_less {
   template <typename Expr>
   bool operator()(expression_holder<Expr> const &a,
-                  expression_holder<Expr> const &b) const noexcept {
+                  expression_holder<Expr> const &b) const {
     return a < b;
   }
 };

@@ -9,7 +9,7 @@ expression::hash_type const &expression::hash_value() const {
   return m_hash_value;
 }
 
-bool expression::operator==(expression const &rhs) const noexcept {
+bool expression::operator==(expression const &rhs) const {
   if (this == &rhs)
     return true;
 
@@ -25,11 +25,11 @@ bool expression::operator==(expression const &rhs) const noexcept {
   return equals_same_type(rhs);
 }
 
-bool expression::operator!=(expression const &rhs) const noexcept {
+bool expression::operator!=(expression const &rhs) const {
   return !(*this == rhs);
 }
 
-bool expression::operator<(expression const &rhs) const noexcept {
+bool expression::operator<(expression const &rhs) const {
   if (hash_value() != rhs.hash_value())
     return hash_value() < rhs.hash_value();
   if (id() != rhs.id())

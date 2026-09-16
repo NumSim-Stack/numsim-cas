@@ -44,7 +44,7 @@ public:
   [[nodiscard]] isotropic_kind kind() const noexcept { return m_kind; }
 
 protected:
-  void update_hash_value() const noexcept override {
+  void update_hash_value() const override {
     this->m_hash_value = 0;
     hash_combine(this->m_hash_value, this->get_id());
     if (this->expr().is_valid())

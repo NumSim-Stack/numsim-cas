@@ -18,7 +18,7 @@ public:
         m_name(std::move(data.m_name)) {}
 
   template <typename... Args>
-  explicit symbol_base(std::string const &name, Args &&...args) noexcept
+  explicit symbol_base(std::string const &name, Args &&...args)
       : base_t(std::forward<Args>(args)...), m_name(name) {}
 
   ~symbol_base() override {}
