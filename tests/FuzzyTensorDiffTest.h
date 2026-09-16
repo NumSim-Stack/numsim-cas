@@ -742,14 +742,15 @@ class FuzzyTensorDiffTest : public ::testing::TestWithParam<unsigned> {};
       numsim::cas::fuzzy_detail::FuzzyTensorMachine machine(seed, Depth);      \
       auto result = machine.run_one_test();                                    \
       if (result == numsim::cas::fuzzy_detail::TestResult::Skip) {             \
-        GTEST_SKIP() << "CAS exception for seed " << GetParam();               \
+        GTEST_SKIP() << "seed " << GetParam() << ": "                          \
+                     << machine.skip_reason();                                 \
       }                                                                        \
       EXPECT_EQ(                                                               \
           static_cast<int>(result),                                            \
           static_cast<int>(numsim::cas::fuzzy_detail::TestResult::Pass));      \
     } catch (std::exception const &e) {                                        \
-      GTEST_SKIP() << "Uncaught exception for seed " << GetParam() << ": "     \
-                   << e.what();                                                \
+      FAIL() << "Uncaught exception for seed " << GetParam() << ": "           \
+             << e.what();                                                      \
     }                                                                          \
   }
 

@@ -18,6 +18,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <typeinfo>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -258,8 +259,8 @@ public:
       info = generate(m_depth);
     } catch (cas_error const &e) {
       return handle_exception(e, "generation");
-    } catch (std::exception const &) {
-      return TestResult::Skip;
+    } catch (std::exception const &e) {
+      return handle_unexpected(e, "generation");
     }
 
     auto const &vars = self().get_diff_vars();
@@ -279,8 +280,8 @@ public:
       d_holder = self().do_diff(info, diff_var);
     } catch (cas_error const &e) {
       return handle_exception(e, "differentiation");
-    } catch (std::exception const &) {
-      return TestResult::Skip;
+    } catch (std::exception const &e) {
+      return handle_unexpected(e, "differentiation");
     }
     if (!d_holder) {
       self().report_failure("diff returned invalid expression", info,
@@ -297,8 +298,8 @@ public:
       return TestResult::Pass;
     } catch (cas_error const &e) {
       return handle_exception(e, "verification");
-    } catch (std::exception const &) {
-      return TestResult::Skip;
+    } catch (std::exception const &e) {
+      return handle_unexpected(e, "verification");
     }
   }
 
@@ -382,20 +383,23 @@ public:
     return result;
   }
 
+  // Capability-limit CAS errors skip (with the reason recorded); anything
+  // else, including internal_error (a violated invariant), fails the test.
   TestResult handle_exception(cas_error const &e, std::string const &phase) {
-    if (dynamic_cast<not_implemented_error const *>(&e))
+    if (dynamic_cast<not_implemented_error const *>(&e) ||
+        dynamic_cast<evaluation_error const *>(&e) ||
+        dynamic_cast<invalid_expression_error const *>(&e)) {
+      m_skip_reason = phase + ": " + e.what();
       return TestResult::Skip;
-    if (dynamic_cast<evaluation_error const *>(&e))
-      return TestResult::Skip;
-    if (dynamic_cast<invalid_expression_error const *>(&e))
-      return TestResult::Skip;
-    if (dynamic_cast<internal_error const *>(&e))
-      return TestResult::Skip;
+    }
+    return handle_unexpected(e, phase);
+  }
 
-    std::ostringstream oss;
-    oss << "unexpected exception during " << phase << ": " << e.what();
-    ADD_FAILURE() << "seed=" << m_seed << " depth=" << m_depth << "\n  "
-                  << oss.str();
+  TestResult handle_unexpected(std::exception const &e,
+                               std::string const &phase) {
+    ADD_FAILURE() << "seed=" << m_seed << " depth=" << m_depth
+                  << "\n  unexpected exception during " << phase << " ("
+                  << typeid(e).name() << "): " << e.what();
     return TestResult::Fail;
   }
 
@@ -406,6 +410,7 @@ public:
   std::size_t depth() const { return m_depth; }
   std::mt19937 &rng() { return m_rng; }
   std::vector<std::string> const &op_trace() const { return m_op_trace; }
+  std::string const &skip_reason() const { return m_skip_reason; }
   void clear_op_trace() { m_op_trace.clear(); }
 
 protected:
@@ -414,6 +419,7 @@ protected:
   std::size_t m_depth;
   std::vector<OpEntry> m_ops;
   std::vector<std::string> m_op_trace;
+  std::string m_skip_reason;
 
 private:
   Derived &self() { return static_cast<Derived &>(*this); }
@@ -435,14 +441,15 @@ private:
           GetParam() + SeedOffset##u, Depth __VA_OPT__(, ) __VA_ARGS__);       \
       auto result = machine.run_one_test();                                    \
       if (result == numsim::cas::fuzzy_detail::TestResult::Skip) {             \
-        GTEST_SKIP() << "CAS exception for seed " << GetParam();               \
+        GTEST_SKIP() << "seed " << GetParam() << ": "                          \
+                     << machine.skip_reason();                                 \
       }                                                                        \
       EXPECT_EQ(                                                               \
           static_cast<int>(result),                                            \
           static_cast<int>(numsim::cas::fuzzy_detail::TestResult::Pass));      \
     } catch (std::exception const &e) {                                        \
-      GTEST_SKIP() << "Uncaught exception for seed " << GetParam() << ": "     \
-                   << e.what();                                                \
+      FAIL() << "Uncaught exception for seed " << GetParam() << ": "           \
+             << e.what();                                                      \
     }                                                                          \
   }
 
