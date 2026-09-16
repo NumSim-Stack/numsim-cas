@@ -976,6 +976,20 @@ TEST(SymbolIdentity, EvaluatorKeepsBothDomainBindings) {
   ev.set(xt, 3.0);
 
   EXPECT_DOUBLE_EQ(ev.apply(xs), 2.0);
+
+  // Same keying as evaluator_base, so both entries must coexist.
+  std::map<expression_holder<expression>, double> keys;
+  keys[expression_holder<expression>(
+      std::static_pointer_cast<expression>(xs.data()))] = 2.0;
+  keys[expression_holder<expression>(
+      std::static_pointer_cast<expression>(xt.data()))] = 3.0;
+  EXPECT_EQ(keys.size(), 2u);
+  EXPECT_DOUBLE_EQ(keys.at(expression_holder<expression>(
+                       std::static_pointer_cast<expression>(xs.data()))),
+                   2.0);
+  EXPECT_DOUBLE_EQ(keys.at(expression_holder<expression>(
+                       std::static_pointer_cast<expression>(xt.data()))),
+                   3.0);
 }
 
 // #93 — a tensor_mul's space() must survive copy reconstruction

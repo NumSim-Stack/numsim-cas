@@ -199,7 +199,6 @@ template <typename LHSExpr, typename RHSExpr> struct relation {
   RHS rhs;
   kind k;
 
-  // order by (kind_index, lhs_hash, rhs_hash)
   friend bool operator<(relation const &a, relation const &b) {
     auto ai = a.k.index(), bi = b.k.index();
     if (ai != bi)
