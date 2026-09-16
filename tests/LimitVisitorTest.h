@@ -360,6 +360,9 @@ TEST(LimitAlgebra, LogAndPowOfFiniteValues) {
             dir::indeterminate);
   EXPECT_EQ(A::apply_pow({dir::finite_positive}, {dir::zero}, false).dir,
             dir::finite_positive);
+  // (-2)^0 = 1
+  EXPECT_EQ(A::apply_pow({dir::finite_negative}, {dir::zero}, false).dir,
+            dir::finite_positive);
 }
 
 TEST(ScalarLimit, OddFunctionsAtZero) {
@@ -416,13 +419,51 @@ TEST(ScalarLimit, InverseTrigSigns) {
   auto x = make_expression<scalar>("x");
   auto [a] = make_scalar_variable("a");
   a.assumption(negative{});
+  auto half = make_scalar_constant(-0.5);
   scalar_limit_visitor v(x, {pt::pos_infinity});
   EXPECT_EQ(v.apply(atan(a)).dir, dir::finite_negative);
-  EXPECT_EQ(v.apply(asin(a)).dir, dir::finite_negative);
-  EXPECT_EQ(v.apply(acos(a)).dir, dir::finite_positive);
-  // asin is undefined outside [-1, 1]
-  EXPECT_EQ(v.apply(asin(x)).dir, dir::unknown);
+  EXPECT_EQ(v.apply(asin(half)).dir, dir::finite_negative);
+  EXPECT_EQ(v.apply(acos(half)).dir, dir::finite_positive);
+  EXPECT_EQ(v.apply(asin(sign(a))).dir, dir::finite_negative);
   EXPECT_EQ(v.apply(cos(a)).dir, dir::unknown);
+}
+
+// asin and acos are NaN outside [-1, 1], so an argument of unknown magnitude
+// has no provable sign.
+TEST(ScalarLimit, InverseTrigOutsideDomainIsUnknown) {
+  auto x = make_expression<scalar>("x");
+  auto [a] = make_scalar_variable("a");
+  a.assumption(negative{});
+  scalar_limit_visitor v(x, {pt::zero_plus});
+  EXPECT_EQ(v.apply(asin(x + make_scalar_constant(2))).dir, dir::unknown);
+  EXPECT_EQ(v.apply(acos(x - make_scalar_constant(2))).dir, dir::unknown);
+  EXPECT_EQ(v.apply(asin(a)).dir, dir::unknown);
+  EXPECT_EQ(v.apply(acos(a)).dir, dir::unknown);
+  scalar_limit_visitor at_infinity(x, {pt::pos_infinity});
+  EXPECT_EQ(at_infinity.apply(asin(x)).dir, dir::unknown);
+  // in range: asin(0) = 0 and acos(0) = pi/2 need no magnitude bound
+  EXPECT_EQ(v.apply(asin(x)).dir, dir::zero);
+  EXPECT_EQ(v.apply(acos(x)).dir, dir::finite_positive);
+}
+
+// A structurally nonnegative argument reaches zero from above, whichever side
+// the limit variable approaches from.
+TEST(ScalarLimit, NonnegativeArgumentsKeepTheirZeroSide) {
+  auto x = make_expression<scalar>("x");
+  scalar_limit_visitor v(x, {pt::zero_minus});
+  EXPECT_EQ(
+      v.apply(pow(pow(x, make_scalar_constant(2)), make_scalar_constant(-1)))
+          .dir,
+      dir::pos_infinity);
+  EXPECT_EQ(v.apply(pow(abs(x), make_scalar_constant(-1))).dir,
+            dir::pos_infinity);
+  EXPECT_EQ(v.apply(log(abs(x))).dir, dir::neg_infinity);
+  EXPECT_EQ(v.apply(log(sqrt(abs(x)))).dir, dir::neg_infinity);
+  // an odd power keeps the sign of x, so the side stays unknown
+  EXPECT_EQ(
+      v.apply(pow(pow(x, make_scalar_constant(3)), make_scalar_constant(-1)))
+          .dir,
+      dir::unknown);
 }
 
 // ═══════════════════════════════════════════════════════════════════
