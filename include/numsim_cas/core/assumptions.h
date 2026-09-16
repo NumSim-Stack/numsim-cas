@@ -204,13 +204,13 @@ template <typename LHSExpr, typename RHSExpr> struct relation {
     auto ai = a.k.index(), bi = b.k.index();
     if (ai != bi)
       return ai < bi;
-    auto al = a.lhs.get().hash_value();
-    auto bl = b.lhs.get().hash_value();
-    if (al != bl)
-      return al < bl;
-    auto ar = a.rhs.get().hash_value();
-    auto br = b.rhs.get().hash_value();
-    return ar < br;
+    // Compare the operands themselves: hash-only ordering treats colliding
+    // relations as duplicates, which drops them from relation::set.
+    if (a.lhs.get() != b.lhs.get())
+      return a.lhs.get() < b.lhs.get();
+    if (a.rhs.get() != b.rhs.get())
+      return a.rhs.get() < b.rhs.get();
+    return false;
   }
 };
 
