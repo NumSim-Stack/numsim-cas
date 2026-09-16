@@ -199,18 +199,17 @@ template <typename LHSExpr, typename RHSExpr> struct relation {
   RHS rhs;
   kind k;
 
-  // order by (kind_index, lhs_hash, rhs_hash)
   friend bool operator<(relation const &a, relation const &b) {
     auto ai = a.k.index(), bi = b.k.index();
     if (ai != bi)
       return ai < bi;
-    auto al = a.lhs.get().hash_value();
-    auto bl = b.lhs.get().hash_value();
-    if (al != bl)
-      return al < bl;
-    auto ar = a.rhs.get().hash_value();
-    auto br = b.rhs.get().hash_value();
-    return ar < br;
+    // Compare the operands themselves: hash-only ordering treats colliding
+    // relations as duplicates, which drops them from relation::set.
+    if (a.lhs.get() != b.lhs.get())
+      return a.lhs.get() < b.lhs.get();
+    if (a.rhs.get() != b.rhs.get())
+      return a.rhs.get() < b.rhs.get();
+    return false;
   }
 };
 

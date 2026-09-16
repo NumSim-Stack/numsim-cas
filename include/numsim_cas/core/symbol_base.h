@@ -56,7 +56,10 @@ protected:
 template <typename BaseExprT>
 bool operator<(symbol_base<BaseExprT> const &lhs,
                symbol_base<BaseExprT> const &rhs) {
-  return lhs.hash_value() < rhs.hash_value();
+  if (lhs.hash_value() != rhs.hash_value())
+    return lhs.hash_value() < rhs.hash_value();
+  // The hash covers only the name, so colliding names need a real tiebreak.
+  return lhs.name() < rhs.name();
 }
 
 template <typename BaseExprT>
@@ -68,7 +71,7 @@ bool operator>(symbol_base<BaseExprT> const &lhs,
 template <typename BaseExprT>
 bool operator==(symbol_base<BaseExprT> const &lhs,
                 symbol_base<BaseExprT> const &rhs) {
-  return lhs.hash_value() == rhs.hash_value();
+  return lhs.hash_value() == rhs.hash_value() && lhs.name() == rhs.name();
 }
 
 template <typename BaseExprT>

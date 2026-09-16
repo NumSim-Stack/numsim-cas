@@ -911,4 +911,20 @@ TEST_F(AssumptionFixture, Step6_ScalarAssumeUniformGuardSampling) {
                numsim::cas::invalid_assumption_error);
 }
 
+// relation::set orders by its operands; relations differing only in an
+// operand must stay distinct members.
+TEST_F(AssumptionFixture, RelationSetKeepsDistinctOperands) {
+  using rel_t = numsim::cas::relation::relation<numsim::cas::scalar_expression,
+                                                numsim::cas::scalar_expression>;
+  numsim::cas::relation::set<numsim::cas::scalar_expression,
+                             numsim::cas::scalar_expression>
+      set;
+  set.insert(rel_t{x, y, numsim::cas::relation::equal{}});
+  set.insert(rel_t{x, z, numsim::cas::relation::equal{}});
+  set.insert(rel_t{x, y, numsim::cas::relation::less{}});
+  set.insert(rel_t{x, y, numsim::cas::relation::equal{}});
+
+  EXPECT_EQ(set.size(), 3u);
+}
+
 #endif // SCALARASSUMPTIONTEST_H

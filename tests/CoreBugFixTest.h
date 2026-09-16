@@ -991,6 +991,49 @@ TEST(TensorConstHashInvariant,
   EXPECT_EQ(m.get().hash_value(), A.get().hash_value());
 }
 
+// Node ids are per-domain indices and a symbol's hash covers only its name,
+// so a scalar and a tensor named alike tie on both and used to reach the
+// same-type downcast.
+TEST(SymbolIdentity, SameNameAcrossDomainsIsDistinct) {
+  auto [xs] = make_scalar_variable("x");
+  auto [xt] =
+      make_tensor_variable(std::tuple{"x", std::size_t{3}, std::size_t{2}});
+  expression const &a = xs.get();
+  expression const &b = xt.get();
+
+  EXPECT_FALSE(a == b);
+  EXPECT_TRUE(a != b);
+  EXPECT_TRUE((a < b) != (b < a)) << "cross-domain order must be total";
+}
+
+// evaluator_base keys one map by expression_holder<expression>, so symbols
+// from different domains share it: binding both must keep both values.
+TEST(SymbolIdentity, EvaluatorKeepsBothDomainBindings) {
+  auto [xs] = make_scalar_variable("x");
+  auto [xt] =
+      make_tensor_variable(std::tuple{"x", std::size_t{3}, std::size_t{2}});
+
+  scalar_evaluator<double> ev;
+  ev.set(xs, 2.0);
+  ev.set(xt, 3.0);
+
+  EXPECT_DOUBLE_EQ(ev.apply(xs), 2.0);
+
+  // Same keying as evaluator_base, so both entries must coexist.
+  std::map<expression_holder<expression>, double> keys;
+  keys[expression_holder<expression>(
+      std::static_pointer_cast<expression>(xs.data()))] = 2.0;
+  keys[expression_holder<expression>(
+      std::static_pointer_cast<expression>(xt.data()))] = 3.0;
+  EXPECT_EQ(keys.size(), 2u);
+  EXPECT_DOUBLE_EQ(keys.at(expression_holder<expression>(
+                       std::static_pointer_cast<expression>(xs.data()))),
+                   2.0);
+  EXPECT_DOUBLE_EQ(keys.at(expression_holder<expression>(
+                       std::static_pointer_cast<expression>(xt.data()))),
+                   3.0);
+}
+
 // #93 — a tensor_mul's space() must survive copy reconstruction
 // (tensor_add did this; mul dropped it).
 TEST(CoreBugFix, TensorMulCopyPreservesSpaceAnnotation) {

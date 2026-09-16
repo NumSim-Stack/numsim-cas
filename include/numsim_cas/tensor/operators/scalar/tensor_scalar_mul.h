@@ -1,6 +1,7 @@
 #ifndef TENSOR_SCALAR_MUL_H
 #define TENSOR_SCALAR_MUL_H
 
+#include <cassert>
 #include <numsim_cas/core/binary_op.h>
 #include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/tensor/structural_propagation.h>
@@ -44,6 +45,7 @@ public:
     if (this->hash_value() != rhs.hash_value())
       return false;
     if (rhs.id() == this->id()) {
+      assert(dynamic_cast<tensor_scalar_mul const *>(&rhs) != nullptr);
       auto const &r = static_cast<tensor_scalar_mul const &>(rhs);
       return this->expr_rhs() == r.expr_rhs();
     }
