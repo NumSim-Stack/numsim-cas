@@ -17,6 +17,7 @@
 #include <numsim_cas/tensor/simplifier/tensor_with_scalar_simplifier_mul.h>
 #include <numsim_cas/tensor/simplifier/tensor_with_tensor_to_scalar_simplifier_mul.h>
 #include <numsim_cas/tensor/tensor_assume.h>
+#include <numsim_cas/tensor/tensor_shape_validation.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_one.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_scalar_wrapper.h>
@@ -97,6 +98,7 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>>
 inline expression_holder<tensor_expression> tag_invoke(add_fn, L &&lhs,
                                                        R &&rhs) {
+  validate_same_shape("tensor operator+", lhs.get(), rhs.get());
   if (is_same<tensor_zero>(lhs))
     return std::forward<R>(rhs);
   if (is_same<tensor_zero>(rhs))
@@ -161,6 +163,7 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>>
 inline expression_holder<tensor_expression> tag_invoke(sub_fn, L &&lhs,
                                                        R &&rhs) {
+  validate_same_shape("tensor operator-", lhs.get(), rhs.get());
   if (is_same<tensor_zero>(rhs))
     return std::forward<L>(lhs);
   if (is_same<tensor_zero>(lhs))
@@ -200,6 +203,7 @@ requires std::same_as<std::remove_cvref_t<L>,
                       expression_holder<tensor_expression>>
 inline expression_holder<tensor_expression>
 tag_invoke(mul_fn, L &&lhs, [[maybe_unused]] R &&rhs) {
+  validate_same_dim("tensor operator*", lhs.get(), rhs.get());
   if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
     const auto rank{rhs.get().rank() + lhs.get().rank() - 2};
     return make_expression<tensor_zero>(lhs.get().dim(), rank);

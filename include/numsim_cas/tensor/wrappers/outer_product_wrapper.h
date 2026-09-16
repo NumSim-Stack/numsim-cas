@@ -3,6 +3,7 @@
 
 #include <numsim_cas/core/binary_op.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_shape_validation.h>
 
 namespace numsim::cas {
 
@@ -19,7 +20,11 @@ public:
       : base(std::forward<LHS>(_lhs), std::forward<RHS>(_rhs), _lhs.get().dim(),
              _lhs.get().rank() + _rhs.get().rank()),
         m_lhs_indices(std::move(_lhs_indices)),
-        m_rhs_indices(std::move(_rhs_indices)) {}
+        m_rhs_indices(std::move(_rhs_indices)) {
+    detail::validate_outer_product("otimes", base::expr_lhs().get(),
+                                   m_lhs_indices, base::expr_rhs().get(),
+                                   m_rhs_indices);
+  }
 
   const auto &indices_lhs() const noexcept { return m_lhs_indices; }
   const auto &indices_rhs() const noexcept { return m_rhs_indices; }

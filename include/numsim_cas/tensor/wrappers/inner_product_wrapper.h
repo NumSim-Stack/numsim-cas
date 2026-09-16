@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <numsim_cas/core/binary_op.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_shape_validation.h>
 #include <stdexcept>
 #include <vector>
 
@@ -24,19 +25,9 @@ public:
                  _rhs_indices.size()),
         m_lhs_indices(std::forward<SeqLHS>(_lhs_indices)),
         m_rhs_indices(std::forward<SeqRHS>(_rhs_indices)) {
-    //    tensor_expression &lhs{*this->m_lhs};
-    //    tensor_expression &rhs{*this->m_rhs};
-    //    const auto rank_lhs{lhs.rank()};
-    //    const auto rank_rhs{rhs.rank()};
-    //    this->m_rank =
-    //        rank_lhs + rank_rhs - m_lhs_indices.size() - m_rhs_indices.size();
-    //    if (lhs.dim() == rhs.dim()) {
-    //      this->m_dim = lhs.dim();
-    //    } else {
-    //      throw
-    //      std::runtime_error("inner_product_wrapper::inner_product_wrapper("
-    //                               ") lhs.dim() != rhs.dim()");
-    //    }
+    detail::validate_contraction("inner_product", base::expr_lhs().get(),
+                                 m_lhs_indices, base::expr_rhs().get(),
+                                 m_rhs_indices);
   }
 
   inner_product_wrapper(inner_product_wrapper &&data) noexcept

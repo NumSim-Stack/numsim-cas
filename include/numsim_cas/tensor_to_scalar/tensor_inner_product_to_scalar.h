@@ -4,6 +4,7 @@
 #include <numsim_cas/core/binary_op.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_shape_validation.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_expression.h>
 
 namespace numsim::cas {
@@ -22,7 +23,11 @@ public:
                                  SeqRHS &&_rhs_indices)
       : base(std::forward<LHS>(_lhs), std::forward<RHS>(_rhs)),
         m_lhs_indices(std::forward<SeqLHS>(_lhs_indices)),
-        m_rhs_indices(std::forward<SeqRHS>(_rhs_indices)) {}
+        m_rhs_indices(std::forward<SeqRHS>(_rhs_indices)) {
+    detail::validate_full_contraction("dot_product", base::expr_lhs().get(),
+                                      m_lhs_indices, base::expr_rhs().get(),
+                                      m_rhs_indices);
+  }
 
   tensor_inner_product_to_scalar(tensor_inner_product_to_scalar &&data) noexcept
       : base(std::move(static_cast<base &&>(data))),
