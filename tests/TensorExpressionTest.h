@@ -1358,6 +1358,127 @@ TEST(TensorIfThenElseGuards, T2sCondMismatchedRankThrows) {
       invalid_expression_error);
 }
 
+// Shape errors throw at construction (Debug and Release), including the
+// zero short-circuits and direct node construction.
+TEST(TensorShapeValidation, AddSubRequireSameDimAndRank) {
+  using namespace numsim::cas;
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto Y = make_expression<tensor>("Y", 3, 2);
+  auto C = make_expression<tensor>("C", 3, 4);
+  auto W = make_expression<tensor>("W", 2, 2);
+  EXPECT_THROW((void)(X + C), invalid_expression_error);
+  EXPECT_THROW((void)(C + X), invalid_expression_error);
+  EXPECT_THROW((void)(X - C), invalid_expression_error);
+  EXPECT_THROW((void)(X + W), invalid_expression_error);
+  EXPECT_THROW((void)(X - W), invalid_expression_error);
+  EXPECT_THROW((void)((X + Y) + C), invalid_expression_error);
+  EXPECT_THROW((void)((X - Y) - W), invalid_expression_error);
+  EXPECT_NO_THROW((void)(X + Y));
+  EXPECT_NO_THROW((void)(X - Y));
+}
+
+TEST(TensorShapeValidation, AddSubZeroOfOtherShapeThrows) {
+  using namespace numsim::cas;
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto Z4 = make_expression<tensor_zero>(3, 4);
+  auto Z2d = make_expression<tensor_zero>(2, 2);
+  auto Z = make_expression<tensor_zero>(3, 2);
+  EXPECT_THROW((void)(X + Z4), invalid_expression_error);
+  EXPECT_THROW((void)(Z4 + X), invalid_expression_error);
+  EXPECT_THROW((void)(X - Z2d), invalid_expression_error);
+  EXPECT_THROW((void)(Z2d - X), invalid_expression_error);
+  EXPECT_NO_THROW((void)(X + Z));
+  EXPECT_NO_THROW((void)(Z - X));
+}
+
+TEST(TensorShapeValidation, InnerProductValidatesDimAndIndices) {
+  using namespace numsim::cas;
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto C = make_expression<tensor>("C", 3, 4);
+  auto W = make_expression<tensor>("W", 2, 2);
+  auto Z = make_expression<tensor_zero>(3, 2);
+  // dim mismatch
+  EXPECT_THROW((void)inner_product(X, sequence{2}, W, sequence{1}),
+               invalid_expression_error);
+  // index count mismatch
+  EXPECT_THROW((void)inner_product(X, sequence{1, 2}, X, sequence{1}),
+               invalid_expression_error);
+  // index out of range
+  EXPECT_THROW((void)inner_product(X, sequence{3}, X, sequence{1}),
+               invalid_expression_error);
+  // duplicate index
+  EXPECT_THROW((void)inner_product(C, sequence{1, 1}, X, sequence{1, 2}),
+               invalid_expression_error);
+  // zero operand short-circuit still validates
+  EXPECT_THROW((void)inner_product(Z, sequence{2}, W, sequence{1}),
+               invalid_expression_error);
+  EXPECT_THROW((void)inner_product(Z, sequence{1, 2, 3}, X, sequence{1, 2, 3}),
+               invalid_expression_error);
+  // direct construction validates
+  EXPECT_THROW((void)make_expression<inner_product_wrapper>(X, sequence{2}, W,
+                                                            sequence{1}),
+               invalid_expression_error);
+  EXPECT_NO_THROW((void)inner_product(C, sequence{3, 4}, X, sequence{1, 2}));
+  EXPECT_NO_THROW((void)inner_product(X, sequence{2}, X, sequence{1}));
+}
+
+TEST(TensorShapeValidation, OuterProductValidatesDimAndIndices) {
+  using namespace numsim::cas;
+  auto u = make_expression<tensor>("u", 3, 1);
+  auto v = make_expression<tensor>("v", 3, 1);
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto W = make_expression<tensor>("W", 2, 2);
+  auto Z = make_expression<tensor_zero>(3, 2);
+  EXPECT_THROW((void)otimes(X, W), invalid_expression_error);
+  EXPECT_THROW((void)otimes(Z, W), invalid_expression_error);
+  EXPECT_THROW((void)otimesu(X, W), invalid_expression_error);
+  // result positions must form a permutation
+  EXPECT_THROW((void)otimes(u, sequence{1}, v, sequence{1}),
+               invalid_expression_error);
+  EXPECT_THROW((void)otimes(u, sequence{1}, v, sequence{3}),
+               invalid_expression_error);
+  // index counts must equal operand ranks
+  EXPECT_THROW((void)otimes(u, sequence{1}, X, sequence{2}),
+               invalid_expression_error);
+  EXPECT_THROW((void)make_expression<outer_product_wrapper>(u, sequence{1}, v,
+                                                            sequence{1}),
+               invalid_expression_error);
+  EXPECT_NO_THROW((void)otimes(u, sequence{2}, v, sequence{1}));
+  EXPECT_NO_THROW((void)otimesu(X, X));
+}
+
+TEST(TensorShapeValidation, DotProductRequiresFullContraction) {
+  using namespace numsim::cas;
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto Y = make_expression<tensor>("Y", 3, 2);
+  auto W = make_expression<tensor>("W", 2, 2);
+  auto Z = make_expression<tensor_zero>(3, 2);
+  EXPECT_THROW((void)dot_product(X, sequence{1, 2}, Y, sequence{1}),
+               invalid_expression_error);
+  EXPECT_THROW((void)dot_product(X, sequence{1}, Y, sequence{1}),
+               invalid_expression_error);
+  EXPECT_THROW((void)dot_product(X, sequence{1, 2}, W, sequence{1, 2}),
+               invalid_expression_error);
+  EXPECT_THROW((void)dot_product(X, sequence{1, 1}, Y, sequence{1, 2}),
+               invalid_expression_error);
+  EXPECT_THROW((void)dot_product(Z, sequence{1}, Y, sequence{1}),
+               invalid_expression_error);
+  EXPECT_THROW((void)make_expression<tensor_inner_product_to_scalar>(
+                   X, sequence{1, 2}, W, sequence{1, 2}),
+               invalid_expression_error);
+  EXPECT_NO_THROW((void)dot_product(X, sequence{1, 2}, Y, sequence{2, 1}));
+}
+
+TEST(TensorShapeValidation, DotRequiresRank2) {
+  using namespace numsim::cas;
+  auto u = make_expression<tensor>("u", 3, 1);
+  auto C = make_expression<tensor>("C", 3, 4);
+  auto X = make_expression<tensor>("X", 3, 2);
+  EXPECT_THROW((void)dot(u), invalid_expression_error);
+  EXPECT_THROW((void)dot(C), invalid_expression_error);
+  EXPECT_NO_THROW((void)dot(X));
+}
+
 // #297 — both arms share a space annotation → the result keeps it (the
 // result is whichever arm cond selects, so it lies in the join).
 TEST(TensorIfThenElseAnnotations, ScalarCondSharedSpacePropagates) {

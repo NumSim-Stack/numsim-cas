@@ -18,8 +18,8 @@ namespace numsim::cas {
 expression_holder<tensor_to_scalar_expression> dot_product(
     expression_holder<tensor_expression> const &lhs, sequence &&lhs_indices,
     expression_holder<tensor_expression> const &rhs, sequence &&rhs_indices) {
-  assert(call_tensor::rank(lhs) == lhs_indices.size() ||
-         call_tensor::rank(rhs) == rhs_indices.size());
+  detail::validate_full_contraction("dot_product", lhs.get(), lhs_indices,
+                                    rhs.get(), rhs_indices);
 
   if (auto r = t2s_rules::try_dot_product_zero(lhs, rhs))
     return *r;
@@ -30,6 +30,10 @@ expression_holder<tensor_to_scalar_expression> dot_product(
 
 expression_holder<tensor_to_scalar_expression>
 dot(expression_holder<tensor_expression> const &expr) {
+  // The self-contraction evaluator (dcontract_self_op) supports rank 2 only.
+  if (expr.get().rank() != 2)
+    throw invalid_expression_error("dot: operand must be rank 2 (got rank " +
+                                   std::to_string(expr.get().rank()) + ")");
   if (auto r = t2s_rules::try_dot_zero(expr))
     return *r;
   if (auto r = t2s_rules::try_dot_negative(expr))

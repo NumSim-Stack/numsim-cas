@@ -11,6 +11,7 @@
 #include <numsim_cas/tensor/skew_classification.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_shape_validation.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
 #include <optional>
@@ -222,6 +223,8 @@ try_normalize_reversed_projector(ExprLHS &&lhs, sequence const &lhs_indices,
 template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] inline auto inner_product(ExprLHS &&lhs, sequence &&lhs_indices,
                                         ExprRHS &&rhs, sequence &&rhs_indices) {
+  detail::validate_contraction("inner_product", lhs.get(), lhs_indices,
+                               rhs.get(), rhs_indices);
   if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
     const auto rank{lhs.get().rank() + rhs.get().rank() - lhs_indices.size() -
                     rhs_indices.size()};
@@ -241,6 +244,8 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 inner_product(ExprLHS &&lhs, sequence const &lhs_indices, ExprRHS &&rhs,
               sequence const &rhs_indices) {
 
+  detail::validate_contraction("inner_product", lhs.get(), lhs_indices,
+                               rhs.get(), rhs_indices);
   if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs)) {
     const auto rank{lhs.get().rank() + rhs.get().rank() - lhs_indices.size() -
                     rhs_indices.size()};
@@ -257,6 +262,7 @@ inner_product(ExprLHS &&lhs, sequence const &lhs_indices, ExprRHS &&rhs,
 
 template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto otimes(ExprLHS &&lhs, ExprRHS &&rhs) {
+  detail::validate_same_dim("otimes", lhs.get(), rhs.get());
   if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs))
     return make_expression<tensor_zero>(lhs.get().dim(),
                                         lhs.get().rank() + rhs.get().rank());
@@ -272,6 +278,8 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto
 otimes(ExprLHS &&lhs, sequence &&lhs_indices, ExprRHS &&rhs,
        sequence &&rhs_indices) {
+  detail::validate_outer_product("otimes", lhs.get(), lhs_indices, rhs.get(),
+                                 rhs_indices);
   if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs))
     return make_expression<tensor_zero>(lhs.get().dim(),
                                         lhs.get().rank() + rhs.get().rank());
@@ -282,6 +290,8 @@ otimes(ExprLHS &&lhs, sequence &&lhs_indices, ExprRHS &&rhs,
 
 template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto otimesu(ExprLHS &&lhs, ExprRHS &&rhs) {
+  detail::validate_outer_product("otimesu", lhs.get(), sequence{1, 3},
+                                 rhs.get(), sequence{2, 4});
   if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs))
     return make_expression<tensor_zero>(lhs.get().dim(),
                                         lhs.get().rank() + rhs.get().rank());
@@ -292,6 +302,8 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 
 template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 [[nodiscard]] constexpr inline auto otimesl(ExprLHS &&lhs, ExprRHS &&rhs) {
+  detail::validate_outer_product("otimesl", lhs.get(), sequence{1, 4},
+                                 rhs.get(), sequence{2, 3});
   if (is_same<tensor_zero>(lhs) || is_same<tensor_zero>(rhs))
     return make_expression<tensor_zero>(lhs.get().dim(),
                                         lhs.get().rank() + rhs.get().rank());
