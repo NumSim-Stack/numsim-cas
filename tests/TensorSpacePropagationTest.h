@@ -4,6 +4,8 @@
 #include "cas_test_helpers.h"
 #include <gtest/gtest.h>
 
+#include <random>
+
 #include <numsim_cas/core/diff.h>
 #include <numsim_cas/numsim_cas.h>
 #include <numsim_cas/tensor/tensor_diff.h>
@@ -211,6 +213,84 @@ TEST_F(TensorSpacePropagationTest, InvRejectsNegatedSkewFactorInTensorMul) {
   auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
   EXPECT_THROW(
       { [[maybe_unused]] auto r = inv(B * (-W)); }, invalid_expression_error);
+}
+
+TEST_F(TensorSpacePropagationTest, InvRejectsMatrixProductsWithSkewFactor) {
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", dim, 2}));
+  auto S = skew(X);
+  EXPECT_THROW({ [[maybe_unused]] auto r = inv(S); }, invalid_expression_error);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = inv(S * B); }, invalid_expression_error);
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto r =
+            inv(inner_product(B, sequence{1}, S, sequence{2}));
+      },
+      invalid_expression_error);
+}
+
+TEST_F(TensorSpacePropagationTest, InvAllowsRank4ContractionOfSkew) {
+  auto C4 = std::get<0>(make_tensor_variable(std::tuple{"C4", dim, 4}));
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto r =
+        inv(inner_product(C4, sequence{3, 4}, skew(X), sequence{1, 2}));
+  });
+  EXPECT_NO_THROW({
+    [[maybe_unused]] auto r =
+        inv(inner_product(C4, sequence{3, 4}, W, sequence{1, 2}));
+  });
+}
+
+TEST_F(TensorSpacePropagationTest, SkewProjectorWithOtherIndicesIsNotSkew) {
+  auto M = inner_product(P_skew(dim), sequence{1, 3}, X, sequence{1, 2});
+  EXPECT_FALSE(is_provably_skew(M));
+  EXPECT_NO_THROW({ [[maybe_unused]] auto r = inv(M); });
+}
+
+// Numerical check of the classification: C4:skew(A) and P_skew{1,3}:A are
+// generically invertible and not skew, while B·skew(A) is singular.
+TEST_F(TensorSpacePropagationTest, SkewClassificationMatchesNumerics) {
+  auto [A, B, C4] =
+      make_tensor_variable(std::tuple{"A", dim, 2}, std::tuple{"B", dim, 2},
+                           std::tuple{"C4", dim, 4});
+  std::mt19937 rng(7);
+  std::normal_distribution<double> dist(0.0, 1.0);
+  auto A_ptr = std::make_shared<tensor_data<double, 3, 2>>();
+  auto B_ptr = std::make_shared<tensor_data<double, 3, 2>>();
+  auto C_ptr = std::make_shared<tensor_data<double, 3, 4>>();
+  for (std::size_t i = 0; i < 9; ++i) {
+    A_ptr->raw_data()[i] = dist(rng);
+    B_ptr->raw_data()[i] = dist(rng);
+  }
+  for (std::size_t i = 0; i < 81; ++i)
+    C_ptr->raw_data()[i] = dist(rng);
+  tensor_evaluator<double> ev;
+  ev.set(A, A_ptr);
+  ev.set(B, B_ptr);
+  ev.set(C4, C_ptr);
+  auto as_t2 = [&](expression_holder<tensor_expression> const &e) {
+    return tmech::tensor<double, 3, 2>(
+        static_cast<tensor_data<double, 3, 2> const &>(*ev.apply(e)).data());
+  };
+
+  auto CW = inner_product(C4, sequence{3, 4}, skew(A), sequence{1, 2});
+  EXPECT_GT(std::abs(tmech::det(as_t2(CW))), 1e-6);
+  auto CW_inv = as_t2(inv(CW));
+  EXPECT_TRUE(tmech::almost_equal(
+      tmech::tensor<double, 3, 2>(as_t2(CW) * CW_inv),
+      tmech::tensor<double, 3, 2>(tmech::eye<double, 3, 2>()), 1e-9));
+
+  auto M = as_t2(inner_product(P_skew(dim), sequence{1, 3}, A, sequence{1, 2}));
+  EXPECT_GT(tmech::norm(tmech::tensor<double, 3, 2>(M + tmech::trans(M))),
+            1e-6);
+
+  auto S = as_t2(skew(A));
+  EXPECT_LT(tmech::norm(tmech::tensor<double, 3, 2>(S + tmech::trans(S))),
+            1e-12);
+  EXPECT_LT(std::abs(tmech::det(as_t2(B * skew(A)))), 1e-12);
+  EXPECT_LT(std::abs(tmech::det(
+                as_t2(inner_product(B, sequence{1}, skew(A), sequence{2})))),
+            1e-12);
 }
 
 TEST_F(TensorSpacePropagationTest, TransMinusSelfIsAnnotatedSkewInEvenDim) {
