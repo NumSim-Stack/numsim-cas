@@ -187,19 +187,12 @@ limit_result limit_algebra::apply_log(limit_result a, bool zero_from_above) {
     if (!zero_from_above)
       return {dir::unknown};
     return {dir::neg_infinity, {gtype::logarithmic, 1.0}};
-  case dir::finite_positive:
-    // log(c) is negative for c < 1 and zero at c = 1
-    return {dir::unknown};
-  case dir::finite_negative:
-    // log(negative) is undefined in reals
-    return {dir::unknown};
   case dir::pos_infinity:
     // log(+inf) = +inf (logarithmic -- slower than any polynomial)
     return {dir::pos_infinity, {gtype::logarithmic, 1.0}};
-  case dir::neg_infinity:
-    // log(-inf) undefined in reals
-    [[fallthrough]];
   default:
+    // log(c) has no provable sign for finite positive c (negative below 1,
+    // zero at 1); for a negative value or -inf it is undefined in the reals
     return {dir::unknown};
   }
 }
