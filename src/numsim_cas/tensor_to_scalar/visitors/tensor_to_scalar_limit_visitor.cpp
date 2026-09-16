@@ -220,7 +220,7 @@ void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_exp const &v) {
 
 void tensor_to_scalar_limit_visitor::operator()(
     tensor_to_scalar_sqrt const &v) {
-  m_result = apply_sqrt(apply(v.expr()));
+  m_result = apply_sqrt(apply(v.expr()), zero_from_above(v.expr()));
 }
 
 // ─── Constants ────────────────────────────────────────────────────

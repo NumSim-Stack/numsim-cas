@@ -207,8 +207,9 @@ limit_result limit_algebra::apply_pow(limit_result base, limit_result exponent,
   // Only handle constant/finite exponents for now
   if (is_finite(exponent.dir) || exponent.dir == dir::zero) {
     if (exponent.dir == dir::zero) {
-      // c^0 = 1 for any finite nonzero c; 0^0 and inf^0 are indeterminate
-      if (base.dir == dir::finite_positive || base.dir == dir::finite_negative)
+      // c^0 = 1 for finite positive c; for c < 0 the real power c^t is
+      // undefined off the rationals, and 0^0 / inf^0 are indeterminate
+      if (base.dir == dir::finite_positive)
         return {dir::finite_positive};
       if (base.dir == dir::zero || is_infinite(base.dir))
         return {dir::indeterminate};
@@ -261,12 +262,15 @@ limit_result limit_algebra::apply_pow(limit_result base, limit_result exponent,
   return {dir::unknown};
 }
 
-limit_result limit_algebra::apply_sqrt(limit_result a) {
+limit_result limit_algebra::apply_sqrt(limit_result a, bool zero_from_above) {
   if (a.dir == dir::indeterminate || a.dir == dir::unknown)
     return a;
 
   switch (a.dir) {
   case dir::zero:
+    // sqrt is NaN along an approach to zero from below
+    if (!zero_from_above)
+      return {dir::unknown};
     return {dir::zero};
   case dir::finite_positive:
     return {dir::finite_positive};

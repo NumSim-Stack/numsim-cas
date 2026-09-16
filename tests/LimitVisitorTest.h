@@ -294,6 +294,7 @@ struct limit_algebra_probe : limit_algebra {
   using limit_algebra::apply_log;
   using limit_algebra::apply_pow;
   using limit_algebra::apply_reciprocal;
+  using limit_algebra::apply_sqrt;
   using limit_algebra::combine_add;
   using limit_algebra::combine_mul;
 };
@@ -360,9 +361,11 @@ TEST(LimitAlgebra, LogAndPowOfFiniteValues) {
             dir::indeterminate);
   EXPECT_EQ(A::apply_pow({dir::finite_positive}, {dir::zero}, false).dir,
             dir::finite_positive);
-  // (-2)^0 = 1
+  // c^t with c < 0 has no real limit as t -> 0
   EXPECT_EQ(A::apply_pow({dir::finite_negative}, {dir::zero}, false).dir,
-            dir::finite_positive);
+            dir::unknown);
+  EXPECT_EQ(A::apply_sqrt({dir::zero}, false).dir, dir::unknown);
+  EXPECT_EQ(A::apply_sqrt({dir::zero}, true).dir, dir::zero);
 }
 
 TEST(ScalarLimit, OddFunctionsAtZero) {
@@ -444,6 +447,46 @@ TEST(ScalarLimit, InverseTrigOutsideDomainIsUnknown) {
   // in range: asin(0) = 0 and acos(0) = pi/2 need no magnitude bound
   EXPECT_EQ(v.apply(asin(x)).dir, dir::zero);
   EXPECT_EQ(v.apply(acos(x)).dir, dir::finite_positive);
+}
+
+// sqrt and non-integer powers are NaN along an approach to zero from below.
+TEST(ScalarLimit, RootsNeedANonnegativeApproach) {
+  auto x = make_expression<scalar>("x");
+  scalar_limit_visitor from_below(x, {pt::zero_minus});
+  scalar_limit_visitor from_above(x, {pt::zero_plus});
+  EXPECT_EQ(from_below.apply(sqrt(x)).dir, dir::unknown);
+  EXPECT_EQ(from_above.apply(sqrt(x)).dir, dir::zero);
+  EXPECT_EQ(from_below.apply(sqrt(sin(x))).dir, dir::unknown);
+  EXPECT_EQ(from_below.apply(pow(x, make_scalar_constant(0.5))).dir,
+            dir::unknown);
+  EXPECT_EQ(from_above.apply(pow(x, make_scalar_constant(0.5))).dir, dir::zero);
+  // an integer power stays defined from either side
+  EXPECT_EQ(from_below.apply(pow(x, make_scalar_constant(3))).dir, dir::zero);
+  // sqrt of a nonnegative argument keeps its side
+  EXPECT_EQ(from_below.apply(sqrt(abs(x))).dir, dir::zero);
+  EXPECT_EQ(from_above.apply(log(sqrt(x))).dir, dir::neg_infinity);
+}
+
+// sqrt() is nonnegative only where it is defined, so it cannot lend its sign
+// to an argument that reaches zero from below.
+TEST(ScalarLimit, SignOfRootFollowsTheOperand) {
+  auto x = make_expression<scalar>("x");
+  scalar_limit_visitor from_below(x, {pt::zero_minus});
+  scalar_limit_visitor from_above(x, {pt::zero_plus});
+  EXPECT_EQ(from_below.apply(sign(sqrt(x))).dir, dir::unknown);
+  EXPECT_EQ(from_above.apply(sign(sqrt(x))).dir, dir::finite_positive);
+  EXPECT_EQ(from_below.apply(sign(sqrt(abs(x)))).dir, dir::finite_positive);
+}
+
+// c^t with c < 0 and t -> 0 has no real limit.
+TEST(ScalarLimit, ZeroPowerOfANegativeBaseIsUnknown) {
+  auto x = make_expression<scalar>("x");
+  auto [n, p] = make_scalar_variable("n", "p");
+  n.assumption(negative{});
+  p.assumption(positive{});
+  scalar_limit_visitor v(x, {pt::zero_plus});
+  EXPECT_EQ(v.apply(pow(n, x)).dir, dir::unknown);
+  EXPECT_EQ(v.apply(pow(p, x)).dir, dir::finite_positive);
 }
 
 // A structurally nonnegative argument reaches zero from above, whichever side

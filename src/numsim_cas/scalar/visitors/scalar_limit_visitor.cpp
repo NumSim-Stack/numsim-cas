@@ -19,8 +19,7 @@ namespace {
 // Nonnegative by construction, so a limit of zero is approached from above.
 bool is_structurally_nonnegative(
     expression_holder<scalar_expression> const &e) {
-  if (is_same<scalar_abs>(e) || is_same<scalar_exp>(e) ||
-      is_same<scalar_sqrt>(e))
+  if (is_same<scalar_abs>(e) || is_same<scalar_exp>(e))
     return true;
   if (is_same<scalar_pow>(e)) {
     auto exponent = try_int_constant(e.get<scalar_pow>().expr_rhs());
@@ -72,6 +71,10 @@ limit_result target_to_limit(limit_target target) {
 bool scalar_limit_visitor::zero_from_above(expr_holder_t const &expr) const {
   if (expr == m_limit_var)
     return m_target.target == limit_target::point::zero_plus;
+  // sqrt is nonnegative exactly where it is defined, so it reaches zero from
+  // above only if its operand does.
+  if (is_same<scalar_sqrt>(expr))
+    return zero_from_above(expr.get<scalar_sqrt>().expr());
   return is_positive(expr) || is_nonnegative(expr) ||
          is_structurally_nonnegative(expr);
 }
@@ -168,9 +171,13 @@ void scalar_limit_visitor::operator()(scalar_negative const &v) {
 void scalar_limit_visitor::operator()(scalar_pow const &v) {
   // An even integer exponent makes the power nonnegative from either side.
   auto exponent = try_int_constant(v.expr_rhs());
-  bool from_above =
-      zero_from_above(v.expr_lhs()) || (exponent && *exponent % 2 == 0);
-  m_result = apply_pow(apply(v.expr_lhs()), apply(v.expr_rhs()), from_above);
+  bool base_from_above = zero_from_above(v.expr_lhs());
+  bool from_above = base_from_above || (exponent && *exponent % 2 == 0);
+  auto base = apply(v.expr_lhs());
+  m_result = apply_pow(base, apply(v.expr_rhs()), from_above);
+  // a non-integer power of a base that may reach zero from below is NaN
+  if (base.dir == dir::zero && !base_from_above && !exponent)
+    m_result = {dir::unknown};
 }
 
 // ─── Functions ────────────────────────────────────────────────────
@@ -216,7 +223,7 @@ void scalar_limit_visitor::operator()(scalar_log const &v) {
 }
 
 void scalar_limit_visitor::operator()(scalar_sqrt const &v) {
-  m_result = apply_sqrt(apply(v.expr()));
+  m_result = apply_sqrt(apply(v.expr()), zero_from_above(v.expr()));
 }
 
 void scalar_limit_visitor::operator()(scalar_abs const &v) {

@@ -15,7 +15,7 @@ protected:
   static limit_result apply_log(limit_result a, bool zero_from_above);
   static limit_result apply_pow(limit_result base, limit_result exponent,
                                 bool zero_from_above);
-  static limit_result apply_sqrt(limit_result a);
+  static limit_result apply_sqrt(limit_result a, bool zero_from_above);
   static limit_result apply_abs(limit_result a);
   static limit_result apply_reciprocal(limit_result a, bool zero_from_above);
   static limit_result apply_exp(limit_result a);
