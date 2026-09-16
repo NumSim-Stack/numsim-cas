@@ -46,6 +46,7 @@ public:
 
 protected:
   void update_hash_value() const override {
+    this->m_hash_value = 0;
     hash_combine(this->m_hash_value, m_name);
   }
 

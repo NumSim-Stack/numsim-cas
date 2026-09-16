@@ -31,6 +31,7 @@ public:
 
 protected:
   void update_hash_value() const override {
+    base::m_hash_value = 0;
     hash_combine(base::m_hash_value, base::get_id());
     numsim::cas::hash_combine(base::m_hash_value,
                               base::expr_lhs().get().hash_value());
