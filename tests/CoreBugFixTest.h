@@ -1865,19 +1865,12 @@ TEST(SubstitutionSpace, OperatorDerivedTagSurvives) {
   EXPECT_EQ(to_string(sym(h)), "0{2}");
 }
 
-// Round-2 review on #352: the shape guard must compare the projector
-// ARGUMENTS (the wrapper's dim() reports the projector's).
-TEST(RoundTwoReview, DimChangingSubstitutionDropsTag) {
+// Substituting a dim-2 argument into a dim-3 projector contraction is a
+// shape error: rejected when the rebuilt node is constructed.
+TEST(RoundTwoReview, DimChangingSubstitutionThrows) {
   auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
   auto [E] = make_tensor_variable(std::tuple{"E", std::size_t{2}, 2});
-  auto s = substitute(sym(A), A, E); // dim 3 projector : dim 2 argument
-  EXPECT_FALSE(is_symmetric(s));
-  // round-3 review: the overflow lived in the projector short-circuit,
-  // not the tag - evaluation must throw, not over-read the buffer
-  tensor_evaluator<double> ev;
-  auto data = std::make_shared<tensor_data<double, 2, 2>>();
-  ev.set(E, data);
-  EXPECT_THROW((void)ev.apply(s), evaluation_error);
+  EXPECT_THROW((void)substitute(sym(A), A, E), invalid_expression_error);
 }
 
 // #350 — tensor_pow contract: rank-2 only, integer exponents, negative
