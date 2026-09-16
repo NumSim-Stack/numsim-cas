@@ -545,6 +545,48 @@ TEST_F(T2SDiffWrtScalarTest, T2SIfThenElseFalsyRegionDerivativeIsCorrect) {
          "(silent-wrong)";
 }
 
+// d/d(sv) f(sv * trace(eps)) = trace(eps) * f'(g), with trace(eps) = 2.
+TEST_F(T2SDiffWrtScalarTest, T2SLog10AndHyperbolicChainRule) {
+  tmech::tensor<double, 3, 2> eps_t = tmech::zeros<double, 3, 2>();
+  eps_t(0, 0) = 1.0;
+  eps_t(1, 1) = 1.0;
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(eps, std::make_shared<tensor_data<double, 3, 2>>(eps_t));
+  auto g = sv * trace(eps);
+  auto check = [&](t2s_t const &f, double sv_val, double expected) {
+    auto J = diff(f, sv);
+    ASSERT_TRUE(J.is_valid());
+    ev.set_scalar(sv, sv_val);
+    EXPECT_NEAR(ev.apply(J), expected, 1e-10) << to_string(f);
+  };
+  const double x = 0.4; // g at sv = 0.2
+  check(sinh(g), 0.2, 2.0 * std::cosh(x));
+  check(cosh(g), 0.2, 2.0 * std::sinh(x));
+  check(tanh(g), 0.2, 2.0 * (1.0 - std::tanh(x) * std::tanh(x)));
+  check(asinh(g), 0.2, 2.0 / std::sqrt(x * x + 1.0));
+  check(atanh(g), 0.2, 2.0 / (1.0 - x * x));
+  check(log10(g), 0.2, 2.0 / (x * std::log(10.0)));
+  const double y = 1.6; // g at sv = 0.8
+  check(acosh(g), 0.8, 2.0 / std::sqrt(y * y - 1.0));
+}
+
+// d tanh(trace(Y))/dY = (1 - tanh²(trace(Y))) I
+TEST_F(TensorToScalarDifferentiationTest, TanhOfTraceGradient) {
+  auto d = diff(tanh(trY), Y);
+  ASSERT_TRUE(d.is_valid());
+  tmech::tensor<double, 3, 2> Y_t{0.3, 1.0, -2.0, 0.5, -0.1,
+                                  4.0, 2.0, 1.0,  0.2};
+  tensor_evaluator<double> ev;
+  ev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Y_t));
+  auto r = ev.apply(d);
+  auto const &result =
+      static_cast<tensor_data<double, 3, 2> const &>(*r).data();
+  const double t = std::tanh(0.4);
+  tmech::tensor<double, 3, 2> expected =
+      (1.0 - t * t) * tmech::eye<double, 3, 2>();
+  EXPECT_TRUE(tmech::almost_equal(result, expected, 1e-10));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALARDIFFERENTIATIONTEST_H

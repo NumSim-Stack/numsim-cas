@@ -480,6 +480,58 @@ TEST(T2sEval, SpectralCacheInterleavedTensors) {
   }
 }
 
+// ─── log10 and hyperbolic functions ──────────────────────────────────────
+
+TEST(T2sEval, T2sLog10MatchesNumerical) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  ev.set(A, make_test_data<2, 2>({1.0, 2.0, 3.0, 99.0}));
+  EXPECT_NEAR(ev.apply(log10(trace(A))), 2.0, t2s_tol);
+}
+
+TEST(T2sEval, T2sHyperbolicMatchNumerical) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  auto tr = trace(A);
+  auto check = [&](double t) {
+    ev.set(A, make_test_data<2, 2>({0.25 * t, 1.0, -2.0, 0.75 * t}));
+    EXPECT_NEAR(ev.apply(sinh(tr)), std::sinh(t), t2s_tol) << t;
+    EXPECT_NEAR(ev.apply(cosh(tr)), std::cosh(t), t2s_tol) << t;
+    EXPECT_NEAR(ev.apply(tanh(tr)), std::tanh(t), t2s_tol) << t;
+    EXPECT_NEAR(ev.apply(asinh(tr)), std::asinh(t), t2s_tol) << t;
+  };
+  check(0.5);
+  check(-1.3);
+
+  ev.set(A, make_test_data<2, 2>({1.0, 0.0, 0.0, 1.5}));
+  EXPECT_NEAR(ev.apply(acosh(tr)), std::acosh(2.5), t2s_tol);
+  ev.set(A, make_test_data<2, 2>({-0.2, 0.0, 0.0, 0.7}));
+  EXPECT_NEAR(ev.apply(atanh(tr)), std::atanh(0.5), t2s_tol);
+  ev.set(A, make_test_data<2, 2>({-0.2, 0.0, 0.0, -0.3}));
+  EXPECT_NEAR(ev.apply(atanh(tr)), std::atanh(-0.5), t2s_tol);
+}
+
+TEST(T2sEval, T2sHyperbolicSpecialValues) {
+  auto zero = make_expression<tensor_to_scalar_zero>();
+  auto one = make_expression<tensor_to_scalar_one>();
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(sinh(zero)));
+  EXPECT_TRUE(is_same<tensor_to_scalar_one>(cosh(zero)));
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(tanh(zero)));
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(asinh(zero)));
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(atanh(zero)));
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(acosh(one)));
+  auto wrapped_one = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar_constant>(1));
+  EXPECT_TRUE(is_same<tensor_to_scalar_zero>(acosh(wrapped_one)));
+}
+
+TEST(T2sEval, T2sHyperbolicParity) {
+  auto A = make_expression<tensor>("A", 2, 2);
+  auto tr = trace(A);
+  EXPECT_EQ(cosh(-tr), cosh(tr));
+  EXPECT_EQ(tanh(-tr), -tanh(tr));
+}
+
 } // namespace numsim::cas
 
 // #353 — the evaluator must honor the stored contraction sequences.
