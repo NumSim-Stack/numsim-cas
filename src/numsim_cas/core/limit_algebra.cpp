@@ -110,8 +110,12 @@ limit_result limit_algebra::combine_add(limit_result a, limit_result b) {
   if (is_finite(a.dir) && is_infinite(b.dir))
     return b;
 
-  // finite + finite: finite (can't determine exact sign in general)
-  return {dir::finite_positive};
+  // finite + finite: the sign is known only when both signs agree
+  if (a.dir == dir::finite_positive && b.dir == dir::finite_positive)
+    return {dir::finite_positive};
+  if (a.dir == dir::finite_negative && b.dir == dir::finite_negative)
+    return {dir::finite_negative};
+  return {dir::unknown};
 }
 
 limit_result limit_algebra::combine_mul(limit_result a, limit_result b) {
@@ -173,33 +177,28 @@ limit_result limit_algebra::apply_neg(limit_result a) {
   return {flip_sign(a.dir), a.rate};
 }
 
-limit_result limit_algebra::apply_log(limit_result a) {
+limit_result limit_algebra::apply_log(limit_result a, bool zero_from_above) {
   if (a.dir == dir::indeterminate || a.dir == dir::unknown)
     return a;
 
   switch (a.dir) {
   case dir::zero:
-    // log(0+) = -inf (logarithmic)
+    // log(0+) = -inf (logarithmic); log is undefined when approached from below
+    if (!zero_from_above)
+      return {dir::unknown};
     return {dir::neg_infinity, {gtype::logarithmic, 1.0}};
-  case dir::finite_positive:
-    // log(finite_positive) = finite
-    return {dir::finite_positive};
-  case dir::finite_negative:
-    // log(negative) is undefined in reals
-    return {dir::unknown};
   case dir::pos_infinity:
     // log(+inf) = +inf (logarithmic -- slower than any polynomial)
     return {dir::pos_infinity, {gtype::logarithmic, 1.0}};
-  case dir::neg_infinity:
-    // log(-inf) undefined in reals
-    [[fallthrough]];
   default:
+    // log(c) has no provable sign for finite positive c (negative below 1,
+    // zero at 1); for a negative value or -inf it is undefined in the reals
     return {dir::unknown};
   }
 }
 
-limit_result limit_algebra::apply_pow(limit_result base,
-                                      limit_result exponent) {
+limit_result limit_algebra::apply_pow(limit_result base, limit_result exponent,
+                                      bool zero_from_above) {
   if (base.dir == dir::indeterminate || exponent.dir == dir::indeterminate)
     return {dir::indeterminate};
   if (base.dir == dir::unknown || exponent.dir == dir::unknown)
@@ -208,8 +207,13 @@ limit_result limit_algebra::apply_pow(limit_result base,
   // Only handle constant/finite exponents for now
   if (is_finite(exponent.dir) || exponent.dir == dir::zero) {
     if (exponent.dir == dir::zero) {
-      // x^0 = 1
-      return {dir::finite_positive};
+      // c^0 = 1 for finite positive c; for c < 0 the real power c^t is
+      // undefined off the rationals, and 0^0 / inf^0 are indeterminate
+      if (base.dir == dir::finite_positive)
+        return {dir::finite_positive};
+      if (base.dir == dir::zero || is_infinite(base.dir))
+        return {dir::indeterminate};
+      return {dir::unknown};
     }
 
     bool exp_positive = is_positive(exponent.dir);
@@ -220,7 +224,9 @@ limit_result limit_algebra::apply_pow(limit_result base,
         // 0^(+c) = 0
         return {dir::zero};
       } else {
-        // 0^(-c) = +inf (polynomial)
+        // 0^(-c) = +inf (polynomial) when the base stays positive
+        if (!zero_from_above)
+          return {dir::unknown};
         return {dir::pos_infinity, {gtype::polynomial, 1.0}};
       }
     case dir::finite_positive:
@@ -256,12 +262,15 @@ limit_result limit_algebra::apply_pow(limit_result base,
   return {dir::unknown};
 }
 
-limit_result limit_algebra::apply_sqrt(limit_result a) {
+limit_result limit_algebra::apply_sqrt(limit_result a, bool zero_from_above) {
   if (a.dir == dir::indeterminate || a.dir == dir::unknown)
     return a;
 
   switch (a.dir) {
   case dir::zero:
+    // sqrt is NaN along an approach to zero from below
+    if (!zero_from_above)
+      return {dir::unknown};
     return {dir::zero};
   case dir::finite_positive:
     return {dir::finite_positive};
@@ -301,13 +310,16 @@ limit_result limit_algebra::apply_abs(limit_result a) {
   }
 }
 
-limit_result limit_algebra::apply_reciprocal(limit_result a) {
+limit_result limit_algebra::apply_reciprocal(limit_result a,
+                                             bool zero_from_above) {
   if (a.dir == dir::indeterminate || a.dir == dir::unknown)
     return a;
 
   switch (a.dir) {
   case dir::zero:
-    // 1/0 = +inf (polynomial, degree 1)
+    // 1/0+ = +inf (polynomial, degree 1)
+    if (!zero_from_above)
+      return {dir::unknown};
     return {dir::pos_infinity, {gtype::polynomial, 1.0}};
   case dir::finite_positive:
     return {dir::finite_positive};

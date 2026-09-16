@@ -1,5 +1,7 @@
 #include <numsim_cas/scalar/visitors/scalar_limit_visitor.h>
 
+#include <numsim_cas/scalar/scalar_assume.h>
+#include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
 #include <ranges>
@@ -13,6 +15,42 @@ scalar_limit_visitor::scalar_limit_visitor(expr_holder_t const &limit_var,
     : m_limit_var(limit_var), m_target(target) {}
 
 namespace {
+
+// Nonnegative by construction, so a limit of zero is approached from above.
+bool is_structurally_nonnegative(
+    expression_holder<scalar_expression> const &e) {
+  if (is_same<scalar_abs>(e) || is_same<scalar_exp>(e))
+    return true;
+  if (is_same<scalar_pow>(e)) {
+    auto exponent = try_int_constant(e.get<scalar_pow>().expr_rhs());
+    return exponent && *exponent % 2 == 0;
+  }
+  return false;
+}
+
+// asin and acos are real only on [-1, 1]; outside it the value is NaN.
+bool is_within_unit_interval(expression_holder<scalar_expression> const &e) {
+  if (is_same<scalar_sin>(e) || is_same<scalar_cos>(e) ||
+      is_same<scalar_sign>(e))
+    return true;
+  auto value = domain_traits<scalar_expression>::try_numeric(e);
+  if (!value)
+    return false;
+  auto magnitude = std::visit(
+      [](auto const &x) -> double {
+        using V = std::decay_t<decltype(x)>;
+        if constexpr (std::is_same_v<V, std::complex<double>>) {
+          return std::abs(x.real());
+        } else if constexpr (std::is_same_v<V, rational_t>) {
+          return std::abs(static_cast<double>(x.num) /
+                          static_cast<double>(x.den));
+        } else {
+          return std::abs(static_cast<double>(x));
+        }
+      },
+      value->raw());
+  return magnitude <= 1.0;
+}
 
 limit_result target_to_limit(limit_target target) {
   using pt = limit_target::point;
@@ -30,6 +68,23 @@ limit_result target_to_limit(limit_target target) {
 
 } // namespace
 
+bool scalar_limit_visitor::zero_from_above(expr_holder_t const &expr) const {
+  if (expr == m_limit_var)
+    return m_target.target == limit_target::point::zero_plus;
+  // sqrt is nonnegative exactly where it is defined, so it reaches zero from
+  // above only if its operand does.
+  if (is_same<scalar_sqrt>(expr))
+    return zero_from_above(expr.get<scalar_sqrt>().expr());
+  return is_positive(expr) || is_nonnegative(expr) ||
+         is_structurally_nonnegative(expr);
+}
+
+bool scalar_limit_visitor::zero_from_below(expr_holder_t const &expr) const {
+  if (expr == m_limit_var)
+    return m_target.target == limit_target::point::zero_minus;
+  return is_negative(expr);
+}
+
 limit_result scalar_limit_visitor::apply(expr_holder_t const &expr) {
   if (!expr.is_valid())
     return {dir::zero};
@@ -44,10 +99,15 @@ limit_result scalar_limit_visitor::apply(expr_holder_t const &expr) {
 
 // ─── Leaf nodes ───────────────────────────────────────────────────
 
-void scalar_limit_visitor::operator()([[maybe_unused]] scalar const &) {
-  // If we reach here, this symbol is NOT the limit variable
-  // (the limit variable case is handled in apply() before dispatching)
-  m_result = {dir::finite_positive};
+void scalar_limit_visitor::operator()(scalar const &v) {
+  // Not the limit variable (handled in apply()), so a constant of unknown sign
+  // unless its assumptions say otherwise.
+  if (v.assumptions().contains(positive{}))
+    m_result = {dir::finite_positive};
+  else if (v.assumptions().contains(negative{}))
+    m_result = {dir::finite_negative};
+  else
+    m_result = {dir::unknown};
 }
 
 void scalar_limit_visitor::operator()([[maybe_unused]] scalar_zero const &) {
@@ -109,43 +169,49 @@ void scalar_limit_visitor::operator()(scalar_negative const &v) {
 }
 
 void scalar_limit_visitor::operator()(scalar_pow const &v) {
-  m_result = apply_pow(apply(v.expr_lhs()), apply(v.expr_rhs()));
+  // An even integer exponent makes the power nonnegative from either side.
+  auto exponent = try_int_constant(v.expr_rhs());
+  bool base_from_above = zero_from_above(v.expr_lhs());
+  bool from_above = base_from_above || (exponent && *exponent % 2 == 0);
+  auto base = apply(v.expr_lhs());
+  m_result = apply_pow(base, apply(v.expr_rhs()), from_above);
+  // a non-integer power of a base that may reach zero from below is NaN
+  if (base.dir == dir::zero && !base_from_above && !exponent)
+    m_result = {dir::unknown};
 }
 
 // ─── Functions ────────────────────────────────────────────────────
 
+// For a finite nonzero argument sin, cos and tan can take either sign; at
+// infinity sin and cos oscillate.
 void scalar_limit_visitor::operator()(scalar_sin const &v) {
   auto child = apply(v.expr());
-  if (child.dir == dir::indeterminate || child.dir == dir::unknown) {
+  if (child.dir == dir::indeterminate)
     m_result = child;
-  } else if (child.dir == dir::pos_infinity || child.dir == dir::neg_infinity) {
-    // sin oscillates => indeterminate
+  else if (child.dir == dir::zero)
+    m_result = {dir::zero};
+  else
     m_result = {dir::unknown};
-  } else {
-    // finite input => bounded output in [-1, 1]
-    m_result = {dir::finite_positive};
-  }
 }
 
 void scalar_limit_visitor::operator()(scalar_cos const &v) {
   auto child = apply(v.expr());
-  if (child.dir == dir::indeterminate || child.dir == dir::unknown) {
+  if (child.dir == dir::indeterminate)
     m_result = child;
-  } else if (child.dir == dir::pos_infinity || child.dir == dir::neg_infinity) {
-    m_result = {dir::unknown};
-  } else {
+  else if (child.dir == dir::zero)
     m_result = {dir::finite_positive};
-  }
+  else
+    m_result = {dir::unknown};
 }
 
 void scalar_limit_visitor::operator()(scalar_tan const &v) {
   auto child = apply(v.expr());
-  if (child.dir == dir::indeterminate || child.dir == dir::unknown) {
+  if (child.dir == dir::indeterminate)
     m_result = child;
-  } else {
-    // tan can diverge at pi/2 + n*pi, treat as unknown in general
+  else if (child.dir == dir::zero)
+    m_result = {dir::zero};
+  else
     m_result = {dir::unknown};
-  }
 }
 
 void scalar_limit_visitor::operator()(scalar_exp const &v) {
@@ -153,11 +219,11 @@ void scalar_limit_visitor::operator()(scalar_exp const &v) {
 }
 
 void scalar_limit_visitor::operator()(scalar_log const &v) {
-  m_result = apply_log(apply(v.expr()));
+  m_result = apply_log(apply(v.expr()), zero_from_above(v.expr()));
 }
 
 void scalar_limit_visitor::operator()(scalar_sqrt const &v) {
-  m_result = apply_sqrt(apply(v.expr()));
+  m_result = apply_sqrt(apply(v.expr()), zero_from_above(v.expr()));
 }
 
 void scalar_limit_visitor::operator()(scalar_abs const &v) {
@@ -166,43 +232,89 @@ void scalar_limit_visitor::operator()(scalar_abs const &v) {
 
 void scalar_limit_visitor::operator()(scalar_sign const &v) {
   auto child = apply(v.expr());
-  if (child.dir == dir::indeterminate || child.dir == dir::unknown) {
+  switch (child.dir) {
+  case dir::indeterminate:
     m_result = child;
-  } else {
-    // sign is bounded in {-1, 0, 1}
+    break;
+  case dir::zero:
+    // sign jumps at 0: the limit is 1 only when the argument stays positive
+    if (zero_from_above(v.expr()))
+      m_result = {dir::finite_positive};
+    else if (zero_from_below(v.expr()))
+      m_result = {dir::finite_negative};
+    else
+      m_result = {dir::unknown};
+    break;
+  case dir::finite_positive:
+  case dir::pos_infinity:
     m_result = {dir::finite_positive};
+    break;
+  case dir::finite_negative:
+  case dir::neg_infinity:
+    m_result = {dir::finite_negative};
+    break;
+  default:
+    m_result = {dir::unknown};
   }
+}
+
+// asin and acos are real only on [-1, 1], so a sign needs an argument that is
+// provably in range: asin(0) = 0, acos(0) = pi/2.
+void scalar_limit_visitor::inverse_trig(expr_holder_t const &arg,
+                                        bool is_asin) {
+  auto child = apply(arg);
+  if (child.dir == dir::indeterminate) {
+    m_result = child;
+    return;
+  }
+  if (child.dir == dir::zero) {
+    m_result =
+        is_asin ? limit_result{dir::zero} : limit_result{dir::finite_positive};
+    return;
+  }
+  if (!is_within_unit_interval(arg)) {
+    m_result = {dir::unknown};
+    return;
+  }
+  if (child.dir == dir::finite_negative) {
+    // asin maps [-1, 0) below zero; acos maps it into (pi/2, pi]
+    m_result = {is_asin ? dir::finite_negative : dir::finite_positive};
+    return;
+  }
+  // asin(c) > 0 for c in (0, 1]; acos(1) = 0 leaves acos open
+  if (is_asin && child.dir == dir::finite_positive)
+    m_result = {dir::finite_positive};
+  else
+    m_result = {dir::unknown};
 }
 
 void scalar_limit_visitor::operator()(scalar_asin const &v) {
-  auto child = apply(v.expr());
-  if (child.dir == dir::indeterminate || child.dir == dir::unknown) {
-    m_result = child;
-  } else {
-    // asin is bounded [-pi/2, pi/2] for finite input
-    m_result = {dir::finite_positive};
-  }
+  inverse_trig(v.expr(), true);
 }
 
 void scalar_limit_visitor::operator()(scalar_acos const &v) {
-  auto child = apply(v.expr());
-  if (child.dir == dir::indeterminate || child.dir == dir::unknown) {
-    m_result = child;
-  } else {
-    m_result = {dir::finite_positive};
-  }
+  inverse_trig(v.expr(), false);
 }
 
 void scalar_limit_visitor::operator()(scalar_atan const &v) {
   auto child = apply(v.expr());
-  if (child.dir == dir::indeterminate || child.dir == dir::unknown) {
+  switch (child.dir) {
+  case dir::indeterminate:
     m_result = child;
-  } else if (child.dir == dir::neg_infinity) {
-    // atan(-inf) = -pi/2
-    m_result = {dir::finite_negative};
-  } else {
-    // atan(finite) or atan(+inf) = finite_positive
+    break;
+  case dir::zero:
+    m_result = {dir::zero};
+    break;
+  case dir::finite_positive:
+  case dir::pos_infinity:
     m_result = {dir::finite_positive};
+    break;
+  case dir::finite_negative:
+  case dir::neg_infinity:
+    m_result = {dir::finite_negative};
+    break;
+  default:
+    m_result = {dir::unknown};
   }
 }
 
