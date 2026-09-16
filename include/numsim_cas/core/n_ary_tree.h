@@ -53,7 +53,8 @@ public:
   n_ary_tree(Args &&...args) : base_t(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  n_ary_tree(n_ary_tree &&data, Args &&...args) noexcept
+  n_ary_tree(n_ary_tree &&data, Args &&...args) noexcept(
+      std::is_nothrow_constructible_v<base_t, Args...>)
       : base_t(std::forward<Args>(args)...), m_coeff(std::move(data.m_coeff)),
         m_symbol_map(std::move(data.m_symbol_map)) {
     this->m_hash_value = data.m_hash_value;

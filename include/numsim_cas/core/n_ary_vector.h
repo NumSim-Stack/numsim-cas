@@ -25,7 +25,8 @@ public:
   n_ary_vector(Args &&...args) : base_t(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  n_ary_vector(n_ary_vector &&data, Args &&...args) noexcept
+  n_ary_vector(n_ary_vector &&data, Args &&...args) noexcept(
+      std::is_nothrow_constructible_v<base_t, Args...>)
       : base_t(std::forward<Args>(args)...), m_coeff(std::move(data.m_coeff)),
         m_data(std::move(data.m_data)) {
     this->m_hash_value = data.m_hash_value;

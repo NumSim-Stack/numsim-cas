@@ -15,12 +15,13 @@ public:
   using expr_t = tensor_expression;
 
   tensor_expression() = default;
-  tensor_expression(std::size_t dim, std::size_t rank)
+  tensor_expression(std::size_t dim, std::size_t rank) noexcept
       : m_dim(dim), m_rank(rank) {}
   // NOTE: 2-arg constructors intentionally do NOT copy m_tensor_space.
   // Used by n_ary_tree which constructs a fresh base and manages space
   // separately.
-  tensor_expression(tensor_expression &&data, std::size_t dim, std::size_t rank)
+  tensor_expression(tensor_expression &&data, std::size_t dim,
+                    std::size_t rank) noexcept
       : expression(std::move(static_cast<expression &&>(data))), m_dim(dim),
         m_rank(rank) {}
   tensor_expression(tensor_expression const &data, std::size_t dim,

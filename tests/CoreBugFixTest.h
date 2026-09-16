@@ -100,6 +100,13 @@ TEST(CoreBugFix, AllocatingPathsAreNotNoexcept) {
   static_assert(std::is_nothrow_move_constructible_v<tensor_add>);
   static_assert(std::is_nothrow_move_constructible_v<tensor_to_scalar_mul>);
   static_assert(std::is_nothrow_move_constructible_v<permute_indices_wrapper>);
+  static_assert(std::is_nothrow_move_constructible_v<scalar_mul>);
+  static_assert(std::is_nothrow_move_constructible_v<tensor_mul>);
+  static_assert(std::is_nothrow_move_constructible_v<tensor_to_scalar_add>);
+  static_assert(std::is_nothrow_move_constructible_v<
+                expression_holder<scalar_expression>>);
+  static_assert(std::is_nothrow_move_constructible_v<
+                expression_holder<tensor_expression>>);
   static_assert(std::is_nothrow_move_assignable_v<std::optional<tensor_space>>);
 
   // tensor_add's move ctor transfers the space instead of copying it
