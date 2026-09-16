@@ -39,26 +39,37 @@ inline std::size_t content_hash(tmech::tensor<ValueType, Dim, 2> const &t) {
   return static_cast<std::size_t>(h);
 }
 
+// Single cache slot. A hit requires the hash and the raw components to match
+// bitwise, so a hash collision recomputes instead of returning another
+// tensor's decomposition (-0.0 and 0.0 are distinct keys, as in the hash).
+template <typename ValueType, std::size_t Dim> struct decomposition_slot {
+  decomposition<ValueType, Dim> value{};
+  tmech::tensor<ValueType, Dim, 2> components{};
+  std::size_t key = 0;
+  bool valid = false;
+
+  bool hit(std::size_t in_key,
+           tmech::tensor<ValueType, Dim, 2> const &in) const {
+    return valid && key == in_key &&
+           std::memcmp(components.raw_data(), in.raw_data(),
+                       sizeof(ValueType) * Dim * Dim) == 0;
+  }
+};
+
 } // namespace detail
 
 // Eigendecomposition of sym(A), ascending, cached by content. A single-entry
-// thread-local cache (one per ValueType/Dim) — it collapses the repeated
-// decomposition of the *same* tensor that value(i)/basis(i)/normal(i)
-// otherwise trigger (a spectral stress decomposed A once per spectral
-// quantity before this). Correct by construction: the key is the tensor's
-// contents, so a hit returns the decomposition of exactly that tensor; a
-// changed tensor misses and recomputes. Interleaving two different tensors
-// simply thrashes the single slot — never wrong, only unshared.
+// thread-local cache (one per ValueType/Dim) shared by every spectral wrapper,
+// so value(i)/basis(i)/normal(i) and the isotropic-function wrappers decompose
+// the same tensor once. Interleaving two different tensors thrashes the slot.
 template <typename ValueType, std::size_t Dim>
 decomposition<ValueType, Dim> const &
 cached_decompose(tmech::tensor<ValueType, Dim, 2> const &in) {
-  static thread_local decomposition<ValueType, Dim> cache;
-  static thread_local std::size_t cached_key = 0;
-  static thread_local bool cached_valid = false;
+  static thread_local detail::decomposition_slot<ValueType, Dim> slot;
 
   const std::size_t key = detail::content_hash(in);
-  if (cached_valid && cached_key == key)
-    return cache;
+  if (slot.hit(key, in))
+    return slot.value;
 
   auto decomp = tmech::eigen_decomposition(tmech::sym(in));
   auto const [eigvals, eigvecs] = decomp.decompose();
@@ -71,12 +82,13 @@ cached_decompose(tmech::tensor<ValueType, Dim, 2> const &in) {
   });
 
   for (std::size_t i = 0; i < Dim; ++i) {
-    cache.eigenvalues[i] = eigvals[order[i]];
-    cache.eigenvectors[i] = eigvecs[order[i]];
+    slot.value.eigenvalues[i] = eigvals[order[i]];
+    slot.value.eigenvectors[i] = eigvecs[order[i]];
   }
-  cached_key = key;
-  cached_valid = true;
-  return cache;
+  slot.components = in;
+  slot.key = key;
+  slot.valid = true;
+  return slot.value;
 }
 
 } // namespace numsim::cas::spectral
