@@ -1900,6 +1900,19 @@ inline std::vector<std::pair<char const *, scalar_number>> number_corpus() {
       {"dbl -1.0", scalar_number(-1.0)},
   };
 }
+
+// NaN is unequal to itself, so it cannot satisfy the ==/< agreement the
+// numeric corpus pins; the ordering laws must hold with it present.
+inline std::vector<std::pair<char const *, scalar_number>>
+number_corpus_with_nan() {
+  auto corpus = number_corpus();
+  corpus.emplace_back("nan",
+                      scalar_number(std::numeric_limits<double>::quiet_NaN()));
+  corpus.emplace_back("cplx nan",
+                      scalar_number(std::complex<double>{
+                          std::numeric_limits<double>::quiet_NaN(), 0.0}));
+  return corpus;
+}
 } // namespace
 
 // operator< must agree with operator==: equal values are incomparable,
@@ -1920,7 +1933,7 @@ TEST(ScalarNumberOrdering, EqualityAndOrderingAgree) {
 // Incomparability and < must both be transitive, or ordered containers
 // silently misbehave.
 TEST(ScalarNumberOrdering, StrictWeakOrderingHolds) {
-  auto const corpus = number_corpus();
+  auto const corpus = number_corpus_with_nan();
   for (auto const &[na, a] : corpus)
     for (auto const &[nb, b] : corpus)
       for (auto const &[nc, c] : corpus) {
@@ -1933,6 +1946,18 @@ TEST(ScalarNumberOrdering, StrictWeakOrderingHolds) {
           EXPECT_TRUE(!(a < c) && !(c < a)) << na << " " << nb << " " << nc;
         }
       }
+}
+
+// NaN sorts after every number, so the ordering stays usable as a container
+// comparator; numeric_less keeps IEEE semantics.
+TEST(ScalarNumberOrdering, NaNSortsLast) {
+  auto const nan = scalar_number(std::numeric_limits<double>::quiet_NaN());
+  auto const two = scalar_number(std::int64_t{2});
+  EXPECT_TRUE(two < nan);
+  EXPECT_FALSE(nan < two);
+  EXPECT_FALSE(nan < nan);
+  EXPECT_FALSE(numeric_less(two, nan));
+  EXPECT_FALSE(numeric_less(nan, two));
 }
 
 // Constants spelled differently are one key in an ordered container.

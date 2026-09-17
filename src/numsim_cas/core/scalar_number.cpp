@@ -401,7 +401,27 @@ bool rat_less(rational_t a, rational_t b) {
 // Same promotion rules as operator==, so equal values are incomparable and
 // unequal values are ordered. Ordering by variant alternative instead would
 // separate values that compare equal (int 2 before double 2.0).
+// NaN sorts after every number so the order stays a strict weak ordering;
+// numeric_less keeps IEEE semantics, where every NaN comparison is false.
 bool operator<(scalar_number const &a, scalar_number const &b) {
+  auto is_nan = [](scalar_number const &n) {
+    return std::visit(
+        [](auto const &x) {
+          using X = std::decay_t<decltype(x)>;
+          if constexpr (is_cplx_v<X>) {
+            return std::isnan(x.real()) || std::isnan(x.imag());
+          } else if constexpr (std::is_same_v<X, double>) {
+            return std::isnan(x) != 0;
+          } else {
+            return false;
+          }
+        },
+        n.raw());
+  };
+  const bool a_nan = is_nan(a);
+  const bool b_nan = is_nan(b);
+  if (a_nan || b_nan)
+    return !a_nan && b_nan;
   return numeric_less(a, b);
 }
 
