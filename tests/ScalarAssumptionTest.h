@@ -186,6 +186,33 @@ TEST_F(AssumptionFixture, PowRealByDefaultConventionPreserved) {
       << "pow(positive, 3) must remain positive";
 }
 
+// sqrt and a fractional power of a provably negative argument are NaN, so
+// they carry no nonnegativity or realness.
+TEST_F(AssumptionFixture, NoDomainClaimsForNegativeRadicand) {
+  numsim::cas::assume(x, numsim::cas::negative{});
+  numsim::cas::assume(y, numsim::cas::positive{});
+  auto sn = sqrt(x);
+  auto an = numsim::cas::propagate_assumptions(sn);
+  EXPECT_FALSE(an.contains(numsim::cas::nonnegative{}));
+  EXPECT_FALSE(an.contains(numsim::cas::real_tag{}));
+  EXPECT_FALSE(numsim::cas::is_nonnegative(sqrt(x)));
+
+  auto sp = sqrt(y);
+  auto ap = numsim::cas::propagate_assumptions(sp);
+  EXPECT_TRUE(ap.contains(numsim::cas::nonnegative{}));
+  EXPECT_TRUE(ap.contains(numsim::cas::real_tag{}));
+
+  auto half = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+      numsim::cas::scalar_number{numsim::cas::rational_t{1, 2}});
+  auto pn = numsim::cas::propagate_assumptions(pow(x, half));
+  EXPECT_FALSE(pn.contains(numsim::cas::real_tag{}));
+  // integer exponents stay real on a negative base
+  auto pi = numsim::cas::propagate_assumptions(pow(x, 3));
+  EXPECT_TRUE(pi.contains(numsim::cas::real_tag{}));
+  auto pe = numsim::cas::propagate_assumptions(pow(x, 2));
+  EXPECT_TRUE(pe.contains(numsim::cas::nonnegative{}));
+}
+
 TEST_F(AssumptionFixture, PropagateSqrt) {
   auto e = sqrt(x);
   auto a = numsim::cas::propagate_assumptions(e);
