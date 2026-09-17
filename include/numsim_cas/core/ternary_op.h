@@ -57,6 +57,21 @@ public:
   [[nodiscard]] inline auto &expr_then() noexcept { return m_then; }
   [[nodiscard]] inline auto &expr_else() noexcept { return m_else; }
 
+  // Without these the derived-type comparison in visitable_impl resolves back
+  // to expression::operator==/< and recurses until the stack overflows.
+  template <typename B, typename C, typename T, typename E>
+  friend bool operator<(ternary_op<B, C, T, E> const &lhs,
+                        ternary_op<B, C, T, E> const &rhs);
+  template <typename B, typename C, typename T, typename E>
+  friend bool operator>(ternary_op<B, C, T, E> const &lhs,
+                        ternary_op<B, C, T, E> const &rhs);
+  template <typename B, typename C, typename T, typename E>
+  friend bool operator==(ternary_op<B, C, T, E> const &lhs,
+                         ternary_op<B, C, T, E> const &rhs);
+  template <typename B, typename C, typename T, typename E>
+  friend bool operator!=(ternary_op<B, C, T, E> const &lhs,
+                         ternary_op<B, C, T, E> const &rhs);
+
 protected:
   void update_hash_value() const override {
     base::m_hash_value =
@@ -67,6 +82,43 @@ protected:
   expression_holder<BaseThen> m_then;
   expression_holder<BaseElse> m_else;
 };
+
+template <typename BaseT, typename BaseCond, typename BaseThen,
+          typename BaseElse>
+bool operator<(ternary_op<BaseT, BaseCond, BaseThen, BaseElse> const &lhs,
+               ternary_op<BaseT, BaseCond, BaseThen, BaseElse> const &rhs) {
+  if (lhs.hash_value() != rhs.hash_value())
+    return lhs.hash_value() < rhs.hash_value();
+  if (lhs.id() != rhs.id())
+    return lhs.id() < rhs.id();
+  if (lhs.m_cond != rhs.m_cond)
+    return lhs.m_cond < rhs.m_cond;
+  if (lhs.m_then != rhs.m_then)
+    return lhs.m_then < rhs.m_then;
+  return lhs.m_else < rhs.m_else;
+}
+
+template <typename BaseT, typename BaseCond, typename BaseThen,
+          typename BaseElse>
+bool operator>(ternary_op<BaseT, BaseCond, BaseThen, BaseElse> const &lhs,
+               ternary_op<BaseT, BaseCond, BaseThen, BaseElse> const &rhs) {
+  return rhs < lhs;
+}
+
+template <typename BaseT, typename BaseCond, typename BaseThen,
+          typename BaseElse>
+bool operator==(ternary_op<BaseT, BaseCond, BaseThen, BaseElse> const &lhs,
+                ternary_op<BaseT, BaseCond, BaseThen, BaseElse> const &rhs) {
+  return lhs.m_cond == rhs.m_cond && lhs.m_then == rhs.m_then &&
+         lhs.m_else == rhs.m_else;
+}
+
+template <typename BaseT, typename BaseCond, typename BaseThen,
+          typename BaseElse>
+bool operator!=(ternary_op<BaseT, BaseCond, BaseThen, BaseElse> const &lhs,
+                ternary_op<BaseT, BaseCond, BaseThen, BaseElse> const &rhs) {
+  return !(lhs == rhs);
+}
 
 template <typename... Args>
 struct update_hash<numsim::cas::ternary_op<Args...>> {
