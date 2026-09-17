@@ -1036,6 +1036,16 @@ TEST(SymbolIdentity, EvaluatorKeepsBothDomainBindings) {
 
 // A tensor symbol's shape is part of its identity: the same name at a
 // different dim or rank denotes a different tensor.
+// Mixed-rank factors sharing a name must not merge into a power: tensor
+// multiplication validates dim only, so this reaches the like-term path.
+TEST(SymbolIdentity, MixedRankFactorsDoNotMerge) {
+  auto A32 = make_expression<tensor>("A", 3, 2);
+  auto A34 = make_expression<tensor>("A", 3, 4);
+  auto product = A32 * A34;
+  EXPECT_FALSE(is_same<tensor_pow>(product)) << to_string(product);
+  EXPECT_EQ(to_string(product), to_string(A32 * A34));
+}
+
 TEST(SymbolIdentity, TensorShapeDistinguishesSameName) {
   auto A32 = make_expression<tensor>("A", 3, 2);
   auto A22 = make_expression<tensor>("A", 2, 2);
