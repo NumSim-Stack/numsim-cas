@@ -213,6 +213,26 @@ TEST_F(AssumptionFixture, NoDomainClaimsForNegativeRadicand) {
   EXPECT_TRUE(pe.contains(numsim::cas::nonnegative{}));
 }
 
+// A sum is negative once every term is nonpositive and one is negative, so
+// composed negativity reaches the radicand guard.
+TEST_F(AssumptionFixture, ComposedNegativeSumIsNegative) {
+  auto minus_square =
+      -pow(x, 2) -
+      numsim::cas::make_expression<numsim::cas::scalar_constant>(1);
+  auto sa = numsim::cas::propagate_assumptions(minus_square);
+  EXPECT_TRUE(sa.contains(numsim::cas::negative{}));
+
+  auto sn = numsim::cas::propagate_assumptions(sqrt(minus_square));
+  EXPECT_FALSE(sn.contains(numsim::cas::nonnegative{}));
+  EXPECT_FALSE(sn.contains(numsim::cas::real_tag{}));
+
+  // a nonpositive term with no strictly negative one stays merely nonpositive
+  auto only_nonpos = -pow(x, 2);
+  auto oa = numsim::cas::propagate_assumptions(only_nonpos);
+  EXPECT_FALSE(oa.contains(numsim::cas::negative{}));
+  EXPECT_TRUE(oa.contains(numsim::cas::nonpositive{}));
+}
+
 TEST_F(AssumptionFixture, PropagateSqrt) {
   auto e = sqrt(x);
   auto a = numsim::cas::propagate_assumptions(e);
