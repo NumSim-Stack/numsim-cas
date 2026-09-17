@@ -5,10 +5,13 @@
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
 
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_divided_difference.h>
+
 #include <cstddef>
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <vector>
 
 namespace {
 using T2SLatexTestDims =
@@ -112,6 +115,24 @@ TYPED_TEST(TensorToScalarLatexPrinterTest, LATEX_Constants) {
           numsim::cas::make_expression<numsim::cas::tensor_to_scalar_one>()};
   EXPECT_T2S_LATEX(t2s_zero, "0");
   EXPECT_T2S_LATEX(t2s_one, "1");
+}
+
+// --- Divided difference: the argument must appear, so tangents of different
+// tensors render differently ---
+TYPED_TEST(TensorToScalarLatexPrinterTest, LATEX_DividedDifference) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+
+  auto ddX = numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_divided_difference>(
+      X, numsim::cas::isotropic_kind::log, std::vector<std::size_t>{0, 1});
+  auto ddY = numsim::cas::make_expression<
+      numsim::cas::tensor_to_scalar_divided_difference>(
+      Y, numsim::cas::isotropic_kind::log, std::vector<std::size_t>{0, 1});
+
+  EXPECT_T2S_LATEX(ddX, "\\left[\\log;\\lambda_{0},\\lambda_{1}\\right]\\left("
+                        "\\boldsymbol{X}\\right)");
+  EXPECT_NE(numsim::cas::to_latex(ddX), numsim::cas::to_latex(ddY));
 }
 
 #undef EXPECT_T2S_LATEX

@@ -86,7 +86,9 @@ public:
       m_out << "\\lambda_{" << idx << "}";
       first = false;
     }
-    m_out << "\\right]";
+    m_out << "\\right]\\left(";
+    apply(visitable.expr());
+    m_out << "\\right)";
   }
 
   void operator()(tensor_to_scalar_negative const &visitable) override {
