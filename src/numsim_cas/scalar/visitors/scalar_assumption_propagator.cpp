@@ -4,7 +4,10 @@
 #include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
+
+#include <cmath>
 #include <ranges>
+#include <variant>
 
 namespace numsim::cas {
 
@@ -114,33 +117,39 @@ void scalar_assumption_propagator::operator()(scalar_constant const &v) {
 void scalar_assumption_propagator::operator()(scalar_add const &v) {
   bool all_pos = true, all_neg = true;
   bool all_nonneg = true, all_nonpos = true;
+  // a sum of nonnegatives is positive as soon as one term is
+  bool any_pos = false, any_neg = false;
 
-  if (v.coeff().is_valid()) {
-    auto ca = apply(v.coeff());
-    all_pos &= ca.contains(positive{});
-    all_neg &= ca.contains(negative{});
-    all_nonneg &= ca.contains(nonnegative{});
-    all_nonpos &= ca.contains(nonpositive{});
-  }
+  auto account = [&](numeric_assumption_manager const &ca) {
+    const bool pos = ca.contains(positive{});
+    const bool neg = ca.contains(negative{});
+    all_pos &= pos;
+    all_neg &= neg;
+    all_nonneg &= pos || ca.contains(nonnegative{});
+    all_nonpos &= neg || ca.contains(nonpositive{});
+    any_pos |= pos;
+    any_neg |= neg;
+  };
 
-  for (auto const &child : v.symbol_map() | std::views::values) {
-    auto ca = apply(child);
-    all_pos &= ca.contains(positive{});
-    all_neg &= ca.contains(negative{});
-    all_nonneg &= ca.contains(nonnegative{});
-    all_nonpos &= ca.contains(nonpositive{});
-  }
+  if (v.coeff().is_valid())
+    account(apply(v.coeff()));
+
+  for (auto const &child : v.symbol_map() | std::views::values)
+    account(apply(child));
+
+  const bool sum_pos = all_pos || (all_nonneg && any_pos);
+  const bool sum_neg = all_neg || (all_nonpos && any_neg);
 
   m_result = {};
-  if (all_pos)
+  if (sum_pos)
     m_result.insert(positive{});
-  if (all_neg)
+  if (sum_neg)
     m_result.insert(negative{});
   if (all_nonneg)
     m_result.insert(nonnegative{});
   if (all_nonpos)
     m_result.insert(nonpositive{});
-  if (all_pos || all_neg)
+  if (sum_pos || sum_neg)
     m_result.insert(nonzero{});
   if (all_nonneg || all_nonpos)
     m_result.insert(real_tag{});
@@ -210,6 +219,35 @@ void scalar_assumption_propagator::operator()(scalar_negative const &v) {
     m_result.insert(integer{});
 }
 
+// sqrt and a fractional power are NaN on a negative argument, so a provably
+// negative operand carries no real-domain facts. An unknown-sign operand keeps
+// them: unassumed symbols are real-by-default here.
+static bool is_provably_negative(numeric_assumption_manager const &a) {
+  return a.contains(negative{}) ||
+         (a.contains(nonpositive{}) && a.contains(nonzero{}));
+}
+
+static bool
+is_provably_fractional(expression_holder<scalar_expression> const &exponent) {
+  if (try_int_constant(exponent))
+    return false;
+  auto value = domain_traits<scalar_expression>::try_numeric(exponent);
+  if (!value)
+    return false;
+  return std::visit(
+      [](auto const &x) {
+        using V = std::decay_t<decltype(x)>;
+        if constexpr (std::is_same_v<V, rational_t>) {
+          return x.den != 1;
+        } else if constexpr (std::is_same_v<V, double>) {
+          return std::floor(x) != x;
+        } else {
+          return false;
+        }
+      },
+      value->raw());
+}
+
 // #311 — shared scalar_pow assumption rule, used by BOTH the eager
 // propagator (below) and the lazy shallow_inference_visitor. Extracted so
 // the two can't drift out of sync (an earlier divergence caused the
@@ -239,7 +277,8 @@ pow_assumptions(numeric_assumption_manager const &base_a,
     m.insert(nonzero{});
     m.insert(real_tag{});
   }
-  if (base_a.contains(real_tag{}) && exp_a.contains(real_tag{}))
+  if (base_a.contains(real_tag{}) && exp_a.contains(real_tag{}) &&
+      !(is_provably_negative(base_a) && is_provably_fractional(exponent)))
     m.insert(real_tag{});
   return m;
 }
@@ -261,10 +300,11 @@ void scalar_assumption_propagator::operator()(scalar_abs const &v) {
     m_result.insert(positive{});
 }
 
-void scalar_assumption_propagator::operator()(
-    [[maybe_unused]] scalar_sqrt const &v) {
-  apply(v.expr());
+void scalar_assumption_propagator::operator()(scalar_sqrt const &v) {
+  auto ca = apply(v.expr());
   m_result = {};
+  if (is_provably_negative(ca))
+    return;
   m_result.insert(nonnegative{});
   m_result.insert(real_tag{});
 }
@@ -699,8 +739,11 @@ public:
       m_result.insert(positive{});
   }
 
-  void operator()([[maybe_unused]] scalar_sqrt const &v) override {
+  void operator()(scalar_sqrt const &v) override {
+    auto const &ca = ensure_assumptions(v.expr());
     m_result = {};
+    if (is_provably_negative(ca))
+      return;
     m_result.insert(nonnegative{});
     m_result.insert(real_tag{});
   }
