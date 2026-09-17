@@ -247,7 +247,8 @@ symbol_mul::symbol_mul(expr_holder_t lhs, expr_holder_t rhs)
 
 /// x*x --> pow(x,2)
 symbol_mul::expr_holder_t symbol_mul::dispatch(scalar const &rhs) {
-  if (&m_lhs_node == &rhs) {
+  // deep compare: distinct nodes may carry the same symbol
+  if (m_lhs_node == rhs) {
     return make_expression<scalar_pow>(std::move(m_rhs),
                                        make_expression<scalar_constant>(2));
   }
