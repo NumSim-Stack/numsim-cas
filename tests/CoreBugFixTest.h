@@ -6,6 +6,7 @@
 #include <cmath>
 #include <numsim_cas/core/substitute.h>
 #include <numsim_cas/tensor/visitors/tensor_substitution.h>
+#include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_substitution.h>
 
 namespace numsim::cas {
 
@@ -1985,6 +1986,90 @@ TEST(SubstitutionSpace, OperatorDerivedTagSurvives) {
   // structurally skew trans(C)-C is re-derived by construction
   auto h = substitute(trans(A) - A, A, B);
   EXPECT_EQ(to_string(sym(h)), "0{2}");
+}
+
+// A fold can consume a symbol's assumption and erase the operation, so a
+// replacement that does not provably carry the same assumption is rejected.
+TEST(SubstitutionAssumptions, TensorReplacementMustCarryTheAssumption) {
+  auto [S, G] =
+      make_tensor_variable(std::tuple{"S", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"G", std::size_t{3}, std::size_t{2}});
+  S.assumption(Symmetric{});
+  ASSERT_EQ(to_string(skew(S)), "0{2}");
+  EXPECT_THROW((void)substitute(skew(S), S, G), invalid_expression_error);
+  EXPECT_THROW((void)substitute(sym(S), S, G), invalid_expression_error);
+
+  // a provably symmetric replacement keeps the fold justified
+  auto [X] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}});
+  EXPECT_EQ(to_string(substitute(skew(S), S, sym(X))), "0{2}");
+  auto [H] =
+      make_tensor_variable(std::tuple{"H", std::size_t{3}, std::size_t{2}});
+  H.assumption(Symmetric{});
+  EXPECT_EQ(to_string(substitute(skew(S), S, H)), "0{2}");
+
+  // an unannotated symbol is unprovable, not merely unequal: still rejected
+  EXPECT_THROW((void)substitute(S + G, S, G), invalid_expression_error);
+  // a skew replacement violates the assumption outright
+  EXPECT_THROW((void)substitute(skew(S), S, skew(X)), invalid_expression_error);
+  // substituting into an unannotated symbol is unaffected
+  EXPECT_NO_THROW((void)substitute(skew(G), G, X));
+}
+
+TEST(SubstitutionAssumptions, AlgebraAssumptionsAreChecked) {
+  auto [P, Q] =
+      make_tensor_variable(std::tuple{"P", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"Q", std::size_t{3}, std::size_t{2}});
+  P.assumption(positive_definite{});
+  EXPECT_THROW((void)substitute(det(P), P, Q), invalid_expression_error);
+  Q.assumption(positive_definite{});
+  EXPECT_NO_THROW((void)substitute(det(P), P, Q));
+
+  auto [R, T] =
+      make_tensor_variable(std::tuple{"R", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"T", std::size_t{3}, std::size_t{2}});
+  R.assumption(orthogonal{});
+  EXPECT_THROW((void)substitute(inv(R), R, T), invalid_expression_error);
+  T.assumption(orthogonal{});
+  EXPECT_NO_THROW((void)substitute(inv(R), R, T));
+}
+
+TEST(SubstitutionAssumptions, ScalarReplacementMustCarryTheAssumption) {
+  auto [p, q] = make_scalar_variable("p", "q");
+  p.assumption(positive{});
+  ASSERT_EQ(to_string(abs(p)), "p");
+  EXPECT_THROW((void)substitute(abs(p), p, q), invalid_expression_error);
+  q.assumption(positive{});
+  EXPECT_EQ(to_string(substitute(abs(p), p, q)), "q");
+
+  auto [n] = make_scalar_variable("n");
+  n.assumption(negative{});
+  EXPECT_THROW((void)substitute(abs(p), p, n), invalid_expression_error);
+}
+
+TEST(SubstitutionAssumptions, T2sWrapperForwardsToTheWrappedScalar) {
+  auto [p, q] = make_scalar_variable("p", "q");
+  p.assumption(positive{});
+  auto wp = make_expression<tensor_to_scalar_scalar_wrapper>(p);
+  auto wq = make_expression<tensor_to_scalar_scalar_wrapper>(q);
+  auto [A] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}});
+  EXPECT_THROW((void)substitute(wp * trace(A), wp, wq),
+               invalid_expression_error);
+  q.assumption(positive{});
+  EXPECT_NO_THROW((void)substitute(wp * trace(A), wp, wq));
+}
+
+// The solver substitutes X = 0 to read off the constant term; that is an
+// internal probe, not a claim that the replacement satisfies X's assumptions.
+TEST(SubstitutionAssumptions, SolverProbeIsNotValidated) {
+  auto [X, B] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  X.assumption(positive_definite{});
+  EXPECT_NO_THROW((void)solve(X - B, X));
+  auto [c] = make_scalar_variable("c");
+  EXPECT_NO_THROW((void)solve(c * X - B, X));
 }
 
 // Substituting a dim-2 argument into a dim-3 projector contraction is a
