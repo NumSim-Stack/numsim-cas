@@ -1913,6 +1913,18 @@ TEST(ScalarNumberExactness, EqualValuesAcrossSpellingsStayEqual) {
       numeric_less(scalar_number(std::int64_t{1} << 62), scalar_number(1e300)));
   EXPECT_TRUE(
       numeric_less(scalar_number(-1e300), scalar_number(std::int64_t{-5})));
+  // INT64_MIN is exactly -2^63, the one magnitude a double can still match
+  EXPECT_TRUE(scalar_number(std::numeric_limits<std::int64_t>::min()) ==
+              scalar_number(-9223372036854775808.0));
+  EXPECT_FALSE(
+      numeric_less(scalar_number(-9223372036854775808.0),
+                   scalar_number(std::numeric_limits<std::int64_t>::min())));
+  EXPECT_FALSE(
+      numeric_less(scalar_number(std::numeric_limits<std::int64_t>::min()),
+                   scalar_number(-9223372036854775808.0)));
+  // INT64_MAX is below 2^63, so it must stay unequal
+  EXPECT_FALSE(scalar_number(std::numeric_limits<std::int64_t>::max()) ==
+               scalar_number(9223372036854775808.0));
 }
 
 // #361 — hash_combine(double) hashed via static_cast<size_t>: UB for

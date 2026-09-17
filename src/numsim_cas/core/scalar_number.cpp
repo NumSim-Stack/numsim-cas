@@ -350,9 +350,10 @@ int compare_rational_double(std::int64_t num, std::int64_t den, double d) {
     return 0;
 
 #if defined(__SIZEOF_INT128__)
-  // |num/den| < 2^63, so anything at least that large wins on magnitude
+  // |num/den| <= 2^63 (INT64_MIN/1 reaches it), so a strictly larger
+  // magnitude wins outright
   constexpr double two_pow_63 = 9223372036854775808.0;
-  if (std::fabs(d) >= two_pow_63)
+  if (std::fabs(d) > two_pow_63)
     return sign_rat > 0 ? -1 : 1;
 
   int exponent = 0;
@@ -366,8 +367,8 @@ int compare_rational_double(std::int64_t num, std::int64_t den, double d) {
 
   int magnitude = 0;
   if (shift >= 0) {
-    // |mantissa| >= 2^52 and |d| < 2^63 bound the shift by 10 bits, so
-    // rhs stays below 2^126
+    // |mantissa| >= 2^52 and |d| <= 2^63 bound the shift by 11 bits, so
+    // rhs stays below 2^127
     rhs <<= shift;
     magnitude = lhs < rhs ? -1 : (lhs > rhs ? 1 : 0);
   } else if (-shift >= 127) {
