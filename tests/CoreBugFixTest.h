@@ -1202,6 +1202,34 @@ TEST(RoundTwoReview, T2sWrapperCancelCollapses) {
   auto e2 = (trace(A) + w(a)) - w(a);
   EXPECT_TRUE(*e2 == *trace(A));
 }
+// A wrapped compound scalar must compare by its scalar, not by a hash that
+// omits the n_ary coefficient.
+TEST(HashIdentitySweep, T2sWrapperComparesWrappedScalar) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto [x, y] = make_scalar_variable("x", "y");
+  auto w = [](auto e) {
+    return make_expression<tensor_to_scalar_scalar_wrapper>(e);
+  };
+  auto two_x = w(make_expression<scalar_constant>(2) * x);
+  auto three_x = w(make_expression<scalar_constant>(3) * x);
+  EXPECT_FALSE(*two_x == *three_x);
+  EXPECT_TRUE((*two_x < *three_x) || (*three_x < *two_x));
+  EXPECT_FALSE(*w(x + make_expression<scalar_constant>(1)) ==
+               *w(x + make_expression<scalar_constant>(2)));
+  EXPECT_TRUE(*w(x * y) == *w(x * y));
+
+  // the wrapper reaches the shared add/sub short-circuits as a mul child
+  auto diff = two_x * trace(A) - three_x * trace(A);
+  EXPECT_FALSE(is_same<tensor_to_scalar_zero>(diff)) << to_string(diff);
+  tensor_to_scalar_evaluator<double> ev;
+  ev.set(A, std::make_shared<tensor_data<double, 3, 2>>(
+                tmech::eye<double, 3, 2>()));
+  ev.set_scalar(x, 5.0);
+  EXPECT_NEAR(ev.apply(diff), -15.0, 1e-12) << to_string(diff);
+  auto sum = two_x * trace(A) + three_x * trace(A);
+  EXPECT_NEAR(ev.apply(sum), 75.0, 1e-12) << to_string(sum);
+}
+
 // #340 — raw hash_value() comparisons replaced by deep equality / explicit
 // like-term folds. hash(c*X)==hash(X) and hash(pow(X,c))==hash(X) stay by
 // design; they must never merge without a deep check.
