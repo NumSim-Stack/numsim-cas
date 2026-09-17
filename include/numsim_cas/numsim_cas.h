@@ -41,6 +41,25 @@
 #include <numsim_cas/tensor/tensor_diff.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_diff.h>
 
+// substitute(expr, old, new) — the CPO plus the per-domain tag_invoke
+// overloads it dispatches to.
+#include <numsim_cas/core/substitute.h>
+#include <numsim_cas/scalar/visitors/scalar_substitution.h>
+#include <numsim_cas/tensor/visitors/tensor_substitution.h>
+#include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_substitution.h>
+
+// limits
+#include <numsim_cas/core/limit_algebra.h>
+#include <numsim_cas/core/limit_result.h>
+#include <numsim_cas/scalar/visitors/scalar_limit_visitor.h>
+#include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_limit_visitor.h>
+
+// contains_expression / depends_on_tensor
+#include <numsim_cas/core/contains_expression.h>
+
+// opt-in rewrite passes
+#include <numsim_cas/scalar/simplifier/scalar_function_simplifier.h>
+
 #include <numsim_cas/scalar/scalar_latex_io.h>
 #include <numsim_cas/tensor/identity_tensor.h>
 #include <numsim_cas/tensor/levi_civita_tensor.h>
@@ -56,6 +75,7 @@
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_functions.h>
 #include <numsim_cas/tensor/tensor_io.h>
+#include <numsim_cas/tensor/tensor_isotropic_functions.h>
 #include <numsim_cas/tensor/tensor_solve.h>
 
 // tensor based scalar expression

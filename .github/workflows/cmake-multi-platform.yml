@@ -2,10 +2,18 @@ name: CMake on multiple platforms
 on:
   workflow_dispatch:
 
+  # A PR from a branch in this repo would otherwise run this workflow
+  # twice per commit: once for the push, once for the pull_request.
   push:
-    branches: [ "**" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "**" ]
+
+# Supersede in-progress runs for the same ref rather than queueing them.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -77,7 +85,7 @@ jobs:
         -DNUMSIM_CAS_BUILD_PARSER=${{ matrix.parser || 'OFF' }}
         -S ${{ github.workspace }}
     - name: Build
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --parallel
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      run: ctest --build-config ${{ matrix.build_type }} -VV
+      run: ctest --build-config ${{ matrix.build_type }} --parallel 4 --output-on-failure
