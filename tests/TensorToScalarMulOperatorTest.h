@@ -275,6 +275,57 @@ TEST(TensorToScalarMulOperatorDiff, DiffMatchesProductRule) {
   EXPECT_FALSE(is_same<tensor_zero>(d_expr));
 }
 
+// ─── Shared-DAG containment queries ───────────────────────────────────
+
+namespace {
+
+// t = trace(t)*t shares each level through a tensor AND a t2s edge;
+// t = inner_product(t, t) shares through two tensor edges.
+std::pair<expression_holder<tensor_expression>,
+          expression_holder<tensor_expression>>
+shared_chains(expression_holder<tensor_expression> const &seed,
+              std::size_t depth) {
+  auto mixed = seed;
+  auto tensor_only = seed;
+  for (std::size_t i = 0; i < depth; ++i) {
+    mixed = trace(mixed) * mixed;
+    tensor_only =
+        inner_product(tensor_only, sequence{2}, tensor_only, sequence{1});
+  }
+  return {mixed, tensor_only};
+}
+
+} // namespace
+
+// Sharing must not change the answer.
+TEST(ContainsExpressionSharing, ResultsAreUnaffectedBySharing) {
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  auto [mixed, tensor_only] = shared_chains(A, 12);
+
+  EXPECT_TRUE(contains_expression(mixed, A));
+  EXPECT_FALSE(contains_expression(mixed, B));
+  EXPECT_TRUE(contains_expression(tensor_only, A));
+  EXPECT_FALSE(contains_expression(tensor_only, B));
+  EXPECT_TRUE(depends_on_tensor(trace(mixed), A));
+  EXPECT_FALSE(depends_on_tensor(trace(mixed), B));
+}
+
+// Each node is visited once, not once per path: these chains have 2^depth
+// paths through depth+1 distinct nodes. A query that walks paths does not
+// finish here, so losing the memoization hangs instead of passing slowly.
+TEST(ContainsExpressionSharing, DeepSharingStaysLinear) {
+  auto [A, B] =
+      make_tensor_variable(std::tuple{"A", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"B", std::size_t{3}, std::size_t{2}});
+  auto [mixed, tensor_only] = shared_chains(A, 64);
+
+  EXPECT_FALSE(contains_expression(mixed, B));
+  EXPECT_FALSE(contains_expression(tensor_only, B));
+  EXPECT_FALSE(depends_on_tensor(trace(mixed), B));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALARMULOPERATORTEST_H

@@ -9,12 +9,38 @@
 #include <numsim_cas/tensor_to_scalar/operators/tensor_to_scalar_mul.h>
 #include <numsim_cas/tensor_to_scalar/tensor_to_scalar_definitions.h>
 #include <ranges>
+#include <unordered_set>
 
 namespace numsim::cas {
 
 // ─── Scalar containment visitor ───────────────────────────────────
 
 namespace {
+
+// Nodes whose subtree is proven not to contain the needle, keyed by node
+// address. Expressions are shared DAGs, so without this a node referenced
+// n times is walked n times. Pointers, not holders: equality is coarser
+// than structure for some node types, which would skip unrelated subtrees.
+//
+// Recording starts only after a small tree's worth of nodes, so the common
+// case — many queries over tiny expressions — never allocates.
+class absent_set {
+public:
+  bool known(void const *node) const {
+    return !m_nodes.empty() && m_nodes.contains(node);
+  }
+
+  void note(void const *node) {
+    if (m_seen++ >= record_threshold)
+      m_nodes.insert(node);
+  }
+
+private:
+  static constexpr std::size_t record_threshold = 64;
+
+  std::unordered_set<void const *> m_nodes;
+  std::size_t m_seen = 0;
+};
 
 class scalar_contains_visitor final : public scalar_visitor_const_t {
 public:
@@ -27,8 +53,12 @@ public:
       return false;
     if (expr == m_needle)
       return true;
+    if (m_absent.known(expr.data().get()))
+      return false;
     m_found = false;
     expr.template get<scalar_visitable_t>().accept(*this);
+    if (!m_found)
+      m_absent.note(expr.data().get());
     return m_found;
   }
 
@@ -111,24 +141,36 @@ private:
   }
 
   expr_holder_t m_needle;
+  absent_set m_absent;
   bool m_found = false;
 };
 
 // ─── Tensor containment visitor ───────────────────────────────────
 
+// Defined below; the tensor and t2s visitors recurse into each other and
+// must share one absent set, or a mixed tensor/t2s DAG stays exponential.
+bool t2s_depends_on_tensor_impl(
+    expression_holder<tensor_to_scalar_expression> const &expr,
+    expression_holder<tensor_expression> const &tensor_var, absent_set &absent);
+
 class tensor_contains_visitor final : public tensor_visitor_const_t {
 public:
   using expr_holder_t = expression_holder<tensor_expression>;
 
-  tensor_contains_visitor(expr_holder_t const &needle) : m_needle(needle) {}
+  tensor_contains_visitor(expr_holder_t const &needle, absent_set &absent)
+      : m_needle(needle), m_absent(absent) {}
 
   bool apply(expr_holder_t const &expr) {
     if (!expr.is_valid())
       return false;
     if (expr == m_needle)
       return true;
+    if (m_absent.known(expr.data().get()))
+      return false;
     m_found = false;
     expr.template get<tensor_visitable_t>().accept(*this);
+    if (!m_found)
+      m_absent.note(expr.data().get());
     return m_found;
   }
 
@@ -221,10 +263,11 @@ private:
   void check_t2s(expression_holder<tensor_to_scalar_expression> const &expr) {
     if (m_found)
       return;
-    m_found = depends_on_tensor(expr, m_needle);
+    m_found = t2s_depends_on_tensor_impl(expr, m_needle, m_absent);
   }
 
   expr_holder_t m_needle;
+  absent_set &m_absent;
   bool m_found = false;
 };
 
@@ -236,14 +279,19 @@ public:
   using t2s_holder_t = expression_holder<tensor_to_scalar_expression>;
   using tensor_holder_t = expression_holder<tensor_expression>;
 
-  t2s_depends_on_tensor_visitor(tensor_holder_t const &tensor_var)
-      : m_tensor_var(tensor_var) {}
+  t2s_depends_on_tensor_visitor(tensor_holder_t const &tensor_var,
+                                absent_set &absent)
+      : m_tensor_var(tensor_var), m_absent(absent) {}
 
   bool apply(t2s_holder_t const &expr) {
     if (!expr.is_valid())
       return false;
+    if (m_absent.known(expr.data().get()))
+      return false;
     m_found = false;
     expr.template get<tensor_to_scalar_visitable_t>().accept(*this);
+    if (!m_found)
+      m_absent.note(expr.data().get());
     return m_found;
   }
 
@@ -320,7 +368,7 @@ private:
   void check_tensor(tensor_holder_t const &expr) {
     if (m_found)
       return;
-    tensor_contains_visitor v(m_tensor_var);
+    tensor_contains_visitor v(m_tensor_var, m_absent);
     m_found = v.apply(expr);
   }
 
@@ -331,8 +379,17 @@ private:
   }
 
   tensor_holder_t m_tensor_var;
+  absent_set &m_absent;
   bool m_found = false;
 };
+
+bool t2s_depends_on_tensor_impl(
+    expression_holder<tensor_to_scalar_expression> const &expr,
+    expression_holder<tensor_expression> const &tensor_var,
+    absent_set &absent) {
+  t2s_depends_on_tensor_visitor v(tensor_var, absent);
+  return v.apply(expr);
+}
 
 } // namespace
 
@@ -346,15 +403,16 @@ bool contains_expression(expression_holder<scalar_expression> const &haystack,
 
 bool contains_expression(expression_holder<tensor_expression> const &haystack,
                          expression_holder<tensor_expression> const &needle) {
-  tensor_contains_visitor v(needle);
+  absent_set absent;
+  tensor_contains_visitor v(needle, absent);
   return v.apply(haystack);
 }
 
 bool depends_on_tensor(
     expression_holder<tensor_to_scalar_expression> const &expr,
     expression_holder<tensor_expression> const &tensor_var) {
-  t2s_depends_on_tensor_visitor v(tensor_var);
-  return v.apply(expr);
+  absent_set absent;
+  return t2s_depends_on_tensor_impl(expr, tensor_var, absent);
 }
 
 } // namespace numsim::cas
