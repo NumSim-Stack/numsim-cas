@@ -59,6 +59,7 @@ add_numsim_cas_test(numsim_cas_test
     TensorToScalarEvaluatorTest.h
     TensorToScalarExpressionTest.h
     TensorToScalarSubstitutionTest.h
+    UmbrellaHeaderTest.h
     ScalarLatexPrinterTest.h
     TensorLatexPrinterTest.h
     TensorToScalarLatexPrinterTest.h
@@ -68,6 +69,10 @@ add_numsim_cas_test(numsim_cas_fuzz_test
     FuzzyTensorDiffTest.cpp
     cas_test_helpers.h
 )
+
+# Lets the umbrella-header coverage test walk the shipped headers.
+target_compile_definitions(numsim_cas_test
+    PRIVATE NUMSIM_CAS_INCLUDE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../include")
 
 foreach(target numsim_cas_test numsim_cas_fuzz_test)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
