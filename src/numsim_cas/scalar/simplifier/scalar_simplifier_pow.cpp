@@ -8,6 +8,25 @@
 
 namespace numsim::cas::simplifier {
 
+namespace {
+
+/// A provably integer exponent: a numeric integer, or a symbol carrying the
+/// integer assumption.
+bool provably_integer(expression_holder<scalar_expression> const &e) {
+  return detail::numeric_integer_exponent<scalar_traits>(e) || is_integer(e);
+}
+
+/// (x^a)^b = x^(a*b) needs integer exponents, unless x is known nonnegative.
+bool exponents_compose(expression_holder<scalar_expression> const &base,
+                       expression_holder<scalar_expression> const &inner_exp,
+                       expression_holder<scalar_expression> const &outer_exp) {
+  if (is_nonnegative(base) || is_positive(base))
+    return true;
+  return provably_integer(inner_exp) && provably_integer(outer_exp);
+}
+
+} // namespace
+
 pow_pow::pow_pow(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
       m_lhs_node{base::m_lhs.template get<scalar_pow>()} {}
@@ -16,12 +35,9 @@ pow_pow::pow_pow(expr_holder_t lhs, expr_holder_t rhs)
 /// (The double-negative case pow(pow(x,-a),-b) = pow(x,ab) is covered by
 /// the a*b exponent multiply above; closed #268.)
 pow_pow::expr_holder_t pow_pow::compose() {
-  auto const &inner_base{m_lhs_node.expr_lhs()};
-  if (!is_nonnegative(inner_base) && !is_positive(inner_base) &&
-      !detail::pow_exponents_compose<scalar_traits>(
-          inner_base, m_lhs_node.expr_rhs(), m_rhs))
+  if (!exponents_compose(m_lhs_node.expr_lhs(), m_lhs_node.expr_rhs(), m_rhs))
     return get_default();
-  return pow(inner_base, m_lhs_node.expr_rhs() * m_rhs);
+  return pow(m_lhs_node.expr_lhs(), m_lhs_node.expr_rhs() * m_rhs);
 }
 
 template <typename Expr>
@@ -42,10 +58,7 @@ mul_pow::mul_pow(expr_holder_t lhs, expr_holder_t rhs)
 bool mul_pow::factors_compose(std::vector<expr_holder_t> const &pows) const {
   for (auto const &entry : pows) {
     auto const &p{entry.get<scalar_pow>()};
-    if (is_nonnegative(p.expr_lhs()) || is_positive(p.expr_lhs()))
-      continue;
-    if (!detail::pow_exponents_compose<scalar_traits>(p.expr_lhs(),
-                                                      p.expr_rhs(), m_rhs))
+    if (!exponents_compose(p.expr_lhs(), p.expr_rhs(), m_rhs))
       return false;
   }
   return true;
@@ -127,10 +140,14 @@ pow_base::expr_holder_t pow_base::dispatch(scalar_exp const &) {
   return exp(m_lhs.template get<scalar_exp>().expr() * m_rhs);
 }
 
-/// pow(sqrt(x), n) → pow(x, n/2)
+/// pow(sqrt(x), n) → pow(x, n/2), only where sqrt(x) is real: for x < 0 the
+/// left side is undefined while pow(x, n/2) may not be.
 pow_base::expr_holder_t pow_base::dispatch(scalar_sqrt const &) {
+  auto const &radicand{m_lhs.template get<scalar_sqrt>().expr()};
+  if (!is_nonnegative(radicand) && !is_positive(radicand))
+    return make_expression<scalar_pow>(std::move(m_lhs), std::move(m_rhs));
   auto half = make_expression<scalar_constant>(scalar_number{1, 2});
-  return pow(m_lhs.template get<scalar_sqrt>().expr(), m_rhs * half);
+  return pow(radicand, m_rhs * half);
 }
 
 pow_base::expr_holder_t pow_base::dispatch(scalar_pow const &) {

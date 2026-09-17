@@ -24,24 +24,28 @@ pow_integer_exponent(scalar_number const &v) {
 }
 
 // (x^a)^b = x^(a·b) holds for every real x only when a and b are integers:
-// a visibly fractional exponent can change the value ((x²)^(1/2) is |x|) or
-// leave the reals ((x^(1/2))² is undefined for x < 0). A nonnegative base
-// makes the fold sound for any exponents.
-inline bool
-fractional_constant_exponent(std::optional<scalar_number> const &v) {
-  return v.has_value() && !pow_integer_exponent(*v).has_value();
+// a fractional exponent can change the value ((x²)^(1/2) is |x|) or leave the
+// reals ((x^(1/2))² is undefined for x < 0). A nonnegative base makes the fold
+// sound for any exponents.
+template <typename Traits>
+bool numeric_integer_exponent(typename Traits::expr_holder_t const &e) {
+  auto v = Traits::try_numeric(e);
+  return v.has_value() && pow_integer_exponent(*v).has_value();
+}
+
+template <typename Traits>
+bool nonnegative_numeric_base(typename Traits::expr_holder_t const &base) {
+  auto v = Traits::try_numeric(base);
+  return v.has_value() && !numeric_less(*v, scalar_number{0});
 }
 
 template <typename Traits>
 bool pow_exponents_compose(typename Traits::expr_holder_t const &base,
                            typename Traits::expr_holder_t const &inner_exp,
                            typename Traits::expr_holder_t const &outer_exp) {
-  if (auto v = Traits::try_numeric(base)) {
-    if (!numeric_less(*v, scalar_number{0}))
-      return true;
-  }
-  return !fractional_constant_exponent(Traits::try_numeric(inner_exp)) &&
-         !fractional_constant_exponent(Traits::try_numeric(outer_exp));
+  return nonnegative_numeric_base<Traits>(base) ||
+         (numeric_integer_exponent<Traits>(inner_exp) &&
+          numeric_integer_exponent<Traits>(outer_exp));
 }
 
 // Extracting pow(z,c) out of pow(x*pow(z,c), n) composes c with n, so each

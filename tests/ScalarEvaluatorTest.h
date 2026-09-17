@@ -338,6 +338,54 @@ TEST(ScalarEval, PowOfMulKeepsRealDomain) {
   EXPECT_NEAR(ev.apply(ok), 1024.0, 1e-12) << to_string(ok);
 }
 
+// sqrt(x) is real only for x >= 0, so pow(sqrt(x), n) may only become
+// pow(x, n/2) once that is known.
+TEST(ScalarEval, PowOfSqrtKeepsRealDomain) {
+  scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  auto p = make_expression<scalar>("p");
+  p.assumption(nonnegative{});
+  ev.set(x, -4.0);
+  ev.set(p, 4.0);
+  auto two = make_expression<scalar_constant>(2);
+  auto three = make_expression<scalar_constant>(3);
+
+  auto e = pow(sqrt(x), two);
+  EXPECT_TRUE(std::isnan(ev.apply(e))) << to_string(e);
+  EXPECT_TRUE(std::isnan(ev.apply(pow(sqrt(x), three))));
+
+  EXPECT_NEAR(ev.apply(pow(sqrt(p), two)), 4.0, 1e-12);
+  EXPECT_NEAR(ev.apply(pow(sqrt(p), three)), 8.0, 1e-12);
+}
+
+// A symbolic exponent may be fractional at evaluation time, so composing it
+// needs a nonnegative base or exponents known to be integers.
+TEST(ScalarEval, PowOfPowSymbolicExponentsKeepRealDomain) {
+  scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  auto y = make_expression<scalar>("y");
+  auto p = make_expression<scalar>("p");
+  p.assumption(nonnegative{});
+  auto m = make_expression<scalar>("m");
+  auto n = make_expression<scalar>("n");
+  m.assumption(integer{});
+  n.assumption(integer{});
+  ev.set(x, -4.0);
+  ev.set(p, 4.0);
+  ev.set(y, 0.5);
+  ev.set(m, 2.0);
+  ev.set(n, 3.0);
+  auto two = make_expression<scalar_constant>(2);
+
+  // (x^2)^y with x < 0 and y = 1/2 is |x|, not x
+  EXPECT_NEAR(ev.apply(pow(pow(x, two), y)), 4.0, 1e-12);
+  EXPECT_TRUE(std::isnan(ev.apply(pow(pow(x, y), two))));
+  // a nonnegative base composes for any exponent
+  EXPECT_NEAR(ev.apply(pow(pow(p, two), y)), 4.0, 1e-12);
+  // integer-assumed exponents compose even on a negative base
+  EXPECT_NEAR(ev.apply(pow(pow(x, m), n)), 4096.0, 1e-12);
+}
+
 // --- Error tests ---
 
 TEST(ScalarEval, EvalMissingSymbolThrows) {
