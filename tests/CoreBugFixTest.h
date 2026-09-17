@@ -1875,6 +1875,46 @@ TEST(ScalarNumberOverflow, Int64MinTimesRational) {
   EXPECT_TRUE(std::get_if<double>(&d.raw()) != nullptr);
 }
 
+// Cross-representation comparison must be exact: values that round onto the
+// same double are not equal, or equality stops being an equivalence relation.
+TEST(ScalarNumberExactness, CrossRepresentationEqualityIsTransitive) {
+  auto third = scalar_number(rational_t{1, 3});
+  auto third_d = scalar_number(1.0 / 3.0);
+  auto third_rounded = scalar_number(rational_t{6004799503160661LL, 1LL << 54});
+  // the rounded rational IS the double's exact value, so those stay equal;
+  // transitivity then requires 1/3 to differ from both
+  EXPECT_TRUE(third_rounded == third_d);
+  EXPECT_FALSE(third == third_d);
+  EXPECT_FALSE(third == third_rounded);
+
+  const std::int64_t two62 = std::int64_t{1} << 62;
+  auto big_a = scalar_number(two62 + 1);
+  auto big_b = scalar_number(two62 + 2);
+  auto big_d = scalar_number(static_cast<double>(two62));
+  EXPECT_FALSE(big_a == big_d);
+  EXPECT_FALSE(big_b == big_d);
+  EXPECT_FALSE(big_a == big_b);
+}
+
+// Exact spellings of one value stay equal, and equal values stay unordered.
+TEST(ScalarNumberExactness, EqualValuesAcrossSpellingsStayEqual) {
+  EXPECT_TRUE(scalar_number(std::int64_t{2}) == scalar_number(2.0));
+  EXPECT_TRUE(scalar_number(rational_t{1, 2}) == scalar_number(0.5));
+  EXPECT_TRUE(scalar_number(rational_t{3, 4}) == scalar_number(0.75));
+  EXPECT_FALSE(
+      numeric_less(scalar_number(rational_t{1, 2}), scalar_number(0.5)));
+  EXPECT_FALSE(
+      numeric_less(scalar_number(0.5), scalar_number(rational_t{1, 2})));
+  // and unequal neighbours are still ordered the right way round
+  EXPECT_TRUE(
+      numeric_less(scalar_number(rational_t{1, 3}), scalar_number(1.0 / 3.0)) !=
+      numeric_less(scalar_number(1.0 / 3.0), scalar_number(rational_t{1, 3})));
+  EXPECT_TRUE(
+      numeric_less(scalar_number(std::int64_t{1} << 62), scalar_number(1e300)));
+  EXPECT_TRUE(
+      numeric_less(scalar_number(-1e300), scalar_number(std::int64_t{-5})));
+}
+
 // #361 — hash_combine(double) hashed via static_cast<size_t>: UB for
 // negatives, and every fraction in (0,1) collided with 0.
 TEST(HashCombineDouble, BitPatternNoTruncation) {

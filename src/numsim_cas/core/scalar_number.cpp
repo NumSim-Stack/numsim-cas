@@ -331,6 +331,76 @@ std::ostream &operator<<(std::ostream &os, scalar_number const &a) {
 
 // ─── Comparison ──────────────────────────────────────────────────
 
+namespace {
+// Exact three-way comparison of the rational num/den (den > 0) against a
+// double, plus `unordered` for NaN. Promoting to double instead would round,
+// so values sharing a rounded representation would compare equal and equality
+// would stop being transitive.
+constexpr int cmp_unordered = 2;
+
+int compare_rational_double(std::int64_t num, std::int64_t den, double d) {
+  if (std::isnan(d))
+    return cmp_unordered;
+
+  const int sign_rat = (num > 0) - (num < 0);
+  const int sign_dbl = (d > 0.0) - (d < 0.0);
+  if (sign_rat != sign_dbl)
+    return sign_rat < sign_dbl ? -1 : 1;
+  if (sign_rat == 0)
+    return 0;
+
+#if defined(__SIZEOF_INT128__)
+  // |num/den| < 2^63, so anything at least that large wins on magnitude
+  constexpr double two_pow_63 = 9223372036854775808.0;
+  if (std::fabs(d) >= two_pow_63)
+    return sign_rat > 0 ? -1 : 1;
+
+  int exponent = 0;
+  const double fraction = std::frexp(d, &exponent);
+  // the 53-bit mantissa as an exact integer, so d == mantissa * 2^shift
+  const auto mantissa = static_cast<__int128>(std::ldexp(fraction, 53));
+  const int shift = exponent - 53;
+
+  const __int128 lhs = num < 0 ? -static_cast<__int128>(num) : num;
+  __int128 rhs = (mantissa < 0 ? -mantissa : mantissa) * den;
+
+  int magnitude = 0;
+  if (shift >= 0) {
+    // |mantissa| >= 2^52 and |d| < 2^63 bound the shift by 10 bits, so
+    // rhs stays below 2^126
+    rhs <<= shift;
+    magnitude = lhs < rhs ? -1 : (lhs > rhs ? 1 : 0);
+  } else if (-shift >= 127) {
+    // |d * den| < 1 <= lhs
+    magnitude = 1;
+  } else {
+    const int k = -shift;
+    const __int128 quotient = rhs >> k;
+    const __int128 remainder = rhs - (quotient << k);
+    magnitude = lhs < quotient   ? -1
+                : lhs > quotient ? 1
+                : remainder != 0 ? -1
+                                 : 0;
+  }
+  return sign_rat > 0 ? magnitude : -magnitude;
+#else
+  // MSVC: no 128-bit intermediate, so fall back to the rounding comparison
+  const double r = static_cast<double>(num) / static_cast<double>(den);
+  return r < d ? -1 : (r > d ? 1 : 0);
+#endif
+}
+
+// Exact comparison of an int64 or rational against a double.
+template <class T> int compare_with_double(T const &v, double d) {
+  if constexpr (is_rat_v<T>) {
+    return compare_rational_double(v.num, v.den, d);
+  } else {
+    return compare_rational_double(static_cast<std::int64_t>(v), 1, d);
+  }
+}
+
+} // namespace
+
 bool operator==(scalar_number const &a, scalar_number const &b) {
   int ra = promotion_rank(a.v_.index());
   int rb = promotion_rank(b.v_.index());
@@ -362,9 +432,13 @@ bool operator==(scalar_number const &a, scalar_number const &b) {
         using Y = std::decay_t<decltype(y)>;
         if constexpr (is_cplx_v<X> || is_cplx_v<Y>) {
           return to_complex(x) == to_complex(y);
-        } else if constexpr (std::is_same_v<X, double> ||
+        } else if constexpr (std::is_same_v<X, double> &&
                              std::is_same_v<Y, double>) {
-          return to_double(x) == to_double(y);
+          return x == y;
+        } else if constexpr (std::is_same_v<X, double>) {
+          return compare_with_double(y, x) == 0;
+        } else if constexpr (std::is_same_v<Y, double>) {
+          return compare_with_double(x, y) == 0;
         } else if constexpr (is_rat_v<X> || is_rat_v<Y>) {
           auto rx = to_rational(x);
           auto ry = to_rational(y);
@@ -433,9 +507,15 @@ bool numeric_less(scalar_number const &a, scalar_number const &b) {
           if (cx.real() != cy.real())
             return cx.real() < cy.real();
           return cx.imag() < cy.imag();
-        } else if constexpr (std::is_same_v<X, double> ||
+        } else if constexpr (std::is_same_v<X, double> &&
                              std::is_same_v<Y, double>) {
-          return to_double(x) < to_double(y);
+          return x < y;
+        } else if constexpr (std::is_same_v<X, double>) {
+          const int cmp = compare_with_double(y, x);
+          return cmp != cmp_unordered && cmp > 0;
+        } else if constexpr (std::is_same_v<Y, double>) {
+          const int cmp = compare_with_double(x, y);
+          return cmp != cmp_unordered && cmp < 0;
         } else if constexpr (is_rat_v<X> || is_rat_v<Y>) {
           return rat_less(to_rational(x), to_rational(y));
         } else {
