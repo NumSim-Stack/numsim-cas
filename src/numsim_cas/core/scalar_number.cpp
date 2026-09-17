@@ -398,28 +398,11 @@ bool rat_less(rational_t a, rational_t b) {
 }
 } // namespace
 
+// Same promotion rules as operator==, so equal values are incomparable and
+// unequal values are ordered. Ordering by variant alternative instead would
+// separate values that compare equal (int 2 before double 2.0).
 bool operator<(scalar_number const &a, scalar_number const &b) {
-  int ra = promotion_rank(a.v_.index());
-  int rb = promotion_rank(b.v_.index());
-
-  if (ra != rb)
-    return ra < rb;
-
-  return std::visit(
-      [&](auto const &x) {
-        using X = std::decay_t<decltype(x)>;
-        auto const &y = std::get<X>(b.v_);
-        if constexpr (is_cplx_v<X>) {
-          if (x.real() != y.real())
-            return x.real() < y.real();
-          return x.imag() < y.imag();
-        } else if constexpr (is_rat_v<X>) {
-          return rat_less(x, y);
-        } else {
-          return x < y;
-        }
-      },
-      a.v_);
+  return numeric_less(a, b);
 }
 
 bool numeric_less(scalar_number const &a, scalar_number const &b) {

@@ -63,10 +63,13 @@ public:
 
   /// Numeric strict-less for comparison-operator folding.
   ///
-  /// Unlike `operator<` (which is a total order for sort containers, with
-  /// rank-lexicographic ordering across variant alternatives), this compares
-  /// values numerically after cross-rank promotion — so `int(3) < double(3.0)`
-  /// is `false`.
+  /// Compares values numerically after cross-rank promotion, so
+  /// `int(3) < double(3.0)` is `false`. `operator<` shares these semantics;
+  /// this name states the intent at call sites that fold comparisons.
+  ///
+  /// Cross-representation comparison promotes to the wider type, so a
+  /// rational and a double are compared as doubles. Values beyond 2^53 can
+  /// therefore compare equal after rounding while their exact values differ.
   ///
   /// **Known limitations** (locked in by tests in ScalarComparisonTest.h):
   ///

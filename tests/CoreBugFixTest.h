@@ -4,8 +4,13 @@
 #include "numsim_cas/numsim_cas.h"
 #include "gtest/gtest.h"
 #include <cmath>
+#include <complex>
+#include <limits>
 #include <numsim_cas/core/substitute.h>
 #include <numsim_cas/tensor/visitors/tensor_substitution.h>
+#include <set>
+#include <utility>
+#include <vector>
 
 namespace numsim::cas {
 
@@ -1873,6 +1878,74 @@ TEST(ScalarNumberOverflow, Int64MinTimesRational) {
   EXPECT_NEAR(*pd, static_cast<double>(mn) / 2.0, 1e3);
   EXPECT_TRUE(std::get_if<double>(&q.raw()) != nullptr);
   EXPECT_TRUE(std::get_if<double>(&d.raw()) != nullptr);
+}
+
+namespace {
+// Spellings of the same and of neighbouring values, across every
+// representation a scalar_number can hold.
+inline std::vector<std::pair<char const *, scalar_number>> number_corpus() {
+  return {
+      {"int 0", scalar_number(std::int64_t{0})},
+      {"dbl 0.0", scalar_number(0.0)},
+      {"int 2", scalar_number(std::int64_t{2})},
+      {"dbl 2.0", scalar_number(2.0)},
+      {"rat 4/2", scalar_number(std::int64_t{4}, std::int64_t{2})},
+      {"cplx 2+0i", scalar_number(std::complex<double>{2.0, 0.0})},
+      {"rat 1/2", scalar_number(std::int64_t{1}, std::int64_t{2})},
+      {"dbl 0.5", scalar_number(0.5)},
+      {"int 3", scalar_number(std::int64_t{3})},
+      {"dbl 2.5", scalar_number(2.5)},
+      {"rat 5/2", scalar_number(std::int64_t{5}, std::int64_t{2})},
+      {"int -1", scalar_number(std::int64_t{-1})},
+      {"dbl -1.0", scalar_number(-1.0)},
+  };
+}
+} // namespace
+
+// operator< must agree with operator==: equal values are incomparable,
+// unequal values are ordered.
+TEST(ScalarNumberOrdering, EqualityAndOrderingAgree) {
+  auto const corpus = number_corpus();
+  for (auto const &[na, a] : corpus) {
+    EXPECT_FALSE(a < a) << na;
+    for (auto const &[nb, b] : corpus) {
+      bool const lt = a < b;
+      bool const gt = b < a;
+      EXPECT_FALSE(lt && gt) << na << " vs " << nb;
+      EXPECT_EQ(a == b, !lt && !gt) << na << " vs " << nb;
+    }
+  }
+}
+
+// Incomparability and < must both be transitive, or ordered containers
+// silently misbehave.
+TEST(ScalarNumberOrdering, StrictWeakOrderingHolds) {
+  auto const corpus = number_corpus();
+  for (auto const &[na, a] : corpus)
+    for (auto const &[nb, b] : corpus)
+      for (auto const &[nc, c] : corpus) {
+        if (a < b && b < c) {
+          EXPECT_TRUE(a < c) << na << " " << nb << " " << nc;
+        }
+        bool const ab = !(a < b) && !(b < a);
+        bool const bc = !(b < c) && !(c < b);
+        if (ab && bc) {
+          EXPECT_TRUE(!(a < c) && !(c < a)) << na << " " << nb << " " << nc;
+        }
+      }
+}
+
+// Constants spelled differently are one key in an ordered container.
+TEST(ScalarNumberOrdering, ConstantSpellingsAreOneKey) {
+  auto ci = make_expression<scalar_constant>(std::int64_t{2});
+  auto cd = make_expression<scalar_constant>(2.0);
+  EXPECT_TRUE(*ci == *cd);
+  EXPECT_FALSE(*ci < *cd);
+  EXPECT_FALSE(*cd < *ci);
+  std::set<expression_holder<scalar_expression>> keys;
+  keys.insert(ci);
+  keys.insert(cd);
+  EXPECT_EQ(keys.size(), 1u);
 }
 
 // #361 — hash_combine(double) hashed via static_cast<size_t>: UB for
