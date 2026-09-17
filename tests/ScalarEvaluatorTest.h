@@ -291,6 +291,53 @@ TEST(ScalarEval, EvalSqrtOfSquare) {
   EXPECT_NEAR(ev.apply(sqrt(x * x)), 7.0, 1e-12);
 }
 
+// (x^a)^b = x^(a*b) needs integer exponents or a nonnegative base: (x^2)^(1/2)
+// is |x|, and x^(1/2) is not real for x < 0.
+TEST(ScalarEval, PowOfPowKeepsRealDomain) {
+  scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  ev.set(x, -4.0);
+  auto half = make_expression<scalar_constant>(scalar_number{1, 2});
+  auto two = make_expression<scalar_constant>(2);
+  auto three = make_expression<scalar_constant>(3);
+
+  auto squared_root = pow(pow(x, two), half);
+  EXPECT_NEAR(ev.apply(squared_root), 4.0, 1e-12) << to_string(squared_root);
+  // the sqrt spelling of the same expression must agree
+  EXPECT_NEAR(ev.apply(sqrt(pow(x, two))), 4.0, 1e-12);
+
+  auto root_squared = pow(pow(x, half), two);
+  EXPECT_TRUE(std::isnan(ev.apply(root_squared))) << to_string(root_squared);
+
+  // integer exponents compose for any real base
+  EXPECT_NEAR(ev.apply(pow(pow(x, two), three)), 4096.0, 1e-12);
+  EXPECT_NEAR(ev.apply(pow(pow(x, three), two)), 4096.0, 1e-12);
+
+  // odd inner exponent does not rescue a fractional outer one
+  auto cube = make_expression<scalar_constant>(scalar_number{1, 3});
+  auto cube_root = pow(pow(x, three), cube);
+  EXPECT_TRUE(std::isnan(ev.apply(cube_root))) << to_string(cube_root);
+}
+
+// Extracting pow(z,c) out of pow(x*pow(z,c), n) composes c with n, so it
+// needs the same real-domain check.
+TEST(ScalarEval, PowOfMulKeepsRealDomain) {
+  scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  auto y = make_expression<scalar>("y");
+  ev.set(x, -4.0);
+  ev.set(y, 2.0);
+  auto half = make_expression<scalar_constant>(scalar_number{1, 2});
+  auto two = make_expression<scalar_constant>(2);
+
+  auto e = pow(pow(x, half) * y, two);
+  EXPECT_TRUE(std::isnan(ev.apply(e))) << to_string(e);
+
+  // integer inner exponents still extract: (x^2*y)^2 = x^4*y^2 = 1024
+  auto ok = pow(pow(x, two) * y, two);
+  EXPECT_NEAR(ev.apply(ok), 1024.0, 1e-12) << to_string(ok);
+}
+
 // --- Error tests ---
 
 TEST(ScalarEval, EvalMissingSymbolThrows) {

@@ -15,18 +15,41 @@ pow_pow::pow_pow(expr_holder_t lhs, expr_holder_t rhs)
 /// pow(pow(x,a),b) --> pow(x,a*b)
 /// (The double-negative case pow(pow(x,-a),-b) = pow(x,ab) is covered by
 /// the a*b exponent multiply above; closed #268.)
+pow_pow::expr_holder_t pow_pow::compose() {
+  auto const &inner_base{m_lhs_node.expr_lhs()};
+  if (!is_nonnegative(inner_base) && !is_positive(inner_base) &&
+      !detail::pow_exponents_compose<scalar_traits>(
+          inner_base, m_lhs_node.expr_rhs(), m_rhs))
+    return get_default();
+  return pow(inner_base, m_lhs_node.expr_rhs() * m_rhs);
+}
+
 template <typename Expr>
 pow_pow::expr_holder_t pow_pow::dispatch(Expr const &) {
-  return pow(m_lhs_node.expr_lhs(), m_lhs_node.expr_rhs() * m_rhs);
+  return compose();
 }
 
 pow_pow::expr_holder_t pow_pow::dispatch(scalar_negative const &) {
-  return pow(m_lhs_node.expr_lhs(), m_lhs_node.expr_rhs() * m_rhs);
+  return compose();
 }
 
 mul_pow::mul_pow(expr_holder_t lhs, expr_holder_t rhs)
     : base(std::move(lhs), std::move(rhs)),
       m_lhs_node{base::m_lhs.template get<scalar_mul>()} {}
+
+/// Each extracted factor composes its exponent with the outer one, so it
+/// needs the same real-domain check as pow(pow(x,a),b).
+bool mul_pow::factors_compose(std::vector<expr_holder_t> const &pows) const {
+  for (auto const &entry : pows) {
+    auto const &p{entry.get<scalar_pow>()};
+    if (is_nonnegative(p.expr_lhs()) || is_positive(p.expr_lhs()))
+      continue;
+    if (!detail::pow_exponents_compose<scalar_traits>(p.expr_lhs(),
+                                                      p.expr_rhs(), m_rhs))
+      return false;
+  }
+  return true;
+}
 
 // pow(scalar_mul, -rhs)
 mul_pow::expr_holder_t
@@ -36,7 +59,7 @@ mul_pow::dispatch([[maybe_unused]] scalar_negative const &rhs) {
   auto &mul{mul_expr.template get<scalar_mul>()};
   // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pos(z,base*rhs)
   const auto pows{get_all<scalar_pow>(m_lhs_node)};
-  if (!pows.empty() && int_exp) {
+  if (!pows.empty() && int_exp && factors_compose(pows)) {
     expr_holder_t result;
     for (const auto &expr : pows) {
       const auto &pow_expr{expr.get<scalar_pow>()};
@@ -70,7 +93,7 @@ mul_pow::expr_holder_t mul_pow::dispatch([[maybe_unused]] Expr const &rhs) {
 
   // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pos(z,base*rhs)
   const auto pows{get_all<scalar_pow>(m_lhs_node)};
-  if (!pows.empty() && try_int_constant(m_rhs)) {
+  if (!pows.empty() && try_int_constant(m_rhs) && factors_compose(pows)) {
     expr_holder_t result;
     for (const auto &expr : pows) {
       const auto &pow_expr{expr.get<scalar_pow>()};
