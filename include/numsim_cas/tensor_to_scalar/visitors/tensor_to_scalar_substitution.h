@@ -3,6 +3,7 @@
 
 #include <numsim_cas/core/substitute.h>
 #include <numsim_cas/scalar/visitors/scalar_substitution.h>
+#include <numsim_cas/substitution_guard.h>
 #include <numsim_cas/tensor/visitors/tensor_substitution.h>
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_rebuild_visitor.h>
 
@@ -38,7 +39,8 @@ public:
 
   scalar_holder_t apply_scalar(scalar_holder_t const &expr) override {
     if constexpr (std::is_same_v<TargetBase, scalar_expression>) {
-      return substitute(expr, m_old, m_new);
+      return substitute(std::type_identity<scalar_expression>{},
+                        std::type_identity<TargetBase>{}, expr, m_old, m_new);
     } else {
       return expr;
     }
@@ -47,7 +49,11 @@ public:
   // Unconditional: a tensor subtree can carry scalar and t2s children, so a
   // needle of any domain may hide inside it.
   tensor_holder_t apply_tensor(tensor_holder_t const &expr) override {
-    return substitute(expr, m_old, m_new);
+    // Descend unconditionally: a t2s needle can sit inside a tensor child.
+    // The typed call skips re-validating what the public entry point
+    // already checked.
+    return substitute(std::type_identity<tensor_expression>{},
+                      std::type_identity<TargetBase>{}, expr, m_old, m_new);
   }
 
 private:
