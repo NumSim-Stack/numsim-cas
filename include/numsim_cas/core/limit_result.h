@@ -21,6 +21,13 @@ struct limit_result {
   };
   direction dir = direction::unknown;
   growth_rate rate{};
+
+  /// A direction that says nothing also says nothing about growth.
+  [[nodiscard]] limit_result normalized() const {
+    if (dir == direction::unknown || dir == direction::indeterminate)
+      return {dir, {growth_rate::type::unknown, 0.0}};
+    return *this;
+  }
 };
 
 struct limit_target {
