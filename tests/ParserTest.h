@@ -253,12 +253,126 @@ TEST(ParseError, MultiLineSourceCaretAlignsWithCorrectLine) {
       << what;
 }
 
+// ─── Diagnostics: no PEGTL internals, bounded snippets ─────────────
+
+namespace {
+// Returns what() for a failing parse; fails the calling test if the
+// parse succeeds.
+std::string parse_failure_message(std::string const &src) {
+  symbol_table syms;
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+  } catch (parse_error const &e) {
+    return e.what();
+  }
+  ADD_FAILURE() << "expected a parse error for: " << src;
+  return {};
+}
+
+void expect_no_internals(std::string const &what, std::string const &src) {
+  EXPECT_EQ(what.find("tao::pegtl"), std::string::npos)
+      << "PEGTL type name leaked for input '" << src << "':\n"
+      << what;
+  EXPECT_EQ(what.find("grammar::"), std::string::npos)
+      << "grammar rule name leaked for input '" << src << "':\n"
+      << what;
+}
+} // namespace
+
+// Every must-guarded rule reports in user terms. One case per rule that
+// can raise: eof, expression, function_call_close, index_list items,
+// index_list_close, tensor_kv_list, tensor_decl_close.
+TEST(ParserDiagnostics, MustFailuresAreHumanReadable) {
+  struct Case {
+    char const *src;
+    char const *expect;
+  };
+  const Case cases[] = {
+      {"1 + 2 $", "unexpected"},
+      {"", "expression"},
+      {"trace(A{rank=2,dim=3}", ")"},
+      {"A{rank=2", "}"},
+      {"A{rank=2,dim=3} + ", "unexpected"},
+      {"inner_product(A{rank=2,dim=3},[],A,[1,2])", "index"},
+      {"inner_product(A{rank=2,dim=3},[1,,2],A,[1,2])", "]"},
+      {"A{oops=2}", "rank"},
+  };
+  for (auto const &c : cases) {
+    auto what = parse_failure_message(c.src);
+    expect_no_internals(what, c.src);
+    EXPECT_NE(what.find(c.expect), std::string::npos)
+        << "input '" << c.src << "' should mention '" << c.expect
+        << "'; what() was:\n"
+        << what;
+  }
+}
+
+// An out-of-range literal is well-formed input, not garbage.
+TEST(ParserDiagnostics, OutOfRangeLiteralsReportRange) {
+  auto integer_what = parse_failure_message("99999999999999999999");
+  EXPECT_EQ(integer_what.find("malformed"), std::string::npos) << integer_what;
+  EXPECT_NE(integer_what.find("range"), std::string::npos) << integer_what;
+
+  auto decimal_what = parse_failure_message(std::string(400, '9') + ".0");
+  EXPECT_EQ(decimal_what.find("malformed"), std::string::npos) << decimal_what;
+  EXPECT_NE(decimal_what.find("range"), std::string::npos) << decimal_what;
+}
+
+// what() must stay readable regardless of input size.
+TEST(ParserDiagnostics, SnippetIsBoundedForLongInput) {
+  std::string big(200000, '1');
+  big[100000] = '$';
+  auto what = parse_failure_message(big);
+  EXPECT_LT(what.size(), 4096u) << "what() was " << what.size() << " bytes";
+  EXPECT_NE(what.find('^'), std::string::npos) << what;
+}
+
+// Windowing shifts the snippet, so the caret must shift with it and the
+// reported position must stay in source coordinates.
+TEST(ParserDiagnostics, WindowedCaretStillMarksTheOffendingByte) {
+  std::string src = std::string(200, 'x') + " $ " + std::string(200, 'y');
+  symbol_table syms;
+  try {
+    [[maybe_unused]] auto e = parse(src, syms);
+    FAIL() << "expected a parse error";
+  } catch (parse_error const &e) {
+    std::string what = e.what();
+    auto snippet_begin = what.find("\n  ");
+    ASSERT_NE(snippet_begin, std::string::npos) << what;
+    auto caret_begin = what.find("\n  ", snippet_begin + 1);
+    ASSERT_NE(caret_begin, std::string::npos) << what;
+    std::string snippet =
+        what.substr(snippet_begin + 3, caret_begin - snippet_begin - 3);
+    std::string caret_line = what.substr(caret_begin + 3);
+    auto caret = caret_line.find('^');
+    ASSERT_NE(caret, std::string::npos) << what;
+    ASSERT_LT(caret, snippet.size()) << what;
+    EXPECT_EQ(snippet[caret], '$') << what;
+    // Position accessors report the source, not the window.
+    EXPECT_EQ(e.position(), src.find('$'));
+    EXPECT_EQ(e.column(), src.find('$') + 1);
+  }
+}
+
 // ─── parse_error: subclass extra fields ────────────────────────────
 
 TEST(ParseError, UnknownSymbolErrorCarriesName) {
   unknown_symbol_error e("foo", 0, std::string_view{});
   EXPECT_EQ(e.name(), "foo");
   EXPECT_NE(std::string(e.what()).find("foo"), std::string::npos);
+}
+
+// A name with several registered arities must report all of them, not
+// whichever overload was visited first.
+TEST(ParseError, ArityErrorListsEveryExpectedArity) {
+  arity_error e("contract", std::vector<std::size_t>{1, 4}, /*actual=*/2, 0,
+                std::string_view{});
+  std::string what = e.what();
+  EXPECT_NE(what.find("1"), std::string::npos) << what;
+  EXPECT_NE(what.find("4"), std::string::npos) << what;
+  EXPECT_NE(what.find("2"), std::string::npos) << what;
+  EXPECT_EQ(e.expected_arities(), (std::vector<std::size_t>{1, 4}));
+  EXPECT_EQ(e.actual_arity(), 2u);
 }
 
 TEST(ParseError, ArityErrorCarriesCounts) {

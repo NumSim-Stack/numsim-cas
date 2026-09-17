@@ -126,11 +126,13 @@ struct function_call_close : pegtl::one<')'> {};
 // legitimate alternative in `arg_item`.
 struct index_list_open : pegtl::one<'['> {};
 struct index_list_close : pegtl::one<']'> {};
+// Named so it can carry a user-facing error message (error_messages.h).
+struct index_list_items
+    : pegtl::list<integer_literal, pegtl::pad<pegtl::one<','>, pegtl::space>> {
+};
 struct index_list_literal
-    : pegtl::if_must<index_list_open, ws,
-                     pegtl::list<integer_literal,
-                                 pegtl::pad<pegtl::one<','>, pegtl::space>>,
-                     ws, index_list_close> {};
+    : pegtl::if_must<index_list_open, ws, index_list_items, ws,
+                     index_list_close> {};
 
 // An arg in a function call is either an index_list literal or a
 // full expression. Order matters: index_list must come first so the

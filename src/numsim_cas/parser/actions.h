@@ -289,9 +289,15 @@ template <> struct action<grammar::number_literal> {
   static void apply(Input const &in, parser_state &state) {
     auto sv = in.string_view();
     // Decimal point in the matched range tells us it's a double.
+    // Out of range is well-formed input the type cannot hold; report it as
+    // such rather than as garbage.
     if (sv.find('.') != std::string_view::npos) {
       double value = 0.0;
       auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+      if (ec == std::errc::result_out_of_range) {
+        throw lexical_error("decimal literal exceeds representable range",
+                            in.position().byte, state.source);
+      }
       if (ec != std::errc{} || ptr != sv.data() + sv.size()) {
         throw lexical_error("malformed decimal literal", in.position().byte,
                             state.source);
@@ -300,6 +306,10 @@ template <> struct action<grammar::number_literal> {
     } else {
       std::int64_t value = 0;
       auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+      if (ec == std::errc::result_out_of_range) {
+        throw lexical_error("integer literal exceeds representable range",
+                            in.position().byte, state.source);
+      }
       if (ec != std::errc{} || ptr != sv.data() + sv.size()) {
         throw lexical_error("malformed integer literal", in.position().byte,
                             state.source);
@@ -517,9 +527,10 @@ template <> struct action<grammar::function_call> {
     // whichever the unordered_multimap happened to visit first.
     registry::function_entry const *chosen = nullptr;
     bool arity_seen = false;
-    std::size_t const some_arity = cand_begin->second.arg_kinds.size();
+    std::vector<std::size_t> registered_arities;
     for (auto it = cand_begin; it != cand_end; ++it) {
       auto const &cand = it->second;
+      registered_arities.push_back(cand.arg_kinds.size());
       if (cand.arg_kinds.size() != arg_count) {
         continue;
       }
@@ -544,8 +555,8 @@ template <> struct action<grammar::function_call> {
 
     if (chosen == nullptr) {
       if (!arity_seen) {
-        throw arity_error(std::move(name), some_arity, arg_count, pos,
-                          state.source);
+        throw arity_error(std::move(name), std::move(registered_arities),
+                          arg_count, pos, state.source);
       }
       throw type_mismatch_error("no overload of '" + name +
                                     "' matches the given argument types",
