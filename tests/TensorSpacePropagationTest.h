@@ -704,6 +704,55 @@ TEST_F(OrthoCongruenceFixture, GeneralOuterDoesNotPreserveTrace) {
   EXPECT_FALSE(is_positive_definite(trans(X) * P * X));
 }
 
+// A rank-2 sandwich around a rank-4 kernel is not a congruence: the kernel's
+// tags describe C, not trans(Q)*C*Q.
+TEST_F(OrthoCongruenceFixture, RankFourKernelIsNotAnnotated) {
+  auto C4 = std::get<0>(make_tensor_variable(std::tuple{"C4", dim, 4}));
+  assume_minor_major(C4);
+  auto ortho = trans(Q) * C4 * Q;
+  EXPECT_FALSE(is_minor_major(ortho));
+  EXPECT_FALSE(is_symmetric(ortho));
+  EXPECT_FALSE(is_symmetric(trans(X) * C4 * X));
+}
+
+TEST_F(OrthoCongruenceFixture, RankFourKernelInvertsCorrectly) {
+  auto C4 = std::get<0>(make_tensor_variable(std::tuple{"C4", dim, 4}));
+  assume_minor_major(C4);
+
+  tmech::tensor<double, 3, 2> I2;
+  I2.fill(0.0);
+  for (std::size_t i = 0; i < 3; ++i)
+    I2(i, i) = 1.0;
+  const double c = std::cos(0.7), s = std::sin(0.7);
+  tmech::tensor<double, 3, 2> Q_val;
+  Q_val.fill(0.0);
+  Q_val(0, 0) = c;
+  Q_val(0, 1) = -s;
+  Q_val(1, 0) = s;
+  Q_val(1, 1) = c;
+  Q_val(2, 2) = 1.0;
+  auto C_val =
+      tmech::eval(2.0 * tmech::otimesu(I2, I2) + 3.0 * tmech::otimes(I2, I2));
+
+  auto Q_data = std::make_shared<tensor_data<double, 3, 2>>();
+  Q_data->data() = Q_val;
+  auto C_data = std::make_shared<tensor_data<double, 3, 4>>();
+  C_data->data() = C_val;
+  tensor_evaluator<double> ev;
+  ev.set(Q, std::static_pointer_cast<tensor_data_base<double>>(Q_data));
+  ev.set(C4, std::static_pointer_cast<tensor_data_base<double>>(C_data));
+
+  auto A = trans(Q) * C4 * Q;
+  auto identity_check =
+      inner_product(inv(A), sequence{3, 4}, A, sequence{1, 2});
+  auto result = ev.apply(identity_check);
+  ASSERT_NE(result, nullptr);
+  auto const &got =
+      static_cast<tensor_data<double, 3, 4> const &>(*result).data();
+  EXPECT_TRUE(
+      tmech::almost_equal(got, tmech::eval(tmech::otimesu(I2, I2)), 1e-9));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORSPACEPROPAGATIONTEST_H
