@@ -177,12 +177,12 @@ struct paren_expression
 struct primary : pegtl::sor<number_literal, function_call, tensor_decl,
                             identifier, paren_expression> {};
 
-// ─── Power level (highest precedence): primary ('^' power)? ──────
-// Right-recursive: the `^`'s right operand is `power` itself, NOT
-// `primary`. That makes `2 ^ 3 ^ 2` parse as `2 ^ (3 ^ 2) = 512`.
-// (PEGTL's `list<X, Y>` is left-associative; the right-recursion
-// here is the canonical workaround.)
-struct power_tail : pegtl::seq<ws, caret_op, ws, power> {};
+// ─── Power level (highest precedence): primary ('^' unary)? ──────
+// Right-recursive through `unary`, which reaches `power` again: that
+// keeps `2 ^ 3 ^ 2` as `2 ^ (3 ^ 2) = 512` while also admitting a
+// signed exponent (`x^-1`). Left operands stay at `primary`, so
+// `-x^2` is still decided at the `unary` level as `-(x^2)`.
+struct power_tail : pegtl::seq<ws, caret_op, ws, unary> {};
 struct power : pegtl::seq<primary, pegtl::opt<power_tail>> {};
 
 // ─── Unary minus: '-' unary | power ──────────────────────────────

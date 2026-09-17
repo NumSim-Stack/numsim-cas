@@ -463,6 +463,83 @@ TEST(ParserGrammar, BinaryMinusVsUnaryMinusAfterBinary) {
   EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("5 - -3", syms), syms), 8.0);
 }
 
+TEST(ParserGrammar, NegativeExponentLiteral) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("2^-3", syms), syms), 0.125);
+}
+
+TEST(ParserGrammar, NegativeExponentOnIdentifier) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("x^-1", syms), syms, {{"x", 4.0}}),
+                   0.25);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(parse_scalar("x^-2.5", syms), syms, {{"x", 4.0}}),
+      std::pow(4.0, -2.5));
+}
+
+TEST(ParserGrammar, NegativeExponentMatchesParenthesizedForm) {
+  symbol_table bare;
+  symbol_table parens;
+  auto a = parse_scalar("x^-3", bare);
+  auto b = parse_scalar("x^(-3)", parens);
+  EXPECT_EQ(a.get().hash_value(), b.get().hash_value());
+  EXPECT_TRUE(*a == *b);
+}
+
+TEST(ParserGrammar, NegativeExponentKeepsRightAssociativity) {
+  // 2^-3^2 = 2^(-(3^2)) = 2^-9: the '^' tail binds before the
+  // negation of the exponent.
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("2^-3^2", syms), syms),
+                   std::pow(2.0, -9.0));
+}
+
+TEST(ParserGrammar, UnaryMinusOnTensorMatchesCppNegation) {
+  symbol_table syms;
+  auto parsed = parse_tensor("-A{rank=2, dim=3}", syms);
+  auto A = syms.get_or_declare_tensor("A", 2, 3);
+  EXPECT_TRUE(*parsed == *(-A));
+}
+
+TEST(ParserGrammar, UnaryMinusOnT2sMatchesCppNegation) {
+  symbol_table syms;
+  auto parsed = parse_t2s("-trace(A{rank=2, dim=3})", syms);
+  auto A = syms.get_or_declare_tensor("A", 2, 3);
+  EXPECT_TRUE(*parsed == *(-trace(A)));
+}
+
+TEST(ParserGrammar, UnaryMinusOnTensorSum) {
+  symbol_table syms;
+  auto parsed = parse_tensor("-(A{rank=2, dim=3} + B{rank=2, dim=3})", syms);
+  auto A = syms.get_or_declare_tensor("A", 2, 3);
+  auto B = syms.get_or_declare_tensor("B", 2, 3);
+  EXPECT_TRUE(*parsed == *(-(A + B)));
+}
+
+TEST(ParserGrammar, DoubleUnaryMinusOnTensorCancels) {
+  symbol_table syms;
+  auto parsed = parse_tensor("- -A{rank=2, dim=3}", syms);
+  auto A = syms.get_or_declare_tensor("A", 2, 3);
+  EXPECT_TRUE(*parsed == *A);
+}
+
+TEST(ParserGrammar, UnaryMinusOnDetIsT2s) {
+  symbol_table syms;
+  auto parsed = parse_t2s("-det(A{rank=2, dim=3})", syms);
+  auto A = syms.get_or_declare_tensor("A", 2, 3);
+  EXPECT_TRUE(*parsed == *(-det(A)));
+}
+
+TEST(ParserGrammar, UnaryMinusRejectsBracketList) {
+  symbol_table syms;
+  EXPECT_THROW(
+      {
+        [[maybe_unused]] auto e = parse_scalar(
+            "inner_product(A{rank=2, dim=3}, -[1, 2], A, [1, 2])", syms);
+      },
+      parse_error);
+}
+
 TEST(ParserGrammar, ComparisonLtReturnsIndicator) {
   // Comparisons produce Option B scalar indicators: 1.0 if true, else 0.0.
   symbol_table syms;
