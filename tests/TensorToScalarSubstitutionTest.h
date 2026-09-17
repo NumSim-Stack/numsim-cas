@@ -85,6 +85,37 @@ TYPED_TEST(TensorToScalarSubstitutionTest, TensorInT2s) {
       << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
 }
 
+// A t2s needle inside a tensor child must be reachable: the tensor subtree of
+// trace() carries the t2s factor.
+TYPED_TEST(TensorToScalarSubstitutionTest, T2sNeedleInsideTensorChild) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+
+  auto trX = numsim::cas::trace(X);
+  auto trY = numsim::cas::trace(Y);
+
+  auto expr = numsim::cas::trace(trX * Y);
+  auto result = numsim::cas::substitute(expr, trX, trY);
+  auto expected = numsim::cas::trace(trY * Y);
+  EXPECT_TRUE(result == expected)
+      << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
+}
+
+// Same, with the needle in the t2s condition of a tensor if_then_else.
+TYPED_TEST(TensorToScalarSubstitutionTest, T2sNeedleInsideTensorIfThenElse) {
+  auto &X = this->X;
+  auto &Y = this->Y;
+
+  auto trX = numsim::cas::trace(X);
+  auto detX = numsim::cas::det(X);
+
+  auto expr = numsim::cas::trace(numsim::cas::if_then_else(trX, X, Y));
+  auto result = numsim::cas::substitute(expr, trX, detX);
+  auto expected = numsim::cas::trace(numsim::cas::if_then_else(detX, X, Y));
+  EXPECT_TRUE(result == expected)
+      << "Expected " << testcas::S(expected) << ", got: " << testcas::S(result);
+}
+
 // Substitution rebuilds through the eigenvalue node, preserving the index.
 TYPED_TEST(TensorToScalarSubstitutionTest, EigenvalueTensorSub) {
   auto &X = this->X;
