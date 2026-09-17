@@ -224,10 +224,11 @@ limit_result limit_algebra::apply_pow(limit_result base, limit_result exponent,
         // 0^(+c) = 0
         return {dir::zero};
       } else {
-        // 0^(-c) = +inf (polynomial) when the base stays positive
+        // 0^(-c) = +inf when the base stays positive; the exponent's
+        // magnitude is unknown, so the growth rate is too
         if (!zero_from_above)
           return {dir::unknown};
-        return {dir::pos_infinity, {gtype::polynomial, 1.0}};
+        return {dir::pos_infinity, {gtype::unknown, 0.0}};
       }
     case dir::finite_positive:
       // finite_pos ^ finite = finite_pos
@@ -237,8 +238,8 @@ limit_result limit_algebra::apply_pow(limit_result base, limit_result exponent,
       return {dir::unknown};
     case dir::pos_infinity:
       if (exp_positive) {
-        // (+inf)^(+c) = +inf (polynomial)
-        return {dir::pos_infinity, {gtype::polynomial, 1.0}};
+        // (+inf)^(+c) = +inf, at a rate set by an exponent we do not know
+        return {dir::pos_infinity, {gtype::unknown, 0.0}};
       } else {
         // (+inf)^(-c) = 0
         return {dir::zero};

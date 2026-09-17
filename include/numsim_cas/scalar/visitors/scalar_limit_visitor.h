@@ -58,6 +58,7 @@ public:
 
 private:
   bool zero_from_above(expr_holder_t const &expr) const;
+  bool product_from_above(expr_holder_t const &expr) const;
   bool zero_from_below(expr_holder_t const &expr) const;
   void inverse_trig(expr_holder_t const &arg, bool is_asin);
 
