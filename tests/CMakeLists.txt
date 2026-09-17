@@ -21,48 +21,22 @@ if(NOT GTest_FOUND)
 endif()
 
 include(GoogleTest)
+# GTest::gtest is provided both by find_package(GTest) and by googletest's
+# own CMake; the bare `gtest` name only exists in the latter and otherwise
+# degrades to a raw -lgtest link flag.
 macro(add_numsim_cas_test TARGET_NAME)
     add_executable(${TARGET_NAME} ${ARGN})
-    target_link_libraries(${TARGET_NAME} PRIVATE gtest NumSim_CAS)
-    add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
+    target_link_libraries(${TARGET_NAME} PRIVATE GTest::gtest NumSim_CAS)
     gtest_discover_tests(${TARGET_NAME} DISCOVERY_TIMEOUT 30)
 endmacro()
 
+# Globbed so a new test header cannot silently drop out of the IDE listing;
+# the headers are pulled in by main.cpp, which is what actually compiles them.
+file(GLOB NUMSIM_CAS_TEST_HEADERS CONFIGURE_DEPENDS "*.h")
+
 add_numsim_cas_test(numsim_cas_test
     main.cpp
-    cas_test_helpers.h
-    CoreBugFixTest.h
-    SolveTest.h
-    LeviCivitaTest.h
-    IsotropicTensorFunctionTest.h
-    LimitVisitorTest.h
-    NumericalDiffHelpers.h
-    NumericalDiffTest.h
-    ParserTest.h
-    ScalarAssumptionTest.h
-    ScalarComparisonTest.h
-    ScalarDifferentiationTest.h
-    ScalarEvaluatorTest.h
-    ScalarExpressionTest.h
-    ScalarSubstitutionTest.h
-    TensorAnnotationMatrixTest.h
-    TensorDifferentiationTest.h
-    TensorEvaluatorTest.h
-    TensorExpressionTest.h
-    TensorInvDiffSymTest.h
-    TensorProjectorDifferentiationTest.h
-    TensorSpacePropagationTest.h
-    TensorSubstitutionTest.h
-    TensorToScalarDifferentiationTest.h
-    TensorToScalarDivOperatorTest.h
-    TensorToScalarMulOperatorTest.h
-    TensorToScalarEvaluatorTest.h
-    TensorToScalarExpressionTest.h
-    TensorToScalarSubstitutionTest.h
-    UmbrellaHeaderTest.h
-    ScalarLatexPrinterTest.h
-    TensorLatexPrinterTest.h
-    TensorToScalarLatexPrinterTest.h
+    ${NUMSIM_CAS_TEST_HEADERS}
 )
 
 add_numsim_cas_test(numsim_cas_fuzz_test
