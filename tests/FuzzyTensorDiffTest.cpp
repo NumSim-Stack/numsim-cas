@@ -7,6 +7,7 @@
 
 #include "FuzzyTensorDiffTest.h"
 #include "FuzzyHarnessTest.h"
+#include "FuzzyOpHealthTest.h"
 #include "FuzzyScalarDiffTest.h"
 #include "FuzzyT2sDiffTest.h"
 

@@ -21,6 +21,9 @@ namespace fuzzy_detail {
 struct ScalarExprInfo {
   expression_holder<scalar_expression> expr;
   std::set<std::string> used_vars;
+  // abs/sign/max/min/comparisons/if_then_else switch branch at a point, so a
+  // finite-difference stencil straddling it validates nothing.
+  bool has_kink = false;
 };
 
 struct ScalarVarEntry {
@@ -59,7 +62,7 @@ public:
 
   ScalarExprInfo negation_fallback(std::size_t depth) {
     auto sub = this->generate(depth - 1);
-    return {-sub.expr, sub.used_vars};
+    return {-sub.expr, sub.used_vars, sub.has_kink};
   }
 
   std::vector<ScalarVarEntry> const &get_diff_vars() const { return m_vars; }
@@ -102,7 +105,8 @@ private:
                    auto rhs = m.generate(depth - 1);
                    return ScalarExprInfo{
                        lhs.expr + rhs.expr,
-                       Base::merge_vars(lhs.used_vars, rhs.used_vars)};
+                       Base::merge_vars(lhs.used_vars, rhs.used_vars),
+                       lhs.has_kink || rhs.has_kink};
                  });
 
     this->add_op("multiplication", 20,
@@ -112,14 +116,16 @@ private:
                    auto rhs = m.generate(depth - 1);
                    return ScalarExprInfo{
                        lhs.expr * rhs.expr,
-                       Base::merge_vars(lhs.used_vars, rhs.used_vars)};
+                       Base::merge_vars(lhs.used_vars, rhs.used_vars),
+                       lhs.has_kink || rhs.has_kink};
                  });
 
     this->add_op("negation", 8,
                  [](FuzzyScalarMachine &m,
                     std::size_t depth) -> std::optional<ScalarExprInfo> {
                    auto sub = m.generate(depth - 1);
-                   return ScalarExprInfo{-sub.expr, sub.used_vars};
+                   return ScalarExprInfo{-sub.expr, sub.used_vars,
+                                         sub.has_kink};
                  });
 
     this->add_op("const_mul", 8,
@@ -128,7 +134,8 @@ private:
                    auto sub = m.generate(depth - 1);
                    int sv = m.pick_nonzero_scalar();
                    auto sc = make_scalar_constant(sv);
-                   return ScalarExprInfo{sc * sub.expr, sub.used_vars};
+                   return ScalarExprInfo{sc * sub.expr, sub.used_vars,
+                                         sub.has_kink};
                  });
 
     this->add_op("pow", 10,
@@ -138,28 +145,31 @@ private:
                    std::uniform_int_distribution<int> exp_dist(2, 3);
                    int exponent = exp_dist(m.rng());
                    auto expr = pow(sub.expr, make_scalar_constant(exponent));
-                   return ScalarExprInfo{expr, sub.used_vars};
+                   return ScalarExprInfo{expr, sub.used_vars, sub.has_kink};
                  });
 
     this->add_op("sin", 10,
                  [](FuzzyScalarMachine &m,
                     std::size_t depth) -> std::optional<ScalarExprInfo> {
                    auto sub = m.generate(depth - 1);
-                   return ScalarExprInfo{sin(sub.expr), sub.used_vars};
+                   return ScalarExprInfo{sin(sub.expr), sub.used_vars,
+                                         sub.has_kink};
                  });
 
     this->add_op("cos", 10,
                  [](FuzzyScalarMachine &m,
                     std::size_t depth) -> std::optional<ScalarExprInfo> {
                    auto sub = m.generate(depth - 1);
-                   return ScalarExprInfo{cos(sub.expr), sub.used_vars};
+                   return ScalarExprInfo{cos(sub.expr), sub.used_vars,
+                                         sub.has_kink};
                  });
 
     this->add_op("exp", 5,
                  [](FuzzyScalarMachine &m,
                     std::size_t depth) -> std::optional<ScalarExprInfo> {
                    auto sub = m.generate(depth - 1);
-                   return ScalarExprInfo{exp(sub.expr), sub.used_vars};
+                   return ScalarExprInfo{exp(sub.expr), sub.used_vars,
+                                         sub.has_kink};
                  });
 
     this->add_op("division", 5,
@@ -169,14 +179,180 @@ private:
                    auto rhs = m.generate(depth - 1);
                    return ScalarExprInfo{
                        lhs.expr / rhs.expr,
-                       Base::merge_vars(lhs.used_vars, rhs.used_vars)};
+                       Base::merge_vars(lhs.used_vars, rhs.used_vars),
+                       lhs.has_kink || rhs.has_kink};
                  });
 
     this->add_op("tan", 4,
                  [](FuzzyScalarMachine &m,
                     std::size_t depth) -> std::optional<ScalarExprInfo> {
                    auto sub = m.generate(depth - 1);
-                   return ScalarExprInfo{tan(sub.expr), sub.used_vars};
+                   return ScalarExprInfo{tan(sub.expr), sub.used_vars,
+                                         sub.has_kink};
+                 });
+
+    register_math_ops();
+    register_branching_ops();
+  }
+
+  // Arguments are shaped into each function's domain rather than left to
+  // chance: a NaN result would evaluate to a skip and hide the op.
+  void register_math_ops() {
+    // atan, sinh, cosh, tanh and asinh are defined on all of R.
+    auto unary = [this](std::string name, int weight, auto fn) {
+      this->add_op(std::move(name), weight,
+                   [fn](FuzzyScalarMachine &m,
+                        std::size_t depth) -> std::optional<ScalarExprInfo> {
+                     auto sub = m.generate(depth - 1);
+                     return ScalarExprInfo{fn(sub.expr), sub.used_vars,
+                                           sub.has_kink};
+                   });
+    };
+    unary("atan", 4, [](auto const &e) { return atan(e); });
+    unary("sinh", 4, [](auto const &e) { return sinh(e); });
+    unary("cosh", 4, [](auto const &e) { return cosh(e); });
+    unary("tanh", 4, [](auto const &e) { return tanh(e); });
+    unary("asinh", 4, [](auto const &e) { return asinh(e); });
+
+    // log/sqrt/log10 need a positive argument: u^2 + 1 >= 1.
+    auto positive_arg = [](ScalarExprInfo const &sub) {
+      return sub.expr * sub.expr + make_scalar_constant(1);
+    };
+    auto guarded_positive = [this, positive_arg](std::string name, int weight,
+                                                 auto fn) {
+      this->add_op(std::move(name), weight,
+                   [fn, positive_arg](FuzzyScalarMachine &m, std::size_t depth)
+                       -> std::optional<ScalarExprInfo> {
+                     auto sub = m.generate(depth - 1);
+                     return ScalarExprInfo{fn(positive_arg(sub)), sub.used_vars,
+                                           sub.has_kink};
+                   });
+    };
+    guarded_positive("log", 5, [](auto const &e) { return log(e); });
+    guarded_positive("sqrt", 5, [](auto const &e) { return sqrt(e); });
+    guarded_positive("log10", 3, [](auto const &e) { return log10(e); });
+
+    // asin/acos/atanh need |u| < 1, and their derivatives blow up at the
+    // ends, so the argument is squeezed into [-1/2, 1/2].
+    auto bounded_arg = [](ScalarExprInfo const &sub) {
+      return make_scalar_constant(scalar_number{rational_t{1, 2}}) *
+             sin(sub.expr);
+    };
+    auto guarded_bounded = [this, bounded_arg](std::string name, int weight,
+                                               auto fn) {
+      this->add_op(std::move(name), weight,
+                   [fn, bounded_arg](FuzzyScalarMachine &m, std::size_t depth)
+                       -> std::optional<ScalarExprInfo> {
+                     auto sub = m.generate(depth - 1);
+                     return ScalarExprInfo{fn(bounded_arg(sub)), sub.used_vars,
+                                           sub.has_kink};
+                   });
+    };
+    guarded_bounded("asin", 4, [](auto const &e) { return asin(e); });
+    guarded_bounded("acos", 4, [](auto const &e) { return acos(e); });
+    guarded_bounded("atanh", 3, [](auto const &e) { return atanh(e); });
+
+    // acosh needs u >= 1 and is singular exactly at 1, so u^2 + 2 keeps a
+    // bounded derivative.
+    this->add_op("acosh", 3,
+                 [](FuzzyScalarMachine &m,
+                    std::size_t depth) -> std::optional<ScalarExprInfo> {
+                   auto sub = m.generate(depth - 1);
+                   auto arg = sub.expr * sub.expr + make_scalar_constant(2);
+                   return ScalarExprInfo{acosh(arg), sub.used_vars,
+                                         sub.has_kink};
+                 });
+  }
+
+  // Branch-selecting ops. Their derivative is correct away from the switch
+  // point; verify() detects a stencil that straddles one and reports the
+  // sample as unverifiable instead of passing it.
+  void register_branching_ops() {
+    this->add_op("abs", 5,
+                 [](FuzzyScalarMachine &m,
+                    std::size_t depth) -> std::optional<ScalarExprInfo> {
+                   auto sub = m.generate(depth - 1);
+                   return ScalarExprInfo{abs(sub.expr), sub.used_vars, true};
+                 });
+
+    this->add_op("sign", 3,
+                 [](FuzzyScalarMachine &m,
+                    std::size_t depth) -> std::optional<ScalarExprInfo> {
+                   auto sub = m.generate(depth - 1);
+                   return ScalarExprInfo{sign(sub.expr), sub.used_vars, true};
+                 });
+
+    this->add_op("max", 5,
+                 [](FuzzyScalarMachine &m,
+                    std::size_t depth) -> std::optional<ScalarExprInfo> {
+                   auto lhs = m.generate(depth - 1);
+                   auto rhs = m.generate(depth - 1);
+                   return ScalarExprInfo{
+                       max(lhs.expr, rhs.expr),
+                       Base::merge_vars(lhs.used_vars, rhs.used_vars), true};
+                 });
+
+    this->add_op("min", 5,
+                 [](FuzzyScalarMachine &m,
+                    std::size_t depth) -> std::optional<ScalarExprInfo> {
+                   auto lhs = m.generate(depth - 1);
+                   auto rhs = m.generate(depth - 1);
+                   return ScalarExprInfo{
+                       min(lhs.expr, rhs.expr),
+                       Base::merge_vars(lhs.used_vars, rhs.used_vars), true};
+                 });
+
+    // Comparisons evaluate to 0/1 and differentiate to zero; multiplying by
+    // a subexpression keeps the result varying so the derivative is not
+    // trivially zero everywhere.
+    this->add_op("comparison", 5,
+                 [](FuzzyScalarMachine &m,
+                    std::size_t depth) -> std::optional<ScalarExprInfo> {
+                   auto lhs = m.generate(depth - 1);
+                   auto rhs = m.generate(depth - 1);
+                   auto factor = m.generate(depth - 1);
+                   std::uniform_int_distribution<int> which(0, 5);
+                   expression_holder<scalar_expression> cmp;
+                   switch (which(m.rng())) {
+                   case 0:
+                     cmp = gt(lhs.expr, rhs.expr);
+                     break;
+                   case 1:
+                     cmp = lt(lhs.expr, rhs.expr);
+                     break;
+                   case 2:
+                     cmp = ge(lhs.expr, rhs.expr);
+                     break;
+                   case 3:
+                     cmp = le(lhs.expr, rhs.expr);
+                     break;
+                   case 4:
+                     cmp = eq(lhs.expr, rhs.expr);
+                     break;
+                   default:
+                     cmp = ne(lhs.expr, rhs.expr);
+                     break;
+                   }
+                   auto vars = Base::merge_vars(lhs.used_vars, rhs.used_vars);
+                   return ScalarExprInfo{
+                       cmp * factor.expr,
+                       Base::merge_vars(vars, factor.used_vars), true};
+                 });
+
+    this->add_op("if_then_else", 6,
+                 [](FuzzyScalarMachine &m,
+                    std::size_t depth) -> std::optional<ScalarExprInfo> {
+                   auto cond_lhs = m.generate(depth - 1);
+                   auto cond_rhs = m.generate(depth - 1);
+                   auto then_br = m.generate(depth - 1);
+                   auto else_br = m.generate(depth - 1);
+                   auto expr = if_then_else(gt(cond_lhs.expr, cond_rhs.expr),
+                                            then_br.expr, else_br.expr);
+                   auto vars =
+                       Base::merge_vars(cond_lhs.used_vars, cond_rhs.used_vars);
+                   vars = Base::merge_vars(vars, then_br.used_vars);
+                   vars = Base::merge_vars(vars, else_br.used_vars);
+                   return ScalarExprInfo{expr, vars, true};
                  });
   }
 
@@ -202,8 +378,10 @@ private:
     }
 
     double sym_val = ev.apply(d);
-    if (!std::isfinite(sym_val))
+    if (!std::isfinite(sym_val)) {
+      ++global_unverified();
       return {true, {}};
+    }
 
     double diff_var_value = 0;
     for (auto const &vd : var_data) {
@@ -219,20 +397,42 @@ private:
     ev.set(var.expr, diff_var_value - h);
     double f_minus = ev.apply(info.expr);
     ev.set(var.expr, diff_var_value);
+    double f_center = ev.apply(info.expr);
 
-    if (!std::isfinite(f_plus) || !std::isfinite(f_minus))
+    if (!std::isfinite(f_plus) || !std::isfinite(f_minus)) {
+      ++global_unverified();
       return {true, {}};
+    }
+
+    // A branch-selecting expression is only differentiable away from its
+    // switch point. One-sided differences agree to O(h) on a smooth sample
+    // and disagree by O(1) across a switch, so this rejects exactly the
+    // samples a central difference cannot validate — and only for
+    // expressions that contain such an op.
+    if (info.has_kink && std::isfinite(f_center)) {
+      double left = (f_center - f_minus) / h;
+      double right = (f_plus - f_center) / h;
+      double scale = std::max({std::abs(left), std::abs(right), 1e-3});
+      if (std::abs(left - right) > 0.05 * scale) {
+        ++global_kink_skips();
+        return {true, {}};
+      }
+    }
 
     double num_val = (f_plus - f_minus) / (2.0 * h);
 
-    if (!std::isfinite(num_val))
+    if (!std::isfinite(num_val)) {
+      ++global_unverified();
       return {true, {}};
+    }
 
     // Skip stiff expressions where finite differences are unreliable
     // (e.g., near tan() singularities)
     double mag = std::max(std::abs(sym_val), std::abs(num_val));
-    if (mag > 1e5)
+    if (mag > 1e5) {
+      ++global_unverified();
       return {true, {}};
+    }
 
     constexpr double abs_tol = 1e-6;
     constexpr double rel_tol = 1e-4;

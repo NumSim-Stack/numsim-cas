@@ -6,6 +6,9 @@
 
 #include "FuzzyDiffBase.h"
 
+#include <numsim_cas/eigen_decomposition.h>
+#include <numsim_cas/tensor/tensor_isotropic_functions.h>
+
 namespace numsim::cas {
 namespace fuzzy_detail {
 
@@ -83,6 +86,13 @@ inline TensorVarProjection make_major4_projection() {
   };
 }
 
+// Condition-only scalar for the scalar-condition if_then_else. It is never
+// a differentiation target; the verifier binds it so the branch evaluates.
+inline expression_holder<scalar_expression> const &fuzz_condition_scalar() {
+  static auto const s = make_expression<scalar>("fuzz_cond");
+  return s;
+}
+
 // ===========================================================================
 // Tensor verification (free function template)
 // ===========================================================================
@@ -115,6 +125,10 @@ tensor_verify_impl(unsigned seed, std::vector<TensorVarEntry> const &vars,
     ev.set(v.expr, ptr);
     var_data.push_back({v.name, v.rank, ptr});
   }
+
+  // Bound so the scalar-condition if_then_else stays evaluable; the value
+  // is irrelevant because the condition is built to keep a fixed sign.
+  ev.set_scalar(fuzz_condition_scalar(), 1.5);
 
   auto result = ev.apply(d);
   if (!result)
@@ -561,6 +575,133 @@ private:
                                              sequence{1, 2});
                    return TensorExprInfo{expr, 2, sub.used_vars};
                  });
+
+    register_spectral_ops();
+    register_branching_ops();
+    register_constant_ops();
+  }
+
+  // Isotropic functions and eigenprojections need a symmetric rank-2
+  // argument, and log/sqrt additionally need it positive definite. A leaf
+  // variable is used directly: its data carries a diagonal boost, so
+  // sym(var) is diagonally dominant, whereas an arbitrary subexpression
+  // would routinely be indefinite and evaluate to NaN.
+  void register_spectral_ops() {
+    this->add_op("isotropic", 6,
+                 [](FuzzyTensorMachine &m,
+                    std::size_t) -> std::optional<TensorExprInfo> {
+                   auto var = m.pick_rank2_var();
+                   if (!var)
+                     return std::nullopt;
+                   auto arg = sym(var->expr);
+                   std::uniform_int_distribution<int> which(0, 2);
+                   expression_holder<tensor_expression> expr;
+                   switch (which(m.rng())) {
+                   case 0:
+                     expr = exp(arg);
+                     break;
+                   case 1:
+                     expr = log(arg);
+                     break;
+                   default:
+                     expr = sqrt(arg);
+                     break;
+                   }
+                   return TensorExprInfo{expr, 2, {var->name}};
+                 });
+
+    // basis(i) only: normal(i)'s derivative is not implemented, and the
+    // eigenvector sign is arbitrary.
+    this->add_op("eigenbasis", 5,
+                 [](FuzzyTensorMachine &m,
+                    std::size_t) -> std::optional<TensorExprInfo> {
+                   auto var = m.pick_rank2_var();
+                   if (!var)
+                     return std::nullopt;
+                   std::uniform_int_distribution<std::size_t> idx(0, FDIM - 1);
+                   auto expr =
+                       eigen_decomposition(sym(var->expr)).basis(idx(m.rng()));
+                   return TensorExprInfo{expr, 2, {var->name}};
+                 });
+  }
+
+  // The condition is built to keep a fixed sign (dot(V) + 1 >= 1, x^2 + 1 >=
+  // 1), so the branch cannot switch under the finite-difference
+  // perturbation while both branches still go through the diff visitor.
+  void register_branching_ops() {
+    this->add_op("if_then_else_t2s", 5,
+                 [](FuzzyTensorMachine &m,
+                    std::size_t depth) -> std::optional<TensorExprInfo> {
+                   auto var = m.pick_rank2_var();
+                   if (!var)
+                     return std::nullopt;
+                   auto then_br = m.generate(depth - 1);
+                   auto else_br = m.generate_at_rank(then_br.rank, depth - 1);
+                   if (!else_br)
+                     return std::nullopt;
+                   auto cond =
+                       dot(var->expr) + make_expression<tensor_to_scalar_one>();
+                   auto expr = if_then_else(cond, then_br.expr, else_br->expr);
+                   auto vars =
+                       Base::merge_vars(then_br.used_vars, else_br->used_vars);
+                   vars.insert(var->name);
+                   return TensorExprInfo{expr, then_br.rank, vars};
+                 });
+
+    this->add_op("if_then_else_scalar", 4,
+                 [](FuzzyTensorMachine &m,
+                    std::size_t depth) -> std::optional<TensorExprInfo> {
+                   auto then_br = m.generate(depth - 1);
+                   auto else_br = m.generate_at_rank(then_br.rank, depth - 1);
+                   if (!else_br)
+                     return std::nullopt;
+                   auto const &s = fuzz_condition_scalar();
+                   auto cond = s * s + make_scalar_constant(1);
+                   auto expr = if_then_else(cond, then_br.expr, else_br->expr);
+                   return TensorExprInfo{
+                       expr, then_br.rank,
+                       Base::merge_vars(then_br.used_vars, else_br->used_vars)};
+                 });
+  }
+
+  // Constant leaves: their derivative is zero, which is worth pinning
+  // because it travels through the same product and chain rules.
+  void register_constant_ops() {
+    this->add_op("identity_tensor", 3,
+                 [](FuzzyTensorMachine &m,
+                    std::size_t depth) -> std::optional<TensorExprInfo> {
+                   auto sub = m.generate(depth - 1);
+                   if (sub.rank != 2)
+                     return std::nullopt;
+                   auto I =
+                       make_expression<identity_tensor>(FDIM, std::size_t{2});
+                   return TensorExprInfo{I * sub.expr, 2, sub.used_vars};
+                 });
+
+    this->add_op("levi_civita", 2,
+                 [](FuzzyTensorMachine &m,
+                    std::size_t) -> std::optional<TensorExprInfo> {
+                   auto var = m.pick_rank2_var();
+                   if (!var)
+                     return std::nullopt;
+                   auto lc = levi_civita(FDIM);
+                   // rank 3 x rank 2 contracted on one index pair -> rank 3
+                   auto expr =
+                       inner_product(lc, sequence{3}, var->expr, sequence{1});
+                   return TensorExprInfo{expr, 3, {var->name}};
+                 });
+  }
+
+  std::optional<TensorVarEntry> pick_rank2_var() {
+    std::vector<std::size_t> candidates;
+    for (std::size_t i = 0; i < m_vars.size(); ++i) {
+      if (m_vars[i].rank == 2 && m_vars[i].project == nullptr)
+        candidates.push_back(i);
+    }
+    if (candidates.empty())
+      return std::nullopt;
+    std::uniform_int_distribution<std::size_t> dist(0, candidates.size() - 1);
+    return m_vars[candidates[dist(this->m_rng)]];
   }
 
   // -----------------------------------------------------------------------

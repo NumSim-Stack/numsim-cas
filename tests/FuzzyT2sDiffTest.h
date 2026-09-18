@@ -7,6 +7,7 @@
 
 #include "FuzzyDiffBase.h"
 
+#include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/scalar/scalar_all.h>
 #include <numsim_cas/scalar/scalar_operators.h>
 #include <numsim_cas/scalar/scalar_std.h>
@@ -304,6 +305,108 @@ private:
                      return T2sExprInfo{expr, vars};
                    });
     }
+
+    register_math_ops();
+    register_spectral_ops();
+  }
+
+  static expression_holder<tensor_to_scalar_expression> t2s_one_expr() {
+    return make_expression<tensor_to_scalar_one>();
+  }
+
+  // u / sqrt(u^2 + 1) lands in (-1, 1) without an overflowing intermediate.
+  // t2s primitives reach the hundreds (trace of a diagonally boosted
+  // tensor), where the composed hyperbolics lose their derivative to
+  // overflow (#480); squashing keeps the fuzz on the differentiation rules.
+  static expression_holder<tensor_to_scalar_expression>
+  squash(expression_holder<tensor_to_scalar_expression> const &u) {
+    return u / sqrt(u * u + t2s_one_expr());
+  }
+
+  // Arguments are shaped into each function's domain, matching how t2s_sqrt
+  // already guards with u^2 + 1.
+  void register_math_ops() {
+    auto unary = [this](std::string name, int weight, auto fn) {
+      this->add_op(std::move(name), weight,
+                   [fn](FuzzyT2sMachine &m,
+                        std::size_t depth) -> std::optional<T2sExprInfo> {
+                     auto sub = m.generate(depth - 1);
+                     return T2sExprInfo{fn(squash(sub.expr)), sub.used_vars};
+                   });
+    };
+    unary("t2s_sinh", 3, [](auto const &e) { return sinh(e); });
+    unary("t2s_cosh", 3, [](auto const &e) { return cosh(e); });
+    unary("t2s_tanh", 3, [](auto const &e) { return tanh(e); });
+    unary("t2s_asinh", 3, [](auto const &e) { return asinh(e); });
+
+    // log/log10 need a positive argument: u^2 + 1 >= 1.
+    auto guarded_positive = [this](std::string name, int weight, auto fn) {
+      this->add_op(std::move(name), weight,
+                   [fn](FuzzyT2sMachine &m,
+                        std::size_t depth) -> std::optional<T2sExprInfo> {
+                     auto sub = m.generate(depth - 1);
+                     auto arg = sub.expr * sub.expr + t2s_one_expr();
+                     return T2sExprInfo{fn(arg), sub.used_vars};
+                   });
+    };
+    guarded_positive("t2s_log", 4, [](auto const &e) { return log(e); });
+    guarded_positive("t2s_log10", 3, [](auto const &e) { return log10(e); });
+
+    // acosh is singular at 1, so a squashed u^2 + 2 stays in [2, 3].
+    this->add_op("t2s_acosh", 3,
+                 [](FuzzyT2sMachine &m,
+                    std::size_t depth) -> std::optional<T2sExprInfo> {
+                   auto sub = m.generate(depth - 1);
+                   auto s = squash(sub.expr);
+                   auto arg = s * s + t2s_one_expr() + t2s_one_expr();
+                   return T2sExprInfo{acosh(arg), sub.used_vars};
+                 });
+
+    // atanh needs |u| < 1, and loses precision approaching the ends, so the
+    // squashed argument is halved.
+    this->add_op("t2s_atanh", 3,
+                 [](FuzzyT2sMachine &m,
+                    std::size_t depth) -> std::optional<T2sExprInfo> {
+                   auto sub = m.generate(depth - 1);
+                   auto half = make_expression<tensor_to_scalar_scalar_wrapper>(
+                       make_scalar_constant(scalar_number{rational_t{1, 2}}));
+                   return T2sExprInfo{atanh(half * squash(sub.expr)),
+                                      sub.used_vars};
+                 });
+
+    // The condition is dot(V) + 1 >= 1, so the branch never switches under
+    // the finite-difference perturbation while both branches still go
+    // through the differentiation visitor.
+    this->add_op("t2s_if_then_else", 5,
+                 [](FuzzyT2sMachine &m,
+                    std::size_t depth) -> std::optional<T2sExprInfo> {
+                   std::uniform_int_distribution<std::size_t> dist(
+                       0, m.m_tensor_vars.size() - 1);
+                   auto const &cond_var = m.m_tensor_vars[dist(m.rng())];
+                   auto cond = dot(cond_var.expr) + t2s_one_expr();
+                   auto then_br = m.generate(depth - 1);
+                   auto else_br = m.generate(depth - 1);
+                   auto expr = if_then_else(cond, then_br.expr, else_br.expr);
+                   auto vars =
+                       Base::merge_vars(then_br.used_vars, else_br.used_vars);
+                   vars.insert(cond_var.name);
+                   return T2sExprInfo{expr, vars};
+                 });
+  }
+
+  // Eigenvalues of a symmetric argument. normal(i) is excluded: its
+  // derivative is not implemented, and the eigenvector sign is arbitrary.
+  void register_spectral_ops() {
+    this->add_op(
+        "t2s_eigenvalue", 4,
+        [](FuzzyT2sMachine &m, std::size_t) -> std::optional<T2sExprInfo> {
+          std::uniform_int_distribution<std::size_t> dist(
+              0, m.m_tensor_vars.size() - 1);
+          auto const &tv = m.m_tensor_vars[dist(m.rng())];
+          std::uniform_int_distribution<std::size_t> idx(0, FDIM - 1);
+          auto expr = eigen_decomposition(sym(tv.expr)).value(idx(m.rng()));
+          return T2sExprInfo{expr, {tv.name}};
+        });
   }
 
   // -----------------------------------------------------------------------
@@ -377,8 +480,10 @@ private:
       double f_minus = t2s_ev.apply(info.expr);
       var_ptr[k] = original;
 
-      if (!std::isfinite(f_plus) || !std::isfinite(f_minus))
+      if (!std::isfinite(f_plus) || !std::isfinite(f_minus)) {
+        ++global_unverified();
         return {true, {}};
+      }
 
       max_fval =
           std::max(max_fval, std::max(std::abs(f_plus), std::abs(f_minus)));
@@ -395,8 +500,10 @@ private:
     double cancellation_noise = eps * max_fval / h;
 
     for (std::size_t i = 0; i < n_components; ++i) {
-      if (!std::isfinite(sym_ptr[i]))
+      if (!std::isfinite(sym_ptr[i])) {
+        ++global_unverified();
         return {true, {}};
+      }
     }
 
     auto cmp = compare_arrays(sym_ptr, num_ptr, n_components, 5e-6, 1e-4,
