@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 #include <cmath>
 #include <numsim_cas/core/substitute.h>
+#include <numsim_cas/tensor/simplifier/tensor_projector_simplifier.h>
 #include <numsim_cas/tensor/visitors/tensor_substitution.h>
 
 namespace numsim::cas {
@@ -1234,6 +1235,49 @@ TEST(HashIdentitySweep, ProjectorMergeRequiresSameArgument) {
   // same argument keeps merging
   EXPECT_EQ(to_string(vol(X) + dev(X)), "sym(X)");
   EXPECT_EQ(to_string(sym(X) + skew(X)), "X");
+}
+
+// A zero's shape is part of what it denotes: the additive identity of
+// rank-2 3D tensors is not the one of rank-4 tensors.
+TEST(HashIdentitySweep, TensorZeroShapeIsPartOfIdentity) {
+  auto z32 = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+  auto z24 = make_expression<tensor_zero>(std::size_t{2}, std::size_t{4});
+  auto z34 = make_expression<tensor_zero>(std::size_t{3}, std::size_t{4});
+  auto z32b = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+
+  EXPECT_FALSE(*z32 == *z24) << "differing dim and rank";
+  EXPECT_FALSE(*z32 == *z34) << "differing rank";
+  EXPECT_FALSE(*z24 == *z34) << "differing dim";
+  EXPECT_TRUE(*z32 == *z32b) << "same shape";
+
+  EXPECT_TRUE((*z32 < *z34) != (*z34 < *z32)) << "distinct shapes need order";
+  EXPECT_FALSE(*z32 < *z32b);
+  EXPECT_FALSE(*z32b < *z32);
+
+  std::map<expression_holder<tensor_expression>, int> keys;
+  keys[z32] = 1;
+  keys[z24] = 2;
+  keys[z34] = 3;
+  EXPECT_EQ(keys.size(), 3u);
+  EXPECT_EQ(keys.at(z32), 1);
+  EXPECT_EQ(keys.at(z24), 2);
+  EXPECT_EQ(keys.at(z34), 3);
+}
+
+// The projector pass buckets candidates by argument hash, and hash(c*T)
+// equals hash(T) by design, so combining must re-check the argument deeply.
+TEST(HashIdentitySweep, ProjectorPassGroupsOnlyDeepEqualArguments) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto two = make_expression<scalar_constant>(2);
+  ASSERT_EQ((two * A).get().hash_value(), A.get().hash_value())
+      << "the aliasing this guards against must still hold";
+
+  tensor_projector_simplifier pass;
+  auto mixed = pass.apply(vol(A) + dev(two * A));
+  EXPECT_FALSE(is_same<inner_product_wrapper>(mixed)) << to_string(mixed);
+  EXPECT_NE(to_string(mixed), "sym(A)") << to_string(mixed);
+
+  EXPECT_EQ(to_string(pass.apply(vol(A) + dev(A))), "sym(A)");
 }
 
 TEST(HashIdentitySweep, ScalarSubMaxMinDeepEquality) {
