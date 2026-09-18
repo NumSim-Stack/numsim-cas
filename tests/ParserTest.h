@@ -292,7 +292,9 @@ TEST(ParserDiagnostics, MustFailuresAreHumanReadable) {
       {"", "expression"},
       {"trace(A{rank=2,dim=3}", ")"},
       {"A{rank=2", "}"},
-      {"A{rank=2,dim=3} + ", "unexpected"},
+      // a trailing operator now reports its missing operand; "1 + 2 $"
+      // above still covers the end-of-input message
+      {"A{rank=2,dim=3} + ", "after '+'"},
       {"inner_product(A{rank=2,dim=3},[],A,[1,2])", "index"},
       {"inner_product(A{rank=2,dim=3},[1,,2],A,[1,2])", "]"},
       {"A{oops=2}", "rank"},
@@ -351,6 +353,99 @@ TEST(ParserDiagnostics, WindowedCaretStillMarksTheOffendingByte) {
     // Position accessors report the source, not the window.
     EXPECT_EQ(e.position(), src.find('$'));
     EXPECT_EQ(e.column(), src.find('$') + 1);
+  }
+}
+
+// A binary operator commits: the operand it needs is reported where it is
+// missing, naming the operator, rather than as trailing input.
+TEST(ParserDiagnostics, MissingOperandNamesTheOperator) {
+  struct Case {
+    char const *src;
+    char const *op;
+  };
+  const Case cases[] = {
+      {"x + ", "'+'"},   {"x - ", "'-'"},   {"x * ", "'*'"},   {"x / ", "'/'"},
+      {"x ^ ", "'^'"},   {"x < ", "'<'"},   {"x <= ", "'<='"}, {"x > ", "'>'"},
+      {"x >= ", "'>='"}, {"x == ", "'=='"}, {"x != ", "'!='"},
+  };
+  for (auto const &c : cases) {
+    auto what = parse_failure_message(c.src);
+    expect_no_internals(what, c.src);
+    EXPECT_NE(what.find("expected an expression"), std::string::npos)
+        << c.src << " -> " << what;
+    EXPECT_NE(what.find(c.op), std::string::npos) << c.src << " -> " << what;
+  }
+}
+
+// The caret marks where the operand belongs, not the end of the input.
+TEST(ParserDiagnostics, MissingOperandCaretSitsAfterTheOperator) {
+  symbol_table syms;
+  try {
+    [[maybe_unused]] auto e = parse("x + * y", syms);
+    FAIL() << "expected a parse error";
+  } catch (parse_error const &e) {
+    EXPECT_EQ(e.position(), 4u) << e.what();
+    EXPECT_NE(std::string(e.what()).find("'+'"), std::string::npos) << e.what();
+  }
+}
+
+// A comma commits to another item, in every comma-separated list.
+TEST(ParserDiagnostics, MissingItemAfterCommaIsReported) {
+  struct Case {
+    char const *src;
+    char const *expect;
+  };
+  const Case cases[] = {
+      {"inner_product(A{rank=2,dim=3},[1,2],A,)", "argument"},
+      {"inner_product(A{rank=2,dim=3},[1,],A,[1,2])", "index"},
+      {"A{rank=2,}", "rank"},
+      {"(x", ")"},
+  };
+  for (auto const &c : cases) {
+    auto what = parse_failure_message(c.src);
+    expect_no_internals(what, c.src);
+    EXPECT_NE(what.find(c.expect), std::string::npos)
+        << c.src << " -> " << what;
+  }
+}
+
+// Committing must not turn a legitimate backtrack into an error: every
+// shape where a rule is tried and abandoned still parses.
+TEST(ParserGrammar, CommitPointsLeaveValidInputParsing) {
+  char const *const valid[] = {
+      "x",
+      "1 + 2",
+      "x - y",
+      "x*y/z",
+      "2^3^2",
+      "-x",
+      "- - x",
+      "-x^2",
+      "(x + y) * z",
+      "x < y",
+      "x <= y",
+      "x >= y",
+      "x == y",
+      "x != y",
+      "x + y - z * w / v",
+      "sin(x)",
+      "pow(x, 2)",
+      "sin(x) + cos(y)",
+      "pow(pow(x, 2), 3)",
+      "trace(A{rank=2, dim=3})",
+      "A{rank=2, dim=3}",
+      "A{dim=3, rank=2}",
+      "trace(A{rank=2, dim=3}) + trace(A{rank=2, dim=3})",
+      "inner_product(A{rank=2, dim=3}, [1,2], A, [1,2])",
+      "dot_product(A{rank=2, dim=3}, [1,2], A, [1,2])",
+      // a name that is a function prefix but used as a variable
+      "sinh_like",
+      "x * 2 - 1",
+  };
+  for (auto const *src : valid) {
+    symbol_table syms;
+    EXPECT_NO_THROW({ [[maybe_unused]] auto e = parse(src, syms); })
+        << "should still parse: " << src;
   }
 }
 
