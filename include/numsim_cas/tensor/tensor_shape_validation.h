@@ -34,6 +34,31 @@ inline void validate_same_dim(char const *op, tensor_expression const &lhs,
         std::to_string(lhs.dim()) + " vs " + std::to_string(rhs.dim()) + ")");
 }
 
+// A permutation must cover exactly the operand's index positions: a mismatch
+// would drop or invent indices, and a node whose sequence disagrees with its
+// rank misreports itself to callers such as is_trans_of.
+inline void validate_permutation(char const *op, tensor_expression const &e,
+                                 sequence const &indices) {
+  const auto rank = e.rank();
+  if (indices.size() != rank)
+    throw invalid_expression_error(
+        std::string(op) + ": indices size (" + std::to_string(indices.size()) +
+        ") must equal tensor rank (" + std::to_string(rank) + ")");
+  for (std::size_t i = 0; i < indices.size(); ++i) {
+    if (indices[i] >= rank)
+      throw invalid_expression_error(std::string(op) + ": index " +
+                                     std::to_string(indices[i] + 1) +
+                                     " (1-based) is out of range for rank-" +
+                                     std::to_string(rank) + " tensor");
+    for (std::size_t j = i + 1; j < indices.size(); ++j)
+      if (indices[i] == indices[j])
+        throw invalid_expression_error(
+            std::string(op) + ": index " + std::to_string(indices[i] + 1) +
+            " (1-based) appears more than once; indices must form a "
+            "permutation");
+  }
+}
+
 // Every index is a valid position below `bound` and appears once.
 inline void validate_distinct_indices(char const *op, char const *side,
                                       sequence const &indices,

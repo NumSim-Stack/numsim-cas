@@ -140,11 +140,13 @@ pow_base::expr_holder_t pow_base::dispatch(scalar_exp const &) {
   return exp(m_lhs.template get<scalar_exp>().expr() * m_rhs);
 }
 
-/// pow(sqrt(x), n) → pow(x, n/2), only where sqrt(x) is real: for x < 0 the
-/// left side is undefined while pow(x, n/2) may not be.
+/// pow(sqrt(x), n) → pow(x, n/2), where sqrt(x) is real or n is odd: an odd
+/// n/2 keeps a denominator of 2, so both sides are undefined for x < 0, while
+/// an even n would leave pow(x, n/2) finite there.
 pow_base::expr_holder_t pow_base::dispatch(scalar_sqrt const &) {
   auto const &radicand{m_lhs.template get<scalar_sqrt>().expr()};
-  if (!is_nonnegative(radicand) && !is_positive(radicand))
+  if (!is_nonnegative(radicand) && !is_positive(radicand) &&
+      !detail::odd_numeric_exponent<scalar_traits>(m_rhs))
     return make_expression<scalar_pow>(std::move(m_lhs), std::move(m_rhs));
   auto half = make_expression<scalar_constant>(scalar_number{1, 2});
   return pow(radicand, m_rhs * half);

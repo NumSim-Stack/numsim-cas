@@ -1469,6 +1469,31 @@ TEST(TensorShapeValidation, DotProductRequiresFullContraction) {
   EXPECT_NO_THROW((void)dot_product(X, sequence{1, 2}, Y, sequence{2, 1}));
 }
 
+// The factory validates the permutation; the node must too, so rebuild,
+// substitution and direct construction cannot mint a lying index set.
+TEST(TensorShapeValidation, PermuteWrapperCtorValidatesIndices) {
+  using namespace numsim::cas;
+  auto C = make_expression<tensor>("C", 3, 4);
+  auto X = make_expression<tensor>("X", 3, 2);
+
+  // a rank-2 transpose sequence on a rank-4 operand: the node would claim to
+  // be trans(C) while wrapping a rank-4 tensor
+  EXPECT_THROW(
+      (void)make_expression<permute_indices_wrapper>(C, sequence{2, 1}),
+      invalid_expression_error);
+  EXPECT_THROW(
+      (void)make_expression<permute_indices_wrapper>(X, sequence{1, 3}),
+      invalid_expression_error);
+  EXPECT_THROW(
+      (void)make_expression<permute_indices_wrapper>(X, sequence{1, 1}),
+      invalid_expression_error);
+
+  EXPECT_NO_THROW(
+      (void)make_expression<permute_indices_wrapper>(X, sequence{2, 1}));
+  EXPECT_NO_THROW(
+      (void)make_expression<permute_indices_wrapper>(C, sequence{2, 1, 4, 3}));
+}
+
 TEST(TensorShapeValidation, DotRequiresRank2) {
   using namespace numsim::cas;
   auto u = make_expression<tensor>("u", 3, 1);

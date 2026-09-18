@@ -823,10 +823,11 @@ TEST_F(ScalarFixture, Scalar_LogPowSimplification) {
 //
 TEST_F(ScalarFixture, Scalar_PowSqrtSimplification) {
   using namespace numsim::cas;
-  // sqrt(x) is real only for x >= 0, so an unknown-sign radicand keeps the
-  // nesting: pow(sqrt(x), 2) would otherwise give x where sqrt(x) is NaN.
+  // An even exponent keeps the nesting for an unknown-sign radicand:
+  // pow(sqrt(x), 2) would otherwise give x where sqrt(x) is NaN.
   EXPECT_PRINT(pow(sqrt(x), _2), "pow(sqrt(x),2)");
-  EXPECT_PRINT(pow(sqrt(x), _3), "pow(sqrt(x),3)");
+  // An odd one folds: pow(x, 3/2) is non-real for x < 0 just as sqrt(x) is.
+  EXPECT_PRINT(pow(sqrt(x), _3), "pow(x,3/2)");
 
   // pow(sqrt(p), n) → pow(p, n/2) once p >= 0 is known
   auto p = make_expression<scalar>("p");

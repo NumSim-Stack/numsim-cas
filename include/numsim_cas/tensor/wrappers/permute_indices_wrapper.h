@@ -3,6 +3,7 @@
 
 #include <numsim_cas/core/unary_op.h>
 #include <numsim_cas/tensor/tensor_expression.h>
+#include <numsim_cas/tensor/tensor_shape_validation.h>
 #include <vector>
 
 namespace numsim::cas {
@@ -32,7 +33,10 @@ public:
   template <typename Expr, typename Indices>
   permute_indices_wrapper(Expr &&expr, Indices &&indices)
       : base(std::forward<Expr>(expr), expr.get().dim(), expr.get().rank()),
-        m_indices(std::forward<Indices>(indices)) {}
+        m_indices(std::forward<Indices>(indices)) {
+    detail::validate_permutation("permute_indices", base::expr().get(),
+                                 m_indices);
+  }
 
   /**
    * @brief Move constructor.

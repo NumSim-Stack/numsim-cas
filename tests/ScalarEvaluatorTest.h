@@ -358,6 +358,56 @@ TEST(ScalarEval, PowOfSqrtKeepsRealDomain) {
   EXPECT_NEAR(ev.apply(pow(sqrt(p), three)), 8.0, 1e-12);
 }
 
+// An odd n keeps a denominator of 2 in n/2, so pow(x, n/2) leaves the reals
+// exactly where sqrt(x) does. An even n would make it finite for x < 0, so
+// that case still needs a nonnegative radicand.
+TEST(ScalarEval, PowOfSqrtFoldsForOddExponents) {
+  scalar_evaluator<double> ev;
+  auto x = make_expression<scalar>("x");
+  auto two = make_expression<scalar_constant>(2);
+  auto three = make_expression<scalar_constant>(3);
+  auto half = make_expression<scalar_constant>(scalar_number{1, 2});
+
+  auto odd = pow(sqrt(x), three);
+  EXPECT_TRUE(*odd == *pow(x, three * half)) << to_string(odd);
+
+  auto even = pow(sqrt(x), two);
+  ASSERT_TRUE(is_same<scalar_pow>(even)) << to_string(even);
+  EXPECT_TRUE(is_same<scalar_sqrt>(even.get<scalar_pow>().expr_lhs()))
+      << to_string(even);
+
+  // every spelling of the same odd exponent folds; the exponent's
+  // representation still differs (3/2 vs 1.5), so compare by value
+  ev.set(x, 4.0);
+  for (auto const &spelled :
+       {make_expression<scalar_constant>(3.0),
+        make_expression<scalar_constant>(scalar_number{6, 2})}) {
+    auto folded = pow(sqrt(x), spelled);
+    ASSERT_TRUE(is_same<scalar_pow>(folded)) << to_string(folded);
+    EXPECT_FALSE(is_same<scalar_sqrt>(folded.get<scalar_pow>().expr_lhs()))
+        << to_string(folded);
+    EXPECT_NEAR(ev.apply(folded), ev.apply(odd), 1e-12) << to_string(folded);
+  }
+
+  for (double v : {-4.0, -0.5, 0.0, 0.5, 4.0}) {
+    ev.set(x, v);
+    const double expected = std::pow(std::sqrt(v), 3.0);
+    const double folded = ev.apply(odd);
+    if (std::isnan(expected)) {
+      EXPECT_TRUE(std::isnan(folded)) << "x=" << v << " " << to_string(odd);
+    } else {
+      EXPECT_NEAR(folded, expected, 1e-12) << "x=" << v;
+    }
+    const double even_expected = std::pow(std::sqrt(v), 2.0);
+    const double even_value = ev.apply(even);
+    if (std::isnan(even_expected)) {
+      EXPECT_TRUE(std::isnan(even_value)) << "x=" << v;
+    } else {
+      EXPECT_NEAR(even_value, even_expected, 1e-12) << "x=" << v;
+    }
+  }
+}
+
 // A symbolic exponent may be fractional at evaluation time, so composing it
 // needs a nonnegative base or exponents known to be integers.
 TEST(ScalarEval, PowOfPowSymbolicExponentsKeepRealDomain) {
