@@ -1236,6 +1236,33 @@ TEST(HashIdentitySweep, ProjectorMergeRequiresSameArgument) {
   EXPECT_EQ(to_string(sym(X) + skew(X)), "X");
 }
 
+// A zero's shape is part of what it denotes: the additive identity of
+// rank-2 3D tensors is not the one of rank-4 tensors.
+TEST(HashIdentitySweep, TensorZeroShapeIsPartOfIdentity) {
+  auto z32 = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+  auto z24 = make_expression<tensor_zero>(std::size_t{2}, std::size_t{4});
+  auto z34 = make_expression<tensor_zero>(std::size_t{3}, std::size_t{4});
+  auto z32b = make_expression<tensor_zero>(std::size_t{3}, std::size_t{2});
+
+  EXPECT_FALSE(*z32 == *z24) << "differing dim and rank";
+  EXPECT_FALSE(*z32 == *z34) << "differing rank";
+  EXPECT_FALSE(*z24 == *z34) << "differing dim";
+  EXPECT_TRUE(*z32 == *z32b) << "same shape";
+
+  EXPECT_TRUE((*z32 < *z34) != (*z34 < *z32)) << "distinct shapes need order";
+  EXPECT_FALSE(*z32 < *z32b);
+  EXPECT_FALSE(*z32b < *z32);
+
+  std::map<expression_holder<tensor_expression>, int> keys;
+  keys[z32] = 1;
+  keys[z24] = 2;
+  keys[z34] = 3;
+  EXPECT_EQ(keys.size(), 3u);
+  EXPECT_EQ(keys.at(z32), 1);
+  EXPECT_EQ(keys.at(z24), 2);
+  EXPECT_EQ(keys.at(z34), 3);
+}
+
 TEST(HashIdentitySweep, ScalarSubMaxMinDeepEquality) {
   auto [x] = make_scalar_variable("x");
   EXPECT_NE(to_string(sin(x + 2.0) - sin(x + 5.0)), "0");
