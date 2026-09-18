@@ -127,8 +127,13 @@ struct function_call_close : pegtl::one<')'> {};
 struct index_list_open : pegtl::one<'['> {};
 struct index_list_close : pegtl::one<']'> {};
 // Named so it can carry a user-facing error message (error_messages.h).
-struct index_list_items
-    : pegtl::list<integer_literal, pegtl::pad<pegtl::one<','>, pegtl::space>> {
+// Only integers live between the brackets, so a comma here can only be
+// followed by another index.
+struct index_after_comma : pegtl::seq<integer_literal> {};
+struct index_separator : pegtl::one<','> {};
+struct index_tail
+    : pegtl::seq<ws, pegtl::if_must<index_separator, ws, index_after_comma>> {};
+struct index_list_items : pegtl::seq<integer_literal, pegtl::star<index_tail>> {
 };
 struct index_list_literal
     : pegtl::if_must<index_list_open, ws, index_list_items, ws,
@@ -138,8 +143,17 @@ struct index_list_literal
 // full expression. Order matters: index_list must come first so the
 // `[` token isn't (mis)parsed as something else.
 struct arg_item : pegtl::sor<index_list_literal, expression> {};
-struct arg_list
-    : pegtl::list<arg_item, pegtl::pad<pegtl::one<','>, pegtl::space>> {};
+// A comma at this level always separates arguments: nested calls,
+// bracket lists and tensor declarations consume their own commas
+// before returning, so committing here cannot smother an alternative.
+// The `seq<>` wrapper keeps arg_item matched as a subrule, so its
+// actions still fire; only the wrapper carries the error message.
+struct arg_item_after_comma : pegtl::seq<arg_item> {};
+struct arg_separator : pegtl::one<','> {};
+struct arg_tail
+    : pegtl::seq<ws, pegtl::if_must<arg_separator, ws, arg_item_after_comma>> {
+};
+struct arg_list : pegtl::seq<arg_item, pegtl::star<arg_tail>> {};
 struct function_call
     : pegtl::seq<function_name, ws,
                  pegtl::if_must<function_call_open, ws, pegtl::opt<arg_list>,
@@ -156,8 +170,14 @@ struct kv_eq : pegtl::one<'='> {};
 struct rank_kv : pegtl::seq<rank_keyword, ws, kv_eq, ws, integer_literal> {};
 struct dim_kv : pegtl::seq<dim_keyword, ws, kv_eq, ws, integer_literal> {};
 struct tensor_kv : pegtl::sor<rank_kv, dim_kv> {};
-struct tensor_kv_list
-    : pegtl::list<tensor_kv, pegtl::pad<pegtl::one<','>, pegtl::space>> {};
+// Inside the braces a comma can only introduce another kv pair.
+struct tensor_kv_after_comma : pegtl::seq<tensor_kv> {};
+struct tensor_kv_separator : pegtl::one<','> {};
+struct tensor_kv_tail
+    : pegtl::seq<
+          ws, pegtl::if_must<tensor_kv_separator, ws, tensor_kv_after_comma>> {
+};
+struct tensor_kv_list : pegtl::seq<tensor_kv, pegtl::star<tensor_kv_tail>> {};
 
 struct tensor_name
     : pegtl::seq<identifier_first, pegtl::star<identifier_rest>> {};
@@ -173,8 +193,12 @@ struct tensor_decl
 // so `name(` / `name{` prefixes aren't consumed as bare scalar
 // variables. Both compound alternatives backtrack cleanly when their
 // distinguishing token (`(` or `{`) doesn't follow the name.
+// '(' commits: it is the last primary alternative and no other primary
+// starts with it, so nothing legitimate is left to backtrack to.
+struct paren_open : pegtl::one<'('> {};
+struct paren_close : pegtl::one<')'> {};
 struct paren_expression
-    : pegtl::seq<pegtl::one<'('>, ws, expression, ws, pegtl::one<')'>> {};
+    : pegtl::if_must<paren_open, ws, expression, ws, paren_close> {};
 
 struct primary : pegtl::sor<number_literal, function_call, tensor_decl,
                             identifier, paren_expression> {};
@@ -184,7 +208,17 @@ struct primary : pegtl::sor<number_literal, function_call, tensor_decl,
 // `primary`. That makes `2 ^ 3 ^ 2` parse as `2 ^ (3 ^ 2) = 512`.
 // (PEGTL's `list<X, Y>` is left-associative; the right-recursion
 // here is the canonical workaround.)
-struct power_tail : pegtl::seq<ws, caret_op, ws, power> {};
+// Each binary operator commits to its right operand: the operator
+// tokens (`+ - * / ^ < <= > >= == !=`) appear nowhere else in the
+// grammar, and nothing above these levels consumes one, so an operator
+// followed by no operand can only ever be an error. Committing reports
+// it at the missing operand instead of at end of input.
+//
+// The right-hand sides are named per operator (a `seq<>` wrapper, so
+// the wrapped rule is still matched as a subrule and its actions fire)
+// purely to carry an operator-specific message in error_messages.h.
+struct power_rhs : pegtl::seq<power> {};
+struct power_tail : pegtl::seq<ws, pegtl::if_must<caret_op, ws, power_rhs>> {};
 struct power : pegtl::seq<primary, pegtl::opt<power_tail>> {};
 
 // ─── Unary minus: '-' unary | power ──────────────────────────────
@@ -199,31 +233,49 @@ struct unary : pegtl::sor<unary_minus, power> {};
 // Per-op tail rules so each action specialisation dispatches
 // statically. See the doc comment at the head of this file for why
 // the single-tail-with-sor-over-ops approach was rejected.
-struct mul_tail_star : pegtl::seq<ws, star_op, ws, unary> {};
-struct mul_tail_slash : pegtl::seq<ws, slash_op, ws, unary> {};
+struct mul_rhs_star : pegtl::seq<unary> {};
+struct mul_rhs_slash : pegtl::seq<unary> {};
+struct mul_tail_star
+    : pegtl::seq<ws, pegtl::if_must<star_op, ws, mul_rhs_star>> {};
+struct mul_tail_slash
+    : pegtl::seq<ws, pegtl::if_must<slash_op, ws, mul_rhs_slash>> {};
 struct mul_tail : pegtl::sor<mul_tail_star, mul_tail_slash> {};
 struct mul_term : pegtl::seq<unary, pegtl::star<mul_tail>> {};
 
 // ─── Additive level: mul_term (('+'|'-') mul_term)* ──────────────
-struct add_tail_plus : pegtl::seq<ws, plus_op, ws, mul_term> {};
-struct add_tail_minus : pegtl::seq<ws, minus_op, ws, mul_term> {};
+struct add_rhs_plus : pegtl::seq<mul_term> {};
+struct add_rhs_minus : pegtl::seq<mul_term> {};
+struct add_tail_plus
+    : pegtl::seq<ws, pegtl::if_must<plus_op, ws, add_rhs_plus>> {};
+// A '-' only reaches here after a complete term, where it cannot be the
+// unary minus (that is matched at the start of a `unary`).
+struct add_tail_minus
+    : pegtl::seq<ws, pegtl::if_must<minus_op, ws, add_rhs_minus>> {};
 struct add_tail : pegtl::sor<add_tail_plus, add_tail_minus> {};
 struct add_term : pegtl::seq<mul_term, pegtl::star<add_tail>> {};
 
 // ─── Comparison level: add_term ((< | <= | > | >=) add_term)* ────
 // Comparisons evaluate to scalar indicators (1.0 / 0.0) following
 // Option B from #136. The two-char variants come first in `sor`.
-struct cmp_tail_le : pegtl::seq<ws, le_op, ws, add_term> {};
-struct cmp_tail_ge : pegtl::seq<ws, ge_op, ws, add_term> {};
-struct cmp_tail_lt : pegtl::seq<ws, lt_op, ws, add_term> {};
-struct cmp_tail_gt : pegtl::seq<ws, gt_op, ws, add_term> {};
+struct cmp_rhs_le : pegtl::seq<add_term> {};
+struct cmp_rhs_ge : pegtl::seq<add_term> {};
+struct cmp_rhs_lt : pegtl::seq<add_term> {};
+struct cmp_rhs_gt : pegtl::seq<add_term> {};
+// The two-char forms are tried first, so reaching the single-char rule
+// means the input really is `<` or `>` alone.
+struct cmp_tail_le : pegtl::seq<ws, pegtl::if_must<le_op, ws, cmp_rhs_le>> {};
+struct cmp_tail_ge : pegtl::seq<ws, pegtl::if_must<ge_op, ws, cmp_rhs_ge>> {};
+struct cmp_tail_lt : pegtl::seq<ws, pegtl::if_must<lt_op, ws, cmp_rhs_lt>> {};
+struct cmp_tail_gt : pegtl::seq<ws, pegtl::if_must<gt_op, ws, cmp_rhs_gt>> {};
 struct cmp_tail
     : pegtl::sor<cmp_tail_le, cmp_tail_ge, cmp_tail_lt, cmp_tail_gt> {};
 struct cmp_term : pegtl::seq<add_term, pegtl::star<cmp_tail>> {};
 
 // ─── Equality level (lowest precedence): cmp_term ((== | !=) cmp_term)* ──
-struct eq_tail_eq : pegtl::seq<ws, eq_eq_op, ws, cmp_term> {};
-struct eq_tail_ne : pegtl::seq<ws, ne_op, ws, cmp_term> {};
+struct eq_rhs_eq : pegtl::seq<cmp_term> {};
+struct eq_rhs_ne : pegtl::seq<cmp_term> {};
+struct eq_tail_eq : pegtl::seq<ws, pegtl::if_must<eq_eq_op, ws, eq_rhs_eq>> {};
+struct eq_tail_ne : pegtl::seq<ws, pegtl::if_must<ne_op, ws, eq_rhs_ne>> {};
 struct eq_tail : pegtl::sor<eq_tail_eq, eq_tail_ne> {};
 struct eq_term : pegtl::seq<cmp_term, pegtl::star<eq_tail>> {};
 

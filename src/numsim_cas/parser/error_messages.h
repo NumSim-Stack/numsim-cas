@@ -52,6 +52,58 @@ template <>
 inline constexpr auto error_messages::message<grammar::tensor_decl_close> =
     "expected '}' to close the tensor declaration";
 
+// Binary operators commit to a right operand, so the message names the
+// operator the user just typed.
+template <>
+inline constexpr auto error_messages::message<grammar::add_rhs_plus> =
+    "expected an expression after '+'";
+template <>
+inline constexpr auto error_messages::message<grammar::add_rhs_minus> =
+    "expected an expression after '-'";
+template <>
+inline constexpr auto error_messages::message<grammar::mul_rhs_star> =
+    "expected an expression after '*'";
+template <>
+inline constexpr auto error_messages::message<grammar::mul_rhs_slash> =
+    "expected an expression after '/'";
+template <>
+inline constexpr auto error_messages::message<grammar::power_rhs> =
+    "expected an expression after '^'";
+template <>
+inline constexpr auto error_messages::message<grammar::cmp_rhs_lt> =
+    "expected an expression after '<'";
+template <>
+inline constexpr auto error_messages::message<grammar::cmp_rhs_le> =
+    "expected an expression after '<='";
+template <>
+inline constexpr auto error_messages::message<grammar::cmp_rhs_gt> =
+    "expected an expression after '>'";
+template <>
+inline constexpr auto error_messages::message<grammar::cmp_rhs_ge> =
+    "expected an expression after '>='";
+template <>
+inline constexpr auto error_messages::message<grammar::eq_rhs_eq> =
+    "expected an expression after '=='";
+template <>
+inline constexpr auto error_messages::message<grammar::eq_rhs_ne> =
+    "expected an expression after '!='";
+
+// Parenthesised subexpression: '(' commits.
+template <>
+inline constexpr auto error_messages::message<grammar::paren_close> =
+    "expected ')' to close the parenthesis";
+
+// A comma commits to another item in each of the three lists.
+template <>
+inline constexpr auto error_messages::message<grammar::arg_item_after_comma> =
+    "expected an argument after ','";
+template <>
+inline constexpr auto error_messages::message<grammar::index_after_comma> =
+    "expected a 1-based index after ','";
+template <>
+inline constexpr auto error_messages::message<grammar::tensor_kv_after_comma> =
+    "expected 'rank=<n>' or 'dim=<n>' after ','";
+
 // Padding inside the commit points. star<space> cannot fail, so this text
 // is unreachable; must_if still requires it because must<> instantiates the
 // raise path for every rule it guards.
