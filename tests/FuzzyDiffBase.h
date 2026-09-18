@@ -64,6 +64,35 @@ inline std::map<std::string, int> &global_op_counts() {
 
 inline void record_op(std::string const &name) { global_op_counts()[name]++; }
 
+// Skips are silent by construction: a capability-limit exception returns
+// Skip, so an op that never produces an evaluable expression would look
+// green. Counting them per op makes that visible; FuzzyOpHealth asserts on
+// it per op.
+inline std::map<std::string, int> &global_skip_counts() {
+  static std::map<std::string, int> counts;
+  return counts;
+}
+
+inline void record_skip(std::string const &name) {
+  global_skip_counts()[name]++;
+}
+
+// Finite differences cannot validate a derivative across a kink: abs, sign,
+// max, min, the comparisons and if_then_else all switch branch at a point.
+// A straddling stencil is reported here rather than silently passing.
+inline int &global_kink_skips() {
+  static int count = 0;
+  return count;
+}
+
+// A non-finite value makes a sample unverifiable: verification returns pass
+// without ever comparing anything. Counted so an op cannot look healthy
+// while every one of its samples evaluated to NaN or infinity.
+inline int &global_unverified() {
+  static int count = 0;
+  return count;
+}
+
 inline void print_coverage_summary() {
   auto const &counts = global_op_counts();
   if (counts.empty())
@@ -80,6 +109,25 @@ inline void print_coverage_summary() {
   }
   std::cerr << "  " << std::left << std::setw(22) << "TOTAL" << std::right
             << std::setw(5) << total << "\n";
+
+  auto const &skips = global_skip_counts();
+  if (!skips.empty()) {
+    int skip_total = 0;
+    for (auto const &[name, count] : skips)
+      skip_total += count;
+    std::cerr << "\n=== Skips by last operation ===\n";
+    for (auto const &[name, count] : skips)
+      std::cerr << "  " << std::left << std::setw(22) << name << std::right
+                << std::setw(5) << count << "\n";
+    std::cerr << "  " << std::left << std::setw(22) << "TOTAL" << std::right
+              << std::setw(5) << skip_total << "\n";
+  }
+  if (global_kink_skips() > 0)
+    std::cerr << "\n  unverifiable across a kink: " << global_kink_skips()
+              << "\n";
+  if (global_unverified() > 0)
+    std::cerr << "  unverifiable (non-finite values): " << global_unverified()
+              << "\n";
 }
 
 // ===========================================================================
@@ -313,6 +361,24 @@ public:
   }
 
   ExprInfoType generate_op(std::size_t depth) {
+    // A forced root op lets a test exercise one generator directly; the
+    // rest of the tree stays random.
+    if (!m_forced_op.empty()) {
+      auto name = m_forced_op;
+      m_forced_op.clear();
+      for (auto const &op : m_ops) {
+        if (op.name != name)
+          continue;
+        auto result = op.generate(self(), depth);
+        if (result) {
+          m_op_trace.push_back(op.name);
+          record_op(op.name);
+          return *result;
+        }
+        break;
+      }
+    }
+
     std::vector<int> weights;
     weights.reserve(m_ops.size());
     for (auto const &op : m_ops)
@@ -390,6 +456,7 @@ public:
         dynamic_cast<evaluation_error const *>(&e) ||
         dynamic_cast<invalid_expression_error const *>(&e)) {
       m_skip_reason = phase + ": " + e.what();
+      record_skip(m_op_trace.empty() ? "<leaf>" : m_op_trace.front());
       return TestResult::Skip;
     }
     return handle_unexpected(e, phase);
@@ -413,6 +480,16 @@ public:
   std::string const &skip_reason() const { return m_skip_reason; }
   void clear_op_trace() { m_op_trace.clear(); }
 
+  void force_root_op(std::string name) { m_forced_op = std::move(name); }
+
+  std::vector<std::string> op_names() const {
+    std::vector<std::string> names;
+    names.reserve(m_ops.size());
+    for (auto const &op : m_ops)
+      names.push_back(op.name);
+    return names;
+  }
+
 protected:
   std::mt19937 m_rng;
   unsigned m_seed;
@@ -420,6 +497,7 @@ protected:
   std::vector<OpEntry> m_ops;
   std::vector<std::string> m_op_trace;
   std::string m_skip_reason;
+  std::string m_forced_op;
 
 private:
   Derived &self() { return static_cast<Derived &>(*this); }
