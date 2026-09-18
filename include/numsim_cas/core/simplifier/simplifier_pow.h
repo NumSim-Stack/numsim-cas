@@ -33,6 +33,18 @@ bool numeric_integer_exponent(typename Traits::expr_holder_t const &e) {
   return v.has_value() && pow_integer_exponent(*v).has_value();
 }
 
+// pow(sqrt(x), n) = pow(x, n/2) agrees for every real x when n is odd: n/2
+// keeps a denominator of 2, so the right side leaves the reals for x < 0 just
+// as sqrt does. An even n would make it finite there.
+template <typename Traits>
+bool odd_numeric_exponent(typename Traits::expr_holder_t const &e) {
+  auto v = Traits::try_numeric(e);
+  if (!v.has_value())
+    return false;
+  auto const i = pow_integer_exponent(*v);
+  return i.has_value() && (*i % 2 != 0);
+}
+
 template <typename Traits>
 bool nonnegative_numeric_base(typename Traits::expr_holder_t const &base) {
   auto v = Traits::try_numeric(base);
