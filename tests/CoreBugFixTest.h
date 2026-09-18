@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 #include <cmath>
 #include <numsim_cas/core/substitute.h>
+#include <numsim_cas/tensor/simplifier/tensor_projector_simplifier.h>
 #include <numsim_cas/tensor/visitors/tensor_substitution.h>
 
 namespace numsim::cas {
@@ -1261,6 +1262,22 @@ TEST(HashIdentitySweep, TensorZeroShapeIsPartOfIdentity) {
   EXPECT_EQ(keys.at(z32), 1);
   EXPECT_EQ(keys.at(z24), 2);
   EXPECT_EQ(keys.at(z34), 3);
+}
+
+// The projector pass buckets candidates by argument hash, and hash(c*T)
+// equals hash(T) by design, so combining must re-check the argument deeply.
+TEST(HashIdentitySweep, ProjectorPassGroupsOnlyDeepEqualArguments) {
+  auto [A] = make_tensor_variable(std::tuple{"A", std::size_t{3}, 2});
+  auto two = make_expression<scalar_constant>(2);
+  ASSERT_EQ((two * A).get().hash_value(), A.get().hash_value())
+      << "the aliasing this guards against must still hold";
+
+  tensor_projector_simplifier pass;
+  auto mixed = pass.apply(vol(A) + dev(two * A));
+  EXPECT_FALSE(is_same<inner_product_wrapper>(mixed)) << to_string(mixed);
+  EXPECT_NE(to_string(mixed), "sym(A)") << to_string(mixed);
+
+  EXPECT_EQ(to_string(pass.apply(vol(A) + dev(A))), "sym(A)");
 }
 
 TEST(HashIdentitySweep, ScalarSubMaxMinDeepEquality) {
