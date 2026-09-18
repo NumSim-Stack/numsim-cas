@@ -315,34 +315,11 @@ template <tensor_expr_holder ExprLHS, tensor_expr_holder ExprRHS>
 template <tensor_expr_holder Expr>
 [[nodiscard]] constexpr inline auto permute_indices(Expr &&expr,
                                                     sequence &&indices) {
-  // Size gate: the permutation must cover exactly the tensor's index
-  // positions. A mismatch would either drop or invent indices in the
-  // resulting expression — silently wrong.
-  if (indices.size() != expr.get().rank())
-    throw invalid_expression_error(
-        "permute_indices: indices size (" + std::to_string(indices.size()) +
-        ") must equal tensor rank (" + std::to_string(expr.get().rank()) + ")");
-  // Permutation-property gate (#281 review): every index must be a
-  // valid 0-based position AND the set must be a true permutation
-  // (no duplicates). Without this `[1, 1]` (duplicate) and `[1, 99]`
-  // (out-of-range) silently produce malformed AST nodes; the
-  // downstream evaluator dereferences positions that don't exist.
-  // O(n²) over n=rank is fine — rank rarely exceeds 4 in practice.
-  const auto rank = expr.get().rank();
-  for (std::size_t i = 0; i < indices.size(); ++i) {
-    if (indices[i] >= rank)
-      throw invalid_expression_error("permute_indices: index " +
-                                     std::to_string(indices[i] + 1) +
-                                     " (1-based) is out of range for rank-" +
-                                     std::to_string(rank) + " tensor");
-    for (std::size_t j = i + 1; j < indices.size(); ++j) {
-      if (indices[i] == indices[j])
-        throw invalid_expression_error(
-            "permute_indices: index " + std::to_string(indices[i] + 1) +
-            " (1-based) appears more than once; indices must form a "
-            "permutation");
-    }
-  }
+  // The permutation must cover exactly the tensor's index positions, with no
+  // duplicates: a mismatch drops or invents indices, and the evaluator would
+  // dereference positions that do not exist. The node constructor repeats the
+  // check, so the folds below cannot slip a malformed sequence past it.
+  detail::validate_permutation("permute_indices", expr.get(), indices);
   // For symmetric rank-2 tensors, any permutation of two indices is identity
   if (expr.get().rank() == 2) {
     if (auto const &sp = expr.get().space()) {
