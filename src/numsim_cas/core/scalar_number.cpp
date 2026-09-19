@@ -398,28 +398,31 @@ bool rat_less(rational_t a, rational_t b) {
 }
 } // namespace
 
+// Same promotion rules as operator==, so equal values are incomparable and
+// unequal values are ordered. Ordering by variant alternative instead would
+// separate values that compare equal (int 2 before double 2.0).
+// NaN sorts after every number so the order stays a strict weak ordering;
+// numeric_less keeps IEEE semantics, where every NaN comparison is false.
 bool operator<(scalar_number const &a, scalar_number const &b) {
-  int ra = promotion_rank(a.v_.index());
-  int rb = promotion_rank(b.v_.index());
-
-  if (ra != rb)
-    return ra < rb;
-
-  return std::visit(
-      [&](auto const &x) {
-        using X = std::decay_t<decltype(x)>;
-        auto const &y = std::get<X>(b.v_);
-        if constexpr (is_cplx_v<X>) {
-          if (x.real() != y.real())
-            return x.real() < y.real();
-          return x.imag() < y.imag();
-        } else if constexpr (is_rat_v<X>) {
-          return rat_less(x, y);
-        } else {
-          return x < y;
-        }
-      },
-      a.v_);
+  auto is_nan = [](scalar_number const &n) {
+    return std::visit(
+        [](auto const &x) {
+          using X = std::decay_t<decltype(x)>;
+          if constexpr (is_cplx_v<X>) {
+            return std::isnan(x.real()) || std::isnan(x.imag());
+          } else if constexpr (std::is_same_v<X, double>) {
+            return std::isnan(x) != 0;
+          } else {
+            return false;
+          }
+        },
+        n.raw());
+  };
+  const bool a_nan = is_nan(a);
+  const bool b_nan = is_nan(b);
+  if (a_nan || b_nan)
+    return !a_nan && b_nan;
+  return numeric_less(a, b);
 }
 
 bool numeric_less(scalar_number const &a, scalar_number const &b) {
