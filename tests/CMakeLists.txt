@@ -58,6 +58,7 @@ add_numsim_cas_test(numsim_cas_test
     TensorToScalarMulOperatorTest.h
     TensorToScalarEvaluatorTest.h
     TensorToScalarExpressionTest.h
+    ThreadSafetyTest.h
     TensorToScalarSubstitutionTest.h
     ScalarLatexPrinterTest.h
     TensorLatexPrinterTest.h

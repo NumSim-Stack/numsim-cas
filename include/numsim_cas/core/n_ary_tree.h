@@ -79,7 +79,7 @@ public:
 
   // Copies carry the source's cached hash; any mutation must drop it or
   // == fast-rejects on the stale value and cancellation silently fails.
-  inline void invalidate_hash() noexcept { this->m_hash_value = 0; }
+  inline void invalidate_hash() noexcept { this->reset_hash(); }
 
   // Insert `entry`, combining with any colliding map entry first.
   // After combination, `+` may algebraically simplify to an expression with a

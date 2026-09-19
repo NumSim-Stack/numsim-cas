@@ -2,6 +2,7 @@
 #define EXPRESSION_H
 
 #include "assumptions.h"
+#include <atomic>
 #include <cstdlib>
 
 namespace numsim::cas {
@@ -44,7 +45,8 @@ public:
    * identity in the current model — it's user-asserted metadata).
    */
   expression(expression const &data)
-      : m_assumption(data.m_assumption), m_hash_value(data.m_hash_value) {}
+      : m_assumption(data.m_assumption), m_hash_value(data.m_hash_value),
+        m_hash_state(data.published_hash_state()) {}
 
   /**
    * @brief Move constructor.
@@ -52,7 +54,8 @@ public:
    */
   expression(expression &&data) noexcept
       : m_assumption(std::move(data.m_assumption)),
-        m_hash_value(data.m_hash_value) {}
+        m_hash_value(data.m_hash_value),
+        m_hash_state(data.published_hash_state()) {}
 
   /**
    * @brief Virtual destructor.
@@ -111,9 +114,25 @@ protected:
   virtual void update_hash_value() const = 0;
 
   numeric_assumption_manager m_assumption{};
-  // NOTE: lazy hash caching is not thread-safe. If multithreading is
-  // introduced, protect update_hash_value() with synchronization.
+  // Overrides write m_hash_value; hash_value() publishes it exactly once
+  // through m_hash_state, so concurrent readers never see a partial value.
   mutable hash_type m_hash_value{0};
+
+  // Drop a cached hash after mutating a node's children.
+  void reset_hash() const noexcept {
+    m_hash_value = 0;
+    m_hash_state.store(hash_unset, std::memory_order_release);
+  }
+
+private:
+  enum : unsigned char { hash_unset = 0, hash_computing = 1, hash_ready = 2 };
+  mutable std::atomic<unsigned char> m_hash_state{hash_unset};
+  // a copy inherits a ready hash; one still being computed is recomputed
+  unsigned char published_hash_state() const noexcept {
+    return m_hash_state.load(std::memory_order_acquire) == hash_ready
+               ? hash_ready
+               : hash_unset;
+  }
 };
 
 } // namespace numsim::cas
