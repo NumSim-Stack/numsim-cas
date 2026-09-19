@@ -1,8 +1,11 @@
 #include <numsim_cas/core/scalar_number.h>
 
+#include <array>
+#include <charconv>
 #include <cmath>
 #include <limits>
 #include <ostream>
+#include <string_view>
 
 namespace numsim::cas {
 
@@ -321,6 +324,12 @@ std::ostream &operator<<(std::ostream &os, scalar_number const &a) {
         using T = std::decay_t<decltype(val)>;
         if constexpr (is_rat_v<T>) {
           os << val.num << "/" << val.den;
+        } else if constexpr (std::is_same_v<T, double>) {
+          // shortest spelling that reads back to the same double
+          std::array<char, 32> buf{};
+          auto [end, ec] =
+              std::to_chars(buf.data(), buf.data() + buf.size(), val);
+          os << std::string_view(buf.data(), end);
         } else {
           os << val;
         }

@@ -288,8 +288,8 @@ template <> struct action<grammar::number_literal> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
     auto sv = in.string_view();
-    // Decimal point in the matched range tells us it's a double.
-    if (sv.find('.') != std::string_view::npos) {
+    // A decimal point or an exponent marks a double.
+    if (sv.find_first_of(".eE") != std::string_view::npos) {
       double value = 0.0;
       auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
       if (ec != std::errc{} || ptr != sv.data() + sv.size()) {
