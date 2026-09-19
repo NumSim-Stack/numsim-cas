@@ -107,6 +107,14 @@ TEST_F(ScalarLatexFixture, LATEX_RationalConstants) {
   EXPECT_LATEX(r, "\\frac{3}{4}");
 }
 
+TEST_F(ScalarLatexFixture, LATEX_DoubleConstantsKeepAllDigits) {
+  EXPECT_LATEX(numsim::cas::make_scalar_constant(1.0 / 3.0),
+               "0.3333333333333333");
+  EXPECT_LATEX(numsim::cas::make_scalar_constant(1.23456789012345678e-7),
+               "1.2345678901234568e-07");
+  EXPECT_LATEX(numsim::cas::make_scalar_constant(2.0), "2");
+}
+
 // --- Comparison nodes (#136) ---
 TEST_F(ScalarLatexFixture, LATEX_Comparisons) {
   using numsim::cas::eq;

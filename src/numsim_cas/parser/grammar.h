@@ -51,12 +51,21 @@ struct ws : pegtl::star<pegtl::space> {};
 
 // ─── Numeric literals ─────────────────────────────────────────────
 // integer:  one or more digits
-// decimal:  digits '.' digits   OR   digits '.'   (e.g. "2.")
+// decimal:  digits '.' digits? exponent?   OR   digits exponent
+//           (e.g. "2.", "1e-07", "2.5E+3")
 // number:   decimal | integer  (decimal first so the parser doesn't
 //           greedily consume the leading digits as an integer)
 struct integer_literal : pegtl::plus<pegtl::digit> {};
-struct decimal_literal : pegtl::seq<pegtl::plus<pegtl::digit>, pegtl::one<'.'>,
-                                    pegtl::star<pegtl::digit>> {};
+struct exponent_part
+    : pegtl::seq<pegtl::one<'e', 'E'>, pegtl::opt<pegtl::one<'+', '-'>>,
+                 pegtl::plus<pegtl::digit>> {};
+// digits '.' digits? exponent?   OR   digits exponent   (both are doubles)
+struct decimal_literal
+    : pegtl::seq<
+          pegtl::plus<pegtl::digit>,
+          pegtl::sor<pegtl::seq<pegtl::one<'.'>, pegtl::star<pegtl::digit>,
+                                pegtl::opt<exponent_part>>,
+                     exponent_part>> {};
 struct number_literal : pegtl::sor<decimal_literal, integer_literal> {};
 
 // ─── Identifiers ──────────────────────────────────────────────────
