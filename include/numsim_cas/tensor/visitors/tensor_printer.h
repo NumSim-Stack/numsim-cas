@@ -53,12 +53,13 @@ public:
    */
   auto apply(expression_holder<tensor_expression> const &expr,
              [[maybe_unused]] Precedence parent_precedence = Precedence::None) {
-    if (expr.is_valid()) {
-      m_parent_precedence = parent_precedence;
-      static_cast<const tensor_visitable_t &>(expr.get())
-          .accept(static_cast<base_visitor &>(*this));
-      // m_first_term = false;
+    if (!expr.is_valid()) {
+      m_out << "<invalid>";
+      return;
     }
+    m_parent_precedence = parent_precedence;
+    static_cast<const tensor_visitable_t &>(expr.get())
+        .accept(static_cast<base_visitor &>(*this));
   }
 
   /**

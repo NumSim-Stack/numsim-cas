@@ -8,6 +8,7 @@
 #include <numsim_cas/core/require_symbol.h>
 #include <numsim_cas/numsim_cas_forward.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
+#include <string>
 #include <type_traits>
 
 namespace numsim::cas {
@@ -90,7 +91,7 @@ public:
     if constexpr (std::is_same_v<T, ExprBase>) {
       return *m_expr.get();
     } else {
-      assert(dynamic_cast<T *>(m_expr.get()) != nullptr);
+      throw_if_wrong_type<T>();
       return static_cast<T &>(*m_expr.get());
     }
   }
@@ -100,7 +101,7 @@ public:
     if constexpr (std::is_same_v<T, ExprBase>) {
       return *m_expr.get();
     } else {
-      assert(dynamic_cast<const T *>(m_expr.get()) != nullptr);
+      throw_if_wrong_type<T>();
       return static_cast<const T &>(*m_expr.get());
     }
   }
@@ -175,8 +176,30 @@ private:
     }
   }
 
+  // Node types carry a static id, so the downcast is checked with one
+  // integer compare in every build; interface types fall back to the assert.
+  template <typename T> inline void throw_if_wrong_type() const {
+    if constexpr (requires { T::get_id(); }) {
+      if (m_expr->id() != T::get_id())
+        throw internal_error(
+            "expression_holder: get<T>() on a node of another type");
+    } else {
+      assert(dynamic_cast<const T *>(m_expr.get()) != nullptr);
+    }
+  }
+
   std::shared_ptr<node_type> m_expr;
 };
+
+// Entry-point guard: a public operation must reject an invalid holder
+// instead of producing a plausible result from nothing.
+template <typename ExprBaseT>
+inline void require_valid(expression_holder<ExprBaseT> const &h,
+                          char const *where) {
+  if (!h.is_valid())
+    throw invalid_expression_error(std::string(where) +
+                                   ": invalid (null) expression");
+}
 
 template <typename ExprBaseT>
 bool operator<(expression_holder<ExprBaseT> const &lhs,

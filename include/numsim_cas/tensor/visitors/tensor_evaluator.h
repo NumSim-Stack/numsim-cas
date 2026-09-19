@@ -52,12 +52,10 @@ public:
   }
 
   data_ptr apply(expr_holder_t const &expr) {
-    if (expr.is_valid()) {
-      m_current_expr = to_base_holder(expr);
-      expr.template get<tensor_visitable_t>().accept(*this);
-      return std::move(m_result);
-    }
-    return nullptr;
+    require_valid(expr, "tensor_evaluator::apply");
+    m_current_expr = to_base_holder(expr);
+    expr.template get<tensor_visitable_t>().accept(*this);
+    return std::move(m_result);
   }
 
   // ─── Symbol ──────────────────────────────────────────────────

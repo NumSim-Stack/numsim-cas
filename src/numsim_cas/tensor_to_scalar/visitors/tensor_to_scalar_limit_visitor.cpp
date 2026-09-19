@@ -38,8 +38,7 @@ tensor_to_scalar_limit_visitor::tensor_to_scalar_limit_visitor(
 // ─── Apply ────────────────────────────────────────────────────────
 
 limit_result tensor_to_scalar_limit_visitor::apply(t2s_holder_t const &expr) {
-  if (!expr.is_valid())
-    return {dir::zero};
+  require_valid(expr, "tensor_to_scalar_limit_visitor::apply");
 
   // In exact match mode, check if this IS the limit variable
   if (m_mode == dependency_mode::exact_match && expr == m_limit_var_t2s) {
