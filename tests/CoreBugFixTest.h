@@ -1978,6 +1978,38 @@ TEST(HashRecompute, IsIdempotentForEveryHashOverride) {
   check("permute_indices_wrapper", trans(A).get());
 }
 
+// Comparing ternary nodes must terminate: the derived-type comparison needs an
+// operator==/< on ternary_op, or it resolves back to expression:: and recurses.
+TEST(CoreBugFix, TernaryComparisonTerminates) {
+  auto [X, Y] =
+      make_tensor_variable(std::tuple{"X", std::size_t{3}, std::size_t{2}},
+                           std::tuple{"Y", std::size_t{3}, std::size_t{2}});
+  auto [s, t] = make_scalar_variable("s", "t");
+
+  auto a = if_then_else(s, X, Y);
+  auto b = if_then_else(s, X, Y);
+  auto c = if_then_else(t, X, Y);
+  EXPECT_TRUE(*a == *b);
+  EXPECT_FALSE(*a == *c);
+  EXPECT_TRUE((*a < *c) || (*c < *a));
+
+  auto ts = if_then_else(trace(X), X, Y);
+  auto ts2 = if_then_else(trace(X), X, Y);
+  auto ts3 = if_then_else(trace(Y), X, Y);
+  EXPECT_TRUE(*ts == *ts2);
+  EXPECT_FALSE(*ts == *ts3);
+
+  auto sc = if_then_else(s, s + t, t);
+  auto sc2 = if_then_else(s, s + t, t);
+  EXPECT_TRUE(*sc == *sc2);
+
+  auto t2s = if_then_else(trace(X), trace(X), det(X));
+  auto t2s2 = if_then_else(trace(X), trace(X), det(X));
+  auto t2s3 = if_then_else(trace(Y), trace(X), det(X));
+  EXPECT_TRUE(*t2s == *t2s2);
+  EXPECT_FALSE(*t2s == *t2s3);
+}
+
 // Rank-4 identity is major-symmetric only; a MinorMajor tag sends inv()
 // through the symmetric Voigt path, which gets inv(-I4) wrong.
 TEST(Rank4IdentityTag, InvOfNegatedIdentity) {

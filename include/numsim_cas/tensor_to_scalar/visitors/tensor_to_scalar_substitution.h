@@ -44,13 +44,10 @@ public:
     }
   }
 
+  // Unconditional: a tensor subtree can carry scalar and t2s children, so a
+  // needle of any domain may hide inside it.
   tensor_holder_t apply_tensor(tensor_holder_t const &expr) override {
-    if constexpr (std::is_same_v<TargetBase, tensor_expression> ||
-                  std::is_same_v<TargetBase, scalar_expression>) {
-      return substitute(expr, m_old, m_new);
-    } else {
-      return expr;
-    }
+    return substitute(expr, m_old, m_new);
   }
 
 private:
