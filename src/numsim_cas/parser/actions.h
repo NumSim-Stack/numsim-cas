@@ -300,6 +300,17 @@ template <> struct action<grammar::number_literal> {
     } else {
       std::int64_t value = 0;
       auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+      if (ec == std::errc::result_out_of_range) {
+        // digits beyond int64 are still a valid double; the printer emits
+        // this form whenever it is shorter than the exponent spelling
+        double wide = 0.0;
+        auto [dptr, dec] =
+            std::from_chars(sv.data(), sv.data() + sv.size(), wide);
+        if (dec == std::errc{} && dptr == sv.data() + sv.size()) {
+          state.values.emplace_back(make_scalar_constant(wide));
+          return;
+        }
+      }
       if (ec != std::errc{} || ptr != sv.data() + sv.size()) {
         throw lexical_error("malformed integer literal", in.position().byte,
                             state.source);
