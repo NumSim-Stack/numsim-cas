@@ -927,4 +927,60 @@ TEST_F(AssumptionFixture, RelationSetKeepsDistinctOperands) {
   EXPECT_EQ(set.size(), 3u);
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  Contradictory facts are rejected at assertion time
+// ═══════════════════════════════════════════════════════════════════════
+
+TEST_F(AssumptionFixture, ContradictoryAssumptionsAreRejected) {
+  using namespace numsim::cas;
+  x.assumption(positive{});
+  EXPECT_THROW(x.assumption(negative{}), invalid_assumption_error);
+  EXPECT_THROW(x.assumption(nonpositive{}), invalid_assumption_error);
+  // the symbol keeps only the consistent facts
+  EXPECT_TRUE(is_positive(x));
+  EXPECT_FALSE(is_negative(x));
+  EXPECT_FALSE(is_nonpositive(x));
+  EXPECT_PRINT(abs(x), "x");
+  EXPECT_TRUE(is_same<scalar_one>(sign(x)));
+
+  y.assumption(negative{});
+  EXPECT_THROW(y.assumption(positive{}), invalid_assumption_error);
+  EXPECT_THROW(y.assumption(nonnegative{}), invalid_assumption_error);
+  EXPECT_THROW(y.assumption(prime{}), invalid_assumption_error);
+
+  // nonnegative + nonpositive pins zero, so nonzero contradicts it
+  z.assumption(nonnegative{}, nonpositive{});
+  EXPECT_THROW(z.assumption(nonzero{}), invalid_assumption_error);
+  EXPECT_THROW(z.assumption(positive{}), invalid_assumption_error);
+  EXPECT_FALSE(is_nonzero(z));
+
+  auto [w, v] = make_scalar_variable("w", "v");
+  w.assumption(nonzero{}, nonpositive{});
+  EXPECT_THROW(w.assumption(nonnegative{}), invalid_assumption_error);
+  v.assumption(even{});
+  EXPECT_THROW(v.assumption(odd{}), invalid_assumption_error);
+}
+
+TEST_F(AssumptionFixture, RepeatedAndRefiningAssumptionsAreAccepted) {
+  using namespace numsim::cas;
+  x.assumption(positive{});
+  EXPECT_NO_THROW(x.assumption(positive{}));
+  EXPECT_NO_THROW(x.assumption(nonnegative{}));
+  EXPECT_NO_THROW(x.assumption(integer{}));
+  y.assumption(nonnegative{});
+  EXPECT_NO_THROW(y.assumption(positive{}));
+  EXPECT_TRUE(is_positive(y));
+  z.assumption(even{});
+  EXPECT_NO_THROW(z.assumption(prime{}));
+}
+
+TEST_F(AssumptionFixture, ContradictionRejectedAfterSymbolWasUsed) {
+  using namespace numsim::cas;
+  x.assumption(positive{});
+  auto folded = abs(x);
+  EXPECT_PRINT(folded, "x");
+  EXPECT_THROW(x.assumption(negative{}), invalid_assumption_error);
+  EXPECT_TRUE(is_positive(x));
+}
+
 #endif // SCALARASSUMPTIONTEST_H

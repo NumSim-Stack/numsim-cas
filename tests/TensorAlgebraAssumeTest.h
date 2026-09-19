@@ -1938,6 +1938,54 @@ TEST(TensorAlgebraScalarMul, UnknownSignScalarDropsPD) {
   EXPECT_FALSE(is_positive_definite(a * C));
 }
 
+// ─── Contradictory space facts are rejected ─────────────────────────
+
+TEST(TensorAlgebraAssumption, SkewContradictsSymmetricFamily) {
+  auto S = std::get<0>(make_tensor_variable(std::tuple{"S", 3, 2}));
+  S.assumption(Symmetric{});
+  EXPECT_THROW(S.assumption(Skew{}), invalid_assumption_error);
+  EXPECT_TRUE(is_symmetric(S));
+  EXPECT_FALSE(is_skew(S));
+
+  auto V = std::get<0>(make_tensor_variable(std::tuple{"V", 3, 2}));
+  V.assumption(VolumetricTag{});
+  EXPECT_THROW(V.assumption(Skew{}), invalid_assumption_error);
+  EXPECT_THROW(V.assumption(DeviatoricTag{}), invalid_assumption_error);
+  EXPECT_TRUE(is_volumetric(V));
+
+  auto D = std::get<0>(make_tensor_variable(std::tuple{"D", 3, 2}));
+  D.assumption(DeviatoricTag{});
+  EXPECT_THROW(D.assumption(VolumetricTag{}), invalid_assumption_error);
+
+  auto P = std::get<0>(make_tensor_variable(std::tuple{"P", 3, 2}));
+  P.assumption(positive_definite{});
+  EXPECT_THROW(P.assumption(Skew{}), invalid_assumption_error);
+  EXPECT_TRUE(is_symmetric(P));
+  EXPECT_FALSE(is_skew(P));
+}
+
+TEST(TensorAlgebraAssumption, SymmetricFamilyContradictsSkew) {
+  auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 3, 2}));
+  W.assumption(Skew{});
+  EXPECT_THROW(W.assumption(Symmetric{}), invalid_assumption_error);
+  EXPECT_THROW(W.assumption(VolumetricTag{}), invalid_assumption_error);
+  EXPECT_THROW(W.assumption(DeviatoricTag{}), invalid_assumption_error);
+  EXPECT_TRUE(is_skew(W));
+  EXPECT_FALSE(is_symmetric(W));
+}
+
+TEST(TensorAlgebraAssumption, RefiningSpaceFactsIsAccepted) {
+  auto S = std::get<0>(make_tensor_variable(std::tuple{"S", 3, 2}));
+  S.assumption(Symmetric{});
+  EXPECT_NO_THROW(S.assumption(VolumetricTag{}));
+  EXPECT_TRUE(is_volumetric(S));
+  EXPECT_NO_THROW(S.assumption(positive_definite{}));
+  EXPECT_TRUE(is_volumetric(S));
+  auto Q = std::get<0>(make_tensor_variable(std::tuple{"Q", 3, 2}));
+  Q.assumption(Skew{});
+  EXPECT_NO_THROW(Q.assumption(orthogonal{}));
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORALGEBRAASSUMETEST_H
