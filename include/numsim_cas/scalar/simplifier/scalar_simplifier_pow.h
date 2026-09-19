@@ -57,6 +57,9 @@ public:
   expr_holder_t dispatch(scalar_negative const &rhs);
 
 private:
+  /// Folds only where (x^a)^b = x^(a·b) holds on the reals.
+  expr_holder_t compose();
+
   using base::m_lhs;
   using base::m_rhs;
   scalar_pow const &m_lhs_node;
@@ -79,6 +82,9 @@ public:
   expr_holder_t dispatch([[maybe_unused]] Expr const &rhs);
 
 private:
+  /// Extraction composes each factor's exponent with the outer one.
+  bool factors_compose(std::vector<expr_holder_t> const &pows) const;
+
   using base::m_lhs;
   using base::m_rhs;
   scalar_mul const &m_lhs_node;
