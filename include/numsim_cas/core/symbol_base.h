@@ -3,6 +3,8 @@
 
 #include <numsim_cas/core/hash_functions.h>
 
+#include <utility>
+
 namespace numsim::cas {
 
 template <typename BaseExpr> class symbol_base : public BaseExpr {
@@ -53,13 +55,34 @@ protected:
   std::string m_name;
 };
 
+namespace detail {
+
+// Shape belongs to a tensor symbol's identity: the same name at another dim
+// or rank denotes a different tensor. Scalar symbols carry no shape.
+template <typename Symbol>
+[[nodiscard]] inline std::pair<std::size_t, std::size_t>
+symbol_shape(Symbol const &symbol) {
+  if constexpr (requires {
+                  symbol.dim();
+                  symbol.rank();
+                }) {
+    return {symbol.dim(), symbol.rank()};
+  } else {
+    return {0, 0};
+  }
+}
+
+} // namespace detail
+
 template <typename BaseExprT>
 bool operator<(symbol_base<BaseExprT> const &lhs,
                symbol_base<BaseExprT> const &rhs) {
   if (lhs.hash_value() != rhs.hash_value())
     return lhs.hash_value() < rhs.hash_value();
   // The hash covers only the name, so colliding names need a real tiebreak.
-  return lhs.name() < rhs.name();
+  if (lhs.name() != rhs.name())
+    return lhs.name() < rhs.name();
+  return detail::symbol_shape(lhs) < detail::symbol_shape(rhs);
 }
 
 template <typename BaseExprT>
@@ -71,7 +94,8 @@ bool operator>(symbol_base<BaseExprT> const &lhs,
 template <typename BaseExprT>
 bool operator==(symbol_base<BaseExprT> const &lhs,
                 symbol_base<BaseExprT> const &rhs) {
-  return lhs.hash_value() == rhs.hash_value() && lhs.name() == rhs.name();
+  return lhs.hash_value() == rhs.hash_value() && lhs.name() == rhs.name() &&
+         detail::symbol_shape(lhs) == detail::symbol_shape(rhs);
 }
 
 template <typename BaseExprT>

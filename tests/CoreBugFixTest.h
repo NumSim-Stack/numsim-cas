@@ -1034,6 +1034,76 @@ TEST(SymbolIdentity, EvaluatorKeepsBothDomainBindings) {
                    3.0);
 }
 
+// A tensor symbol's shape is part of its identity: the same name at a
+// different dim or rank denotes a different tensor.
+// Mixed-rank factors sharing a name must not merge into a power: tensor
+// multiplication validates dim only, so this reaches the like-term path.
+TEST(SymbolIdentity, MixedRankFactorsDoNotMerge) {
+  auto A32 = make_expression<tensor>("A", 3, 2);
+  auto A34 = make_expression<tensor>("A", 3, 4);
+  auto product = A32 * A34;
+  EXPECT_FALSE(is_same<tensor_pow>(product)) << to_string(product);
+  EXPECT_EQ(to_string(product), to_string(A32 * A34));
+}
+
+TEST(SymbolIdentity, TensorShapeDistinguishesSameName) {
+  auto A32 = make_expression<tensor>("A", 3, 2);
+  auto A22 = make_expression<tensor>("A", 2, 2);
+  auto A34 = make_expression<tensor>("A", 3, 4);
+  auto B32 = make_expression<tensor>("B", 3, 2);
+  auto A32b = make_expression<tensor>("A", 3, 2);
+
+  EXPECT_FALSE(*A32 == *A22) << "differing dim";
+  EXPECT_FALSE(*A32 == *A34) << "differing rank";
+  EXPECT_TRUE(*A32 == *A32b) << "same name and shape";
+  EXPECT_FALSE(*A32 == *B32) << "differing name";
+
+  // Distinct shapes need a total order, equal ones must stay incomparable.
+  EXPECT_TRUE((*A32 < *A22) != (*A22 < *A32));
+  EXPECT_TRUE((*A32 < *A34) != (*A34 < *A32));
+  EXPECT_FALSE(*A32 < *A32b);
+  EXPECT_FALSE(*A32b < *A32);
+
+  std::map<expression_holder<tensor_expression>, int> keys;
+  keys[A32] = 1;
+  keys[A22] = 2;
+  keys[A34] = 3;
+  EXPECT_EQ(keys.size(), 3u);
+  EXPECT_EQ(keys.at(A32), 1);
+  EXPECT_EQ(keys.at(A22), 2);
+  EXPECT_EQ(keys.at(A34), 3);
+}
+
+// Each shape carries its own binding; the evaluator must not serve one
+// symbol's data for another.
+TEST(SymbolIdentity, EvaluatorKeepsBindingsPerTensorShape) {
+  auto A32 = make_expression<tensor>("A", 3, 2);
+  auto A22 = make_expression<tensor>("A", 2, 2);
+
+  auto d32 = std::make_shared<tensor_data<double, 3, 2>>();
+  d32->data() = tmech::eye<double, 3, 2>();
+  auto d22 = std::make_shared<tensor_data<double, 2, 2>>();
+  d22->data() = 7.0 * tmech::eye<double, 2, 2>();
+
+  tensor_evaluator<double> ev;
+  ev.set(A32, d32);
+  ev.set(A22, d22);
+
+  auto r32 = ev.apply(A32);
+  ASSERT_NE(r32, nullptr);
+  EXPECT_EQ(r32->dim(), 3u);
+  EXPECT_DOUBLE_EQ(r32->raw_data()[0], 1.0);
+
+  auto r22 = ev.apply(A22);
+  ASSERT_NE(r22, nullptr);
+  EXPECT_EQ(r22->dim(), 2u);
+  EXPECT_DOUBLE_EQ(r22->raw_data()[0], 7.0);
+
+  tensor_to_scalar_evaluator<double> t2s;
+  t2s.set(A22, d22);
+  EXPECT_DOUBLE_EQ(t2s.apply(trace(A22)), 14.0);
+}
+
 // #93 — a tensor_mul's space() must survive copy reconstruction
 // (tensor_add did this; mul dropped it).
 TEST(CoreBugFix, TensorMulCopyPreservesSpaceAnnotation) {
