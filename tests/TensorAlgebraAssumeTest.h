@@ -107,15 +107,16 @@ TEST(TensorAlgebraAssume, PsdPreservesPriorDeviatoricSubspace) {
   EXPECT_TRUE(is_deviatoric(D));
 }
 
-TEST(TensorAlgebraAssume, PdOverridesIncompatibleSpace) {
-  // Skew is incompatible with PD (PD requires symmetric). assume_pd should
-  // overwrite the skew tag.
+TEST(TensorAlgebraAssume, PdRejectsIncompatibleSkewSpace) {
+  // Skew is incompatible with PD (PD requires symmetric), so the assertion
+  // is refused rather than silently replacing the skew tag.
   auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
   assume_skew(A);
   EXPECT_TRUE(is_skew(A));
-  assume_positive_definite(A);
-  EXPECT_FALSE(is_skew(A));
-  EXPECT_TRUE(is_symmetric(A));
+  EXPECT_THROW(assume_positive_definite(A), invalid_assumption_error);
+  EXPECT_TRUE(is_skew(A));
+  EXPECT_FALSE(is_symmetric(A));
+  EXPECT_FALSE(is_positive_definite(A));
 }
 
 TEST(TensorAlgebraAssume,
@@ -1085,20 +1086,19 @@ TEST(TensorAlgebraPropagation, InvPdRank4MinorMajorPropagates) {
   EXPECT_TRUE(is_minor_major(invC));
 }
 
-TEST(TensorAlgebraPropagation, AssumePdAfterSkewResolvesAtCallSite) {
-  // Pre-condition for the ctor-defense test below: confirm that
-  // assume_positive_definite OVERWRITES a prior Skew space at the
-  // assume() call site (per #245). This means the typical path never
-  // reaches tensor_inv's ctor with the contradictory state.
+TEST(TensorAlgebraPropagation, AssumePdAfterSkewIsRefusedAtCallSite) {
+  // Pre-condition for the ctor-defense test below: the assume() call site
+  // refuses the contradiction outright, so the typical path never reaches
+  // tensor_inv's ctor with that state. Only a direct-manager caller can
+  // build it — which is what the next test exercises.
   auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 3, 2}));
   assume_skew(W);
-  assume_positive_definite(W);
-  EXPECT_TRUE(is_symmetric(W));
-  EXPECT_FALSE(is_skew(W));
-  auto invW = inv(W);
-  EXPECT_TRUE(is_positive_definite(invW));
-  EXPECT_TRUE(is_symmetric(invW));
-  EXPECT_FALSE(is_skew(invW));
+  EXPECT_THROW(assume_positive_definite(W), invalid_assumption_error);
+  EXPECT_TRUE(is_skew(W));
+  EXPECT_FALSE(is_positive_definite(W));
+  // W stays skew, so inv() reaches its own singularity guard rather than
+  // the PD propagation the overwriting behaviour used to expose.
+  EXPECT_THROW({ [[maybe_unused]] auto r = inv(W); }, cas_error);
 }
 
 TEST(TensorAlgebraPropagation, InvCtorDefendsAgainstSkewSpaceWithPdAlgebra) {
@@ -1790,22 +1790,23 @@ TEST(TensorAlgebraAssumption, OrthogonalDoesNotImplySymmetric) {
   EXPECT_FALSE(is_positive_definite(Q));
 }
 
-TEST(TensorAlgebraAssumption, SkewThenPDLastWriterWinsLeftToRight) {
-  // QA: pin the documented left-to-right ordering by constructing a case
-  // where order matters. assume(Skew{}, positive_definite{}):
-  //   1. assume_skew sets space = {Skew, AnyTrace}
-  //   2. assume_positive_definite calls set_symmetric_unless_more_specific
-  //      which sees classify_space(Skew) — not in the Sym/Vol/Dev/Minor/
-  //      MinorMajor guard — and OVERWRITES with {Symmetric, AnyTrace}.
-  // Final state under left-to-right: Sym + PD (Skew lost).
-  // Right-to-left would give: PD then Skew, with Skew the final space tag.
+TEST(TensorAlgebraAssumption, LastWriterWinsLeftToRight) {
+  // Pin the documented left-to-right ordering with a pair that refines
+  // rather than contradicts: Symmetric then Volumetric leaves Vol, the
+  // narrower tag; right-to-left would have left the wider Sym.
   auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
-  A.assumption(Skew{}, positive_definite{});
-  EXPECT_TRUE(is_positive_definite(A));
-  EXPECT_TRUE(is_symmetric(A))
-      << "PD's set_symmetric_unless_more_specific overwrites the Skew tag";
-  EXPECT_FALSE(is_skew(A))
-      << "left-to-right contract: Skew was overwritten by PD's chain";
+  A.assumption(Symmetric{}, VolumetricTag{});
+  EXPECT_TRUE(is_volumetric(A));
+  EXPECT_TRUE(is_symmetric(A)) << "Vol is a symmetric subspace";
+
+  // Skew with definiteness is a contradiction, not an ordering question:
+  // it throws whichever way round it is written, and the first fact of
+  // the pack has already been applied when the second one throws.
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  EXPECT_THROW(B.assumption(Skew{}, positive_definite{}),
+               invalid_assumption_error);
+  EXPECT_TRUE(is_skew(B));
+  EXPECT_FALSE(is_positive_definite(B));
 }
 
 TEST(TensorAlgebraAssumption, ChainableReturnsSelfByIdentity) {
