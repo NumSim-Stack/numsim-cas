@@ -4,7 +4,9 @@
 #include "numsim_cas_forward.h"
 #include "numsim_cas_type_traits.h"
 #include "scalar/scalar_constant.h"
+#include <numsim_cas/core/cas_error.h>
 #include <ranges>
+#include <string>
 
 namespace numsim::cas {
 
@@ -18,13 +20,25 @@ template <typename Type, typename Expr>
 template <typename Type, typename Expr>
 [[nodiscard]] inline std::optional<std::reference_wrapper<const Type>>
 is_same_r(Expr const &expr) noexcept {
-  assert(expr.is_valid());
+  if (!expr.is_valid())
+    return {};
   if (Type::get_id() == expr.get().id()) {
     return std::cref(expr.template get<Type>());
   } else {
     return {};
   }
 }
+
+namespace detail {
+// Factories take holders by value or reference; a null holder is a caller
+// error and must be reported in every build, not only where assert fires.
+template <typename... Holders>
+inline void require_valid(char const *op, Holders const &...args) {
+  if (!(args.is_valid() && ...))
+    throw invalid_expression_error(
+        std::string(op) + ": argument is an invalid (null) expression");
+}
+} // namespace detail
 
 template <typename Type, typename Base>
 inline auto get_all(n_ary_tree<Base> const &tree) {

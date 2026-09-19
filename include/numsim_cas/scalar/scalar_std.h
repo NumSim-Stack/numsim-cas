@@ -1,7 +1,6 @@
 #ifndef SCALAR_STD_H
 #define SCALAR_STD_H
 
-#include <cassert>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -74,8 +73,7 @@ try_extract_scalar_number(expression_holder<scalar_expression> const &e) {
 
 template <scalar_expr_holder L, scalar_expr_holder R>
 [[nodiscard]] auto pow(L &&expr_lhs, R &&expr_rhs) {
-  assert(expr_rhs.is_valid());
-  assert(expr_lhs.is_valid());
+  detail::require_valid("pow", expr_lhs, expr_rhs);
 
   if (is_constant_one(expr_lhs)) {
     return get_scalar_one();
@@ -310,7 +308,7 @@ inline comp_reduce flip_fold(comp_reduce r) {
 //   * `from_signs(lhs_cone, rhs_cone)` → comp_reduce.
 template <typename Op, scalar_expr_holder L, scalar_expr_holder R>
 [[nodiscard]] auto make_comparison(L &&lhs, R &&rhs, Op op) {
-  assert(lhs.is_valid() && rhs.is_valid());
+  detail::require_valid("comparison", lhs, rhs);
 
   if (lhs == rhs)
     return op.identity_holds ? get_scalar_one() : get_scalar_zero();
@@ -457,8 +455,7 @@ template <scalar_expr_holder L, scalar_expr_holder R>
 
 template <scalar_expr_holder L, scalar_expr_holder R>
 [[nodiscard]] auto max(L &&lhs, R &&rhs) {
-  assert(lhs.is_valid());
-  assert(rhs.is_valid());
+  detail::require_valid("max", lhs, rhs);
   // max(x, x) → x
   if (lhs == rhs)
     return std::forward<L>(lhs);
@@ -484,8 +481,7 @@ template <scalar_expr_holder L, scalar_expr_holder R>
 
 template <scalar_expr_holder L, scalar_expr_holder R>
 [[nodiscard]] auto min(L &&lhs, R &&rhs) {
-  assert(lhs.is_valid());
-  assert(rhs.is_valid());
+  detail::require_valid("min", lhs, rhs);
   // min(x, x) → x
   if (lhs == rhs)
     return std::forward<L>(lhs);
@@ -605,9 +601,7 @@ template <scalar_expr_holder Cond, scalar_expr_holder Then,
           scalar_expr_holder Else>
 [[nodiscard]] auto if_then_else(Cond &&cond, Then &&then_expr,
                                 Else &&else_expr) {
-  assert(cond.is_valid());
-  assert(then_expr.is_valid());
-  assert(else_expr.is_valid());
+  detail::require_valid("if_then_else", cond, then_expr, else_expr);
   // Constant-condition folds
   if (is_same<scalar_zero>(cond))
     return std::forward<Else>(else_expr);

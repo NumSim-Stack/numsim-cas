@@ -1391,6 +1391,33 @@ TEST(TensorShapeValidation, AddSubZeroOfOtherShapeThrows) {
   EXPECT_NO_THROW((void)(Z - X));
 }
 
+// The branch-shape gate must fire before the constant-condition folds, or a
+// mismatched pair is silently accepted whenever the condition folds.
+TEST(TensorShapeValidation, IfThenElseBranchesShareShape) {
+  using namespace numsim::cas;
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto Y = make_expression<tensor>("Y", 3, 2);
+  auto C = make_expression<tensor>("C", 3, 4);
+  auto W = make_expression<tensor>("W", 2, 2);
+  auto [s] = make_scalar_variable("s");
+  auto zero = get_scalar_zero();
+  auto t2s_zero = make_expression<tensor_to_scalar_zero>();
+  EXPECT_THROW((void)if_then_else(zero, X, C), invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(zero, X, W), invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(s, X, C), invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(t2s_zero, X, C), invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(trace(X), X, W), invalid_expression_error);
+  EXPECT_NO_THROW((void)if_then_else(s, X, Y));
+  EXPECT_NO_THROW((void)if_then_else(trace(X), X, Y));
+
+  expression_holder<tensor_expression> none;
+  expression_holder<scalar_expression> no_cond;
+  EXPECT_THROW((void)if_then_else(no_cond, X, Y), invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(s, none, Y), invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(s, X, none), invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(trace(X), none, Y), invalid_expression_error);
+}
+
 TEST(TensorShapeValidation, InnerProductValidatesDimAndIndices) {
   using namespace numsim::cas;
   auto X = make_expression<tensor>("X", 3, 2);
