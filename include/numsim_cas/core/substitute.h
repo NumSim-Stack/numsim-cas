@@ -3,6 +3,7 @@
 
 #include <type_traits>
 
+#include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/tag_invoke.h>
 #include <numsim_cas/numsim_cas_forward.h>
 
@@ -30,6 +31,9 @@ struct substitute_fn {
                          expression_holder<TargetBase> const &,
                          expression_holder<TargetBase> const &>
   {
+    require_valid(expr, "substitute");
+    require_valid(old_val, "substitute");
+    require_valid(new_val, "substitute");
     return tag_invoke(*this, std::type_identity<ExprBase>{},
                       std::type_identity<TargetBase>{}, expr, old_val, new_val);
   }

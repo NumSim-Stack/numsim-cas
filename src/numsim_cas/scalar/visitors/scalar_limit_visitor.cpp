@@ -86,8 +86,7 @@ bool scalar_limit_visitor::zero_from_below(expr_holder_t const &expr) const {
 }
 
 limit_result scalar_limit_visitor::apply(expr_holder_t const &expr) {
-  if (!expr.is_valid())
-    return {dir::zero};
+  require_valid(expr, "scalar_limit_visitor::apply");
   // If this expression IS the limit variable, return target behavior
   if (expr == m_limit_var) {
     m_result = target_to_limit(m_target);

@@ -27,12 +27,10 @@ public:
   scalar_evaluator &operator=(scalar_evaluator const &) = delete;
 
   ValueType apply(expr_holder_t const &expr) {
-    if (expr.is_valid()) {
-      base::m_current_expr = base::to_base_holder(expr);
-      expr.template get<scalar_visitable_t>().accept(*this);
-      return m_result;
-    }
-    return ValueType{0};
+    require_valid(expr, "scalar_evaluator::apply");
+    base::m_current_expr = base::to_base_holder(expr);
+    expr.template get<scalar_visitable_t>().accept(*this);
+    return m_result;
   }
 
   // Forward every stored (scalar_symbol -> ValueType) entry into `target` via

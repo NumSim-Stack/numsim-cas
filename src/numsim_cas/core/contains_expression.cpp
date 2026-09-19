@@ -340,12 +340,16 @@ private:
 
 bool contains_expression(expression_holder<scalar_expression> const &haystack,
                          expression_holder<scalar_expression> const &needle) {
+  require_valid(haystack, "contains_expression");
+  require_valid(needle, "contains_expression");
   scalar_contains_visitor v(needle);
   return v.apply(haystack);
 }
 
 bool contains_expression(expression_holder<tensor_expression> const &haystack,
                          expression_holder<tensor_expression> const &needle) {
+  require_valid(haystack, "contains_expression");
+  require_valid(needle, "contains_expression");
   tensor_contains_visitor v(needle);
   return v.apply(haystack);
 }
@@ -353,6 +357,8 @@ bool contains_expression(expression_holder<tensor_expression> const &haystack,
 bool depends_on_tensor(
     expression_holder<tensor_to_scalar_expression> const &expr,
     expression_holder<tensor_expression> const &tensor_var) {
+  require_valid(expr, "depends_on_tensor");
+  require_valid(tensor_var, "depends_on_tensor");
   t2s_depends_on_tensor_visitor v(tensor_var);
   return v.apply(expr);
 }

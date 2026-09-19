@@ -42,11 +42,13 @@ public:
 
   auto apply(expression_holder<tensor_to_scalar_expression> const &expr,
              Precedence parent_precedence = Precedence::None) {
-    if (expr.is_valid()) {
-      m_parent_precedence = parent_precedence;
-      static_cast<const tensor_to_scalar_visitable_t &>(expr.get())
-          .accept(static_cast<tensor_to_scalar_visitor_const_t &>(*this));
+    if (!expr.is_valid()) {
+      m_out << "<invalid>";
+      return;
     }
+    m_parent_precedence = parent_precedence;
+    static_cast<const tensor_to_scalar_visitable_t &>(expr.get())
+        .accept(static_cast<tensor_to_scalar_visitor_const_t &>(*this));
   }
 
   void operator()(tensor_trace const &visitable) override {

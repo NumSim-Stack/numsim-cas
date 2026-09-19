@@ -3,6 +3,7 @@
 
 #include <type_traits>
 
+#include <numsim_cas/core/expression_holder.h>
 #include <numsim_cas/core/tag_invoke.h>
 #include <numsim_cas/numsim_cas_forward.h>
 
@@ -26,6 +27,8 @@ struct diff_fn {
       expression_holder<ExprBase> const &, expression_holder<ArgBase> const &>
 
   {
+    require_valid(expr, "diff");
+    require_valid(arg, "diff");
     return tag_invoke(*this, std::type_identity<ExprBase>{},
                       std::type_identity<ArgBase>{}, expr, arg);
   }

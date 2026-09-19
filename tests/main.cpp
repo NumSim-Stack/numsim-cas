@@ -1,4 +1,5 @@
 #include "CoreBugFixTest.h"
+#include "InvalidHolderTest.h"
 #include "IsotropicTensorFunctionTest.h"
 #include "LeviCivitaTest.h"
 #include "LimitVisitorTest.h"

@@ -143,47 +143,47 @@ inline void remove_assumption(expression_holder<scalar_expression> const &expr,
 
 inline bool is_positive(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
-  return expr.data()->assumptions().contains(positive{});
+  return expr.get().assumptions().contains(positive{});
 }
 
 inline bool is_negative(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
-  return expr.data()->assumptions().contains(negative{});
+  return expr.get().assumptions().contains(negative{});
 }
 
 inline bool is_nonnegative(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
-  return expr.data()->assumptions().contains(nonnegative{});
+  return expr.get().assumptions().contains(nonnegative{});
 }
 
 inline bool is_nonpositive(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
-  return expr.data()->assumptions().contains(nonpositive{});
+  return expr.get().assumptions().contains(nonpositive{});
 }
 
 inline bool is_nonzero(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
-  return expr.data()->assumptions().contains(nonzero{});
+  return expr.get().assumptions().contains(nonzero{});
 }
 
 inline bool is_integer(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
-  return expr.data()->assumptions().contains(integer{});
+  return expr.get().assumptions().contains(integer{});
 }
 
 inline bool is_even(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
-  return expr.data()->assumptions().contains(even{});
+  return expr.get().assumptions().contains(even{});
 }
 
 inline bool is_real(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
-  return expr.data()->assumptions().contains(real_tag{});
+  return expr.get().assumptions().contains(real_tag{});
 }
 
 inline bool is_rational(expression_holder<scalar_expression> const &expr) {
   infer_assumptions(expr);
-  return expr.data()->assumptions().contains(rational{});
+  return expr.get().assumptions().contains(rational{});
 }
 
 // ── apply_assumption: dispatch for expression_holder::assumption() ──

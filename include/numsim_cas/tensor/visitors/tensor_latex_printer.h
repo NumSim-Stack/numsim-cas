@@ -36,11 +36,13 @@ public:
 
   auto apply(expression_holder<tensor_expression> const &expr,
              Precedence parent_precedence = Precedence::None) {
-    if (expr.is_valid()) {
-      m_parent_precedence = parent_precedence;
-      static_cast<const tensor_visitable_t &>(expr.get())
-          .accept(static_cast<base_visitor &>(*this));
+    if (!expr.is_valid()) {
+      m_out << "<invalid>";
+      return;
     }
+    m_parent_precedence = parent_precedence;
+    static_cast<const tensor_visitable_t &>(expr.get())
+        .accept(static_cast<base_visitor &>(*this));
   }
 
   void operator()(tensor const &visitable) override {

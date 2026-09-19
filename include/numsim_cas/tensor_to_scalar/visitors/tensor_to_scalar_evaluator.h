@@ -44,11 +44,9 @@ public:
   }
 
   ValueType apply(t2s_holder_t const &expr) {
-    if (expr.is_valid()) {
-      expr.template get<tensor_to_scalar_visitable_t>().accept(*this);
-      return m_result;
-    }
-    return ValueType{0};
+    require_valid(expr, "tensor_to_scalar_evaluator::apply");
+    expr.template get<tensor_to_scalar_visitable_t>().accept(*this);
+    return m_result;
   }
 
   // ─── Constants ───────────────────────────────────────────────

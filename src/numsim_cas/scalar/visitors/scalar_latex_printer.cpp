@@ -15,12 +15,14 @@ template <typename Stream>
 void scalar_latex_printer<Stream>::apply(
     expression_holder<scalar_expression> const &expr,
     Precedence parent_precedence) {
-  if (expr.is_valid()) {
-    m_parent_precedence = parent_precedence;
-    static_cast<const scalar_visitable_t &>(expr.get())
-        .accept(static_cast<base_visitor &>(*this));
-    m_first_term = false;
+  if (!expr.is_valid()) {
+    m_out << "<invalid>";
+    return;
   }
+  m_parent_precedence = parent_precedence;
+  static_cast<const scalar_visitable_t &>(expr.get())
+      .accept(static_cast<base_visitor &>(*this));
+  m_first_term = false;
 }
 
 template <typename Stream>
