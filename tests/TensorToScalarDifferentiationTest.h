@@ -621,6 +621,39 @@ TEST_F(TensorToScalarDifferentiationTest, TanhOfLargeTraceGradientIsSound) {
   }
 }
 
+// Same degradation as the scalar side, characterised on the t2s path: exact
+// down to a trace of -179, an over-estimate of at most 1.75x below it, then
+// zero, then NaN past -354.
+TEST_F(TensorToScalarDifferentiationTest,
+       TanhGradientDegradesOnlyInTheKnownBand) {
+  auto d = diff(tanh(trY), Y);
+  ASSERT_TRUE(d.is_valid());
+  tensor_evaluator<double> ev;
+  auto sech2 = [](double t) {
+    const double e = std::exp(-2.0 * std::abs(t));
+    return 4.0 * e / ((1.0 + e) * (1.0 + e));
+  };
+  auto grad00 = [&](double trace_value) {
+    auto Y_t = (trace_value / 3.0) * tmech::eye<double, 3, 2>();
+    ev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Y_t));
+    return static_cast<tensor_data<double, 3, 2> const &>(*ev.apply(d))
+        .data()(0, 0);
+  };
+
+  for (double t : {-50.0, -120.0, -179.0})
+    EXPECT_NEAR(grad00(t), sech2(t), 1e-12 * sech2(t)) << t;
+  for (double t = -179.5; t >= -354.0; t -= 0.5) {
+    const double g = grad00(t);
+    ASSERT_FALSE(std::isnan(g)) << t;
+    EXPECT_GE(g, 0.0) << t;
+    EXPECT_LE(g, 2.0 * sech2(t)) << t;
+  }
+  for (double t : {-355.0, -420.0}) {
+    const double g = grad00(t);
+    EXPECT_TRUE(std::isnan(g) || g == 0.0) << t << " got " << g;
+  }
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALARDIFFERENTIATIONTEST_H

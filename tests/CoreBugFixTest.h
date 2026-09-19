@@ -933,6 +933,48 @@ TEST(CoreBugFix, TanhStaysSoundForLargeArguments) {
   EXPECT_DOUBLE_EQ(ev.apply(f), -1.0);
 }
 
+// The derivative is exact for every positive argument and for negative ones
+// above -179. Below that exp(-2x) squares past the double range and the
+// result degrades: first an over-estimate of up to 1.75x through a denormal
+// intermediate, then zero, then NaN past -354. Characterised here so the
+// degradation cannot widen unnoticed. Only a bare argument that evaluates
+// negative reaches it; tanh(-y) folds to -tanh(y) and stays exact.
+TEST(CoreBugFix, TanhDerivativeDegradesOnlyInTheKnownBand) {
+  auto [x] = make_scalar_variable("x");
+  scalar_evaluator<double> ev;
+  auto d = diff(tanh(x), x);
+  auto truth = [](double v) {
+    const double e = std::exp(-2.0 * std::abs(v));
+    return 4.0 * e / ((1.0 + e) * (1.0 + e));
+  };
+
+  for (double v = -50.0; v >= -179.0; v -= 0.5) {
+    ev.set(x, v);
+    EXPECT_NEAR(ev.apply(d), truth(v), 1e-12 * truth(v)) << v;
+  }
+  // over-estimate band and the underflow that follows it
+  for (double v = -179.25; v >= -354.0; v -= 0.25) {
+    ev.set(x, v);
+    const double dv = ev.apply(d);
+    ASSERT_FALSE(std::isnan(dv)) << v;
+    EXPECT_GE(dv, 0.0) << v;
+    EXPECT_LE(dv, 2.0 * truth(v)) << v;
+  }
+  // past the double range the product is inf * 0
+  for (double v : {-355.0, -400.0, -800.0}) {
+    ev.set(x, v);
+    const double dv = ev.apply(d);
+    EXPECT_TRUE(std::isnan(dv) || dv == 0.0) << v << " got " << dv;
+  }
+  // the negation fold routes a syntactically negated argument to the exact
+  // branch, so it stays correct inside the band
+  auto [y] = make_scalar_variable("y");
+  auto dneg = diff(tanh(-y), y);
+  scalar_evaluator<double> evy;
+  evy.set(y, 186.25);
+  EXPECT_NEAR(evy.apply(dneg), -truth(186.25), 1e-12 * truth(186.25));
+}
+
 // ---------------------------------------------------------------------------
 // #184: canonical form of constant×expr must NOT depend on construction path.
 // `int * x` and `make_scalar_constant(int) * x` should produce expressions
