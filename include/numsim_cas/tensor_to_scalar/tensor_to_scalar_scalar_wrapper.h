@@ -39,9 +39,15 @@ public:
     return this->expr().is_valid() && this->expr().get().is_symbol();
   }
 
+  // The wrapped scalar's hash omits an n_ary coefficient, so it is a fast
+  // reject only; ties fall through to the wrapped expression itself.
   friend bool operator<(tensor_to_scalar_scalar_wrapper const &lhs,
                         tensor_to_scalar_scalar_wrapper const &rhs) {
-    return lhs.hash_value() < rhs.hash_value();
+    if (lhs.hash_value() != rhs.hash_value())
+      return lhs.hash_value() < rhs.hash_value();
+    if (!lhs.expr().is_valid() || !rhs.expr().is_valid())
+      return lhs.expr().is_valid() < rhs.expr().is_valid();
+    return *lhs.expr() < *rhs.expr();
   }
 
   friend bool operator>(tensor_to_scalar_scalar_wrapper const &lhs,
@@ -51,7 +57,7 @@ public:
 
   friend bool operator==(tensor_to_scalar_scalar_wrapper const &lhs,
                          tensor_to_scalar_scalar_wrapper const &rhs) {
-    return lhs.hash_value() == rhs.hash_value();
+    return lhs.expr() == rhs.expr();
   }
 
   friend bool operator!=(tensor_to_scalar_scalar_wrapper const &lhs,
