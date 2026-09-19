@@ -1,14 +1,31 @@
 #include <numsim_cas/core/expression.h>
 
+#include <thread>
 #include <typeinfo>
 
 namespace numsim::cas {
 
 expression::hash_type const &expression::hash_value() const {
-  if (!m_hash_value) {
-    update_hash_value();
+  for (;;) {
+    auto state = m_hash_state.load(std::memory_order_acquire);
+    if (state == hash_ready)
+      return m_hash_value;
+    if (state == hash_unset &&
+        m_hash_state.compare_exchange_strong(state, hash_computing,
+                                             std::memory_order_acq_rel)) {
+      try {
+        update_hash_value();
+      } catch (...) {
+        // let a waiter take over rather than spin on a value nobody computes
+        m_hash_state.store(hash_unset, std::memory_order_release);
+        throw;
+      }
+      m_hash_state.store(hash_ready, std::memory_order_release);
+      return m_hash_value;
+    }
+    if (state == hash_computing)
+      std::this_thread::yield();
   }
-  return m_hash_value;
 }
 
 bool expression::operator==(expression const &rhs) const {

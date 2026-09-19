@@ -7,6 +7,7 @@
 #include <numsim_cas/numsim_cas_type_traits.h>
 #include <numsim_cas/tensor/sequence.h>
 #include <set>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -129,83 +130,94 @@ inline std::uint64_t current_assumption_epoch() noexcept {
 }
 } // namespace detail
 
+// Every numeric_assumption alternative is an empty tag, so a whole fact set
+// is a bitmask. Holding it in two atomic words (asserted facts, and the
+// derived snapshot tagged with the epoch it was derived at) means a reader
+// on a shared node sees a complete set, never a half-updated container.
 class numeric_assumption_manager {
 public:
+  using set_type = std::set<numeric_assumption, numeric_assumption_less>;
+
   numeric_assumption_manager() = default;
   // attached_ is a property of the manager's place, not of its contents:
   // copies are scratch until a node claims them.
   numeric_assumption_manager(numeric_assumption_manager const &o)
-      : set_(o.set_), inferred_(o.inferred_), epoch_(o.epoch_) {}
+      : facts_(o.facts_.load(std::memory_order_acquire)),
+        derived_(o.derived_.load(std::memory_order_acquire)),
+        intrinsic_(o.intrinsic_.load(std::memory_order_acquire)) {}
   numeric_assumption_manager(numeric_assumption_manager &&o) noexcept
-      : set_(std::move(o.set_)), inferred_(o.inferred_), epoch_(o.epoch_) {}
+      : facts_(o.facts_.load(std::memory_order_acquire)),
+        derived_(o.derived_.load(std::memory_order_acquire)),
+        intrinsic_(o.intrinsic_.load(std::memory_order_acquire)) {}
   numeric_assumption_manager &operator=(numeric_assumption_manager const &o) {
-    set_ = o.set_;
-    inferred_ = o.inferred_;
-    epoch_ = o.epoch_;
+    if (this != &o)
+      assign_from(o);
     return *this;
   }
   numeric_assumption_manager &
   operator=(numeric_assumption_manager &&o) noexcept {
-    set_ = std::move(o.set_);
-    inferred_ = o.inferred_;
-    epoch_ = o.epoch_;
+    assign_from(o);
     return *this;
   }
-  ~numeric_assumption_manager() = default;
 
+  // Asserted facts: they pin the node and tell every dependent to re-derive.
   void insert(numeric_assumption a) {
-    set_.insert(a);
+    facts_.fetch_or(bit_of(a), std::memory_order_acq_rel);
+    derived_.store(0, std::memory_order_release);
     invalidate_dependents();
   }
   void erase(numeric_assumption const &a) {
-    set_.erase(a);
+    facts_.fetch_and(~bit_of(a), std::memory_order_acq_rel);
+    derived_.store(0, std::memory_order_release);
+    invalidate_dependents();
+  }
+  void clear() {
+    facts_.store(0, std::memory_order_release);
+    derived_.store(0, std::memory_order_release);
     invalidate_dependents();
   }
   // A fact derived before the last assertion is no longer believed.
   bool contains(numeric_assumption const &a) const {
     if (stale(detail::current_assumption_epoch()))
       return false;
-    return set_.find(a) != set_.end();
+    return (mask() & bit_of(a)) != 0;
   }
-  void clear() {
-    set_.clear();
-    invalidate_dependents();
-  }
-  auto const &data() const { return set_; }
-
-  // The facts as currently believed, detached from any node: stale derived
-  // ones are dropped rather than re-derived. Domains without a propagator
-  // read through this.
-  numeric_assumption_manager effective() const {
-    numeric_assumption_manager m;
-    if (!stale(detail::current_assumption_epoch()))
-      m.set_ = set_;
-    return m;
-  }
+  set_type data() const { return set_from_mask(mask()); }
 
   // Facts the library establishes itself: intrinsic to a constant or
   // computed from children. They invalidate nothing.
-  void insert_derived(numeric_assumption a) { set_.insert(a); }
+  void insert_derived(numeric_assumption a) {
+    facts_.fetch_or(bit_of(a), std::memory_order_acq_rel);
+  }
+  // Published as one word, so a concurrent reader sees either the previous
+  // snapshot or the new one.
   void replace_derived(numeric_assumption_manager const &facts,
                        std::uint64_t epoch) {
-    set_ = facts.set_;
-    inferred_ = true;
-    epoch_ = epoch;
+    facts_.store(0, std::memory_order_release);
+    derived_.store((epoch << mask_width) | facts.mask(),
+                   std::memory_order_release);
   }
 
-  // inferred(): the facts are established. Intrinsic ones (epoch 0) are
-  // never re-derived; facts stamped with an epoch go stale when it moves.
-  bool inferred() const noexcept { return inferred_; }
-  void set_inferred() noexcept {
-    inferred_ = true;
-    epoch_ = 0;
+  // inferred(): the facts are established. Intrinsic ones are never
+  // re-derived; derived ones go stale when the epoch moves on.
+  bool inferred() const noexcept {
+    return intrinsic_.load(std::memory_order_acquire) ||
+           derived_.load(std::memory_order_acquire) != 0;
   }
+  void set_inferred() noexcept {
+    intrinsic_.store(true, std::memory_order_release);
+    derived_.store(0, std::memory_order_release);
+  }
+  // Facts computed from another node's annotation: they go stale with it.
   void set_inferred_at(std::uint64_t epoch) noexcept {
-    inferred_ = true;
-    epoch_ = epoch;
+    intrinsic_.store(false, std::memory_order_release);
+    derived_.store((epoch << mask_width) | mask(), std::memory_order_release);
   }
   bool stale(std::uint64_t now) const noexcept {
-    return epoch_ != 0 && epoch_ != now;
+    if (intrinsic_.load(std::memory_order_acquire))
+      return false;
+    auto const w = derived_.load(std::memory_order_acquire);
+    return w != 0 && (w >> mask_width) != now;
   }
 
   // Only managers that live on a node invalidate dependents; scratch
@@ -213,15 +225,53 @@ public:
   void attach_to_node() noexcept { attached_ = true; }
 
 private:
+  static constexpr unsigned mask_width = 16;
+  static constexpr std::uint64_t mask_bits =
+      (std::uint64_t{1} << mask_width) - 1;
+  static_assert(std::variant_size_v<numeric_assumption> <= mask_width,
+                "a fact must fit in the published mask");
+
+  static std::uint64_t bit_of(numeric_assumption const &a) noexcept {
+    return std::uint64_t{1} << a.index();
+  }
+  std::uint64_t mask() const noexcept {
+    return facts_.load(std::memory_order_acquire) |
+           (derived_.load(std::memory_order_acquire) & mask_bits);
+  }
+  template <std::size_t... I>
+  static void collect(set_type &out, std::uint64_t m,
+                      std::index_sequence<I...>) {
+    ((m & (std::uint64_t{1} << I)
+          ? (void)out.insert(
+                std::variant_alternative_t<I, numeric_assumption>{})
+          : void()),
+     ...);
+  }
+  static set_type set_from_mask(std::uint64_t m) {
+    set_type out;
+    collect(
+        out, m,
+        std::make_index_sequence<std::variant_size_v<numeric_assumption>>{});
+    return out;
+  }
+  void assign_from(numeric_assumption_manager const &o) noexcept {
+    facts_.store(o.facts_.load(std::memory_order_acquire),
+                 std::memory_order_release);
+    derived_.store(o.derived_.load(std::memory_order_acquire),
+                   std::memory_order_release);
+    intrinsic_.store(o.intrinsic_.load(std::memory_order_acquire),
+                     std::memory_order_release);
+    attached_ = o.attached_;
+  }
   void invalidate_dependents() noexcept {
     if (attached_)
       detail::assumption_epoch.fetch_add(1, std::memory_order_relaxed);
   }
 
-  std::set<numeric_assumption, numeric_assumption_less> set_;
-  bool inferred_{false};
+  std::atomic<std::uint64_t> facts_{0};
+  std::atomic<std::uint64_t> derived_{0};
+  std::atomic<bool> intrinsic_{false};
   bool attached_{false};
-  std::uint64_t epoch_{0};
 };
 
 // Manager for tensor algebra-property assumptions (orthogonal, PD, PSD).
