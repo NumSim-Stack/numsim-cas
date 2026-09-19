@@ -501,6 +501,42 @@ TEST(CoreBugFix, MergeOrInsertSequentialCallsAreIndependent) {
   EXPECT_TRUE(found_y) << "missing standalone y entry";
 }
 
+// x*x --> pow(x,2) must not depend on the two operands being the same node
+// object: the parser and separate make_scalar_variable calls produce
+// distinct nodes carrying the same symbol.
+TEST(CoreBugFix, SymbolMulFoldsDistinctNodesOfTheSameSymbol) {
+  auto [x1] = make_scalar_variable("x");
+  auto [x2] = make_scalar_variable("x");
+  ASSERT_NE(x1.data().get(), x2.data().get());
+  EXPECT_EQ(to_string(x1 * x2), "pow(x,2)");
+  EXPECT_EQ(to_string(x1 * x1), "pow(x,2)");
+
+  // the same holds after substitution rebuilds one side
+  auto [y] = make_scalar_variable("y");
+  EXPECT_EQ(to_string(substitute(x1 * y, y, x2)), "pow(x,2)");
+}
+
+// add+add merging must cancel a term against its scaled negation held by the
+// other tree, whichever side carries it.
+TEST(CoreBugFix, MergeAddCancelsScaledNegationAcrossTrees) {
+  auto [x, y, z] = make_scalar_variable("x", "y", "z");
+  auto c2 = make_scalar_constant(2);
+  auto cm2 = make_scalar_constant(-2);
+  EXPECT_EQ(to_string((c2 * x + y) + (z + cm2 * x)), "y+z");
+  EXPECT_EQ(to_string((z + cm2 * x) + (c2 * x + y)), "y+z");
+  EXPECT_EQ(to_string((x + y) + (z - x)), "y+z");
+}
+
+// pow over a product whose non-pow factors all cancel must collapse to the
+// coefficient power, never a degenerate pow of an empty mul.
+TEST(CoreBugFix, MulPowCollapsesWhenOnlyCoefficientRemains) {
+  auto [y, z] = make_scalar_variable("y", "z");
+  auto c2 = make_scalar_constant(2);
+  auto c3 = make_scalar_constant(3);
+  EXPECT_EQ(to_string(pow(c2 * pow(z, c3), c2)), "4*pow(z,6)");
+  EXPECT_EQ(to_string(pow(pow(z, c3) * pow(y, c3), c2)), "pow(y*z,6)");
+}
+
 // NOTE: a deterministic multi-iteration (>1) test would require the
 // codebase to expose an algebraic simplification that transitions the
 // combined entry's hash key to one matching another existing entry.
