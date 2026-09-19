@@ -186,6 +186,107 @@ TEST_F(ScalarSolveFixture, Solve_WrongVariable) {
   EXPECT_TRUE(solutions.empty());
 }
 
+// --- Real roots only ---
+
+TEST_F(ScalarSolveFixture, Solve_NegativeDiscriminantHasNoRealRoot) {
+  // x^2 + 1 = 0 has no real solution; never a NaN "root"
+  auto solutions = numsim::cas::solve(pow(x, _2) + _1, x);
+  EXPECT_TRUE(solutions.empty());
+  // x^2 + c with c > 0: the discriminant -4c is provably negative
+  numsim::cas::assume(c, numsim::cas::positive{});
+  EXPECT_TRUE(numsim::cas::solve(pow(x, _2) + c, x).empty());
+  // unknown sign keeps the two-root form
+  EXPECT_EQ(numsim::cas::solve(pow(x, _2) + a, x).size(), 2u);
+}
+
+// --- Stable quadratic formula ---
+
+TEST_F(ScalarSolveFixture, Solve_QuadraticKeepsTheSmallRoot) {
+  numsim::cas::scalar_evaluator<double> ev;
+  auto big = numsim::cas::make_scalar_constant(1e8);
+  auto check =
+      [&](numsim::cas::expression_holder<numsim::cas::scalar_expression> const
+              &eq,
+          double small, double large) {
+        auto solutions = numsim::cas::solve(eq, x);
+        ASSERT_EQ(solutions.size(), 2u) << to_string(eq);
+        double r0 = ev.apply(solutions[0]);
+        double r1 = ev.apply(solutions[1]);
+        if (std::abs(r0) > std::abs(r1))
+          std::swap(r0, r1);
+        EXPECT_NEAR(r0, small, std::abs(small) * 1e-12) << to_string(eq);
+        EXPECT_NEAR(r1, large, std::abs(large) * 1e-12) << to_string(eq);
+      };
+  // x^2 + 1e8 x + 1: roots -1e-8 (to 1e-16) and -1e8
+  check(pow(x, _2) + big * x + _1, -1e-8, -1e8);
+  // x^2 - 1e8 x + 1: the small root is positive
+  check(pow(x, _2) - big * x + _1, 1e-8, 1e8);
+
+  // the emitted symbolic form must be stable too when b's sign is known
+  numsim::cas::assume(b, numsim::cas::positive{});
+  auto symbolic = numsim::cas::solve(pow(x, _2) + b * x + _1, x);
+  ASSERT_EQ(symbolic.size(), 2u);
+  ev.set(b, 1e8);
+  double s0 = ev.apply(symbolic[0]);
+  double s1 = ev.apply(symbolic[1]);
+  if (std::abs(s0) > std::abs(s1))
+    std::swap(s0, s1);
+  EXPECT_NEAR(s0, -1e-8, 1e-20);
+  EXPECT_NEAR(s1, -1e8, 1e-4);
+}
+
+// Every returned root satisfies its equation.
+TEST_F(ScalarSolveFixture, Solve_RootsSatisfyTheEquation) {
+  numsim::cas::scalar_evaluator<double> ev;
+  auto k = [](double v) { return numsim::cas::make_scalar_constant(v); };
+  std::vector<numsim::cas::expression_holder<numsim::cas::scalar_expression>>
+      corpus{
+          _2 * x - _4,
+          k(3.5) * x + k(0.25),
+          pow(x, _2) - _4,
+          pow(x, _2) - _2 * x + _1,
+          k(2.0) * pow(x, _2) + k(3.0) * x - k(5.0),
+          pow(x, _2) + k(1e8) * x + _1,
+          pow(x, _2) - k(1e8) * x + _1,
+          k(1e-6) * pow(x, _2) + k(2.0) * x + k(1e-6),
+          k(-3.0) * pow(x, _2) + k(7.0) * x + k(11.0),
+      };
+  for (auto const &eq : corpus) {
+    auto solutions = numsim::cas::solve(eq, x);
+    ASSERT_FALSE(solutions.empty()) << to_string(eq);
+    for (auto const &root : solutions) {
+      double r = ev.apply(root);
+      ASSERT_TRUE(std::isfinite(r)) << to_string(eq);
+      ev.set(x, r);
+      double residual = ev.apply(eq);
+      // scale by the size of the terms so a large root is judged fairly
+      double scale = 1.0 + r * r + std::abs(r);
+      EXPECT_LE(std::abs(residual), 1e-9 * scale)
+          << to_string(eq) << " at x=" << r;
+    }
+  }
+}
+
+// --- Outcomes ---
+
+TEST_F(ScalarSolveFixture, Solve_OutcomeTellsWhyTheListIsEmpty) {
+  using numsim::cas::solve_outcome;
+  using numsim::cas::solve_with_outcome;
+  EXPECT_EQ(solve_with_outcome(pow(x, _2) + _1, x).outcome,
+            solve_outcome::no_real_solution);
+  EXPECT_EQ(solve_with_outcome(_3 - _3, x).outcome, solve_outcome::all_values);
+  EXPECT_EQ(solve_with_outcome(x + _1, y).outcome, solve_outcome::no_variable);
+  EXPECT_EQ(solve_with_outcome(numsim::cas::sin(x), x).outcome,
+            solve_outcome::unsupported);
+  EXPECT_EQ(
+      solve_with_outcome(pow(x, numsim::cas::make_scalar_constant(3)) - _1, x)
+          .outcome,
+      solve_outcome::unsupported);
+  auto solved = solve_with_outcome(pow(x, _2) - _4, x);
+  EXPECT_EQ(solved.outcome, solve_outcome::solved);
+  EXPECT_EQ(solved.solutions.size(), 2u);
+}
+
 // ============================================================================
 // Tensor Solve Tests
 // ============================================================================
