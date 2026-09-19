@@ -160,13 +160,15 @@ template <tensor_to_scalar_expr_holder Expr>
     return make_expression<tensor_to_scalar_zero>();
   if (is_same<tensor_to_scalar_negative>(expr))
     return -tanh(expr.template get<tensor_to_scalar_negative>().expr());
-  // (exp(2x) - 1) / (exp(2x) + 1): a single exp term, so differentiation does
-  // not insert the same exp(x) child twice into one add (unlike sinh/cosh).
+  // 2 / (1 + exp(-2x)) - 1: a single exp term, so diff() never inserts a
+  // shared exp child twice into one add, and the derivative is one product
+  // that saturates for large x instead of cancelling two big terms.
   auto two = tensor_to_scalar_detail::t2s_constant(scalar_number{2});
-  auto e2x = exp(std::move(two) * expr);
-  auto num = e2x - make_expression<tensor_to_scalar_one>();
-  auto den = std::move(e2x) + make_expression<tensor_to_scalar_one>();
-  return std::move(num) / std::move(den);
+  auto minus_two = tensor_to_scalar_detail::t2s_constant(scalar_number{-2});
+  auto den = make_expression<tensor_to_scalar_one>() +
+             exp(std::move(minus_two) * expr);
+  return std::move(two) / std::move(den) -
+         make_expression<tensor_to_scalar_one>();
 }
 
 template <tensor_to_scalar_expr_holder Expr>

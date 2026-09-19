@@ -587,6 +587,40 @@ TEST_F(TensorToScalarDifferentiationTest, TanhOfTraceGradient) {
   EXPECT_TRUE(tmech::almost_equal(result, expected, 1e-10));
 }
 
+// A saturated tanh must not report a finite wrong gradient: sech² of a large
+// trace is tiny, and the derivative must agree with it to relative precision.
+TEST_F(TensorToScalarDifferentiationTest, TanhOfLargeTraceGradientIsSound) {
+  auto f = tanh(trY);
+  auto d = diff(f, Y);
+  ASSERT_TRUE(d.is_valid());
+  tensor_evaluator<double> ev;
+  tensor_to_scalar_evaluator<double> sev;
+
+  auto Y_t = 70.0 * tmech::eye<double, 3, 2>(); // trace 210
+  ev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Y_t));
+  sev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Y_t));
+  EXPECT_DOUBLE_EQ(sev.apply(f), 1.0);
+  auto const &g =
+      static_cast<tensor_data<double, 3, 2> const &>(*ev.apply(d)).data();
+  const double truth = 4.0 * std::exp(-420.0);
+  for (std::size_t i = 0; i < 3; ++i)
+    for (std::size_t j = 0; j < 3; ++j)
+      EXPECT_NEAR(g(i, j), i == j ? truth : 0.0, 1e-12 * truth) << i << j;
+
+  // the negative side may underflow, but never to a finite wrong value
+  auto Yn = -70.0 * tmech::eye<double, 3, 2>();
+  ev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Yn));
+  sev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Yn));
+  EXPECT_DOUBLE_EQ(sev.apply(f), -1.0);
+  auto const &gn =
+      static_cast<tensor_data<double, 3, 2> const &>(*ev.apply(d)).data();
+  for (std::size_t i = 0; i < 3; ++i) {
+    EXPECT_TRUE(std::isfinite(gn(i, i))) << i;
+    EXPECT_GE(gn(i, i), 0.0) << i;
+    EXPECT_LE(gn(i, i), truth * (1.0 + 1e-12)) << i;
+  }
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALARDIFFERENTIATIONTEST_H

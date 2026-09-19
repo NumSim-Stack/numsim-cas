@@ -901,6 +901,38 @@ TEST(CoreBugFix, ScalarHyperbolicDerivativesMatchClosedForm) {
   EXPECT_NEAR(ev.apply(d_tanh), 1.0 / (std::cosh(0.5) * std::cosh(0.5)), 1e-12);
 }
 
+// tanh saturates for large arguments: the value must stay finite and the
+// derivative must fall to zero rather than overflow or collapse to a wrong
+// finite number.
+TEST(CoreBugFix, TanhStaysSoundForLargeArguments) {
+  auto [x] = make_scalar_variable("x");
+  scalar_evaluator<double> ev;
+  auto f = tanh(x);
+  auto d = diff(f, x);
+  auto sech2 = [](double v) { return 4.0 * std::exp(-2.0 * std::abs(v)); };
+
+  for (double v : {50.0, 200.0}) {
+    ev.set(x, v);
+    EXPECT_NEAR(ev.apply(f), std::tanh(v), 1e-15) << v;
+    EXPECT_NEAR(ev.apply(d), sech2(v), 1e-12 * sech2(v)) << v;
+  }
+  ev.set(x, 400.0);
+  EXPECT_DOUBLE_EQ(ev.apply(f), 1.0);
+  EXPECT_DOUBLE_EQ(ev.apply(d), 0.0);
+
+  // the negative side may underflow, but never to a finite wrong value
+  for (double v : {-50.0, -200.0}) {
+    ev.set(x, v);
+    EXPECT_NEAR(ev.apply(f), std::tanh(v), 1e-15) << v;
+    const double dv = ev.apply(d);
+    EXPECT_TRUE(std::isfinite(dv)) << v;
+    EXPECT_GE(dv, 0.0) << v;
+    EXPECT_LE(dv, sech2(v) * (1.0 + 1e-12)) << v;
+  }
+  ev.set(x, -400.0);
+  EXPECT_DOUBLE_EQ(ev.apply(f), -1.0);
+}
+
 // ---------------------------------------------------------------------------
 // #184: canonical form of constant×expr must NOT depend on construction path.
 // `int * x` and `make_scalar_constant(int) * x` should produce expressions
