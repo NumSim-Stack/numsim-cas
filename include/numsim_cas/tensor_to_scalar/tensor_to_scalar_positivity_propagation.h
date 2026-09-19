@@ -22,7 +22,7 @@ read(expression_holder<tensor_to_scalar_expression> const &e) {
   // first assignment) — assumptions() would null-deref otherwise.
   if (!e.is_valid())
     return {};
-  numeric_assumption_manager m = e.data()->assumptions(); // value snapshot
+  numeric_assumption_manager m = e.data()->assumptions().effective();
   if (is_same<tensor_to_scalar_scalar_wrapper>(e)) {
     auto const &inner =
         e.template get<tensor_to_scalar_scalar_wrapper>().expr();

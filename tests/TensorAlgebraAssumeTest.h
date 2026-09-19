@@ -10,6 +10,7 @@
 #include <numsim_cas/tensor/structural_propagation.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_positivity_propagation.h>
 
 namespace numsim::cas {
 
@@ -1984,6 +1985,42 @@ TEST(TensorAlgebraAssumption, RefiningSpaceFactsIsAccepted) {
   auto Q = std::get<0>(make_tensor_variable(std::tuple{"Q", 3, 2}));
   Q.assumption(Skew{});
   EXPECT_NO_THROW(Q.assumption(orthogonal{}));
+}
+
+TEST(TensorAlgebraAssumption, DefinitenessContradictsSkewInBothOrders) {
+  auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 3, 2}));
+  W.assumption(Skew{});
+  EXPECT_THROW(W.assumption(positive_definite{}), invalid_assumption_error);
+  EXPECT_THROW(W.assumption(positive_semidefinite{}), invalid_assumption_error);
+  EXPECT_TRUE(is_skew(W));
+  EXPECT_FALSE(is_positive_definite(W));
+  EXPECT_FALSE(is_positive_semidefinite(W));
+
+  auto P = std::get<0>(make_tensor_variable(std::tuple{"P", 3, 2}));
+  P.assumption(positive_semidefinite{});
+  EXPECT_THROW(P.assumption(Skew{}), invalid_assumption_error);
+}
+
+// det's positivity is derived from the tensor's annotation, so withdrawing
+// that annotation withdraws the derived fact too.
+TEST(TensorAlgebraAssume, DerivedDeterminantFactsFollowTheTensor) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  A.assumption(positive_definite{});
+  auto d = det(A);
+  EXPECT_TRUE(positivity::read(d).contains(positive{}));
+
+  A.data()->tensor_algebra_assumptions().clear();
+  EXPECT_FALSE(positivity::read(d).contains(positive{}));
+  EXPECT_FALSE(positivity::read(d).contains(nonzero{}));
+  EXPECT_FALSE(positivity::read(det(A)).contains(positive{}));
+
+  // and a PSD tensor's weaker fact behaves the same way
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  B.assumption(positive_semidefinite{});
+  auto db = det(B);
+  EXPECT_TRUE(positivity::read(db).contains(nonnegative{}));
+  B.data()->tensor_algebra_assumptions().erase(positive_semidefinite{});
+  EXPECT_FALSE(positivity::read(db).contains(nonnegative{}));
 }
 
 } // namespace numsim::cas

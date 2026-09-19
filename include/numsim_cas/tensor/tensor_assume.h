@@ -181,6 +181,7 @@ assume_improper_rotation(expression_holder<tensor_expression> const &expr) {
 inline void
 assume_positive_definite(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_positive_definite");
+  detail::require_not_skew(expr.get(), "assume_positive_definite");
   auto &a = expr.data()->tensor_algebra_assumptions();
   a.insert(positive_definite{});
   // PD => PSD by definition.
@@ -193,6 +194,7 @@ assume_positive_definite(expression_holder<tensor_expression> const &expr) {
 inline void
 assume_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_positive_semidefinite");
+  detail::require_not_skew(expr.get(), "assume_positive_semidefinite");
   auto &a = expr.data()->tensor_algebra_assumptions();
   a.insert(positive_semidefinite{});
   detail::set_symmetric_unless_more_specific(expr.data().get());
