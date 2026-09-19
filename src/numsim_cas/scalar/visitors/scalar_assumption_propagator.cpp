@@ -17,7 +17,7 @@ scalar_assumption_propagator::apply(expr_holder_t const &expr) {
   expr.template get<scalar_visitable_t>().accept(*this);
   // Write inferred assumptions back onto the node
   for (auto const &a : m_result.data()) {
-    expr.data()->assumptions().insert(a);
+    expr.data()->assumptions().insert_derived(a);
   }
   return m_result;
 }
@@ -511,15 +511,11 @@ ensure_assumptions(expr_holder_t const &expr) {
 // on the node.
 class shallow_inference_visitor final : public scalar_visitor_const_t {
 public:
-  void run(expr_holder_t const &expr) {
+  void run(expr_holder_t const &expr, std::uint64_t epoch) {
     if (!expr.is_valid())
       return;
     expr.template get<scalar_visitable_t>().accept(*this);
-    // Write inferred assumptions onto the node
-    auto &a = expr.data()->assumptions();
-    a.clear();
-    for (auto const &x : m_result.data())
-      a.insert(x);
+    expr.data()->assumptions().replace_derived(m_result, epoch);
   }
 
   // Leaf nodes — compute intrinsic assumptions
@@ -819,11 +815,14 @@ private:
 } // anonymous namespace
 
 void infer_assumptions(expression_holder<scalar_expression> const &expr) {
-  if (!expr.is_valid() || expr.data()->assumptions().inferred())
+  if (!expr.is_valid())
+    return;
+  auto const now = detail::current_assumption_epoch();
+  auto const &a = expr.data()->assumptions();
+  if (a.inferred() && !a.stale(now))
     return;
   shallow_inference_visitor v;
-  v.run(expr);
-  expr.data()->assumptions().set_inferred();
+  v.run(expr, now);
 }
 
 } // namespace numsim::cas

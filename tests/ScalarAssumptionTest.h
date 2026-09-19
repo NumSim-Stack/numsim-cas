@@ -983,4 +983,56 @@ TEST_F(AssumptionFixture, ContradictionRejectedAfterSymbolWasUsed) {
   EXPECT_TRUE(is_positive(x));
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  Inferred facts follow the leaves
+// ═══════════════════════════════════════════════════════════════════════
+
+TEST_F(AssumptionFixture, WithdrawnAssumptionReachesDependents) {
+  using namespace numsim::cas;
+  z.assumption(positive{});
+  auto ez = z + 1;
+  EXPECT_TRUE(is_positive(ez));
+
+  remove_assumption(z, positive{});
+  remove_assumption(z, nonnegative{});
+  remove_assumption(z, nonzero{});
+  EXPECT_FALSE(is_positive(ez));
+  EXPECT_FALSE(is_nonnegative(ez));
+  EXPECT_TRUE(is_same<scalar_abs>(abs(ez)));
+
+  // the raw manager path is public too and must invalidate the same way
+  x.assumption(positive{});
+  auto ex = x + 1;
+  EXPECT_TRUE(is_positive(ex));
+  x.data()->assumptions().clear();
+  EXPECT_FALSE(is_positive(ex));
+  EXPECT_TRUE(is_same<scalar_abs>(abs(ex)));
+}
+
+TEST_F(AssumptionFixture, LateAssumptionReachesDependents) {
+  using namespace numsim::cas;
+  auto e = y * y + 1;
+  EXPECT_FALSE(is_positive(e));
+  y.assumption(positive{});
+  EXPECT_TRUE(is_positive(e));
+  EXPECT_TRUE(is_positive(y * y + 1));
+
+  // a mutation on an unrelated symbol changes nothing here
+  z.assumption(negative{});
+  EXPECT_TRUE(is_positive(e));
+}
+
+TEST_F(AssumptionFixture, FoldsAlreadyTakenAreNotUndone) {
+  using namespace numsim::cas;
+  // Folds consume the fact at construction; withdrawing it later rebuilds
+  // nothing. Queries on the surviving expression do follow the leaf.
+  z.assumption(positive{});
+  auto folded = abs(z);
+  EXPECT_PRINT(folded, "z");
+  remove_assumption(z, positive{});
+  remove_assumption(z, nonnegative{});
+  EXPECT_PRINT(folded, "z");
+  EXPECT_TRUE(is_same<scalar_abs>(abs(z)));
+}
+
 #endif // SCALARASSUMPTIONTEST_H

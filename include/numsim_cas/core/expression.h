@@ -23,7 +23,7 @@ public:
   /**
    * @brief Default constructor.
    */
-  expression() = default;
+  expression() { m_assumption.attach_to_node(); }
 
   /**
    * @brief Copy constructor.
