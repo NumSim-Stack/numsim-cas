@@ -64,6 +64,10 @@ annotate_congruence_space(expression_holder<tensor_expression> const &result) {
   auto const &back = factors[2];
   if (!(is_trans_of(front, back) || is_trans_of(back, front)))
     return;
+  // is_trans_of only pins the outer factors to rank 2; a higher-rank kernel
+  // is not a matrix congruence and its tags do not describe the product.
+  if (mid.get().rank() != 2)
+    return;
 
   auto &out_asm = result.data()->tensor_algebra_assumptions();
   auto const &mid_asm = mid.get().tensor_algebra_assumptions();
