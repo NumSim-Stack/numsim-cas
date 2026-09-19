@@ -26,6 +26,7 @@
 #include <numsim_cas/tensor_to_scalar/visitors/tensor_to_scalar_evaluator.h>
 
 #include <cmath>
+#include <cstdlib>
 #include <locale>
 #include <memory>
 #include <stdexcept>
@@ -301,6 +302,55 @@ TEST(ParserGrammar, ExponentLiteralsEvaluateToValue) {
   EXPECT_EQ(eval_scalar(parse_scalar("1E+300", syms), syms), 1e300);
   EXPECT_EQ(eval_scalar(parse_scalar("2.5e3", syms), syms), 2500.0);
   EXPECT_EQ(eval_scalar(parse_scalar("5e-324", syms), syms), 5e-324);
+}
+
+// The raw double of a top-level literal, so exactness is checked bitwise
+// rather than through the evaluator's tolerance.
+inline double literal_value(std::string const &text) {
+  symbol_table syms;
+  auto e = parse_scalar(text, syms);
+  auto const &raw = e.get<numsim::cas::scalar_constant>().value().raw();
+  return std::get<double>(raw);
+}
+
+TEST(ParserGrammar, ExponentLiteralsParseExactly) {
+  for (char const *text : {"1e-7", "1e-07", "2.5e+10", "1E5", "3.e2", "7e0",
+                           "123.456e-3", "1e300", "4.9e-324"}) {
+    EXPECT_EQ(literal_value(text), std::strtod(text, nullptr)) << text;
+  }
+}
+
+TEST(ParserGrammar, ExponentLiteralsCombineWithOperators) {
+  symbol_table syms;
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(parse_scalar("1e-07*x", syms), syms, {{"x", 2.0}}), 2e-7);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(parse_scalar("2.5e+10+x", syms), syms, {{"x", 1.0}}),
+      2.5e10 + 1.0);
+  // the exponent belongs to the literal, never to a following identifier
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(parse_scalar("2e-3*x", syms), syms, {{"x", 4.0}}), 8e-3);
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(parse_scalar("x^2e-3", syms), syms, {{"x", 2.0}}),
+      std::pow(2.0, 2e-3));
+  EXPECT_DOUBLE_EQ(
+      eval_scalar(parse_scalar("2e-3-x", syms), syms, {{"x", 1.0}}),
+      2e-3 - 1.0);
+}
+
+TEST(ParserGrammar, IncompleteExponentIsRejected) {
+  for (char const *text : {"2e", "2e+", "2E-", "1e5.5", "1e+e"}) {
+    symbol_table syms;
+    EXPECT_THROW(
+        { [[maybe_unused]] auto e = parse_scalar(text, syms); }, parse_error)
+        << text;
+  }
+}
+
+TEST(ParserGrammar, ExponentLiteralOutOfRangeIsAParseError) {
+  symbol_table syms;
+  EXPECT_THROW(
+      { [[maybe_unused]] auto e = parse_scalar("1e999", syms); }, parse_error);
 }
 
 // The printer must emit every digit the parser needs to read the same
