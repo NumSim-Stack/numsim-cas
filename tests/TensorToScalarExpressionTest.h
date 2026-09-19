@@ -985,6 +985,21 @@ TYPED_TEST(TensorToScalarExpressionTest,
 // ---------------------------------------------------------------------------
 
 TYPED_TEST(TensorToScalarExpressionTest,
+           TensorToScalar_IfThenElseRejectsInvalidHolder) {
+  auto &X = this->X;
+  using numsim::cas::if_then_else;
+  numsim::cas::expression_holder<numsim::cas::tensor_to_scalar_expression> none;
+  auto trX = numsim::cas::trace(X);
+  auto detX = numsim::cas::det(X);
+  EXPECT_THROW((void)if_then_else(none, trX, detX),
+               numsim::cas::invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(trX, none, detX),
+               numsim::cas::invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(trX, detX, none),
+               numsim::cas::invalid_expression_error);
+}
+
+TYPED_TEST(TensorToScalarExpressionTest,
            TensorToScalar_IfThenElseConstFoldsZeroCondToElse) {
   auto &X = this->X;
   using numsim::cas::if_then_else;
