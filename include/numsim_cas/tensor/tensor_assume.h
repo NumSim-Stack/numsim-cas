@@ -18,15 +18,56 @@ namespace numsim::cas {
 // already classified by their type) or semantically wrong (compounds
 // derive structure from children, not from user assertion).
 
+namespace detail {
+[[noreturn]] inline void reject_space_contradiction(std::string_view fn_name,
+                                                    std::string_view existing) {
+  throw invalid_assumption_error(std::string(fn_name) +
+                                 ": contradicts the symbol's existing '" +
+                                 std::string(existing) + "' assumption");
+}
+
+// A skew tensor cannot be symmetric, nor definite (definiteness implies
+// symmetry here).
+inline void require_not_skew(tensor_expression const &e,
+                             std::string_view fn_name) {
+  if (auto const &sp = e.space(); sp && classify_space(*sp) == ProjKind::Skew)
+    reject_space_contradiction(fn_name, "skew");
+}
+
+inline void require_not_symmetric_family(tensor_expression const &e,
+                                         std::string_view fn_name) {
+  auto const &alg = e.tensor_algebra_assumptions();
+  if (alg.contains(positive_definite{}))
+    reject_space_contradiction(fn_name, "positive_definite");
+  if (alg.contains(positive_semidefinite{}))
+    reject_space_contradiction(fn_name, "positive_semidefinite");
+  if (auto const &sp = e.space()) {
+    auto const kind = classify_space(*sp);
+    if (kind == ProjKind::Sym || kind == ProjKind::Vol || kind == ProjKind::Dev)
+      reject_space_contradiction(fn_name, "symmetric");
+  }
+}
+
+// Volumetric and deviatoric intersect only in zero.
+inline void require_not_kind(tensor_expression const &e,
+                             std::string_view fn_name, ProjKind kind,
+                             std::string_view existing) {
+  if (auto const &sp = e.space(); sp && classify_space(*sp) == kind)
+    reject_space_contradiction(fn_name, existing);
+}
+} // namespace detail
+
 [[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void assume_symmetric(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_symmetric");
+  detail::require_not_skew(expr.get(), "assume_symmetric");
   expr.data()->set_space({Symmetric{}, AnyTraceTag{}});
 }
 
 [[deprecated("use expression_holder<tensor_expression>::assumption() instead")]]
 inline void assume_skew(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_skew");
+  detail::require_not_symmetric_family(expr.get(), "assume_skew");
   expr.data()->set_space({Skew{}, AnyTraceTag{}});
 }
 
@@ -34,6 +75,9 @@ inline void assume_skew(expression_holder<tensor_expression> const &expr) {
 inline void
 assume_volumetric(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_volumetric");
+  detail::require_not_skew(expr.get(), "assume_volumetric");
+  detail::require_not_kind(expr.get(), "assume_volumetric", ProjKind::Dev,
+                           "deviatoric");
   expr.data()->set_space({Symmetric{}, VolumetricTag{}});
 }
 
@@ -41,6 +85,9 @@ assume_volumetric(expression_holder<tensor_expression> const &expr) {
 inline void
 assume_deviatoric(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_deviatoric");
+  detail::require_not_skew(expr.get(), "assume_deviatoric");
+  detail::require_not_kind(expr.get(), "assume_deviatoric", ProjKind::Vol,
+                           "volumetric");
   expr.data()->set_space({Symmetric{}, DeviatoricTag{}});
 }
 
@@ -134,6 +181,7 @@ assume_improper_rotation(expression_holder<tensor_expression> const &expr) {
 inline void
 assume_positive_definite(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_positive_definite");
+  detail::require_not_skew(expr.get(), "assume_positive_definite");
   auto &a = expr.data()->tensor_algebra_assumptions();
   a.insert(positive_definite{});
   // PD => PSD by definition.
@@ -146,6 +194,7 @@ assume_positive_definite(expression_holder<tensor_expression> const &expr) {
 inline void
 assume_positive_semidefinite(expression_holder<tensor_expression> const &expr) {
   detail::require_symbol(expr.get(), "assume_positive_semidefinite");
+  detail::require_not_skew(expr.get(), "assume_positive_semidefinite");
   auto &a = expr.data()->tensor_algebra_assumptions();
   a.insert(positive_semidefinite{});
   detail::set_symmetric_unless_more_specific(expr.data().get());

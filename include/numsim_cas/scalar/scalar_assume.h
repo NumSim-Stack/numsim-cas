@@ -11,6 +11,70 @@ namespace numsim::cas {
 // Lazy assumption inference (defined in scalar_assumption_propagator.cpp)
 void infer_assumptions(expression_holder<scalar_expression> const &expr);
 
+namespace detail {
+// A fact is rejected when it, or anything it implies, contradicts what the
+// symbol already carries. Implications mirror the joint insertions below.
+inline char const *contradicting_fact(numeric_assumption_manager const &a,
+                                      numeric_assumption const &fact) {
+  auto const has = [&](auto tag) { return a.contains(tag); };
+  bool implies_positive = false, implies_negative = false;
+  bool implies_nonnegative = false, implies_nonpositive = false;
+  bool implies_nonzero = false, implies_even = false, implies_odd = false;
+  std::visit(
+      [&](auto const &f) {
+        using F = std::decay_t<decltype(f)>;
+        if constexpr (std::is_same_v<F, positive> || std::is_same_v<F, prime>)
+          implies_positive = implies_nonnegative = implies_nonzero = true;
+        else if constexpr (std::is_same_v<F, negative>)
+          implies_negative = implies_nonpositive = implies_nonzero = true;
+        else if constexpr (std::is_same_v<F, nonnegative>)
+          implies_nonnegative = true;
+        else if constexpr (std::is_same_v<F, nonpositive>)
+          implies_nonpositive = true;
+        else if constexpr (std::is_same_v<F, nonzero>)
+          implies_nonzero = true;
+        else if constexpr (std::is_same_v<F, even>)
+          implies_even = true;
+        else if constexpr (std::is_same_v<F, odd>)
+          implies_odd = true;
+      },
+      fact);
+  if (implies_positive && has(negative{}))
+    return "negative";
+  if (implies_positive && has(nonpositive{}))
+    return "nonpositive";
+  if (implies_negative && has(positive{}))
+    return "positive";
+  if (implies_negative && has(nonnegative{}))
+    return "nonnegative";
+  if (implies_nonnegative && has(negative{}))
+    return "negative";
+  if (implies_nonpositive && has(positive{}))
+    return "positive";
+  // nonnegative together with nonpositive pins the value to zero
+  if (implies_nonzero && has(nonnegative{}) && has(nonpositive{}))
+    return "nonnegative and nonpositive";
+  if (implies_nonnegative && has(nonpositive{}) && has(nonzero{}))
+    return "nonpositive and nonzero";
+  if (implies_nonpositive && has(nonnegative{}) && has(nonzero{}))
+    return "nonnegative and nonzero";
+  if (implies_even && has(odd{}))
+    return "odd";
+  if (implies_odd && has(even{}))
+    return "even";
+  return nullptr;
+}
+
+inline void reject_contradiction(expression_holder<scalar_expression> const &e,
+                                 std::string_view fn_name,
+                                 numeric_assumption const &fact) {
+  if (auto const *existing = contradicting_fact(e.data()->assumptions(), fact))
+    throw invalid_assumption_error(std::string(fn_name) +
+                                   ": contradicts the symbol's existing '" +
+                                   existing + "' assumption");
+}
+} // namespace detail
+
 // ── assume(): set assumption + implied assumptions on the node ──────────
 //
 // SymPy step 4: every assume(...) overload guards on is_symbol() and
@@ -22,6 +86,7 @@ void infer_assumptions(expression_holder<scalar_expression> const &expr);
 [[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, positive) {
   detail::require_symbol(expr.get(), "assume(positive)");
+  detail::reject_contradiction(expr, "assume(positive)", positive{});
   auto &a = expr.data()->assumptions();
   a.insert(positive{});
   a.insert(nonnegative{});
@@ -33,6 +98,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, positive) {
 [[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, negative) {
   detail::require_symbol(expr.get(), "assume(negative)");
+  detail::reject_contradiction(expr, "assume(negative)", negative{});
   auto &a = expr.data()->assumptions();
   a.insert(negative{});
   a.insert(nonpositive{});
@@ -45,6 +111,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, negative) {
 inline void assume(expression_holder<scalar_expression> const &expr,
                    nonnegative) {
   detail::require_symbol(expr.get(), "assume(nonnegative)");
+  detail::reject_contradiction(expr, "assume(nonnegative)", nonnegative{});
   auto &a = expr.data()->assumptions();
   a.insert(nonnegative{});
   a.insert(real_tag{});
@@ -55,6 +122,7 @@ inline void assume(expression_holder<scalar_expression> const &expr,
 inline void assume(expression_holder<scalar_expression> const &expr,
                    nonpositive) {
   detail::require_symbol(expr.get(), "assume(nonpositive)");
+  detail::reject_contradiction(expr, "assume(nonpositive)", nonpositive{});
   auto &a = expr.data()->assumptions();
   a.insert(nonpositive{});
   a.insert(real_tag{});
@@ -64,6 +132,7 @@ inline void assume(expression_holder<scalar_expression> const &expr,
 [[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, nonzero) {
   detail::require_symbol(expr.get(), "assume(nonzero)");
+  detail::reject_contradiction(expr, "assume(nonzero)", nonzero{});
   auto &a = expr.data()->assumptions();
   a.insert(nonzero{});
   expr.data()->assumptions().set_inferred();
@@ -72,6 +141,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, nonzero) {
 [[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, integer) {
   detail::require_symbol(expr.get(), "assume(integer)");
+  detail::reject_contradiction(expr, "assume(integer)", integer{});
   auto &a = expr.data()->assumptions();
   a.insert(integer{});
   a.insert(rational{});
@@ -82,6 +152,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, integer) {
 [[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, even) {
   detail::require_symbol(expr.get(), "assume(even)");
+  detail::reject_contradiction(expr, "assume(even)", even{});
   auto &a = expr.data()->assumptions();
   a.insert(even{});
   a.insert(integer{});
@@ -93,6 +164,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, even) {
 [[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, odd) {
   detail::require_symbol(expr.get(), "assume(odd)");
+  detail::reject_contradiction(expr, "assume(odd)", odd{});
   auto &a = expr.data()->assumptions();
   a.insert(odd{});
   a.insert(integer{});
@@ -104,6 +176,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, odd) {
 [[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, prime) {
   detail::require_symbol(expr.get(), "assume(prime)");
+  detail::reject_contradiction(expr, "assume(prime)", prime{});
   auto &a = expr.data()->assumptions();
   a.insert(prime{});
   a.insert(integer{});
@@ -118,6 +191,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, prime) {
 [[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, rational) {
   detail::require_symbol(expr.get(), "assume(rational)");
+  detail::reject_contradiction(expr, "assume(rational)", rational{});
   auto &a = expr.data()->assumptions();
   a.insert(rational{});
   a.insert(real_tag{});
@@ -127,6 +201,7 @@ inline void assume(expression_holder<scalar_expression> const &expr, rational) {
 [[deprecated("use expression_holder<scalar_expression>::assumption() instead")]]
 inline void assume(expression_holder<scalar_expression> const &expr, real_tag) {
   detail::require_symbol(expr.get(), "assume(real_tag)");
+  detail::reject_contradiction(expr, "assume(real_tag)", real_tag{});
   auto &a = expr.data()->assumptions();
   a.insert(real_tag{});
   expr.data()->assumptions().set_inferred();

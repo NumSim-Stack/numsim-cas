@@ -125,18 +125,17 @@ det(expression_holder<tensor_expression> const &expr) {
   // from the manager itself).
   auto &a = result.data()->assumptions();
   if (is_positive_definite(expr)) {
-    a.insert(positive{});
-    a.insert(nonnegative{});
-    a.insert(nonzero{});
-    a.insert(real_tag{});
-    a.set_inferred(); // forward-compat: a future t2s assumption
-                      // propagator should treat these as already-known
-                      // facts, not as candidates for re-derivation.
+    a.insert_derived(positive{});
+    a.insert_derived(nonnegative{});
+    a.insert_derived(nonzero{});
+    a.insert_derived(real_tag{});
+    // Derived from expr's annotation: discarded once that changes.
+    a.set_inferred_at(detail::current_assumption_epoch());
   }
   if (is_positive_semidefinite(expr)) {
-    a.insert(nonnegative{});
-    a.insert(real_tag{});
-    a.set_inferred();
+    a.insert_derived(nonnegative{});
+    a.insert_derived(real_tag{});
+    a.set_inferred_at(detail::current_assumption_epoch());
   }
   return result;
 }

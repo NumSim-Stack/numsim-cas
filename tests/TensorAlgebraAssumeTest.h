@@ -10,6 +10,7 @@
 #include <numsim_cas/tensor/structural_propagation.h>
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/visitors/tensor_evaluator.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_positivity_propagation.h>
 
 namespace numsim::cas {
 
@@ -106,15 +107,16 @@ TEST(TensorAlgebraAssume, PsdPreservesPriorDeviatoricSubspace) {
   EXPECT_TRUE(is_deviatoric(D));
 }
 
-TEST(TensorAlgebraAssume, PdOverridesIncompatibleSpace) {
-  // Skew is incompatible with PD (PD requires symmetric). assume_pd should
-  // overwrite the skew tag.
+TEST(TensorAlgebraAssume, PdRejectsIncompatibleSkewSpace) {
+  // Skew is incompatible with PD (PD requires symmetric), so the assertion
+  // is refused rather than silently replacing the skew tag.
   auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
   assume_skew(A);
   EXPECT_TRUE(is_skew(A));
-  assume_positive_definite(A);
-  EXPECT_FALSE(is_skew(A));
-  EXPECT_TRUE(is_symmetric(A));
+  EXPECT_THROW(assume_positive_definite(A), invalid_assumption_error);
+  EXPECT_TRUE(is_skew(A));
+  EXPECT_FALSE(is_symmetric(A));
+  EXPECT_FALSE(is_positive_definite(A));
 }
 
 TEST(TensorAlgebraAssume,
@@ -1084,20 +1086,19 @@ TEST(TensorAlgebraPropagation, InvPdRank4MinorMajorPropagates) {
   EXPECT_TRUE(is_minor_major(invC));
 }
 
-TEST(TensorAlgebraPropagation, AssumePdAfterSkewResolvesAtCallSite) {
-  // Pre-condition for the ctor-defense test below: confirm that
-  // assume_positive_definite OVERWRITES a prior Skew space at the
-  // assume() call site (per #245). This means the typical path never
-  // reaches tensor_inv's ctor with the contradictory state.
+TEST(TensorAlgebraPropagation, AssumePdAfterSkewIsRefusedAtCallSite) {
+  // Pre-condition for the ctor-defense test below: the assume() call site
+  // refuses the contradiction outright, so the typical path never reaches
+  // tensor_inv's ctor with that state. Only a direct-manager caller can
+  // build it — which is what the next test exercises.
   auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 3, 2}));
   assume_skew(W);
-  assume_positive_definite(W);
-  EXPECT_TRUE(is_symmetric(W));
-  EXPECT_FALSE(is_skew(W));
-  auto invW = inv(W);
-  EXPECT_TRUE(is_positive_definite(invW));
-  EXPECT_TRUE(is_symmetric(invW));
-  EXPECT_FALSE(is_skew(invW));
+  EXPECT_THROW(assume_positive_definite(W), invalid_assumption_error);
+  EXPECT_TRUE(is_skew(W));
+  EXPECT_FALSE(is_positive_definite(W));
+  // W stays skew, so inv() reaches its own singularity guard rather than
+  // the PD propagation the overwriting behaviour used to expose.
+  EXPECT_THROW({ [[maybe_unused]] auto r = inv(W); }, cas_error);
 }
 
 TEST(TensorAlgebraPropagation, InvCtorDefendsAgainstSkewSpaceWithPdAlgebra) {
@@ -1789,22 +1790,23 @@ TEST(TensorAlgebraAssumption, OrthogonalDoesNotImplySymmetric) {
   EXPECT_FALSE(is_positive_definite(Q));
 }
 
-TEST(TensorAlgebraAssumption, SkewThenPDLastWriterWinsLeftToRight) {
-  // QA: pin the documented left-to-right ordering by constructing a case
-  // where order matters. assume(Skew{}, positive_definite{}):
-  //   1. assume_skew sets space = {Skew, AnyTrace}
-  //   2. assume_positive_definite calls set_symmetric_unless_more_specific
-  //      which sees classify_space(Skew) — not in the Sym/Vol/Dev/Minor/
-  //      MinorMajor guard — and OVERWRITES with {Symmetric, AnyTrace}.
-  // Final state under left-to-right: Sym + PD (Skew lost).
-  // Right-to-left would give: PD then Skew, with Skew the final space tag.
+TEST(TensorAlgebraAssumption, LastWriterWinsLeftToRight) {
+  // Pin the documented left-to-right ordering with a pair that refines
+  // rather than contradicts: Symmetric then Volumetric leaves Vol, the
+  // narrower tag; right-to-left would have left the wider Sym.
   auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
-  A.assumption(Skew{}, positive_definite{});
-  EXPECT_TRUE(is_positive_definite(A));
-  EXPECT_TRUE(is_symmetric(A))
-      << "PD's set_symmetric_unless_more_specific overwrites the Skew tag";
-  EXPECT_FALSE(is_skew(A))
-      << "left-to-right contract: Skew was overwritten by PD's chain";
+  A.assumption(Symmetric{}, VolumetricTag{});
+  EXPECT_TRUE(is_volumetric(A));
+  EXPECT_TRUE(is_symmetric(A)) << "Vol is a symmetric subspace";
+
+  // Skew with definiteness is a contradiction, not an ordering question:
+  // it throws whichever way round it is written, and the first fact of
+  // the pack has already been applied when the second one throws.
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  EXPECT_THROW(B.assumption(Skew{}, positive_definite{}),
+               invalid_assumption_error);
+  EXPECT_TRUE(is_skew(B));
+  EXPECT_FALSE(is_positive_definite(B));
 }
 
 TEST(TensorAlgebraAssumption, ChainableReturnsSelfByIdentity) {
@@ -1936,6 +1938,90 @@ TEST(TensorAlgebraScalarMul, UnknownSignScalarDropsPD) {
   auto [a] = make_scalar_variable("a"); // no sign assumption
   assume_positive_definite(C);
   EXPECT_FALSE(is_positive_definite(a * C));
+}
+
+// ─── Contradictory space facts are rejected ─────────────────────────
+
+TEST(TensorAlgebraAssumption, SkewContradictsSymmetricFamily) {
+  auto S = std::get<0>(make_tensor_variable(std::tuple{"S", 3, 2}));
+  S.assumption(Symmetric{});
+  EXPECT_THROW(S.assumption(Skew{}), invalid_assumption_error);
+  EXPECT_TRUE(is_symmetric(S));
+  EXPECT_FALSE(is_skew(S));
+
+  auto V = std::get<0>(make_tensor_variable(std::tuple{"V", 3, 2}));
+  V.assumption(VolumetricTag{});
+  EXPECT_THROW(V.assumption(Skew{}), invalid_assumption_error);
+  EXPECT_THROW(V.assumption(DeviatoricTag{}), invalid_assumption_error);
+  EXPECT_TRUE(is_volumetric(V));
+
+  auto D = std::get<0>(make_tensor_variable(std::tuple{"D", 3, 2}));
+  D.assumption(DeviatoricTag{});
+  EXPECT_THROW(D.assumption(VolumetricTag{}), invalid_assumption_error);
+
+  auto P = std::get<0>(make_tensor_variable(std::tuple{"P", 3, 2}));
+  P.assumption(positive_definite{});
+  EXPECT_THROW(P.assumption(Skew{}), invalid_assumption_error);
+  EXPECT_TRUE(is_symmetric(P));
+  EXPECT_FALSE(is_skew(P));
+}
+
+TEST(TensorAlgebraAssumption, SymmetricFamilyContradictsSkew) {
+  auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 3, 2}));
+  W.assumption(Skew{});
+  EXPECT_THROW(W.assumption(Symmetric{}), invalid_assumption_error);
+  EXPECT_THROW(W.assumption(VolumetricTag{}), invalid_assumption_error);
+  EXPECT_THROW(W.assumption(DeviatoricTag{}), invalid_assumption_error);
+  EXPECT_TRUE(is_skew(W));
+  EXPECT_FALSE(is_symmetric(W));
+}
+
+TEST(TensorAlgebraAssumption, RefiningSpaceFactsIsAccepted) {
+  auto S = std::get<0>(make_tensor_variable(std::tuple{"S", 3, 2}));
+  S.assumption(Symmetric{});
+  EXPECT_NO_THROW(S.assumption(VolumetricTag{}));
+  EXPECT_TRUE(is_volumetric(S));
+  EXPECT_NO_THROW(S.assumption(positive_definite{}));
+  EXPECT_TRUE(is_volumetric(S));
+  auto Q = std::get<0>(make_tensor_variable(std::tuple{"Q", 3, 2}));
+  Q.assumption(Skew{});
+  EXPECT_NO_THROW(Q.assumption(orthogonal{}));
+}
+
+TEST(TensorAlgebraAssumption, DefinitenessContradictsSkewInBothOrders) {
+  auto W = std::get<0>(make_tensor_variable(std::tuple{"W", 3, 2}));
+  W.assumption(Skew{});
+  EXPECT_THROW(W.assumption(positive_definite{}), invalid_assumption_error);
+  EXPECT_THROW(W.assumption(positive_semidefinite{}), invalid_assumption_error);
+  EXPECT_TRUE(is_skew(W));
+  EXPECT_FALSE(is_positive_definite(W));
+  EXPECT_FALSE(is_positive_semidefinite(W));
+
+  auto P = std::get<0>(make_tensor_variable(std::tuple{"P", 3, 2}));
+  P.assumption(positive_semidefinite{});
+  EXPECT_THROW(P.assumption(Skew{}), invalid_assumption_error);
+}
+
+// det's positivity is derived from the tensor's annotation, so withdrawing
+// that annotation withdraws the derived fact too.
+TEST(TensorAlgebraAssume, DerivedDeterminantFactsFollowTheTensor) {
+  auto A = std::get<0>(make_tensor_variable(std::tuple{"A", 3, 2}));
+  A.assumption(positive_definite{});
+  auto d = det(A);
+  EXPECT_TRUE(positivity::read(d).contains(positive{}));
+
+  A.data()->tensor_algebra_assumptions().clear();
+  EXPECT_FALSE(positivity::read(d).contains(positive{}));
+  EXPECT_FALSE(positivity::read(d).contains(nonzero{}));
+  EXPECT_FALSE(positivity::read(det(A)).contains(positive{}));
+
+  // and a PSD tensor's weaker fact behaves the same way
+  auto B = std::get<0>(make_tensor_variable(std::tuple{"B", 3, 2}));
+  B.assumption(positive_semidefinite{});
+  auto db = det(B);
+  EXPECT_TRUE(positivity::read(db).contains(nonnegative{}));
+  B.data()->tensor_algebra_assumptions().erase(positive_semidefinite{});
+  EXPECT_FALSE(positivity::read(db).contains(nonnegative{}));
 }
 
 } // namespace numsim::cas

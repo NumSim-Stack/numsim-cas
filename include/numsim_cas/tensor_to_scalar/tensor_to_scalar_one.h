@@ -20,12 +20,12 @@ public:
   // annotations).
   tensor_to_scalar_one() {
     auto &a = this->assumptions();
-    a.insert(positive{});
-    a.insert(nonnegative{});
-    a.insert(nonzero{});
-    a.insert(real_tag{});
-    a.insert(integer{});
-    a.insert(rational{});
+    a.insert_derived(positive{});
+    a.insert_derived(nonnegative{});
+    a.insert_derived(nonzero{});
+    a.insert_derived(real_tag{});
+    a.insert_derived(integer{});
+    a.insert_derived(rational{});
     a.set_inferred();
   }
   tensor_to_scalar_one(tensor_to_scalar_one &&data) noexcept

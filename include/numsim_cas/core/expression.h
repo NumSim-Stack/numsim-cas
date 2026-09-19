@@ -23,7 +23,7 @@ public:
   /**
    * @brief Default constructor.
    */
-  expression() = default;
+  expression() { m_assumption.attach_to_node(); }
 
   /**
    * @brief Copy constructor.
@@ -44,7 +44,9 @@ public:
    * identity in the current model — it's user-asserted metadata).
    */
   expression(expression const &data)
-      : m_assumption(data.m_assumption), m_hash_value(data.m_hash_value) {}
+      : m_assumption(data.m_assumption), m_hash_value(data.m_hash_value) {
+    m_assumption.attach_to_node();
+  }
 
   /**
    * @brief Move constructor.
@@ -52,7 +54,9 @@ public:
    */
   expression(expression &&data) noexcept
       : m_assumption(std::move(data.m_assumption)),
-        m_hash_value(data.m_hash_value) {}
+        m_hash_value(data.m_hash_value) {
+    m_assumption.attach_to_node();
+  }
 
   /**
    * @brief Virtual destructor.
