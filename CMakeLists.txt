@@ -28,7 +28,7 @@ endif()
 
 option(NUMSIM_CAS_INSTALL_LIBRARY "Install NumSim_CAS into default locations" ${IS_TOPLEVEL_PROJECT})
 option(NUMSIM_CAS_BUILD_EXAMPLES "Build NumSim_CAS examples" OFF)
-option(NUMSIM_CAS_BUILD_TESTS "Build NumSim_CAS test suite" ON)
+option(NUMSIM_CAS_BUILD_TESTS "Build NumSim_CAS test suite" ${IS_TOPLEVEL_PROJECT})
 option(NUMSIM_CAS_BUILD_BENCHMARK "Build NumSim_CAS benchmark" OFF)
 option(NUMSIM_CAS_BUILD_PARSER "Build the optional PEGTL-based string parser (issue #214)" OFF)
 option(NUMSIM_CAS_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
@@ -50,12 +50,10 @@ set(INSTALL_GTEST OFF CACHE BOOL "Install GoogleTest" FORCE)
 # lazy operand needing a basis change" — the prior pin (d03f2c2) silently
 # produced a zero rank-4 for a lazy operand feeding inner_product, which surfaced
 # as half-correct finite-strain tangents (∂(FᵀF)/∂F) downstream in numsim-codegen.
-set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-# v1.1.1 renamed these toggles to the TMECH_-prefixed form (was bare
-# BUILD_TESTS/BUILD_EXAMPLES). Set BOTH so tmech's tests/examples stay off across
-# the bump — otherwise tmech's own examples build, and `examples/symdiff/
-# system_nonlinear_equations` ICEs g++-14 in general_lu_decomposition.
+# tmech's tests/examples stay off — otherwise its `examples/symdiff/
+# system_nonlinear_equations` ICEs g++-14 in general_lu_decomposition. The pin
+# reads only these TMECH_-prefixed toggles; setting the bare BUILD_TESTS /
+# BUILD_EXAMPLES names would clobber the cache of any project embedding us.
 set(TMECH_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(TMECH_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(TMECH_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
@@ -65,19 +63,13 @@ FetchContent_Declare(
   GIT_TAG d7e27f30807fbd54dd7a0a0b1665a46da28d1681 # v1.1.1
 )
 FetchContent_MakeAvailable(tmech)
-# Restore so our own tests/examples are not affected.
-set(BUILD_TESTS ON CACHE BOOL "" FORCE)
-set(BUILD_EXAMPLES ON CACHE BOOL "" FORCE)
 
-# Installable-package smoke test (#84) opt-in: the test installs our
-# package and re-resolves it from the install tree, which means a
-# consumer-side `find_dependency(tmech)` must succeed. With
-# FetchContent-always for our build, we cannot auto-detect whether the
-# consumer environment has a findable tmech; the smoke test is now
-# opt-in via this cache option. Auto-detection is tracked as a
-# follow-up to this PR.
+# Registers the installable-package smoke test as a ctest. The test re-resolves
+# our install tree from a throwaway consumer, so a consumer-side
+# find_dependency(tmech) must succeed — which we cannot auto-detect, hence the
+# opt-in. It does not gate the install rules; NUMSIM_CAS_INSTALL_LIBRARY does.
 option(NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST
-       "Run the installable-package smoke test (#84). Requires a system tmech findable via find_package(tmech)."
+       "Register the installable-package smoke test. Requires a system tmech findable via find_package(tmech)."
        OFF)
 
 # tmech::tmech is an ALIAS — resolve to the real target so set_target_properties
@@ -153,13 +145,6 @@ target_link_libraries(${PROJECT_NAME}
     $<BUILD_INTERFACE:tmech::tmech>
 )
 
-target_compile_definitions(${PROJECT_NAME}
-  PUBLIC
-    NUMSIM_CAS_LIBRARY
-  PRIVATE
-    NUMSIM_CAS_BUILDING_LIBRARY
-)
-
 set_target_properties(${PROJECT_NAME} PROPERTIES
   VERSION   ${PROJECT_VERSION}
   SOVERSION ${PROJECT_VERSION_MAJOR}
@@ -168,27 +153,21 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
 
-# Compiler warnings and flags
+# Compiler warnings and flags. Per-config flags use generator expressions so
+# they also apply under multi-config generators, where CMAKE_BUILD_TYPE is empty.
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE
-        -Wall -Wextra -Wpedantic -Wno-comment -Wno-overloaded-virtual)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        target_compile_options(${PROJECT_NAME} PRIVATE
-            -Wshadow -Wfloat-conversion -Wnon-virtual-dtor -Wcast-align
-            -Wunused -Wnull-dereference -Wdouble-promotion)
-    elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-        target_compile_options(${PROJECT_NAME} PRIVATE -O3)
-    endif()
+        -Wall -Wextra -Wpedantic -Wno-comment -Wno-overloaded-virtual
+        $<$<CONFIG:Debug>:-Wshadow;-Wfloat-conversion;-Wnon-virtual-dtor;-Wcast-align;-Wunused;-Wnull-dereference;-Wdouble-promotion>
+        $<$<CONFIG:Release>:-O3>)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     target_compile_options(${PROJECT_NAME} PUBLIC /bigobj)
     target_compile_options(${PROJECT_NAME} PRIVATE
-        /W4 /EHsc /utf-8 /permissive- /Zc:preprocessor)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        target_compile_options(${PROJECT_NAME} PRIVATE /sdl)
-    elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-        target_compile_options(${PROJECT_NAME} PRIVATE /O2 /GL)
-        target_link_options(${PROJECT_NAME} PUBLIC /LTCG)
-    endif()
+        /W4 /EHsc /utf-8 /permissive- /Zc:preprocessor
+        $<$<CONFIG:Debug>:/sdl>
+        $<$<CONFIG:Release>:/O2;/GL>)
+    # /LTCG pairs with the PRIVATE /GL above; it must not reach consumers.
+    target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:/LTCG>)
 endif()
 
 # Sanitizers
@@ -218,14 +197,25 @@ if(NUMSIM_CAS_BUILD_PARSER)
   # so CI is deterministic across reruns.
   find_package(pegtl QUIET)
   if(NOT pegtl_FOUND)
-    FetchContent_Declare(
-      pegtl
-      GIT_REPOSITORY https://github.com/taocpp/PEGTL.git
-      GIT_TAG        3.2.8
-    )
+    # PEGTL 3.2.8 has unconditional install() rules and no option to disable
+    # them, so without EXCLUDE_FROM_ALL its headers, docs and CMake package land
+    # in our install prefix and can shadow a consumer's own pegtl.
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
+      FetchContent_Declare(
+        pegtl
+        GIT_REPOSITORY https://github.com/taocpp/PEGTL.git
+        GIT_TAG        3.2.8
+        EXCLUDE_FROM_ALL
+      )
+    else()
+      FetchContent_Declare(
+        pegtl
+        GIT_REPOSITORY https://github.com/taocpp/PEGTL.git
+        GIT_TAG        3.2.8
+      )
+    endif()
     set(PEGTL_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
     set(PEGTL_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(PEGTL_INSTALL        OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(pegtl)
     # Suppress warnings from third-party PEGTL headers.
     get_target_property(_pegtl_real taocpp::pegtl ALIASED_TARGET)
@@ -252,9 +242,14 @@ if(NUMSIM_CAS_BUILD_PARSER)
       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
+  # pegtl is used only by the parser's .cpp files; no installed header includes
+  # it and it is header-only, so a consumer needs nothing from it. Link it
+  # BUILD-only so it never enters the export set — a FetchContent'd pegtl is not
+  # exportable, and $<LINK_ONLY:taocpp::pegtl> would otherwise be baked into the
+  # installed package.
   target_link_libraries(NumSim_CAS_Parser
     PUBLIC NumSim_CAS::NumSim_CAS
-    PRIVATE taocpp::pegtl
+    PRIVATE $<BUILD_INTERFACE:taocpp::pegtl>
   )
 
   target_compile_features(NumSim_CAS_Parser PUBLIC cxx_std_23)
@@ -290,15 +285,14 @@ endif()
 # -----------------------------
 # Install
 # -----------------------------
-# Install support requires a consumer-findable tmech (referenced by
-# NumSim_CASConfig.cmake.in via find_dependency(tmech)). The
-# FetchContent-always strategy above doesn't install tmech (FetchContent
-# doesn't install anything), so install is opt-in via
-# NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST — when ON, the user is responsible
-# for having tmech installed system-wide for the consumer's
-# find_dependency to succeed. Default OFF prevents the
-# `install(EXPORT)` from tripping on tmech not being in any export set.
-if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
+# We always build against the pinned FetchContent tmech, which installs
+# nothing, so the installed package's find_dependency(tmech) resolves against
+# whatever tmech the CONSUMER has. tmech is linked BUILD-only above, so it never
+# enters the export set and install(EXPORT) cannot trip on it.
+if(NUMSIM_CAS_INSTALL_LIBRARY)
+  message(STATUS
+    "NumSim_CAS install rules enabled. The installed package requires a "
+    "consumer-findable tmech at or newer than the pinned GIT_TAG; see README.")
   set(NUMSIM_CAS_INSTALL_CMAKEDIR
       "${CMAKE_INSTALL_LIBDIR}/cmake/NumSim_CAS")
 
@@ -312,7 +306,9 @@ if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   )
 
-  # Install headers preserving directory structure
+  # Install headers preserving directory structure. The parser subtree is
+  # installed separately below, and only when its library is built — shipping
+  # those headers without the library gives consumers link errors.
   install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/numsim_cas/"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/numsim_cas"
     FILES_MATCHING
@@ -320,6 +316,7 @@ if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
       PATTERN "*.hpp"
       PATTERN "*.ipp"
       PATTERN "*.tpp"
+      PATTERN "parser" EXCLUDE
   )
 
   # Parser library + its public headers (must register with the export
@@ -348,15 +345,6 @@ if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
     COMPATIBILITY SameMajorVersion
   )
 
-  # The parser lib links taocpp::pegtl; a consumer therefore needs it via
-  # find_dependency (PRIVATE static-lib deps propagate as LINK_ONLY). Only
-  # emit the line when the parser is part of this package.
-  if(NUMSIM_CAS_BUILD_PARSER)
-    set(NUMSIM_CAS_CONFIG_PARSER_DEP "find_dependency(pegtl REQUIRED)")
-  else()
-    set(NUMSIM_CAS_CONFIG_PARSER_DEP "")
-  endif()
-
   configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NumSim_CASConfig.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfig.cmake"
@@ -369,19 +357,6 @@ if(NUMSIM_CAS_INSTALL_LIBRARY AND NUMSIM_CAS_ENABLE_PACKAGE_SMOKE_TEST)
       "${CMAKE_CURRENT_BINARY_DIR}/NumSim_CASConfigVersion.cmake"
     DESTINATION "${NUMSIM_CAS_INSTALL_CMAKEDIR}"
   )
-elseif(NUMSIM_CAS_INSTALL_LIBRARY)
-  # NUMSIM_CAS_INSTALL_LIBRARY=ON but tmech was FetchContent'd (not found
-  # as an external package). The install(TARGETS ...) above is skipped
-  # entirely — nothing is written to the install prefix. Use WARNING so
-  # users who set the option intentionally see the silent regression
-  # (STATUS is easily lost in CMake's normal output, especially via IDE
-  # configure runs).
-  message(WARNING
-    "NUMSIM_CAS_INSTALL_LIBRARY is ON, but install was SKIPPED because "
-    "tmech is not an installable external package in this build (it was "
-    "fetched via FetchContent). To produce an installable NumSim_CAS "
-    "package, install tmech first (so find_package(tmech) succeeds), "
-    "then reconfigure.")
 endif()
 
 # -----------------------------

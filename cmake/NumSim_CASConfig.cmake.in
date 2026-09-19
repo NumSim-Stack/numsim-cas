@@ -8,7 +8,9 @@ include(CMakeFindDependencyMacro)
 # satisfies this dependency but silently reintroduces the rank-4 tmech::inv
 # NaN bug (#283/#248). See the project README for the required tmech.
 find_dependency(tmech REQUIRED)
-@NUMSIM_CAS_CONFIG_PARSER_DEP@
+
+# pegtl is not a dependency of the installed package: the parser library links
+# it BUILD-only, it is header-only, and no installed header includes it.
 
 include("${CMAKE_CURRENT_LIST_DIR}/NumSim_CASTargets.cmake")
 
