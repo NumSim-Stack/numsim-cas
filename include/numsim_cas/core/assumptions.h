@@ -1,6 +1,8 @@
 #ifndef ASSUMPTIONS_H
 #define ASSUMPTIONS_H
 
+#include <atomic>
+#include <cstdint>
 #include <numsim_cas/core/core_fwd.h>
 #include <numsim_cas/numsim_cas_type_traits.h>
 #include <numsim_cas/tensor/sequence.h>
@@ -118,31 +120,108 @@ struct tensor_algebra_assumption_less {
 // };
 
 // ---------- Managers ----------
+namespace detail {
+// Bumped whenever a fact is asserted on or withdrawn from a node; facts
+// derived from other nodes re-derive on their next query.
+inline std::atomic<std::uint64_t> assumption_epoch{1};
+inline std::uint64_t current_assumption_epoch() noexcept {
+  return assumption_epoch.load(std::memory_order_relaxed);
+}
+} // namespace detail
+
 class numeric_assumption_manager {
 public:
-  void insert(numeric_assumption a) { set_.insert(a); }
-  void erase(numeric_assumption const &a) { set_.erase(a); }
+  numeric_assumption_manager() = default;
+  // attached_ is a property of the manager's place, not of its contents:
+  // copies are scratch until a node claims them.
+  numeric_assumption_manager(numeric_assumption_manager const &o)
+      : set_(o.set_), inferred_(o.inferred_), epoch_(o.epoch_) {}
+  numeric_assumption_manager(numeric_assumption_manager &&o) noexcept
+      : set_(std::move(o.set_)), inferred_(o.inferred_), epoch_(o.epoch_) {}
+  numeric_assumption_manager &operator=(numeric_assumption_manager const &o) {
+    set_ = o.set_;
+    inferred_ = o.inferred_;
+    epoch_ = o.epoch_;
+    return *this;
+  }
+  numeric_assumption_manager &
+  operator=(numeric_assumption_manager &&o) noexcept {
+    set_ = std::move(o.set_);
+    inferred_ = o.inferred_;
+    epoch_ = o.epoch_;
+    return *this;
+  }
+  ~numeric_assumption_manager() = default;
+
+  void insert(numeric_assumption a) {
+    set_.insert(a);
+    invalidate_dependents();
+  }
+  void erase(numeric_assumption const &a) {
+    set_.erase(a);
+    invalidate_dependents();
+  }
+  // A fact derived before the last assertion is no longer believed.
   bool contains(numeric_assumption const &a) const {
+    if (stale(detail::current_assumption_epoch()))
+      return false;
     return set_.find(a) != set_.end();
   }
-  void clear() { set_.clear(); }
+  void clear() {
+    set_.clear();
+    invalidate_dependents();
+  }
   auto const &data() const { return set_; }
 
-  // Forward-compat marker for the assumption-propagation system.
-  // set_inferred() is called by assume_* helpers (scalar_assume.h) and
-  // construction-time annotations (e.g. tensor_to_scalar_one/zero) to
-  // signal "these facts are already established; an assumption
-  // propagator should treat them as known and skip re-derivation."
-  // No current reader uses inferred(); the flag is purely future-
-  // proofing for the planned propagator. Calls to set_inferred()
-  // exist across the codebase for consistency, but produce no
-  // observable behavior today.
+  // The facts as currently believed, detached from any node: stale derived
+  // ones are dropped rather than re-derived. Domains without a propagator
+  // read through this.
+  numeric_assumption_manager effective() const {
+    numeric_assumption_manager m;
+    if (!stale(detail::current_assumption_epoch()))
+      m.set_ = set_;
+    return m;
+  }
+
+  // Facts the library establishes itself: intrinsic to a constant or
+  // computed from children. They invalidate nothing.
+  void insert_derived(numeric_assumption a) { set_.insert(a); }
+  void replace_derived(numeric_assumption_manager const &facts,
+                       std::uint64_t epoch) {
+    set_ = facts.set_;
+    inferred_ = true;
+    epoch_ = epoch;
+  }
+
+  // inferred(): the facts are established. Intrinsic ones (epoch 0) are
+  // never re-derived; facts stamped with an epoch go stale when it moves.
   bool inferred() const noexcept { return inferred_; }
-  void set_inferred() noexcept { inferred_ = true; }
+  void set_inferred() noexcept {
+    inferred_ = true;
+    epoch_ = 0;
+  }
+  void set_inferred_at(std::uint64_t epoch) noexcept {
+    inferred_ = true;
+    epoch_ = epoch;
+  }
+  bool stale(std::uint64_t now) const noexcept {
+    return epoch_ != 0 && epoch_ != now;
+  }
+
+  // Only managers that live on a node invalidate dependents; scratch
+  // managers built while inferring must not.
+  void attach_to_node() noexcept { attached_ = true; }
 
 private:
+  void invalidate_dependents() noexcept {
+    if (attached_)
+      detail::assumption_epoch.fetch_add(1, std::memory_order_relaxed);
+  }
+
   std::set<numeric_assumption, numeric_assumption_less> set_;
   bool inferred_{false};
+  bool attached_{false};
+  std::uint64_t epoch_{0};
 };
 
 // Manager for tensor algebra-property assumptions (orthogonal, PD, PSD).
@@ -155,12 +234,28 @@ private:
 // in tensor_assume.h.
 class tensor_algebra_assumption_manager {
 public:
-  void insert(tensor_algebra_assumption a) { set_.insert(a); }
-  void erase(tensor_algebra_assumption const &a) { set_.erase(a); }
+  // Asserted or withdrawn by the user: numeric facts derived from this
+  // tensor (det's positivity, say) must not outlive it.
+  void insert(tensor_algebra_assumption a) {
+    set_.insert(a);
+    detail::assumption_epoch.fetch_add(1, std::memory_order_relaxed);
+  }
+  void erase(tensor_algebra_assumption const &a) {
+    set_.erase(a);
+    detail::assumption_epoch.fetch_add(1, std::memory_order_relaxed);
+  }
+  void clear() {
+    set_.clear();
+    detail::assumption_epoch.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  // Derived at construction from the operands' own facts; invalidates
+  // nothing, since the operands' assertions already did.
+  void insert_derived(tensor_algebra_assumption a) { set_.insert(a); }
+
   bool contains(tensor_algebra_assumption const &a) const {
     return set_.find(a) != set_.end();
   }
-  void clear() { set_.clear(); }
   auto const &data() const { return set_; }
 
 private:

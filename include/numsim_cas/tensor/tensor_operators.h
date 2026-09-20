@@ -248,7 +248,7 @@ tag_invoke(mul_fn, L &&lhs, [[maybe_unused]] R &&rhs) {
       auto result = _lhs.accept(visitor);
       if (result.is_valid()) {
         result.data()->set_space({Symmetric{}, AnyTraceTag{}});
-        result.data()->tensor_algebra_assumptions().insert(
+        result.data()->tensor_algebra_assumptions().insert_derived(
             positive_semidefinite{});
       }
       return result;

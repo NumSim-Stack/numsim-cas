@@ -56,10 +56,10 @@ inline void mark_positive(expression_holder<Expr> const &e) {
   auto &a = e.data()->assumptions();
   NUMSIM_CAS_POSITIVITY_ASSERT_NO_CONTRADICTION(a, numsim::cas::negative{});
   NUMSIM_CAS_POSITIVITY_ASSERT_NO_CONTRADICTION(a, numsim::cas::nonpositive{});
-  a.insert(numsim::cas::positive{});
-  a.insert(numsim::cas::nonnegative{});
-  a.insert(numsim::cas::nonzero{});
-  a.insert(numsim::cas::real_tag{});
+  a.insert_derived(numsim::cas::positive{});
+  a.insert_derived(numsim::cas::nonnegative{});
+  a.insert_derived(numsim::cas::nonzero{});
+  a.insert_derived(numsim::cas::real_tag{});
   a.set_inferred();
 }
 
@@ -68,10 +68,10 @@ inline void mark_negative(expression_holder<Expr> const &e) {
   auto &a = e.data()->assumptions();
   NUMSIM_CAS_POSITIVITY_ASSERT_NO_CONTRADICTION(a, numsim::cas::positive{});
   NUMSIM_CAS_POSITIVITY_ASSERT_NO_CONTRADICTION(a, numsim::cas::nonnegative{});
-  a.insert(numsim::cas::negative{});
-  a.insert(numsim::cas::nonpositive{});
-  a.insert(numsim::cas::nonzero{});
-  a.insert(numsim::cas::real_tag{});
+  a.insert_derived(numsim::cas::negative{});
+  a.insert_derived(numsim::cas::nonpositive{});
+  a.insert_derived(numsim::cas::nonzero{});
+  a.insert_derived(numsim::cas::real_tag{});
   a.set_inferred();
 }
 
@@ -79,8 +79,8 @@ template <typename Expr>
 inline void mark_nonnegative(expression_holder<Expr> const &e) {
   auto &a = e.data()->assumptions();
   NUMSIM_CAS_POSITIVITY_ASSERT_NO_CONTRADICTION(a, numsim::cas::negative{});
-  a.insert(numsim::cas::nonnegative{});
-  a.insert(numsim::cas::real_tag{});
+  a.insert_derived(numsim::cas::nonnegative{});
+  a.insert_derived(numsim::cas::real_tag{});
   a.set_inferred();
 }
 
@@ -88,8 +88,8 @@ template <typename Expr>
 inline void mark_nonpositive(expression_holder<Expr> const &e) {
   auto &a = e.data()->assumptions();
   NUMSIM_CAS_POSITIVITY_ASSERT_NO_CONTRADICTION(a, numsim::cas::positive{});
-  a.insert(numsim::cas::nonpositive{});
-  a.insert(numsim::cas::real_tag{});
+  a.insert_derived(numsim::cas::nonpositive{});
+  a.insert_derived(numsim::cas::real_tag{});
   a.set_inferred();
 }
 

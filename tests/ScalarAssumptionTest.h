@@ -927,4 +927,112 @@ TEST_F(AssumptionFixture, RelationSetKeepsDistinctOperands) {
   EXPECT_EQ(set.size(), 3u);
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  Contradictory facts are rejected at assertion time
+// ═══════════════════════════════════════════════════════════════════════
+
+TEST_F(AssumptionFixture, ContradictoryAssumptionsAreRejected) {
+  using namespace numsim::cas;
+  x.assumption(positive{});
+  EXPECT_THROW(x.assumption(negative{}), invalid_assumption_error);
+  EXPECT_THROW(x.assumption(nonpositive{}), invalid_assumption_error);
+  // the symbol keeps only the consistent facts
+  EXPECT_TRUE(is_positive(x));
+  EXPECT_FALSE(is_negative(x));
+  EXPECT_FALSE(is_nonpositive(x));
+  EXPECT_PRINT(abs(x), "x");
+  EXPECT_TRUE(is_same<scalar_one>(sign(x)));
+
+  y.assumption(negative{});
+  EXPECT_THROW(y.assumption(positive{}), invalid_assumption_error);
+  EXPECT_THROW(y.assumption(nonnegative{}), invalid_assumption_error);
+  EXPECT_THROW(y.assumption(prime{}), invalid_assumption_error);
+
+  // nonnegative + nonpositive pins zero, so nonzero contradicts it
+  z.assumption(nonnegative{}, nonpositive{});
+  EXPECT_THROW(z.assumption(nonzero{}), invalid_assumption_error);
+  EXPECT_THROW(z.assumption(positive{}), invalid_assumption_error);
+  EXPECT_FALSE(is_nonzero(z));
+
+  auto [w, v] = make_scalar_variable("w", "v");
+  w.assumption(nonzero{}, nonpositive{});
+  EXPECT_THROW(w.assumption(nonnegative{}), invalid_assumption_error);
+  v.assumption(even{});
+  EXPECT_THROW(v.assumption(odd{}), invalid_assumption_error);
+}
+
+TEST_F(AssumptionFixture, RepeatedAndRefiningAssumptionsAreAccepted) {
+  using namespace numsim::cas;
+  x.assumption(positive{});
+  EXPECT_NO_THROW(x.assumption(positive{}));
+  EXPECT_NO_THROW(x.assumption(nonnegative{}));
+  EXPECT_NO_THROW(x.assumption(integer{}));
+  y.assumption(nonnegative{});
+  EXPECT_NO_THROW(y.assumption(positive{}));
+  EXPECT_TRUE(is_positive(y));
+  z.assumption(even{});
+  EXPECT_NO_THROW(z.assumption(prime{}));
+}
+
+TEST_F(AssumptionFixture, ContradictionRejectedAfterSymbolWasUsed) {
+  using namespace numsim::cas;
+  x.assumption(positive{});
+  auto folded = abs(x);
+  EXPECT_PRINT(folded, "x");
+  EXPECT_THROW(x.assumption(negative{}), invalid_assumption_error);
+  EXPECT_TRUE(is_positive(x));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Inferred facts follow the leaves
+// ═══════════════════════════════════════════════════════════════════════
+
+TEST_F(AssumptionFixture, WithdrawnAssumptionReachesDependents) {
+  using namespace numsim::cas;
+  z.assumption(positive{});
+  auto ez = z + 1;
+  EXPECT_TRUE(is_positive(ez));
+
+  remove_assumption(z, positive{});
+  remove_assumption(z, nonnegative{});
+  remove_assumption(z, nonzero{});
+  EXPECT_FALSE(is_positive(ez));
+  EXPECT_FALSE(is_nonnegative(ez));
+  EXPECT_TRUE(is_same<scalar_abs>(abs(ez)));
+
+  // the raw manager path is public too and must invalidate the same way
+  x.assumption(positive{});
+  auto ex = x + 1;
+  EXPECT_TRUE(is_positive(ex));
+  x.data()->assumptions().clear();
+  EXPECT_FALSE(is_positive(ex));
+  EXPECT_TRUE(is_same<scalar_abs>(abs(ex)));
+}
+
+TEST_F(AssumptionFixture, LateAssumptionReachesDependents) {
+  using namespace numsim::cas;
+  auto e = y * y + 1;
+  EXPECT_FALSE(is_positive(e));
+  y.assumption(positive{});
+  EXPECT_TRUE(is_positive(e));
+  EXPECT_TRUE(is_positive(y * y + 1));
+
+  // a mutation on an unrelated symbol changes nothing here
+  z.assumption(negative{});
+  EXPECT_TRUE(is_positive(e));
+}
+
+TEST_F(AssumptionFixture, FoldsAlreadyTakenAreNotUndone) {
+  using namespace numsim::cas;
+  // Folds consume the fact at construction; withdrawing it later rebuilds
+  // nothing. Queries on the surviving expression do follow the leaf.
+  z.assumption(positive{});
+  auto folded = abs(z);
+  EXPECT_PRINT(folded, "z");
+  remove_assumption(z, positive{});
+  remove_assumption(z, nonnegative{});
+  EXPECT_PRINT(folded, "z");
+  EXPECT_TRUE(is_same<scalar_abs>(abs(z)));
+}
+
 #endif // SCALARASSUMPTIONTEST_H

@@ -92,38 +92,38 @@ private:
         [&a](auto const &v) {
           using T = std::decay_t<decltype(v)>;
           if constexpr (std::is_same_v<T, std::int64_t>) {
-            a.insert(integer{});
-            a.insert(rational{});
-            a.insert(real_tag{});
+            a.insert_derived(integer{});
+            a.insert_derived(rational{});
+            a.insert_derived(real_tag{});
             if (v > 0) {
-              a.insert(positive{});
-              a.insert(nonnegative{});
-              a.insert(nonzero{});
+              a.insert_derived(positive{});
+              a.insert_derived(nonnegative{});
+              a.insert_derived(nonzero{});
             } else if (v < 0) {
-              a.insert(negative{});
-              a.insert(nonpositive{});
-              a.insert(nonzero{});
+              a.insert_derived(negative{});
+              a.insert_derived(nonpositive{});
+              a.insert_derived(nonzero{});
             } else {
-              a.insert(nonnegative{});
-              a.insert(nonpositive{});
+              a.insert_derived(nonnegative{});
+              a.insert_derived(nonpositive{});
             }
           } else if constexpr (std::is_same_v<T, double>) {
-            a.insert(real_tag{});
+            a.insert_derived(real_tag{});
             if (v > 0.0) {
-              a.insert(positive{});
-              a.insert(nonnegative{});
-              a.insert(nonzero{});
+              a.insert_derived(positive{});
+              a.insert_derived(nonnegative{});
+              a.insert_derived(nonzero{});
             } else if (v < 0.0) {
-              a.insert(negative{});
-              a.insert(nonpositive{});
-              a.insert(nonzero{});
+              a.insert_derived(negative{});
+              a.insert_derived(nonpositive{});
+              a.insert_derived(nonzero{});
             } else {
               // 0.0 case: align with int 0 — zero is integer + rational
               // regardless of spelling.
-              a.insert(integer{});
-              a.insert(rational{});
-              a.insert(nonnegative{});
-              a.insert(nonpositive{});
+              a.insert_derived(integer{});
+              a.insert_derived(rational{});
+              a.insert_derived(nonnegative{});
+              a.insert_derived(nonpositive{});
             }
           } else if constexpr (std::is_same_v<T, rational_t>) {
             // scalar_number's normalize_rational collapses rational_t{N,1}
@@ -131,20 +131,20 @@ private:
             // is guaranteed den != 1. No integer-emission branch needed —
             // if that invariant ever breaks, the bug should surface in
             // scalar_number, not be silently masked by defensive code here.
-            a.insert(rational{});
-            a.insert(real_tag{});
+            a.insert_derived(rational{});
+            a.insert_derived(real_tag{});
             // num/den signs: den > 0 invariant per scalar_number ctor.
             if (v.num > 0) {
-              a.insert(positive{});
-              a.insert(nonnegative{});
-              a.insert(nonzero{});
+              a.insert_derived(positive{});
+              a.insert_derived(nonnegative{});
+              a.insert_derived(nonzero{});
             } else if (v.num < 0) {
-              a.insert(negative{});
-              a.insert(nonpositive{});
-              a.insert(nonzero{});
+              a.insert_derived(negative{});
+              a.insert_derived(nonpositive{});
+              a.insert_derived(nonzero{});
             } else {
-              a.insert(nonnegative{});
-              a.insert(nonpositive{});
+              a.insert_derived(nonnegative{});
+              a.insert_derived(nonpositive{});
             }
           }
           // complex: unreachable (ctor rejects complex first); kept so

@@ -421,7 +421,8 @@ template <tensor_expr_holder Expr>
     if (std::holds_alternative<Skew>(sp->perm)) {
       auto result = -std::forward<Expr>(expr);
       if (propagate_orthogonal)
-        result.data()->tensor_algebra_assumptions().insert(orthogonal{});
+        result.data()->tensor_algebra_assumptions().insert_derived(
+            orthogonal{});
       return result;
     }
   }
@@ -435,7 +436,7 @@ template <tensor_expr_holder Expr>
   auto result = make_expression<permute_indices_wrapper>(
       std::forward<Expr>(expr), sequence{2, 1});
   if (propagate_orthogonal)
-    result.data()->tensor_algebra_assumptions().insert(orthogonal{});
+    result.data()->tensor_algebra_assumptions().insert_derived(orthogonal{});
   return result;
 }
 

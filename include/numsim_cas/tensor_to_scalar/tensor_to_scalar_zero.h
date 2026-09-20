@@ -23,11 +23,11 @@ public:
   // tensor_to_scalar_one).
   tensor_to_scalar_zero() {
     auto &a = this->assumptions();
-    a.insert(nonnegative{});
-    a.insert(nonpositive{});
-    a.insert(real_tag{});
-    a.insert(integer{});
-    a.insert(rational{});
+    a.insert_derived(nonnegative{});
+    a.insert_derived(nonpositive{});
+    a.insert_derived(real_tag{});
+    a.insert_derived(integer{});
+    a.insert_derived(rational{});
     a.set_inferred();
   }
   tensor_to_scalar_zero(tensor_to_scalar_zero &&data) noexcept
