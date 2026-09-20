@@ -2,6 +2,7 @@
 
 #include <numsim_cas/basic_functions.h>
 #include <numsim_cas/scalar/scalar_all.h>
+#include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/scalar_domain_traits.h>
 #include <numsim_cas/scalar/scalar_functions.h>
 #include <numsim_cas/scalar/scalar_operators.h>
@@ -159,14 +160,44 @@ polynomial_solver::polynomial_coefficients() const {
   return classify_term(m_expr);
 }
 
+namespace {
+
+// Sign of an expression when it is provable: a numeric value, or an assumed
+// sign on a symbolic one.
+std::optional<int> known_sign(expression_holder<scalar_expression> const &e) {
+  if (auto val = domain_traits<scalar_expression>::try_numeric(e)) {
+    scalar_number const zero{0};
+    if (numeric_less(*val, zero))
+      return -1;
+    if (numeric_less(zero, *val))
+      return 1;
+    return 0;
+  }
+  if (is_positive(e))
+    return 1;
+  if (is_negative(e))
+    return -1;
+  return std::nullopt;
+}
+
+} // namespace
+
 std::vector<polynomial_solver::expr_holder_t> polynomial_solver::solve() const {
+  return solve_with_outcome().solutions;
+}
+
+solve_result polynomial_solver::solve_with_outcome() const {
+  if (is_numeric_zero(m_expr))
+    return {solve_outcome::all_values, {}};
+  if (!contains_expression(m_expr, m_x))
+    return {solve_outcome::no_variable, {}};
+
   auto coeffs_opt = classify_term(m_expr);
   if (!coeffs_opt)
-    return {};
+    return {solve_outcome::unsupported, {}};
 
   auto &coeffs = *coeffs_opt;
 
-  // Remove zero-valued coefficients
   for (auto it = coeffs.begin(); it != coeffs.end();) {
     if (is_numeric_zero(it->second)) {
       it = coeffs.erase(it);
@@ -176,14 +207,13 @@ std::vector<polynomial_solver::expr_holder_t> polynomial_solver::solve() const {
   }
 
   if (coeffs.empty())
-    return {}; // 0 == 0, infinitely many solutions — return empty
+    return {solve_outcome::all_values, {}};
 
   long long max_degree = coeffs.rbegin()->first;
 
-  if (max_degree == 0) {
-    // Constant equation, no variable present
-    return {};
-  }
+  // x cancelled out and a nonzero constant remains
+  if (max_degree == 0)
+    return {solve_outcome::no_real_solution, {}};
 
   auto get_coeff = [&](long long deg) -> expr_holder_t {
     auto it = coeffs.find(deg);
@@ -193,14 +223,12 @@ std::vector<polynomial_solver::expr_holder_t> polynomial_solver::solve() const {
   };
 
   if (max_degree == 1) {
-    // a*x + b = 0 → x = -b/a
     auto a = get_coeff(1);
     auto b = get_coeff(0);
-    return {-b / a};
+    return {solve_outcome::solved, {-b / a}};
   }
 
   if (max_degree == 2) {
-    // a*x² + b*x + c = 0
     auto a = get_coeff(2);
     auto b = get_coeff(1);
     auto c = get_coeff(0);
@@ -210,25 +238,43 @@ std::vector<polynomial_solver::expr_holder_t> polynomial_solver::solve() const {
 
     auto disc = b * b - four * a * c;
 
-    // Check if discriminant is numerically zero
-    if (is_numeric_zero(disc)) {
-      // Double root: -b / (2a)
-      return {-b / (two * a)};
-    }
+    if (is_numeric_zero(disc))
+      return {solve_outcome::solved, {-b / (two * a)}};
+
+    auto disc_sign = known_sign(disc);
+    if (disc_sign && *disc_sign < 0)
+      return {solve_outcome::no_real_solution, {}};
 
     auto sqrt_disc = sqrt(disc);
-    auto two_a = two * a;
-    return {(-b + sqrt_disc) / two_a, (-b - sqrt_disc) / two_a};
+    auto b_sign = known_sign(b);
+    if (!b_sign || *b_sign == 0) {
+      // With b = 0 the textbook form has no cancelling pair; with b of
+      // unknown sign it is the only closed form available.
+      auto two_a = two * a;
+      return {solve_outcome::solved,
+              {(-b + sqrt_disc) / two_a, (-b - sqrt_disc) / two_a}};
+    }
+
+    // q = -(b + sign(b) sqrt(disc)) / 2 adds terms of equal sign, so the
+    // roots q/a and c/q do not cancel when b^2 >> 4ac.
+    auto signed_sqrt = *b_sign > 0 ? sqrt_disc : -sqrt_disc;
+    auto q = -(b + signed_sqrt) / two;
+    return {solve_outcome::solved, {q / a, c / q}};
   }
 
-  // Degree > 2: not supported
-  return {};
+  return {solve_outcome::unsupported, {}};
 }
 
 std::optional<std::map<long long, expression_holder<scalar_expression>>>
 polynomial_coefficients(expression_holder<scalar_expression> const &expr,
                         expression_holder<scalar_expression> const &x) {
   return polynomial_solver(expr, x).polynomial_coefficients();
+}
+
+solve_result
+solve_with_outcome(expression_holder<scalar_expression> const &expr,
+                   expression_holder<scalar_expression> const &x) {
+  return polynomial_solver(expr, x).solve_with_outcome();
 }
 
 std::vector<expression_holder<scalar_expression>>
