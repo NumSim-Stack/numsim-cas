@@ -8,8 +8,15 @@
 
 namespace numsim::cas::detail {
 
+// Domains that attach assumptions to symbols overload this for their holder
+// type (found by ADL); this fallback covers the rest.
+template <class TargetBase>
+inline void validate_substitution(expression_holder<TargetBase> const &,
+                                  expression_holder<TargetBase> const &) {}
+
 struct substitute_fn {
-  // explicit typed call
+  // explicit typed call — skips the assumption check, so the substitution
+  // visitors use it to recurse into children
   template <class ExprBase, class TargetBase>
   constexpr auto operator()(std::type_identity<ExprBase>,
                             std::type_identity<TargetBase>,
@@ -34,17 +41,17 @@ struct substitute_fn {
                       std::type_identity<TargetBase>{}, expr, old_val, new_val);
   }
 
-  // ergonomic call: substitute(expr, old, new)
+  // ergonomic call: substitute(expr, old, new) — the public entry, which
+  // rejects a replacement that does not carry the assumptions asserted on
+  // the symbol it replaces
   template <class ExprBase, class TargetBase>
-  constexpr auto operator()(expression_holder<ExprBase> const &expr,
-                            expression_holder<TargetBase> const &old_val,
-                            expression_holder<TargetBase> const &new_val) const
-      noexcept(noexcept((*this)(std::type_identity<ExprBase>{},
-                                std::type_identity<TargetBase>{}, expr, old_val,
-                                new_val)))
-          -> decltype((*this)(std::type_identity<ExprBase>{},
-                              std::type_identity<TargetBase>{}, expr, old_val,
-                              new_val)) {
+  auto operator()(expression_holder<ExprBase> const &expr,
+                  expression_holder<TargetBase> const &old_val,
+                  expression_holder<TargetBase> const &new_val) const
+      -> decltype((*this)(std::type_identity<ExprBase>{},
+                          std::type_identity<TargetBase>{}, expr, old_val,
+                          new_val)) {
+    validate_substitution(old_val, new_val);
     return (*this)(std::type_identity<ExprBase>{},
                    std::type_identity<TargetBase>{}, expr, old_val, new_val);
   }
