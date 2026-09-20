@@ -184,6 +184,16 @@ public:
   }
   set_type data() const { return set_from_mask(mask()); }
 
+  // The facts as currently believed, detached from any node: stale derived
+  // ones are dropped rather than re-derived. Domains without a propagator
+  // read through this.
+  numeric_assumption_manager effective() const {
+    numeric_assumption_manager m;
+    if (!stale(detail::current_assumption_epoch()))
+      m.facts_.store(mask(), std::memory_order_release);
+    return m;
+  }
+
   // Facts the library establishes itself: intrinsic to a constant or
   // computed from children. They invalidate nothing.
   void insert_derived(numeric_assumption a) {
