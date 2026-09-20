@@ -43,11 +43,13 @@ namespace numsim::cas::parser {
  * sharing one table is undefined behaviour. Use one table per parse,
  * or guard with external synchronisation.
  *
- * **Persistence on parse failure**: declarations are committed as
- * they happen. If parsing throws partway through, declarations made
- * up to that point remain in the table. Callers that want
- * all-or-nothing semantics should discard the table and start over
- * on failure.
+ * **Persistence on parse failure**: `parse()` and the typed
+ * `parse_scalar` / `parse_tensor` / `parse_t2s` wrappers are
+ * transactional — declarations are committed only once the parse
+ * succeeds, so a throwing parse leaves the table exactly as it was.
+ * A domain mismatch in a typed wrapper rolls back too. Calling the
+ * declaration methods below directly takes effect immediately; they
+ * are not part of any transaction.
  */
 class symbol_table {
 public:
