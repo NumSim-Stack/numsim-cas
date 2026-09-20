@@ -587,6 +587,73 @@ TEST_F(TensorToScalarDifferentiationTest, TanhOfTraceGradient) {
   EXPECT_TRUE(tmech::almost_equal(result, expected, 1e-10));
 }
 
+// A saturated tanh must not report a finite wrong gradient: sech² of a large
+// trace is tiny, and the derivative must agree with it to relative precision.
+TEST_F(TensorToScalarDifferentiationTest, TanhOfLargeTraceGradientIsSound) {
+  auto f = tanh(trY);
+  auto d = diff(f, Y);
+  ASSERT_TRUE(d.is_valid());
+  tensor_evaluator<double> ev;
+  tensor_to_scalar_evaluator<double> sev;
+
+  auto Y_t = 70.0 * tmech::eye<double, 3, 2>(); // trace 210
+  ev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Y_t));
+  sev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Y_t));
+  EXPECT_DOUBLE_EQ(sev.apply(f), 1.0);
+  auto const &g =
+      static_cast<tensor_data<double, 3, 2> const &>(*ev.apply(d)).data();
+  const double truth = 4.0 * std::exp(-420.0);
+  for (std::size_t i = 0; i < 3; ++i)
+    for (std::size_t j = 0; j < 3; ++j)
+      EXPECT_NEAR(g(i, j), i == j ? truth : 0.0, 1e-12 * truth) << i << j;
+
+  // the negative side may underflow, but never to a finite wrong value
+  auto Yn = -70.0 * tmech::eye<double, 3, 2>();
+  ev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Yn));
+  sev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Yn));
+  EXPECT_DOUBLE_EQ(sev.apply(f), -1.0);
+  auto const &gn =
+      static_cast<tensor_data<double, 3, 2> const &>(*ev.apply(d)).data();
+  for (std::size_t i = 0; i < 3; ++i) {
+    EXPECT_TRUE(std::isfinite(gn(i, i))) << i;
+    EXPECT_GE(gn(i, i), 0.0) << i;
+    EXPECT_LE(gn(i, i), truth * (1.0 + 1e-12)) << i;
+  }
+}
+
+// Same degradation as the scalar side, characterised on the t2s path: exact
+// down to a trace of -179, an over-estimate of at most 1.75x below it, then
+// zero, then NaN past -354.
+TEST_F(TensorToScalarDifferentiationTest,
+       TanhGradientDegradesOnlyInTheKnownBand) {
+  auto d = diff(tanh(trY), Y);
+  ASSERT_TRUE(d.is_valid());
+  tensor_evaluator<double> ev;
+  auto sech2 = [](double t) {
+    const double e = std::exp(-2.0 * std::abs(t));
+    return 4.0 * e / ((1.0 + e) * (1.0 + e));
+  };
+  auto grad00 = [&](double trace_value) {
+    auto Y_t = (trace_value / 3.0) * tmech::eye<double, 3, 2>();
+    ev.set(Y, std::make_shared<tensor_data<double, 3, 2>>(Y_t));
+    return static_cast<tensor_data<double, 3, 2> const &>(*ev.apply(d))
+        .data()(0, 0);
+  };
+
+  for (double t : {-50.0, -120.0, -179.0})
+    EXPECT_NEAR(grad00(t), sech2(t), 1e-12 * sech2(t)) << t;
+  for (double t = -179.5; t >= -354.0; t -= 0.5) {
+    const double g = grad00(t);
+    ASSERT_FALSE(std::isnan(g)) << t;
+    EXPECT_GE(g, 0.0) << t;
+    EXPECT_LE(g, 2.0 * sech2(t)) << t;
+  }
+  for (double t : {-355.0, -420.0}) {
+    const double g = grad00(t);
+    EXPECT_TRUE(std::isnan(g) || g == 0.0) << t << " got " << g;
+  }
+}
+
 } // namespace numsim::cas
 
 #endif // TENSORTOSCALARDIFFERENTIATIONTEST_H
