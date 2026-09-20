@@ -295,6 +295,38 @@ TEST(ParserGrammar, DecimalLiteralEvaluatesToValue) {
   EXPECT_DOUBLE_EQ(eval_scalar(parse_scalar("3.14", syms), syms), 3.14);
 }
 
+TEST(ParserGrammar, ExponentLiteralsEvaluateToValue) {
+  symbol_table syms;
+  EXPECT_EQ(eval_scalar(parse_scalar("1e-07", syms), syms), 1e-07);
+  EXPECT_EQ(eval_scalar(parse_scalar("1E+300", syms), syms), 1e300);
+  EXPECT_EQ(eval_scalar(parse_scalar("2.5e3", syms), syms), 2500.0);
+  EXPECT_EQ(eval_scalar(parse_scalar("5e-324", syms), syms), 5e-324);
+}
+
+// The printer must emit every digit the parser needs to read the same
+// double back.
+TEST(ParserGrammar, PrintedDoublesRoundTripExactly) {
+  symbol_table syms;
+  for (double v : {1.0 / 3.0, 1.23456789012345678e-7, 0.1 + 0.2, 1e300, 5e-324,
+                   123456789.123456789, 2.5, 1e-7, 6.02214076e23,
+                   // shortest spelling is plain digits beyond int64 range
+                   1.8446744073709552e19, 9.3e18, 1e19}) {
+    auto printed = to_string(make_expression<scalar_constant>(v));
+    EXPECT_EQ(eval_scalar(parse_scalar(printed, syms), syms), v) << printed;
+  }
+}
+
+// An integer literal too large for int64 is still a valid double.
+TEST(ParserGrammar, OversizedIntegerLiteralsParseAsDouble) {
+  symbol_table syms;
+  EXPECT_EQ(eval_scalar(parse_scalar("18446744073709551616", syms), syms),
+            18446744073709551616.0);
+  EXPECT_EQ(eval_scalar(parse_scalar("9223372036854775807", syms), syms),
+            9223372036854775807.0);
+  EXPECT_THROW(
+      { [[maybe_unused]] auto r = parse_scalar("12x34", syms); }, parse_error);
+}
+
 TEST(ParserGrammar, IdentifierResolvesToScalarVariable) {
   symbol_table syms;
   auto e = parse_scalar("x", syms);

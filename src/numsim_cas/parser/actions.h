@@ -288,8 +288,8 @@ template <> struct action<grammar::number_literal> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
     auto sv = in.string_view();
-    // Decimal point in the matched range tells us it's a double.
-    if (sv.find('.') != std::string_view::npos) {
+    // A decimal point or an exponent marks a double.
+    if (sv.find_first_of(".eE") != std::string_view::npos) {
       double value = 0.0;
       auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
       if (ec != std::errc{} || ptr != sv.data() + sv.size()) {
@@ -300,6 +300,17 @@ template <> struct action<grammar::number_literal> {
     } else {
       std::int64_t value = 0;
       auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+      if (ec == std::errc::result_out_of_range) {
+        // digits beyond int64 are still a valid double; the printer emits
+        // this form whenever it is shorter than the exponent spelling
+        double wide = 0.0;
+        auto [dptr, dec] =
+            std::from_chars(sv.data(), sv.data() + sv.size(), wide);
+        if (dec == std::errc{} && dptr == sv.data() + sv.size()) {
+          state.values.emplace_back(make_scalar_constant(wide));
+          return;
+        }
+      }
       if (ec != std::errc{} || ptr != sv.data() + sv.size()) {
         throw lexical_error("malformed integer literal", in.position().byte,
                             state.source);

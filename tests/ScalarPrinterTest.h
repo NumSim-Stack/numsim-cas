@@ -49,6 +49,22 @@ TEST(ScalarPrinterAudit, ScalarConstant) {
       << "Expected '42.5' in output, got: " << s;
 }
 
+// Doubles print in the shortest form that reads back to the same value;
+// integers and rationals keep their spellings.
+TEST(ScalarPrinterAudit, DoublesPrintRoundTripExactly) {
+  EXPECT_EQ(print(make_expression<scalar_constant>(1.0 / 3.0)),
+            "0.3333333333333333");
+  EXPECT_EQ(print(make_expression<scalar_constant>(1.23456789012345678e-7)),
+            "1.2345678901234568e-07");
+  EXPECT_EQ(print(make_expression<scalar_constant>(0.1 + 0.2)),
+            "0.30000000000000004");
+  EXPECT_EQ(print(make_expression<scalar_constant>(1e300)), "1e+300");
+  EXPECT_EQ(print(make_expression<scalar_constant>(2.0)), "2");
+  EXPECT_EQ(print(make_expression<scalar_constant>(2.5)), "2.5");
+  EXPECT_EQ(print(make_expression<scalar_constant>(std::int64_t{7})), "7");
+  EXPECT_EQ(print(make_expression<scalar_constant>(rational_t{1, 3})), "1/3");
+}
+
 TEST(ScalarPrinterAudit, ScalarAdd) {
   auto x = make_expression<scalar>("x");
   auto y = make_expression<scalar>("y");
