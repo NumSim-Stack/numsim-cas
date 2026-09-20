@@ -186,6 +186,53 @@ TEST_F(AssumptionFixture, PowRealByDefaultConventionPreserved) {
       << "pow(positive, 3) must remain positive";
 }
 
+// sqrt and a fractional power of a provably negative argument are NaN, so
+// they carry no nonnegativity or realness.
+TEST_F(AssumptionFixture, NoDomainClaimsForNegativeRadicand) {
+  numsim::cas::assume(x, numsim::cas::negative{});
+  numsim::cas::assume(y, numsim::cas::positive{});
+  auto sn = sqrt(x);
+  auto an = numsim::cas::propagate_assumptions(sn);
+  EXPECT_FALSE(an.contains(numsim::cas::nonnegative{}));
+  EXPECT_FALSE(an.contains(numsim::cas::real_tag{}));
+  EXPECT_FALSE(numsim::cas::is_nonnegative(sqrt(x)));
+
+  auto sp = sqrt(y);
+  auto ap = numsim::cas::propagate_assumptions(sp);
+  EXPECT_TRUE(ap.contains(numsim::cas::nonnegative{}));
+  EXPECT_TRUE(ap.contains(numsim::cas::real_tag{}));
+
+  auto half = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+      numsim::cas::scalar_number{numsim::cas::rational_t{1, 2}});
+  auto pn = numsim::cas::propagate_assumptions(pow(x, half));
+  EXPECT_FALSE(pn.contains(numsim::cas::real_tag{}));
+  // integer exponents stay real on a negative base
+  auto pi = numsim::cas::propagate_assumptions(pow(x, 3));
+  EXPECT_TRUE(pi.contains(numsim::cas::real_tag{}));
+  auto pe = numsim::cas::propagate_assumptions(pow(x, 2));
+  EXPECT_TRUE(pe.contains(numsim::cas::nonnegative{}));
+}
+
+// A sum is negative once every term is nonpositive and one is negative, so
+// composed negativity reaches the radicand guard.
+TEST_F(AssumptionFixture, ComposedNegativeSumIsNegative) {
+  auto minus_square =
+      -pow(x, 2) -
+      numsim::cas::make_expression<numsim::cas::scalar_constant>(1);
+  auto sa = numsim::cas::propagate_assumptions(minus_square);
+  EXPECT_TRUE(sa.contains(numsim::cas::negative{}));
+
+  auto sn = numsim::cas::propagate_assumptions(sqrt(minus_square));
+  EXPECT_FALSE(sn.contains(numsim::cas::nonnegative{}));
+  EXPECT_FALSE(sn.contains(numsim::cas::real_tag{}));
+
+  // a nonpositive term with no strictly negative one stays merely nonpositive
+  auto only_nonpos = -pow(x, 2);
+  auto oa = numsim::cas::propagate_assumptions(only_nonpos);
+  EXPECT_FALSE(oa.contains(numsim::cas::negative{}));
+  EXPECT_TRUE(oa.contains(numsim::cas::nonpositive{}));
+}
+
 TEST_F(AssumptionFixture, PropagateSqrt) {
   auto e = sqrt(x);
   auto a = numsim::cas::propagate_assumptions(e);

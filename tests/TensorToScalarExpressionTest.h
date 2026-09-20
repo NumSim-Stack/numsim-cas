@@ -1085,4 +1085,28 @@ TYPED_TEST(TensorToScalarExpressionTest, ChainedWrapperCollisionFolds) {
   EXPECT_NE(s.find("pow("), std::string::npos) << s;
 }
 
+// The invariants are defined for rank-2 operands only; a malformed node must
+// not reach the evaluator in Release either.
+TEST(T2sShapeValidation, InvariantsRejectNonRank2) {
+  using namespace numsim::cas;
+  auto X = make_expression<tensor>("X", 3, 2);
+  auto C = make_expression<tensor>("C", 3, 4);
+  auto u = make_expression<tensor>("u", 3, 1);
+  auto Z4 = make_expression<tensor_zero>(3, 4);
+  EXPECT_THROW((void)trace(C), invalid_expression_error);
+  EXPECT_THROW((void)trace(u), invalid_expression_error);
+  EXPECT_THROW((void)norm(C), invalid_expression_error);
+  EXPECT_THROW((void)det(C), invalid_expression_error);
+  // rules that short-circuit must validate first
+  EXPECT_THROW((void)trace(Z4), invalid_expression_error);
+  EXPECT_THROW((void)norm(Z4), invalid_expression_error);
+  EXPECT_THROW((void)det(Z4), invalid_expression_error);
+  // the invariant wrappers inherit the gate
+  EXPECT_THROW((void)first_invariant(C), invalid_expression_error);
+  EXPECT_THROW((void)third_invariant(C), invalid_expression_error);
+  EXPECT_NO_THROW((void)trace(X));
+  EXPECT_NO_THROW((void)norm(X));
+  EXPECT_NO_THROW((void)det(X));
+}
+
 #endif // TENSORTOSCALAREXPRESSIONTEST_H

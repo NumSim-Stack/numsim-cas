@@ -18,6 +18,14 @@ inline std::string shape_str(tensor_expression const &e) {
          std::to_string(e.rank());
 }
 
+inline void validate_rank(char const *op, tensor_expression const &e,
+                          std::size_t expected) {
+  if (e.rank() != expected)
+    throw invalid_expression_error(std::string(op) + ": operand must be rank " +
+                                   std::to_string(expected) + " (got rank " +
+                                   std::to_string(e.rank()) + ")");
+}
+
 inline void validate_same_shape(char const *op, tensor_expression const &lhs,
                                 tensor_expression const &rhs) {
   if (lhs.dim() != rhs.dim() || lhs.rank() != rhs.rank())

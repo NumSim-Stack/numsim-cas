@@ -9,8 +9,8 @@
 #include <numsim_cas/tensor/tensor_assume.h>
 #include <numsim_cas/tensor/tensor_definitions.h>
 #include <numsim_cas/tensor/tensor_operators.h>
+#include <numsim_cas/tensor/tensor_shape_validation.h>
 
-#include <cassert>
 #include <ranges>
 
 namespace numsim::cas {
@@ -31,9 +31,7 @@ expression_holder<tensor_to_scalar_expression> dot_product(
 expression_holder<tensor_to_scalar_expression>
 dot(expression_holder<tensor_expression> const &expr) {
   // The self-contraction evaluator (dcontract_self_op) supports rank 2 only.
-  if (expr.get().rank() != 2)
-    throw invalid_expression_error("dot: operand must be rank 2 (got rank " +
-                                   std::to_string(expr.get().rank()) + ")");
+  detail::validate_rank("dot", expr.get(), 2);
   if (auto r = t2s_rules::try_dot_zero(expr))
     return *r;
   if (auto r = t2s_rules::try_dot_negative(expr))
@@ -44,7 +42,7 @@ dot(expression_holder<tensor_expression> const &expr) {
 
 expression_holder<tensor_to_scalar_expression>
 trace(expression_holder<tensor_expression> const &expr) {
-  assert(expr.get().rank() == 2);
+  detail::validate_rank("trace", expr.get(), 2);
 
   if (auto r = t2s_rules::try_trace_zero(expr))
     return *r;
@@ -66,7 +64,7 @@ trace(expression_holder<tensor_expression> const &expr) {
 
 expression_holder<tensor_to_scalar_expression>
 norm(expression_holder<tensor_expression> const &expr) {
-  assert(expr.get().rank() == 2);
+  detail::validate_rank("norm", expr.get(), 2);
 
   if (auto r = t2s_rules::try_norm_zero(expr))
     return *r;
@@ -82,7 +80,7 @@ norm(expression_holder<tensor_expression> const &expr) {
 
 expression_holder<tensor_to_scalar_expression>
 det(expression_holder<tensor_expression> const &expr) {
-  assert(expr.get().rank() == 2);
+  detail::validate_rank("det", expr.get(), 2);
 
   if (auto r = t2s_rules::try_det_zero(expr))
     return *r;
