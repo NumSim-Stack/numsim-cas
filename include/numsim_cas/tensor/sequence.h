@@ -3,10 +3,10 @@
 
 #include <cstddef>
 #include <initializer_list>
+#include <numsim_cas/core/cas_error.h>
 #include <numsim_cas/core/hash_functions.h>
 #include <ostream>
 #include <span>
-#include <stdexcept>
 #include <vector>
 
 namespace numsim::cas {
@@ -24,7 +24,7 @@ public:
   sequence(std::initializer_list<index_t> one_based) : m_data(one_based) {
     for (auto &i : m_data) {
       if (i == 0)
-        throw std::out_of_range("sequence: 1-based index cannot be 0");
+        throw invalid_expression_error("sequence: 1-based index cannot be 0");
       --i;
     }
   }
@@ -107,7 +107,7 @@ inline sequence concat_all(std::span<const sequence> parts) {
 inline std::pair<sequence, sequence> split(sequence const &s,
                                            std::size_t lhs_size) {
   if (lhs_size > s.size())
-    throw std::out_of_range("split: lhs_size > size");
+    throw invalid_expression_error("split: lhs_size > size");
 
   sequence lhs, rhs;
   lhs.reserve(lhs_size);
@@ -126,7 +126,7 @@ inline std::vector<sequence> split_many(sequence const &s,
   for (auto n : sizes)
     sum += n;
   if (sum != s.size())
-    throw std::invalid_argument(
+    throw invalid_expression_error(
         "split_many: sizes do not sum to sequence size");
 
   std::vector<sequence> out;
@@ -150,13 +150,13 @@ inline std::vector<sequence> split_many(sequence const &s,
 inline sequence permute(sequence const &in,
                         std::span<const sequence::index_t> perm) {
   if (perm.size() != in.size())
-    throw std::invalid_argument("permute: size mismatch");
+    throw invalid_expression_error("permute: size mismatch");
 
   sequence out(in.size());
   for (std::size_t i = 0; i < perm.size(); ++i) {
     const auto p = perm[i];
     if (p >= in.size())
-      throw std::out_of_range("permute: entry out of range");
+      throw invalid_expression_error("permute: entry out of range");
     out[i] = in[p];
   }
   return out;
@@ -170,9 +170,9 @@ inline sequence invert_perm(std::span<const std::size_t> perm) {
   for (std::size_t i = 0; i < n; ++i) {
     const auto p = perm[i];
     if (p >= n)
-      throw std::out_of_range("invert_perm: out of range");
+      throw invalid_expression_error("invert_perm: out of range");
     if (seen[p])
-      throw std::invalid_argument("invert_perm: duplicate entry");
+      throw invalid_expression_error("invert_perm: duplicate entry");
     seen[p] = true;
     inv[p] = i;
   }

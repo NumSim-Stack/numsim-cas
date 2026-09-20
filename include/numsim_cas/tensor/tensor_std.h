@@ -12,6 +12,7 @@
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <numsim_cas/tensor/tensor_if_then_else_scalar.h>
 #include <numsim_cas/tensor/tensor_if_then_else_t2s.h>
+#include <numsim_cas/tensor/tensor_shape_validation.h>
 #include <numsim_cas/tensor/tensor_zero.h>
 #include <numsim_cas/tensor/visitors/tensor_printer.h>
 #include <numsim_cas/tensor/wrappers/tensor_pow.h>
@@ -138,12 +139,9 @@ template <scalar_expr_holder Cond, tensor_expr_holder Then,
           tensor_expr_holder Else>
 [[nodiscard]] auto if_then_else(Cond &&cond, Then &&then_expr,
                                 Else &&else_expr) {
-  assert(cond.is_valid());
-  assert(then_expr.is_valid());
-  assert(else_expr.is_valid());
-  // Branches must share shape — gate before any simplification.
-  assert(then_expr.get().dim() == else_expr.get().dim());
-  assert(then_expr.get().rank() == else_expr.get().rank());
+  detail::require_valid("if_then_else", cond, then_expr, else_expr);
+  // Gate before the constant-condition folds, or a fold hides the mismatch.
+  detail::validate_same_shape("if_then_else", then_expr.get(), else_expr.get());
   if (is_same<scalar_zero>(cond))
     return std::forward<Else>(else_expr);
   if (is_same<scalar_one>(cond))
@@ -166,12 +164,9 @@ template <tensor_to_scalar_expr_holder Cond, tensor_expr_holder Then,
           tensor_expr_holder Else>
 [[nodiscard]] auto if_then_else(Cond &&cond, Then &&then_expr,
                                 Else &&else_expr) {
-  assert(cond.is_valid());
-  assert(then_expr.is_valid());
-  assert(else_expr.is_valid());
-  // Branches must share shape — gate before any simplification.
-  assert(then_expr.get().dim() == else_expr.get().dim());
-  assert(then_expr.get().rank() == else_expr.get().rank());
+  detail::require_valid("if_then_else", cond, then_expr, else_expr);
+  // Gate before the constant-condition folds, or a fold hides the mismatch.
+  detail::validate_same_shape("if_then_else", then_expr.get(), else_expr.get());
   if (is_same<tensor_to_scalar_zero>(cond))
     return std::forward<Else>(else_expr);
   if (is_same<tensor_to_scalar_one>(cond))

@@ -931,6 +931,22 @@ TEST_F(ScalarFixture, MaxMinCommutativeCanonicalForm) {
 // #135 — scalar if_then_else
 // ---------------------------------------------------------------------------
 
+// Factories reject an invalid (null) holder in every build, not just Debug.
+TEST_F(ScalarFixture, FactoriesRejectInvalidHolder) {
+  using namespace numsim::cas;
+  expression_holder<scalar_expression> none;
+  ASSERT_FALSE(none.is_valid());
+  EXPECT_THROW((void)pow(none, x), invalid_expression_error);
+  EXPECT_THROW((void)pow(x, none), invalid_expression_error);
+  EXPECT_THROW((void)max(none, x), invalid_expression_error);
+  EXPECT_THROW((void)min(x, none), invalid_expression_error);
+  EXPECT_THROW((void)gt(none, x), invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(none, x, y), invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(x, none, y), invalid_expression_error);
+  EXPECT_THROW((void)if_then_else(x, y, none), invalid_expression_error);
+  EXPECT_FALSE(is_same_r<scalar>(none).has_value());
+}
+
 TEST_F(ScalarFixture, IfThenElseConstFoldsZeroCondToElse) {
   using numsim::cas::if_then_else;
   EXPECT_EQ(if_then_else(_zero, x, y), y);

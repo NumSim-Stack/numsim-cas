@@ -1844,6 +1844,25 @@ TEST(PowDivisionConfusion, SignPullOutCanonicalizesNestedBase) {
   EXPECT_EQ(to_string(pow(-pow(x, 2.0), 2.0) - pow(x, 4.0)), "0");
 }
 
+// Every error the library raises derives from cas_error, index sequences
+// included.
+TEST(IndexSequenceIdentity, ErrorsDeriveFromCasError) {
+  EXPECT_THROW((void)sequence{0}, invalid_expression_error);
+  sequence s{1, 2, 3};
+  EXPECT_THROW((void)split(s, 4), invalid_expression_error);
+  std::vector<std::size_t> sizes{1, 1};
+  EXPECT_THROW((void)split_many(s, sizes), invalid_expression_error);
+  std::vector<sequence::index_t> short_perm{0, 1};
+  EXPECT_THROW((void)permute(s, short_perm), invalid_expression_error);
+  std::vector<sequence::index_t> big_perm{0, 1, 5};
+  EXPECT_THROW((void)permute(s, big_perm), invalid_expression_error);
+  std::vector<std::size_t> out_of_range{0, 1, 5};
+  EXPECT_THROW((void)invert_perm(out_of_range), invalid_expression_error);
+  std::vector<std::size_t> duplicate{0, 0, 1};
+  EXPECT_THROW((void)invert_perm(duplicate), invalid_expression_error);
+  EXPECT_NO_THROW((void)invert_perm(std::vector<std::size_t>{2, 0, 1}));
+}
+
 // #342 — permute_indices_wrapper identity must include the permutation.
 TEST(IndexSequenceIdentity, PermutationsDistinguish) {
   auto [T] = make_tensor_variable(std::tuple{"T", 3, 3});
