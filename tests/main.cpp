@@ -32,6 +32,7 @@
 #include "TensorToScalarMulOperatorTest.h"
 #include "TensorToScalarPrinterTest.h"
 #include "TensorToScalarSubstitutionTest.h"
+#include "UmbrellaHeaderTest.h"
 #include "gtest/gtest.h"
 
 int main(int argc, char *argv[]) {

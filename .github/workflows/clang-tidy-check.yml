@@ -1,10 +1,19 @@
 name: Clang-Tidy Check
 
 on:
+  # A PR from a branch in this repo would otherwise run this workflow
+  # twice per commit: once for the push, once for the pull_request.
   push:
-    branches: [ "**" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "**" ]
+
+# Supersede in-progress runs for the same ref rather than queueing them.
+# Never on main: merges land in quick succession, and cancelling would
+# leave the intermediate commits with no result of their own.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   clang-tidy:
