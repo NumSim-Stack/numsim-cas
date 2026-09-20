@@ -23,6 +23,44 @@ pow_integer_exponent(scalar_number const &v) {
   return std::nullopt;
 }
 
+// (x^a)^b = x^(a·b) holds for every real x only when a and b are integers:
+// a fractional exponent can change the value ((x²)^(1/2) is |x|) or leave the
+// reals ((x^(1/2))² is undefined for x < 0). A nonnegative base makes the fold
+// sound for any exponents.
+template <typename Traits>
+bool numeric_integer_exponent(typename Traits::expr_holder_t const &e) {
+  auto v = Traits::try_numeric(e);
+  return v.has_value() && pow_integer_exponent(*v).has_value();
+}
+
+template <typename Traits>
+bool nonnegative_numeric_base(typename Traits::expr_holder_t const &base) {
+  auto v = Traits::try_numeric(base);
+  return v.has_value() && !numeric_less(*v, scalar_number{0});
+}
+
+template <typename Traits>
+bool pow_exponents_compose(typename Traits::expr_holder_t const &base,
+                           typename Traits::expr_holder_t const &inner_exp,
+                           typename Traits::expr_holder_t const &outer_exp) {
+  return nonnegative_numeric_base<Traits>(base) ||
+         (numeric_integer_exponent<Traits>(inner_exp) &&
+          numeric_integer_exponent<Traits>(outer_exp));
+}
+
+// Extracting pow(z,c) out of pow(x*pow(z,c), n) composes c with n, so each
+// nested factor needs the same real-domain check.
+template <typename Traits, typename PowList>
+bool pow_factors_compose(PowList const &pows,
+                         typename Traits::expr_holder_t const &outer_exp) {
+  for (auto const &entry : pows) {
+    auto const &p = entry.template get<typename Traits::pow_type>();
+    if (!pow_exponents_compose<Traits>(p.expr_lhs(), p.expr_rhs(), outer_exp))
+      return false;
+  }
+  return true;
+}
+
 //==============================================================================
 // pow_dispatch<Traits, Derived> — Base algorithm for pow(A, B)
 //==============================================================================
@@ -89,14 +127,21 @@ public:
 
   /// pow(pow(x,a),b) --> pow(x,a*b)
   template <typename Expr> expr_holder_t dispatch(Expr const &) {
-    return pow(lhs.expr_lhs(), lhs.expr_rhs() * this->m_rhs);
+    return compose();
   }
 
   expr_holder_t dispatch(typename Traits::negative_type const &) {
-    return pow(lhs.expr_lhs(), lhs.expr_rhs() * this->m_rhs);
+    return compose();
   }
 
 protected:
+  expr_holder_t compose() {
+    if (!pow_exponents_compose<Traits>(lhs.expr_lhs(), lhs.expr_rhs(),
+                                       this->m_rhs))
+      return this->get_default();
+    return pow(lhs.expr_lhs(), lhs.expr_rhs() * this->m_rhs);
+  }
+
   typename Traits::pow_type const &lhs;
 };
 
@@ -132,7 +177,8 @@ public:
     auto &mul{mul_expr.template get<typename Traits::mul_type>()};
     // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pow(z,base*rhs)
     const auto pows{get_all<typename Traits::pow_type>(lhs)};
-    if (!pows.empty() && int_exp) {
+    if (!pows.empty() && int_exp &&
+        pow_factors_compose<Traits>(pows, this->m_rhs)) {
       expr_holder_t result;
       for (const auto &expr : pows) {
         const auto &pow_expr{expr.template get<typename Traits::pow_type>()};
@@ -169,7 +215,8 @@ public:
 
     // pow(x*y*pow(z,base), rhs) --> pow(x*y, rhs) * pow(z,base*rhs)
     const auto pows{get_all<typename Traits::pow_type>(lhs)};
-    if (!pows.empty() && integer_outer_exponent()) {
+    if (!pows.empty() && integer_outer_exponent() &&
+        pow_factors_compose<Traits>(pows, this->m_rhs)) {
       expr_holder_t result;
       for (const auto &expr : pows) {
         const auto &pow_expr{expr.template get<typename Traits::pow_type>()};
