@@ -75,8 +75,25 @@ bool scalar_limit_visitor::zero_from_above(expr_holder_t const &expr) const {
   // above only if its operand does.
   if (is_same<scalar_sqrt>(expr))
     return zero_from_above(expr.get<scalar_sqrt>().expr());
+  if (is_same<scalar_mul>(expr))
+    return product_from_above(expr);
   return is_positive(expr) || is_nonnegative(expr) ||
          is_structurally_nonnegative(expr);
+}
+
+// A product stays positive near the limit when every factor does.
+bool scalar_limit_visitor::product_from_above(expr_holder_t const &expr) const {
+  auto const &mul = expr.get<scalar_mul>();
+  auto factor_stays_positive = [this](expr_holder_t const &factor) {
+    return is_positive(factor) || zero_from_above(factor);
+  };
+  if (mul.coeff().is_valid() && !factor_stays_positive(mul.coeff()))
+    return false;
+  for (auto const &child : mul.symbol_map() | std::views::values) {
+    if (!factor_stays_positive(child))
+      return false;
+  }
+  return true;
 }
 
 bool scalar_limit_visitor::zero_from_below(expr_holder_t const &expr) const {
@@ -94,6 +111,7 @@ limit_result scalar_limit_visitor::apply(expr_holder_t const &expr) {
     return m_result;
   }
   expr.template get<scalar_visitable_t>().accept(*this);
+  m_result = m_result.normalized();
   return m_result;
 }
 

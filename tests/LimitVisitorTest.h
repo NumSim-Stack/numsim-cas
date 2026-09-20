@@ -691,6 +691,52 @@ TEST(T2sLimit, ExactMatchReciprocalNeedsApproachSide) {
   EXPECT_EQ(left.apply(log(J)).dir, dir::unknown);
 }
 
+// t2s limits must honour the same real-domain guards as the scalar side.
+
+TEST(T2sLimit, FractionalPowerNeedsANonnegativeApproach) {
+  auto F = make_expression<tensor>("F", 3, 2);
+  auto J = det(F);
+  auto half = pow(J, make_scalar_constant(rational_t{1, 2}));
+  tensor_to_scalar_limit_visitor right(J, {pt::zero_plus});
+  tensor_to_scalar_limit_visitor left(J, {pt::zero_minus});
+  EXPECT_EQ(right.apply(half).dir, dir::zero);
+  // J^(1/2) is NaN along an approach from below
+  EXPECT_EQ(left.apply(half).dir, dir::unknown);
+}
+
+TEST(T2sLimit, NonnegativeArgumentsKeepTheirZeroSide) {
+  auto F = make_expression<tensor>("F", 3, 2);
+  auto J = det(F);
+  tensor_to_scalar_limit_visitor left(J, {pt::zero_minus});
+  tensor_to_scalar_limit_visitor right(J, {pt::zero_plus});
+  // J^2 reaches zero from above whichever side J approaches from
+  auto inv_sq = pow(J, make_scalar_constant(-2));
+  EXPECT_EQ(left.apply(inv_sq).dir, dir::pos_infinity);
+  // sqrt is nonnegative where it is defined
+  EXPECT_EQ(right.apply(log(sqrt(J))).dir, dir::neg_infinity);
+}
+
+TEST(T2sLimit, ProductSignDeterminesZeroSide) {
+  auto F = make_expression<tensor>("F", 3, 2);
+  auto J = det(F);
+  auto p = make_expression<tensor_to_scalar_scalar_wrapper>(
+      make_expression<scalar>("p"));
+  p.assumption(positive{});
+  auto inv_pJ = pow(p * J, make_scalar_constant(-1));
+  tensor_to_scalar_limit_visitor right(J, {pt::zero_plus});
+  EXPECT_EQ(right.apply(inv_pJ).dir, dir::pos_infinity);
+}
+
+TEST(ScalarLimit, ProductSignDeterminesZeroSide) {
+  auto x = make_expression<scalar>("x");
+  auto p = make_expression<scalar>("p");
+  p.assumption(positive{});
+  scalar_limit_visitor v(x, {pt::zero_plus});
+  EXPECT_EQ(v.apply(pow(p * x, make_scalar_constant(-1))).dir,
+            dir::pos_infinity);
+  EXPECT_EQ(v.apply(log(p * x)).dir, dir::neg_infinity);
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Growth rate tracking
 // ═══════════════════════════════════════════════════════════════════
@@ -707,6 +753,20 @@ TEST(GrowthRate, ExpIsExponential) {
   scalar_limit_visitor v(x, {pt::pos_infinity});
   auto result = v.apply(exp(x));
   EXPECT_EQ(result.rate.rate, gtype::exponential);
+}
+
+TEST(GrowthRate, DegradedDirectionsCarryNoRate) {
+  auto x = make_expression<scalar>("x");
+  auto y = make_expression<scalar>("y");
+  scalar_limit_visitor v(x, {pt::pos_infinity});
+  auto unknown_result = v.apply(sin(x));
+  ASSERT_EQ(unknown_result.dir, dir::unknown);
+  EXPECT_EQ(unknown_result.rate.rate, gtype::unknown);
+  // the exponent's magnitude is not known, so neither is the growth
+  auto powered = v.apply(pow(x, y));
+  if (powered.dir == dir::pos_infinity) {
+    EXPECT_EQ(powered.rate.rate, gtype::unknown);
+  }
 }
 
 TEST(GrowthRate, VariableIsPoly) {

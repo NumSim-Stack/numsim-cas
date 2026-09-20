@@ -3,6 +3,7 @@
 #include <numsim_cas/core/contains_expression.h>
 #include <numsim_cas/scalar/scalar_assume.h>
 #include <numsim_cas/scalar/visitors/scalar_limit_visitor.h>
+#include <numsim_cas/tensor_to_scalar/tensor_to_scalar_domain_traits.h>
 #include <ranges>
 
 namespace numsim::cas {
@@ -19,6 +20,51 @@ limit_result constant_sign(tensor_to_scalar_expression const &e) {
   if (e.assumptions().contains(negative{}))
     return {dir::finite_negative};
   return {dir::unknown};
+}
+
+// Integer value of a constant t2s expression, if it is one.
+std::optional<std::int64_t>
+int_constant(expression_holder<tensor_to_scalar_expression> const &e) {
+  auto value = domain_traits<tensor_to_scalar_expression>::try_numeric(e);
+  if (!value)
+    return std::nullopt;
+  if (auto const *i = std::get_if<std::int64_t>(&value->raw()))
+    return *i;
+  if (auto const *r = std::get_if<rational_t>(&value->raw())) {
+    if (r->den == 1)
+      return r->num;
+  }
+  if (auto const *d = std::get_if<double>(&value->raw())) {
+    if (*d >= -9.2e18 && *d <= 9.2e18 &&
+        *d == static_cast<double>(static_cast<std::int64_t>(*d)))
+      return static_cast<std::int64_t>(*d);
+  }
+  return std::nullopt;
+}
+
+// Nonnegative by construction, so a limit of zero is approached from above.
+bool is_structurally_nonnegative(
+    expression_holder<tensor_to_scalar_expression> const &e) {
+  if (is_same<tensor_to_scalar_exp>(e))
+    return true;
+  if (is_same<tensor_to_scalar_pow>(e)) {
+    auto exponent = int_constant(e.get<tensor_to_scalar_pow>().expr_rhs());
+    return exponent && *exponent % 2 == 0;
+  }
+  return false;
+}
+
+// A positive value, proven by an assumption or by a numeric constant. A
+// wrapped scalar carries its facts on the scalar itself, not on the wrapper.
+bool is_provably_positive(
+    expression_holder<tensor_to_scalar_expression> const &e) {
+  if (e.get().assumptions().contains(positive{}))
+    return true;
+  if (is_same<tensor_to_scalar_scalar_wrapper>(e) &&
+      is_positive(e.get<tensor_to_scalar_scalar_wrapper>().expr()))
+    return true;
+  auto value = domain_traits<tensor_to_scalar_expression>::try_numeric(e);
+  return value && numeric_less(scalar_number(std::int64_t{0}), *value);
 }
 
 } // namespace
@@ -61,6 +107,7 @@ limit_result tensor_to_scalar_limit_visitor::apply(t2s_holder_t const &expr) {
   }
 
   expr.template get<tensor_to_scalar_visitable_t>().accept(*this);
+  m_result = m_result.normalized();
   return m_result;
 }
 
@@ -84,7 +131,29 @@ bool tensor_to_scalar_limit_visitor::zero_from_above(
     t2s_holder_t const &expr) const {
   if (m_mode == dependency_mode::exact_match && expr == m_limit_var_t2s)
     return m_target.target == limit_target::point::zero_plus;
-  return expr.get().assumptions().contains(positive{});
+  // sqrt is nonnegative exactly where it is defined, so it reaches zero from
+  // above only if its operand does
+  if (is_same<tensor_to_scalar_sqrt>(expr))
+    return zero_from_above(expr.get<tensor_to_scalar_sqrt>().expr());
+  if (is_same<tensor_to_scalar_mul>(expr))
+    return product_from_above(expr);
+  return is_provably_positive(expr) || is_structurally_nonnegative(expr);
+}
+
+// A product stays positive near the limit when every factor does.
+bool tensor_to_scalar_limit_visitor::product_from_above(
+    t2s_holder_t const &expr) const {
+  auto const &mul = expr.get<tensor_to_scalar_mul>();
+  auto factor_stays_positive = [this](t2s_holder_t const &factor) {
+    return is_provably_positive(factor) || zero_from_above(factor);
+  };
+  if (mul.coeff().is_valid() && !factor_stays_positive(mul.coeff()))
+    return false;
+  for (auto const &child : mul.symbol_map() | std::views::values) {
+    if (!factor_stays_positive(child))
+      return false;
+  }
+  return true;
 }
 
 // ─── T2S functions ────────────────────────────────────────────────
@@ -206,8 +275,15 @@ void tensor_to_scalar_limit_visitor::operator()(
 }
 
 void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_pow const &v) {
-  m_result = apply_pow(apply(v.expr_lhs()), apply(v.expr_rhs()),
-                       zero_from_above(v.expr_lhs()));
+  // An even integer exponent makes the power nonnegative from either side.
+  auto exponent = int_constant(v.expr_rhs());
+  const bool base_from_above = zero_from_above(v.expr_lhs());
+  const bool from_above = base_from_above || (exponent && *exponent % 2 == 0);
+  auto base = apply(v.expr_lhs());
+  m_result = apply_pow(base, apply(v.expr_rhs()), from_above);
+  // a non-integer power of a base that may reach zero from below is NaN
+  if (base.dir == dir::zero && !base_from_above && !exponent)
+    m_result = {dir::unknown};
 }
 
 void tensor_to_scalar_limit_visitor::operator()(tensor_to_scalar_log const &v) {
