@@ -59,6 +59,7 @@ bool operator<(symbol_base<BaseExprT> const &lhs,
   if (lhs.hash_value() != rhs.hash_value())
     return lhs.hash_value() < rhs.hash_value();
   // The hash covers only the name, so colliding names need a real tiebreak.
+  // A symbol with more identity state defines its own comparison.
   return lhs.name() < rhs.name();
 }
 

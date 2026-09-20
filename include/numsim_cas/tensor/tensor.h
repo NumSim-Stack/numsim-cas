@@ -4,6 +4,7 @@
 #include <numsim_cas/core/symbol_base.h>
 #include <numsim_cas/tensor/tensor_expression.h>
 #include <ostream>
+#include <utility>
 
 namespace numsim::cas {
 
@@ -29,6 +30,31 @@ public:
   // is_symbol() is inherited from symbol_base (returns true). No need to
   // re-override here; symbol_base is the single source of truth for the
   // Symbol classification.
+
+  // Shape is part of the identity: the same name at another dim or rank is
+  // a different tensor. The hash stays name-only, as a fast reject.
+  friend bool operator==(tensor const &lhs, tensor const &rhs) {
+    return static_cast<base const &>(lhs) == static_cast<base const &>(rhs) &&
+           lhs.dim() == rhs.dim() && lhs.rank() == rhs.rank();
+  }
+
+  friend bool operator!=(tensor const &lhs, tensor const &rhs) {
+    return !(lhs == rhs);
+  }
+
+  friend bool operator<(tensor const &lhs, tensor const &rhs) {
+    auto const &l = static_cast<base const &>(lhs);
+    auto const &r = static_cast<base const &>(rhs);
+    if (l < r)
+      return true;
+    if (r < l)
+      return false;
+    return std::pair{lhs.dim(), lhs.rank()} < std::pair{rhs.dim(), rhs.rank()};
+  }
+
+  friend bool operator>(tensor const &lhs, tensor const &rhs) {
+    return rhs < lhs;
+  }
 
   // const tensor &operator=(expression_holder<tensor_expression> &&data) {
   //   this->m_expr = std::move(data);
