@@ -5,6 +5,7 @@
 // Derives from FuzzyDiffBase via CRTP.
 
 #include "FuzzyDiffBase.h"
+#include <limits>
 
 #include <numsim_cas/eigen_decomposition.h>
 #include <numsim_cas/tensor/tensor_isotropic_functions.h>
@@ -153,12 +154,24 @@ tensor_verify_impl(unsigned seed, std::vector<TensorVarEntry> const &vars,
       static_cast<tensor_data<double, FDIM, VarRank> &>(*diff_var_ptr).data();
   auto var_original = var_tmech;
 
+  // Track how large the differentiated function gets: a central difference
+  // of f = C + g loses precision to cancellation in proportion to |C|, so a
+  // term that does not depend on the variable still sets a noise floor.
+  double max_fval = 0;
   auto numdiff = fuzzy_num_diff_ho<DiffRank>(
       [&](auto const &x) {
         var_tmech = x;
         if (var.project)
           var.project(*diff_var_ptr);
-        return fuzzy_as_tmech<FDIM, ExprRank>(*ev.apply(info.expr));
+        auto const holder = ev.apply(info.expr);
+        auto fval = fuzzy_as_tmech<FDIM, ExprRank>(*holder);
+        auto const *fptr = fval.raw_data();
+        std::size_t n_f = 1;
+        for (std::size_t i = 0; i < ExprRank; ++i)
+          n_f *= FDIM;
+        for (std::size_t i = 0; i < n_f; ++i)
+          max_fval = std::max(max_fval, std::abs(fptr[i]));
+        return fval;
       },
       var_original);
 
@@ -172,7 +185,12 @@ tensor_verify_impl(unsigned seed, std::vector<TensorVarEntry> const &vars,
   for (std::size_t i = 0; i < DiffRank; ++i)
     n *= FDIM;
 
-  auto cmp = compare_arrays(sym_ptr, num_ptr, n, 5e-6, 1e-4);
+  // The smaller Richardson step sets the worst cancellation floor.
+  constexpr double eps = std::numeric_limits<double>::epsilon();
+  double const cancellation_noise = eps * max_fval / (1e-4 * 0.5);
+
+  auto cmp =
+      compare_arrays(sym_ptr, num_ptr, n, 5e-6, 1e-4, cancellation_noise);
   if (!cmp.ok) {
     double rel_err = cmp.max_abs > 0 ? cmp.max_err / cmp.max_abs : cmp.max_err;
     std::ostringstream oss;
