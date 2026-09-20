@@ -9,9 +9,11 @@ on:
     branches: [ "**" ]
 
 # Supersede in-progress runs for the same ref rather than queueing them.
+# Never on main: merges land in quick succession, and cancelling would
+# leave the intermediate commits with no result of their own.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   clang-format:
