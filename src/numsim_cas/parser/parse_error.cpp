@@ -142,8 +142,9 @@ arity_error::arity_error(std::string function_name,
                          std::vector<std::size_t> expected_arities_,
                          std::size_t actual_arity_, std::size_t byte_offset,
                          std::string_view source)
-    : arity_error(std::move(function_name), normalize(expected_arities_),
-                  actual_arity_, byte_offset, source, normalized_tag{}) {}
+    : arity_error(std::move(function_name),
+                  normalize(std::move(expected_arities_)), actual_arity_,
+                  byte_offset, source, normalized_tag{}) {}
 
 arity_error::arity_error(std::string function_name,
                          std::vector<std::size_t> expected_arities_,
