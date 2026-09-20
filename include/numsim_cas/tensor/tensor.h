@@ -31,11 +31,8 @@ public:
   // re-override here; symbol_base is the single source of truth for the
   // Symbol classification.
 
-  // Shape is part of a tensor symbol's identity: the same name at another
-  // dim or rank denotes a different tensor. These beat the symbol_base
-  // templates by exact match, and equals_same_type casts to tensor before
-  // comparing, so every path reaches them. The hash stays name-only — it
-  // is a fast reject, and widening it would churn hash-driven print order.
+  // Shape is part of the identity: the same name at another dim or rank is
+  // a different tensor. The hash stays name-only, as a fast reject.
   friend bool operator==(tensor const &lhs, tensor const &rhs) {
     return static_cast<base const &>(lhs) == static_cast<base const &>(rhs) &&
            lhs.dim() == rhs.dim() && lhs.rank() == rhs.rank();
