@@ -231,6 +231,21 @@ TEST_F(AssumptionFixture, SqrtPow2NonnegReturnsBase) {
   EXPECT_PRINT(e, "x");
 }
 
+TEST_F(AssumptionFixture, PowOfPowFoldsForNonnegativeBase) {
+  numsim::cas::assume(x, numsim::cas::nonnegative{});
+  auto half = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+      numsim::cas::scalar_number{1, 2});
+  // (x^2)^(1/2) = x once x >= 0 is known
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(x, 2), half), "x");
+}
+
+TEST_F(AssumptionFixture, PowOfPowKeepsFractionalExponentsForUnknownSign) {
+  auto half = numsim::cas::make_expression<numsim::cas::scalar_constant>(
+      numsim::cas::scalar_number{1, 2});
+  EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(y, 2), half),
+               "pow(pow(y,2),1/2)");
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 //  Step 4: Automatic inference at binary simplifier level
 //  (no manual propagate_assumptions call needed)

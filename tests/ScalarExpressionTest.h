@@ -165,12 +165,18 @@ TEST_F(ScalarFixture, PRINT_DivisionFormat) {
   EXPECT_PRINT(x * pow(y, -_2), "x/pow(y,2)");
   EXPECT_PRINT(pow(x, -_1) * pow(y, -_1), "pow(x*y,-1)");
   EXPECT_PRINT(pow(pow(cos(x), -1), 2), "pow(cos(x),-2)");
-  // pow(pow(x, a), -y) --> pow(x, -a*y)
-  EXPECT_PRINT(pow(pow(x, _2), -y), "pow(x,-2*y)");
-  EXPECT_PRINT(pow(pow(x, _3), -y), "pow(x,-3*y)");
-  EXPECT_PRINT(pow(pow(x, _2), -x), "pow(x,-2*x)");
-  EXPECT_PRINT(pow(pow(x, y), -z), "pow(x,-y*z)");
-  EXPECT_PRINT(pow(pow(x, y), -x), "pow(x,-x*y)");
+  // pow(pow(x, a), -y) composes exponents only where (x^a)^b = x^(a*b) holds:
+  // a symbolic exponent may be fractional, so an unknown-sign base stays put.
+  EXPECT_PRINT(pow(pow(x, _2), -y), "pow(pow(x,2),-y)");
+  EXPECT_PRINT(pow(pow(x, _3), -y), "pow(pow(x,3),-y)");
+  EXPECT_PRINT(pow(pow(x, _2), -x), "pow(pow(x,2),-x)");
+  EXPECT_PRINT(pow(pow(x, y), -z), "pow(pow(x,y),-z)");
+  EXPECT_PRINT(pow(pow(x, y), -x), "pow(pow(x,y),-x)");
+  // a nonnegative base composes for any exponents
+  auto pd = numsim::cas::make_expression<numsim::cas::scalar>("pd");
+  numsim::cas::assume(pd, numsim::cas::nonnegative{});
+  EXPECT_PRINT(pow(pow(pd, _2), -y), "pow(pd,-2*y)");
+  EXPECT_PRINT(pow(pow(pd, y), -z), "pow(pd,-y*z)");
   EXPECT_PRINT(x / 1, "x");
   EXPECT_PRINT(x / (-2), "-x/2");
   EXPECT_PRINT(x / y, "x/y");
@@ -361,12 +367,23 @@ TEST_F(ScalarFixture, POW_Simplification) {
   EXPECT_PRINT(pow(one, x), "1");
   EXPECT_PRINT(pow(one, _3), "1");
 
-  // --- pow of pow: pow(pow(x,a),b) → pow(x,a*b) ---
+  // --- pow of pow: pow(pow(x,a),b) → pow(x,a*b) for integer a and b ---
   EXPECT_PRINT(pow(pow(x, _2), _3), "pow(x,6)");
   EXPECT_PRINT(pow(pow(x, _3), _2), "pow(x,6)");
-  EXPECT_PRINT(pow(pow(x, y), z), "pow(x,y*z)");
-  EXPECT_PRINT(pow(pow(x, y), _2), "pow(x,2*y)");
-  EXPECT_PRINT(pow(pow(x, _2), y), "pow(x,2*y)");
+  // a symbolic exponent may be fractional — (x^2)^(1/2) is |x|, not x — so an
+  // unknown-sign base keeps the nesting
+  EXPECT_PRINT(pow(pow(x, y), z), "pow(pow(x,y),z)");
+  EXPECT_PRINT(pow(pow(x, y), _2), "pow(pow(x,y),2)");
+  EXPECT_PRINT(pow(pow(x, _2), y), "pow(pow(x,2),y)");
+  // nonnegative base, or exponents assumed integer, compose
+  auto pb = numsim::cas::make_expression<numsim::cas::scalar>("pb");
+  numsim::cas::assume(pb, numsim::cas::nonnegative{});
+  EXPECT_PRINT(pow(pow(pb, y), z), "pow(pb,y*z)");
+  auto m = numsim::cas::make_expression<numsim::cas::scalar>("m");
+  auto n = numsim::cas::make_expression<numsim::cas::scalar>("n");
+  numsim::cas::assume(m, numsim::cas::integer{});
+  numsim::cas::assume(n, numsim::cas::integer{});
+  EXPECT_PRINT(pow(pow(x, m), n), "pow(x,m*n)");
 
   // --- pow of pow with negation ---
   EXPECT_PRINT(pow(pow(x, -_1), -_1), "x");
@@ -384,8 +401,12 @@ TEST_F(ScalarFixture, POW_Simplification) {
   EXPECT_PRINT(pow(x * y, -y), "pow(x*y,-y)");
 
   // --- Mul-pow extraction: pow(x*pow(y,a), b) → pow(x,b)*pow(y,a*b) ---
+  // Extraction composes a with b, so it needs the same condition.
   EXPECT_PRINT(pow(x * pow(y, _2), _3), "pow(x,3)*pow(y,6)");
-  EXPECT_PRINT(pow(x * pow(y, z), _2), "pow(x,2)*pow(y,2*z)");
+  EXPECT_PRINT(pow(x * pow(y, z), _2), "pow(x*pow(y,z),2)");
+  auto pe = numsim::cas::make_expression<numsim::cas::scalar>("pe");
+  numsim::cas::assume(pe, numsim::cas::nonnegative{});
+  EXPECT_PRINT(pow(x * pow(pe, z), _2), "pow(x,2)*pow(pe,2*z)");
 }
 
 TEST_F(ScalarFixture, ADD_CombineSameSymbol) {
@@ -801,10 +822,17 @@ TEST_F(ScalarFixture, Scalar_LogPowSimplification) {
 // POW-SQRT composition — pow(sqrt(x), n) → pow(x, n/2)
 //
 TEST_F(ScalarFixture, Scalar_PowSqrtSimplification) {
-  // pow(sqrt(x), 2) → x (via pow(x, 2/2) = pow(x, 1) = x)
-  EXPECT_PRINT(pow(sqrt(x), _2), "x");
-  // pow(sqrt(x), 3) → pow(x, 3/2)
-  EXPECT_PRINT(pow(sqrt(x), _3), "pow(x,3/2)");
+  using namespace numsim::cas;
+  // sqrt(x) is real only for x >= 0, so an unknown-sign radicand keeps the
+  // nesting: pow(sqrt(x), 2) would otherwise give x where sqrt(x) is NaN.
+  EXPECT_PRINT(pow(sqrt(x), _2), "pow(sqrt(x),2)");
+  EXPECT_PRINT(pow(sqrt(x), _3), "pow(sqrt(x),3)");
+
+  // pow(sqrt(p), n) → pow(p, n/2) once p >= 0 is known
+  auto p = make_expression<scalar>("p");
+  assume(p, nonnegative{});
+  EXPECT_PRINT(pow(sqrt(p), _2), "p");
+  EXPECT_PRINT(pow(sqrt(p), _3), "pow(p,3/2)");
 }
 
 // Operator early-exit coverage: zero/one identity & annihilator for +, -, *, /

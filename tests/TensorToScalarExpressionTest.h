@@ -264,8 +264,10 @@ TYPED_TEST(TensorToScalarExpressionTest, TensorToScalar_PowSimplification) {
   EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, 2), 3), "pow(tr(X),6)");
   EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, 3), 2), "pow(tr(X),6)");
   EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, _2), _3), "pow(tr(X),6)");
+  // a symbolic exponent may be fractional, and (t^2)^(1/2) is |t|, so the
+  // nesting stays (the t2s path has no positivity or integer query to lift it)
   EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(trX, x), _2),
-               "pow(tr(X),2*x)");
+               "pow(pow(tr(X),x),2)");
 
   // pow of pow with different base expressions
   EXPECT_PRINT(numsim::cas::pow(numsim::cas::pow(nX, 2), 3), "pow(norm(X),6)");

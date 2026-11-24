@@ -68,6 +68,22 @@ TEST(T2sEval, EvalTrace3x3) {
   EXPECT_NEAR(ev.apply(expr), 15.0, t2s_tol);
 }
 
+// Same real-domain limit as the scalar pow-of-pow fold: (t^2)^(1/2) is |t|.
+TEST(T2sEval, PowOfPowKeepsRealDomain) {
+  tensor_to_scalar_evaluator<double> ev;
+  auto A = make_expression<tensor>("A", 2, 2);
+  // trace = -4
+  ev.set(A, make_test_data<2, 2>({-1.0, 2.0, 3.0, -3.0}));
+  auto half = make_expression<scalar_constant>(scalar_number{1, 2});
+  auto tr = trace(A);
+
+  auto squared_root = pow(pow(tr, 2), half);
+  EXPECT_NEAR(ev.apply(squared_root), 4.0, t2s_tol);
+
+  // integer exponents still compose
+  EXPECT_NEAR(ev.apply(pow(pow(tr, 2), 3)), 4096.0, t2s_tol);
+}
+
 TEST(T2sEval, EvalDet2x2) {
   tensor_to_scalar_evaluator<double> ev;
   auto A = make_expression<tensor>("A", 2, 2);
