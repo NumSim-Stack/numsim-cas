@@ -1,6 +1,7 @@
 #include <numsim_cas/parser/parser.h>
 
 #include "actions.h"
+#include "error_messages.h"
 #include "grammar.h"
 
 #include <numsim_cas/parser/parse_error.h>
@@ -121,7 +122,8 @@ parsed_expression parse(std::string_view source, symbol_table &syms) {
   actions::parser_state state(syms, source);
 
   try {
-    pegtl::parse<grammar::grammar, actions::action>(input, state);
+    pegtl::parse<grammar::grammar, actions::action, error_control>(input,
+                                                                   state);
   } catch (parse_error const &) {
     // One of our actions threw — already has the right type +
     // position + snippet. Propagate.

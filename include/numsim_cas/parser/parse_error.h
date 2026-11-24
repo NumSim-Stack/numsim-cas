@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace numsim::cas::parser {
 
@@ -119,17 +120,36 @@ public:
               std::size_t actual_arity, std::size_t byte_offset,
               std::string_view source);
 
+  /// Overloaded names accept several arities; all of them are reported.
+  arity_error(std::string function_name,
+              std::vector<std::size_t> expected_arities,
+              std::size_t actual_arity, std::size_t byte_offset,
+              std::string_view source);
+
   [[nodiscard]] std::string const &function() const noexcept {
     return m_function;
   }
+  /// The smallest accepted arity; see `expected_arities()` for the full set.
   [[nodiscard]] std::size_t expected_arity() const noexcept {
+    return m_expected.front();
+  }
+  [[nodiscard]] std::vector<std::size_t> const &
+  expected_arities() const noexcept {
     return m_expected;
   }
   [[nodiscard]] std::size_t actual_arity() const noexcept { return m_actual; }
 
 private:
+  // Marks the arities as already sorted and deduplicated, so the message and
+  // the member are built from the same vector.
+  struct normalized_tag {};
+  arity_error(std::string function_name,
+              std::vector<std::size_t> expected_arities,
+              std::size_t actual_arity, std::size_t byte_offset,
+              std::string_view source, normalized_tag);
+
   std::string m_function;
-  std::size_t m_expected;
+  std::vector<std::size_t> m_expected;
   std::size_t m_actual;
 };
 
