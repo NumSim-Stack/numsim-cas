@@ -92,7 +92,7 @@ struct parser_state {
 };
 
 // Helper: extract a scalar holder from a value-stack entry. Used by
-// scalar-only operators (+, -, ^, comparisons, unary -). The stack
+// the scalar-only operators (`^` and the comparisons). The stack
 // now holds `parser_value` which includes `index_list_value`; that
 // alternative is rejected here (operators can't take index lists).
 inline expression_holder<scalar_expression> &
@@ -265,16 +265,28 @@ void combine_div(parser_state &state, std::size_t pos, Op &&op) {
       std::move(lhs), std::move(rhs)));
 }
 
-// Pop the top scalar operand and replace it with op(top). Used by
-// unary minus (scalar-only on this branch).
+// Pop the top expression operand and replace it with op(top). Used by
+// unary minus, which exists in all three domains; only a bracket-list
+// has no negation.
 template <typename Op>
 void replace_top(parser_state &state, std::size_t pos, Op &&op) {
   if (state.values.empty()) {
     throw syntax_error("unary operator missing operand", pos, state.source);
   }
-  auto v = require_scalar(state.values.back(), pos, state.source);
+  auto v = std::move(state.values.back());
   state.values.pop_back();
-  state.values.emplace_back(op(std::move(v)));
+  state.values.emplace_back(std::visit(
+      [&](auto &&operand) -> registry::parser_value {
+        using T = std::decay_t<decltype(operand)>;
+        if constexpr (std::is_same_v<T, registry::index_list_value>) {
+          throw type_mismatch_error(
+              "unary '-' does not accept bracket-list arguments", pos,
+              state.source);
+        } else {
+          return op(std::move(operand));
+        }
+      },
+      std::move(v)));
 }
 
 // ─── Default action: do nothing ───────────────────────────────────
@@ -371,9 +383,9 @@ template <> struct action<grammar::add_tail_minus> {
 };
 
 // ─── Power (right-associative) ────────────────────────────────────
-// `power_tail` matches `^ <power>` where the inner `power` recurses
-// — by the time this action fires, the inner power has fully
-// reduced and pushed its result. So the stack has [..., lhs, rhs].
+// `power_tail` matches `^ <unary>` where the inner rule recurses
+// — by the time this action fires, the exponent has fully reduced
+// and pushed its result. So the stack has [..., lhs, rhs].
 template <> struct action<grammar::power_tail> {
   template <typename Input>
   static void apply(Input const &in, parser_state &state) {
