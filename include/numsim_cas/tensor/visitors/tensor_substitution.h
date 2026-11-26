@@ -3,6 +3,7 @@
 
 #include <numsim_cas/core/substitute.h>
 #include <numsim_cas/scalar/visitors/scalar_substitution.h>
+#include <numsim_cas/substitution_guard.h>
 #include <numsim_cas/tensor/visitors/tensor_rebuild_visitor.h>
 
 namespace numsim::cas {
@@ -35,14 +36,16 @@ public:
 
   scalar_holder_t apply_scalar(scalar_holder_t const &expr) override {
     if constexpr (std::is_same_v<TargetBase, scalar_expression>) {
-      return substitute(expr, m_old, m_new);
+      return substitute(std::type_identity<scalar_expression>{},
+                        std::type_identity<TargetBase>{}, expr, m_old, m_new);
     } else {
       return expr;
     }
   }
 
   t2s_holder_t apply_t2s(t2s_holder_t const &expr) override {
-    return substitute(expr, m_old, m_new);
+    return substitute(std::type_identity<tensor_to_scalar_expression>{},
+                      std::type_identity<TargetBase>{}, expr, m_old, m_new);
   }
 
 private:

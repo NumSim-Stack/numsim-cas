@@ -65,7 +65,11 @@ std::vector<tensor_solver::expr_holder_t> tensor_solver::solve() const {
   // 5. Get constant term by substituting X = 0
   auto zero_tensor =
       make_expression<tensor_zero>(m_x.get().dim(), m_x.get().rank());
-  auto b = substitute(m_expr, m_x, zero_tensor);
+  // X = 0 reads off the constant term; it is a probe, not a claim that zero
+  // satisfies X's assumptions, so it uses the unchecked typed call.
+  auto b = substitute(std::type_identity<tensor_expression>{},
+                      std::type_identity<tensor_expression>{}, m_expr, m_x,
+                      zero_tensor);
 
   // 6. Build solution
   auto neg_b = -b;

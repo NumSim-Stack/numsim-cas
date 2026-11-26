@@ -3,6 +3,7 @@
 
 #include <numsim_cas/core/substitute.h>
 #include <numsim_cas/scalar/visitors/scalar_rebuild_visitor.h>
+#include <numsim_cas/substitution_guard.h>
 
 namespace numsim::cas {
 
